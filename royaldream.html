@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Royal Dream — Location de châteaux gonflables et mascottes pour anniversaires d'enfants à Bruxelles et en Belgique. Livraison, installation et magie garanties.">
+<meta name="theme-color" content="#0b0b22">
+<title>Royal Dream — Châteaux Gonflables & Mascottes à Bruxelles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ════════════════════ DESIGN TOKENS ════════════════════ */
+  :root{
+    /* surfaces (night-sky royal) */
+    --bg-deep:#07071a; --bg-base:#0b0b22; --bg-elev:#15153a;
+    /* brand */
+    --primary:#7c3aed; --primary-2:#6366f1; --rose:#ec4899; --blue:#3b82f6;
+    --gold:#fbbf24; --green:#34d399;
+    --rose-glow:rgba(236,72,153,.45); --violet-glow:rgba(124,58,237,.45); --gold-glow:rgba(251,191,36,.4);
+    /* claymorphic glass surfaces */
+    --surface:rgba(255,255,255,.055); --surface-2:rgba(255,255,255,.1); --border:rgba(255,255,255,.12);
+    /* text — contrast checked ≥4.5:1 on --bg-base */
+    --text:#f7f8fc; --text-soft:#cdd3e6; --text-muted:#9aa3c4;
+    /* shape & motion */
+    --r-sm:14px; --r:20px; --r-lg:28px; --r-pill:999px;
+    --clay: 0 10px 30px rgba(0,0,0,.35), inset 0 2px 2px rgba(255,255,255,.12), inset 0 -3px 6px rgba(0,0,0,.25);
+    --ease:cubic-bezier(.16,1,.3,1); --ease-soft:cubic-bezier(.34,1.56,.64,1);
+    --t-fast:.18s; --t:.32s;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;scroll-padding-top:90px}
+  body{
+    font-family:'Nunito',system-ui,sans-serif;background:var(--bg-deep);color:var(--text);
+    line-height:1.65;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:'Baloo 2',cursive,sans-serif;line-height:1.15;font-weight:800}
+  a{color:inherit}
+  img{max-width:100%;display:block}
+
+  /* ─── ACCESSIBLE FOCUS (skill: focus-states) ─── */
+  :focus{outline:none}
+  :focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:6px}
+  .skip-link{
+    position:absolute;left:50%;top:-100px;transform:translateX(-50%);z-index:9999;
+    background:var(--gold);color:#1a0a00;padding:.7rem 1.4rem;border-radius:0 0 12px 12px;
+    font-weight:700;transition:top .3s var(--ease);text-decoration:none;
+  }
+  .skip-link:focus{top:0}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+  /* ─── ICONS (skill: no-emoji-icons → SVG/Lucide) ─── */
+  .ico{width:1.25em;height:1.25em;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none;flex-shrink:0}
+
+  /* ════════════════════ AMBIENT FX LAYERS ════════════════════ */
+  #fx-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.16;will-change:transform;animation:drift 16s ease-in-out infinite alternate}
+  .b1{width:46vw;height:46vw;max-width:560px;max-height:560px;background:var(--primary);top:-8%;left:-6%}
+  .b2{width:38vw;height:38vw;max-width:460px;max-height:460px;background:var(--rose);top:38%;right:-8%;animation-delay:-5s}
+  .b3{width:34vw;height:34vw;max-width:420px;max-height:420px;background:var(--blue);bottom:-10%;left:25%;animation-delay:-9s}
+  .b4{width:22vw;height:22vw;max-width:260px;max-height:260px;background:var(--gold);top:18%;left:48%;opacity:.09;animation-delay:-3s}
+  @keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(50px,40px) scale(1.12)}}
+
+  /* cursor sparkle (desktop only, injected by JS) */
+  .spark{position:fixed;z-index:60;pointer-events:none;width:10px;height:10px;border-radius:50%;
+    background:radial-gradient(circle,#fff,var(--gold) 50%,transparent 70%);
+    transform:translate(-50%,-50%);animation:sparkfade .8s var(--ease) forwards}
+  @keyframes sparkfade{from{opacity:.9;transform:translate(-50%,-50%) scale(1)}to{opacity:0;transform:translate(-50%,-50%) scale(0)}}
+
+  /* ════════════════════ PRELOADER (non-blocking) ════════════════════ */
+  #pre{position:fixed;inset:0;z-index:9998;background:var(--bg-deep);display:grid;place-items:center;
+    transition:opacity .7s var(--ease),visibility .7s}
+  #pre.hide{opacity:0;visibility:hidden;pointer-events:none}
+  .pre-inner{text-align:center}
+  .pre-crown{color:var(--gold);filter:drop-shadow(0 0 24px var(--gold-glow));animation:crownbob 1.4s var(--ease-soft) infinite}
+  .pre-crown .ico{width:64px;height:64px;stroke-width:1.6}
+  .pre-name{font-family:'Baloo 2';font-size:2rem;font-weight:800;margin-top:.4rem;
+    background:linear-gradient(135deg,var(--rose),var(--primary),var(--blue));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .pre-bar{width:140px;height:4px;background:rgba(255,255,255,.12);border-radius:99px;margin:1.4rem auto 0;overflow:hidden}
+  .pre-bar i{display:block;height:100%;width:40%;border-radius:99px;background:linear-gradient(90deg,var(--rose),var(--primary));animation:preload 1.1s var(--ease) infinite}
+  @keyframes crownbob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-10px) rotate(4deg)}}
+  @keyframes preload{0%{transform:translateX(-120%)}100%{transform:translateX(360%)}}
+
+  /* ════════════════════ NAV ════════════════════ */
+  .wrap{position:relative;z-index:1}
+  nav{position:fixed;top:0;inset-inline:0;z-index:100;display:flex;align-items:center;justify-content:space-between;
+    padding:1.1rem clamp(1rem,4vw,2.5rem);transition:padding var(--t) var(--ease),background var(--t),box-shadow var(--t)}
+  nav.scrolled{background:rgba(7,7,26,.82);backdrop-filter:blur(18px) saturate(140%);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);border-bottom:1px solid var(--border);padding-block:.7rem}
+  .brand{display:flex;align-items:center;gap:.55rem;font-family:'Baloo 2';font-weight:800;font-size:1.35rem;text-decoration:none}
+  .brand .ico{width:1.6rem;height:1.6rem;color:var(--gold)}
+  .brand span{background:linear-gradient(135deg,var(--rose),var(--primary));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .nav-links{display:flex;gap:.4rem;list-style:none;align-items:center}
+  .nav-links a{position:relative;color:var(--text-soft);text-decoration:none;font-weight:600;font-size:.95rem;padding:.5rem .85rem;border-radius:var(--r-pill);transition:color var(--t-fast),background var(--t-fast)}
+  .nav-links a:hover{color:#fff;background:var(--surface)}
+  .nav-actions{display:flex;align-items:center;gap:.5rem}
+  .icon-btn{display:grid;place-items:center;width:44px;height:44px;border-radius:var(--r-pill);
+    background:var(--surface);border:1px solid var(--border);color:var(--text-soft);cursor:pointer;transition:all var(--t-fast)}
+  .icon-btn:hover{background:var(--surface-2);color:#fff;transform:translateY(-2px)}
+  .icon-btn .ico{width:20px;height:20px}
+  .cta{display:inline-flex;align-items:center;gap:.5rem;border:none;cursor:pointer;text-decoration:none;
+    font-family:'Nunito';font-weight:800;color:#fff;background:linear-gradient(135deg,var(--rose),var(--primary));
+    padding:.7rem 1.4rem;border-radius:var(--r-pill);box-shadow:0 6px 22px var(--rose-glow);
+    transition:transform var(--t-fast) var(--ease-soft),box-shadow var(--t)}
+  .cta:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 10px 34px var(--rose-glow)}
+  .cta:active{transform:scale(.97)}
+  .cta .ico{width:18px;height:18px}
+  .burger{display:none}
+
+  /* mobile drawer (skill: persistent-nav on mobile) */
+  #drawer{position:fixed;inset:0;z-index:120;background:rgba(7,7,26,.6);backdrop-filter:blur(6px);
+    opacity:0;visibility:hidden;transition:opacity var(--t),visibility var(--t)}
+  #drawer.open{opacity:1;visibility:visible}
+  .drawer-panel{position:absolute;top:0;right:0;height:100%;width:min(82vw,340px);
+    background:var(--bg-base);border-left:1px solid var(--border);padding:5rem 1.5rem 2rem;
+    transform:translateX(100%);transition:transform var(--t) var(--ease);display:flex;flex-direction:column;gap:.4rem}
+  #drawer.open .drawer-panel{transform:none}
+  .drawer-panel a{display:flex;align-items:center;gap:.8rem;padding:.95rem 1rem;border-radius:var(--r);
+    color:var(--text-soft);text-decoration:none;font-weight:700;font-size:1.05rem;transition:background var(--t-fast),color var(--t-fast)}
+  .drawer-panel a:hover{background:var(--surface);color:#fff}
+  .drawer-panel a .ico{width:20px;height:20px;color:var(--gold)}
+  .drawer-close{position:absolute;top:1.2rem;right:1.2rem}
+
+  /* scroll progress */
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:130;
+    background:linear-gradient(90deg,var(--rose),var(--gold));box-shadow:0 0 10px var(--gold-glow);transition:width .1s linear}
+
+  /* ════════════════════ LAYOUT HELPERS ════════════════════ */
+  section{position:relative;z-index:1;padding:clamp(4rem,9vw,7rem) clamp(1.1rem,5vw,4rem)}
+  .container{max-width:1180px;margin-inline:auto}
+  .head{text-align:center;max-width:680px;margin:0 auto clamp(2.5rem,5vw,3.5rem)}
+  .label{display:inline-flex;align-items:center;gap:.45rem;font-size:.78rem;font-weight:800;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--gold);padding:.4rem 1rem;border-radius:var(--r-pill);
+    border:1px solid rgba(251,191,36,.32);background:rgba(251,191,36,.08);margin-bottom:1rem}
+  .label .ico{width:15px;height:15px}
+  .h-title{font-size:clamp(2rem,4.6vw,3rem);margin-bottom:.85rem}
+  .grad{background:linear-gradient(135deg,var(--rose),#a78bfa 55%,var(--blue));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .h-sub{color:var(--text-soft);font-size:1.06rem}
+
+  /* reveal on scroll */
+  .reveal{opacity:0;transform:translateY(34px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+  .reveal.in{opacity:1;transform:none}
+  .stagger>*{opacity:0;transform:translateY(28px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+  .stagger.in>*{opacity:1;transform:none}
+  .stagger.in>*:nth-child(2){transition-delay:.07s}.stagger.in>*:nth-child(3){transition-delay:.14s}
+  .stagger.in>*:nth-child(4){transition-delay:.21s}.stagger.in>*:nth-child(5){transition-delay:.28s}
+  .stagger.in>*:nth-child(6){transition-delay:.35s}
+
+  /* claymorphic card base */
+  .clay{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--clay);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+
+  /* ════════════════════ HERO ════════════════════ */
+  #hero{min-height:100svh;display:flex;align-items:center;gap:clamp(2rem,5vw,4rem);
+    padding-top:clamp(7rem,12vw,9rem);padding-bottom:4rem}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(2rem,5vw,4rem);align-items:center;width:100%;max-width:1180px;margin-inline:auto}
+  .hero-badge{display:inline-flex;align-items:center;gap:.5rem;border:1px solid var(--border);background:var(--surface);
+    border-radius:var(--r-pill);padding:.45rem 1rem;font-size:.82rem;font-weight:700;color:var(--gold);margin-bottom:1.4rem}
+  .hero-badge .ico{width:16px;height:16px}
+  .hero h1{font-size:clamp(2.6rem,6vw,4.4rem);margin-bottom:1.2rem}
+  .hero-sub{font-size:clamp(1rem,1.6vw,1.12rem);color:var(--text-soft);max-width:520px;margin-bottom:2rem}
+  .hero-sub strong{color:#fff;font-weight:800}
+  .hero-btns{display:flex;gap:.9rem;flex-wrap:wrap}
+  .btn-ghost{display:inline-flex;align-items:center;gap:.5rem;background:var(--surface);border:1px solid var(--border);
+    color:var(--text);padding:.85rem 1.6rem;border-radius:var(--r-pill);font-family:'Nunito';font-weight:800;font-size:1rem;
+    cursor:pointer;text-decoration:none;transition:all var(--t) var(--ease)}
+  .btn-ghost:hover{background:var(--surface-2);transform:translateY(-2px)}
+  .btn-ghost .ico,.btn-big .ico{width:19px;height:19px}
+  .btn-big{display:inline-flex;align-items:center;gap:.55rem;border:none;cursor:pointer;text-decoration:none;
+    font-family:'Nunito';font-weight:800;font-size:1.02rem;color:#fff;background:linear-gradient(135deg,var(--rose),var(--primary));
+    padding:.9rem 1.8rem;border-radius:var(--r-pill);box-shadow:0 8px 30px var(--rose-glow);
+    transition:transform var(--t) var(--ease-soft),box-shadow var(--t)}
+  .btn-big:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 14px 42px var(--rose-glow)}
+  .btn-big:active{transform:scale(.97)}
+  .hero-stats{display:flex;gap:clamp(1.2rem,3vw,2.6rem);margin-top:2.4rem;flex-wrap:wrap}
+  .stat .n{font-family:'Baloo 2';font-size:clamp(1.7rem,3vw,2.1rem);font-weight:800;color:var(--gold)}
+  .stat .l{font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);font-weight:700}
+
+  /* hero visual */
+  .hero-visual{position:relative}
+  .hero-stage{aspect-ratio:4/3;border-radius:var(--r-lg);position:relative;overflow:hidden;border:1px solid var(--border);
+    box-shadow:0 30px 80px rgba(124,58,237,.35);
+    background:radial-gradient(120% 120% at 30% 20%,#2d1b69,#1a0a3e 45%,#4c1d95 75%,#ec4899)}
+  .hero-stage .castle{position:absolute;inset:0;display:grid;place-items:center;color:#fff;filter:drop-shadow(0 10px 30px rgba(0,0,0,.4));animation:castlefloat 5s ease-in-out infinite}
+  .hero-stage .castle .ico{width:42%;height:42%;stroke-width:1.3}
+  @keyframes castlefloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  .float{position:absolute;display:flex;align-items:center;gap:.6rem;padding:.7rem 1.05rem;border-radius:var(--r);
+    background:rgba(11,11,34,.78);backdrop-filter:blur(14px);border:1px solid var(--border);
+    font-size:.82rem;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.35);animation:floaty 4s ease-in-out infinite}
+  .float small{display:block;font-size:.7rem;font-weight:600;color:var(--text-muted)}
+  .float .ico{width:22px;height:22px;color:var(--gold)}
+  .f1{top:-14px;left:-16px}.f2{bottom:64px;right:-18px;animation-delay:-2s}.f3{bottom:-12px;left:24px;animation-delay:-1s}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  .scroll-hint{position:absolute;left:50%;bottom:1.2rem;transform:translateX(-50%);display:flex;flex-direction:column;gap:.3rem;align-items:center}
+  .scroll-hint i{width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation:bounce 1.5s infinite}
+  .scroll-hint i:nth-child(2){animation-delay:.15s;opacity:.6}.scroll-hint i:nth-child(3){animation-delay:.3s;opacity:.3}
+  @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+
+  /* ════════════════════ TRUST MARQUEE ════════════════════ */
+  .trust{padding-block:1.1rem;background:rgba(255,255,255,.04);border-block:1px solid var(--border);overflow:hidden}
+  .trust .track{display:flex;gap:2.6rem;width:max-content;animation:marquee 26s linear infinite}
+  .trust .track:hover{animation-play-state:paused}
+  .trust .it{display:flex;align-items:center;gap:.55rem;font-weight:700;font-size:.88rem;color:var(--text-soft);white-space:nowrap}
+  .trust .it .ico{width:18px;height:18px;color:var(--gold)}
+  @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ════════════════════ STEPS ════════════════════ */
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6rem}
+  .step{padding:2.4rem 1.8rem;text-align:center;cursor:default;transition:transform var(--t) var(--ease),box-shadow var(--t),border-color var(--t)}
+  .step:hover{transform:translateY(-8px);border-color:rgba(124,58,237,.45)}
+  .step .num{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;margin:0 auto 1.3rem;
+    font-family:'Baloo 2';font-size:1.4rem;font-weight:800;color:#fff;position:relative}
+  .step .badge-ico{position:absolute;inset:0;display:grid;place-items:center}
+  .n1{background:linear-gradient(135deg,var(--rose),var(--primary));box-shadow:0 0 24px var(--rose-glow)}
+  .n2{background:linear-gradient(135deg,var(--primary),var(--blue));box-shadow:0 0 24px var(--violet-glow)}
+  .n3{background:linear-gradient(135deg,var(--gold),#f59e0b);box-shadow:0 0 24px var(--gold-glow)}
+  .step .si{width:34px;height:34px;color:var(--gold);margin-bottom:.8rem}
+  .step h3{font-size:1.18rem;margin-bottom:.5rem}
+  .step p{font-size:.92rem;color:var(--text-soft)}
+
+  /* ════════════════════ MASCOTTES ════════════════════ */
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
+  .masc{padding:1.8rem 1.4rem;text-align:center;cursor:pointer;transition:transform var(--t) var(--ease),box-shadow var(--t),border-color var(--t)}
+  .masc:hover{transform:translateY(-10px);border-color:rgba(236,72,153,.45)}
+  .masc .av{width:104px;height:104px;border-radius:50%;margin:0 auto 1.1rem;display:grid;place-items:center;
+    border:3px solid var(--border);transition:transform var(--t) var(--ease-soft)}
+  .masc:hover .av{transform:scale(1.08) rotate(-6deg)}
+  .masc .av .ico{width:48px;height:48px;color:#fff}
+  .masc h3{font-size:1.05rem;margin-bottom:.3rem}
+  .masc p{font-size:.82rem;color:var(--text-soft);min-height:2.6em}
+  .price-pill{display:inline-block;margin-top:.8rem;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);
+    color:var(--gold);font-size:.8rem;font-weight:800;padding:.3rem .85rem;border-radius:var(--r-pill)}
+
+  /* ════════════════════ CHÂTEAUX ════════════════════ */
+  .filters{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;margin-bottom:2.5rem}
+  .chip{background:var(--surface);border:1px solid var(--border);color:var(--text-soft);padding:.55rem 1.25rem;
+    border-radius:var(--r-pill);font-family:'Nunito';font-weight:700;font-size:.88rem;cursor:pointer;transition:all var(--t) var(--ease)}
+  .chip[aria-pressed="true"],.chip:hover{background:linear-gradient(135deg,var(--rose),var(--primary));color:#fff;border-color:transparent;box-shadow:0 4px 18px var(--rose-glow)}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6rem}
+  .castle-card{overflow:hidden;cursor:pointer;transition:transform var(--t) var(--ease),box-shadow var(--t);will-change:transform}
+  .castle-card.hide{display:none}
+  .castle-card:hover{box-shadow:0 26px 64px rgba(124,58,237,.32)}
+  .thumb{height:172px;display:grid;place-items:center;position:relative;overflow:hidden}
+  .thumb .ico{width:74px;height:74px;color:#fff;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35));position:relative;z-index:1}
+  .thumb::after{content:"";position:absolute;inset:0;top:55%;background:linear-gradient(transparent,rgba(11,11,34,.85))}
+  .tag-new,.tag-pop{position:absolute;top:12px;right:12px;z-index:2;display:flex;align-items:center;gap:.3rem;
+    font-size:.72rem;font-weight:800;padding:.3rem .7rem;border-radius:var(--r-pill)}
+  .tag-pop{background:linear-gradient(135deg,var(--gold),#f59e0b);color:#1a0a00}
+  .tag-new{background:linear-gradient(135deg,var(--blue),#1d4ed8);color:#fff}
+  .tag-pop .ico,.tag-new .ico{width:13px;height:13px}
+  .cc-body{padding:1.3rem}
+  .cc-body h3{font-size:1.12rem;margin-bottom:.8rem}
+  .specs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+  .spec{display:flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.06);border:1px solid var(--border);
+    color:var(--text-soft);font-size:.74rem;font-weight:700;padding:.28rem .6rem;border-radius:var(--r-pill)}
+  .spec .ico{width:13px;height:13px;color:var(--gold)}
+  .cc-foot{display:flex;align-items:center;justify-content:space-between;margin-top:.4rem}
+  .cc-price{font-family:'Baloo 2';font-size:1.2rem;font-weight:800;color:var(--gold)}
+  .cc-price span{font-size:.74rem;color:var(--text-muted);font-weight:600}
+  .btn-sm{display:inline-flex;align-items:center;gap:.4rem;background:linear-gradient(135deg,var(--rose),var(--primary));
+    color:#fff;border:none;padding:.55rem 1.1rem;border-radius:var(--r-pill);font-family:'Nunito';font-weight:800;font-size:.82rem;
+    cursor:pointer;transition:transform var(--t-fast) var(--ease-soft),box-shadow var(--t)}
+  .btn-sm:hover{transform:scale(1.05);box-shadow:0 6px 20px var(--rose-glow)}
+  .btn-sm:active{transform:scale(.95)}
+  .btn-sm .ico{width:15px;height:15px}
+
+  /* ════════════════════ POURQUOI ════════════════════ */
+  .why{background:linear-gradient(180deg,transparent,rgba(124,58,237,.07),transparent)}
+  .feat{padding:1.9rem;transition:transform var(--t) var(--ease),border-color var(--t)}
+  .feat:hover{transform:translateY(-6px);border-color:rgba(124,58,237,.4)}
+  .feat .fi{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;margin-bottom:1.2rem}
+  .feat .fi .ico{width:26px;height:26px}
+  .feat h3{font-size:1.05rem;margin-bottom:.45rem}
+  .feat p{font-size:.9rem;color:var(--text-soft)}
+
+  /* ════════════════════ PRICING ════════════════════ */
+  .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6rem;align-items:center}
+  .plan{padding:2.4rem 1.9rem;transition:transform var(--t) var(--ease),box-shadow var(--t)}
+  .plan:not(.feat-plan):hover{transform:translateY(-6px)}
+  .feat-plan{background:linear-gradient(160deg,rgba(124,58,237,.22),rgba(236,72,153,.1));border-color:rgba(236,72,153,.4);
+    transform:scale(1.05);box-shadow:0 0 60px rgba(236,72,153,.2)}
+  .feat-plan:hover{transform:scale(1.07) translateY(-4px)}
+  .plan-badge{display:inline-flex;align-items:center;gap:.4rem;background:linear-gradient(135deg,var(--rose),var(--primary));
+    color:#fff;font-size:.74rem;font-weight:800;padding:.35rem .9rem;border-radius:var(--r-pill);margin-bottom:1.1rem}
+  .plan-badge .ico{width:14px;height:14px}
+  .plan h3{font-size:1.25rem;margin-bottom:.3rem}
+  .plan .desc{font-size:.86rem;color:var(--text-soft);margin-bottom:1.3rem}
+  .plan .amt{font-family:'Baloo 2';font-size:2.7rem;font-weight:800;color:var(--gold);line-height:1}
+  .plan .amt span{font-size:.85rem;color:var(--text-muted);font-weight:600}
+  .plan ul{list-style:none;margin:1.4rem 0 1.8rem;display:flex;flex-direction:column;gap:.65rem}
+  .plan li{display:flex;gap:.55rem;align-items:flex-start;font-size:.88rem;color:var(--text-soft)}
+  .plan li .ico{width:17px;height:17px;color:var(--green);margin-top:.15rem;flex-shrink:0}
+  .btn-plan{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem;
+    border-radius:var(--r-pill);font-family:'Nunito';font-weight:800;font-size:.95rem;cursor:pointer;transition:all var(--t) var(--ease);border:none}
+  .btn-plan.solid{background:linear-gradient(135deg,var(--rose),var(--primary));color:#fff;box-shadow:0 8px 26px var(--rose-glow)}
+  .btn-plan.solid:hover{transform:translateY(-2px);box-shadow:0 12px 34px var(--rose-glow)}
+  .btn-plan.line{background:transparent;color:var(--text);border:1px solid var(--border)}
+  .btn-plan.line:hover{background:var(--surface-2)}
+
+  /* ════════════════════ AVIS ════════════════════ */
+  .car{position:relative;overflow:hidden}
+  .car-track{display:flex;gap:1.6rem;transition:transform .6s var(--ease);will-change:transform}
+  .avis{flex:0 0 calc(33.333% - 1.07rem);min-width:0;padding:1.9rem}
+  .avis .stars{display:flex;gap:.15rem;color:var(--gold);margin-bottom:.9rem}
+  .avis .stars .ico{width:17px;height:17px;fill:var(--gold)}
+  .avis .txt{font-size:.92rem;color:var(--text-soft);font-style:italic;margin-bottom:1.2rem}
+  .avis .who{display:flex;align-items:center;gap:.7rem}
+  .avis .ava{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:'Baloo 2';font-weight:800;color:#fff;flex-shrink:0}
+  .avis .nm{font-weight:800;font-size:.9rem}.avis .lo{font-size:.78rem;color:var(--text-muted)}
+  .car-nav{display:flex;gap:.8rem;justify-content:center;margin-top:1.8rem}
+
+  /* ════════════════════ FAQ ════════════════════ */
+  .faq{max-width:780px;margin-inline:auto;display:flex;flex-direction:column;gap:.9rem}
+  .qa{overflow:hidden;transition:border-color var(--t)}
+  .qa[data-open="true"]{border-color:rgba(124,58,237,.45)}
+  .q{width:100%;background:none;border:none;color:var(--text);font-family:'Nunito';font-weight:800;font-size:1rem;
+    padding:1.25rem 1.4rem;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+  .q .ico{width:22px;height:22px;color:var(--gold);transition:transform var(--t) var(--ease);flex-shrink:0}
+  .qa[data-open="true"] .q .ico{transform:rotate(45deg)}
+  .a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
+  .qa[data-open="true"] .a{grid-template-rows:1fr}
+  .a>div{overflow:hidden}
+  .a p{padding:0 1.4rem 1.35rem;color:var(--text-soft);font-size:.92rem;line-height:1.7}
+
+  /* ════════════════════ CTA FINAL ════════════════════ */
+  .final{text-align:center;background:radial-gradient(ellipse 80% 60% at 50% 50%,rgba(124,58,237,.2),transparent)}
+  .final .ico-xl{width:72px;height:72px;color:var(--gold);margin:0 auto 1.2rem;animation:floaty 3s ease-in-out infinite;filter:drop-shadow(0 0 24px var(--gold-glow))}
+  .final h2{font-size:clamp(2rem,4.6vw,3.2rem);margin-bottom:1rem}
+  .final p{font-size:1.08rem;color:var(--text-soft);max-width:560px;margin:0 auto 2.4rem}
+  .final-btns{display:flex;gap:.9rem;justify-content:center;flex-wrap:wrap}
+  .contact-row{display:flex;gap:1.6rem;justify-content:center;flex-wrap:wrap;margin-top:2rem;font-size:.9rem}
+  .contact-row a{display:inline-flex;align-items:center;gap:.5rem;color:var(--text-soft);text-decoration:none;transition:color var(--t-fast)}
+  .contact-row a:hover{color:#fff}
+  .contact-row .ico{width:17px;height:17px;color:var(--gold)}
+
+  /* ════════════════════ FOOTER ════════════════════ */
+  footer{background:rgba(7,7,26,.96);border-top:1px solid var(--border);padding:clamp(3rem,6vw,4rem) clamp(1.1rem,5vw,4rem) 2rem}
+  .foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:2.6rem;max-width:1180px;margin:0 auto 2.6rem}
+  .foot-brand p{font-size:.88rem;color:var(--text-soft);margin:1rem 0 1.3rem;max-width:34ch}
+  .socials{display:flex;gap:.6rem}
+  .socials a{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--surface);
+    border:1px solid var(--border);color:var(--text-soft);transition:all var(--t) var(--ease)}
+  .socials a:hover{background:var(--primary);color:#fff;border-color:transparent;transform:translateY(-3px)}
+  .socials .ico{width:18px;height:18px}
+  .foot-col h4{font-size:.92rem;margin-bottom:1rem}
+  .foot-col ul{list-style:none;display:flex;flex-direction:column;gap:.6rem}
+  .foot-col a{font-size:.86rem;color:var(--text-soft);text-decoration:none;transition:color var(--t-fast)}
+  .foot-col a:hover{color:#fff}
+  .foot-bottom{max-width:1180px;margin:0 auto;border-top:1px solid var(--border);padding-top:1.8rem;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;font-size:.82rem;color:var(--text-muted)}
+
+  /* floating actions */
+  .fab{position:fixed;z-index:90;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;cursor:pointer;text-decoration:none;border:none;transition:transform var(--t) var(--ease-soft)}
+  .fab:hover{transform:scale(1.12)}
+  .fab .ico{width:26px;height:26px;color:#fff}
+  .wa{right:1.5rem;bottom:1.5rem;background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 6px 22px rgba(37,211,102,.45);animation:wapulse 2.6s ease-in-out infinite}
+  @keyframes wapulse{0%,100%{box-shadow:0 6px 22px rgba(37,211,102,.4)}50%{box-shadow:0 6px 40px rgba(37,211,102,.75)}}
+  .top{left:1.5rem;bottom:1.5rem;width:46px;height:46px;background:var(--surface);border:1px solid var(--border);
+    backdrop-filter:blur(12px);opacity:0;visibility:hidden;transition:opacity var(--t),visibility var(--t),transform var(--t) var(--ease-soft)}
+  .top.show{opacity:1;visibility:visible}
+  .top .ico{width:20px;height:20px;color:var(--text)}
+
+  /* ════════════════════ RESPONSIVE ════════════════════ */
+  @media(max-width:980px){
+    .grid-4{grid-template-columns:repeat(2,1fr)}
+    .cards,.grid-3,.pricing-grid{grid-template-columns:repeat(2,1fr)}
+    .avis{flex-basis:calc(50% - .8rem)}
+    .feat-plan{transform:none}.feat-plan:hover{transform:translateY(-4px)}
+    .foot-grid{grid-template-columns:1fr 1fr}
+  }
+  @media(max-width:760px){
+    .nav-links{display:none}
+    .burger{display:grid}
+    .hero-grid{grid-template-columns:1fr;text-align:center}
+    .hero-sub{margin-inline:auto}.hero-btns,.hero-stats{justify-content:center}
+    .hero-visual{order:-1;max-width:440px;margin-inline:auto;width:100%}
+    .f1,.f3{display:none}.f2{right:-6px}
+    .grid-3,.cards,.pricing-grid,.grid-4{grid-template-columns:1fr}
+    .avis{flex-basis:100%}
+    .foot-grid{grid-template-columns:1fr;gap:1.8rem}
+    .foot-bottom{justify-content:center;text-align:center}
+  }
+
+  /* ════════════════════ REDUCED MOTION (skill: reduced-motion) ════════════════════ */
+  @media(prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+    .reveal,.stagger>*{opacity:1!important;transform:none!important}
+    #pre{display:none}
+    #fx-canvas{display:none}
+  }
+</style>
+</head>
+<body>
+
+<a href="#hero" class="skip-link">Aller au contenu</a>
+
+<!-- ══════ SVG ICON SPRITE (Lucide) ══════ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-crown" viewBox="0 0 24 24"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52L19.15 16.27a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.95-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"/><path d="M5 21h14"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/><path d="M20 3v4M22 5h-4M4 17v2M5 18H3"/></symbol>
+  <symbol id="i-castle" viewBox="0 0 24 24"><path d="M22 20v-9H2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2Z"/><path d="M18 11V4H6v7"/><path d="M15 22v-4a3 3 0 0 0-6 0v4"/><path d="M22 11V9M2 11V9M6 4V2M18 4V2M10 4V2M14 4V2"/></symbol>
+  <symbol id="i-truck" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-party" viewBox="0 0 24 24"><path d="M5.8 11.3 2 22l10.7-3.79"/><path d="M4 3h.01M22 8h.01M15 2h.01M22 20h.01"/><path d="M22 2 11 13"/><path d="M14 8a2 2 0 0 1 1-1 2 2 0 0 0 1-1 2 2 0 0 1 2-2"/><path d="M9 19a2 2 0 0 0-1-1 2 2 0 0 1-1-1 2 2 0 0 0-2-2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-droplet" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+  <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></symbol>
+  <symbol id="i-facebook" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2"/></symbol>
+  <symbol id="i-cake" viewBox="0 0 24 24"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3M12 8v3M17 8v3M7 4h.01M12 4h.01M17 4h.01"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.4-5.6 9.2-7.4 10.6a1 1 0 0 1-1.2 0C9.6 19.2 4 14.4 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+  <symbol id="i-volume-x" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+  <symbol id="i-unicorn" viewBox="0 0 24 24"><path d="M3 18c0-3 2-5 5-5h2l3-7 1.5 3.5"/><path d="M10 13 8 7l3 1"/><path d="M19 11c1.5 0 2 1.5 2 3a8 8 0 0 1-8 8H8"/><path d="m13 4 1-3 1 3"/></symbol>
+  <symbol id="i-rainbow" viewBox="0 0 24 24"><path d="M22 17a10 10 0 0 0-20 0"/><path d="M6 17a6 6 0 0 1 12 0"/><path d="M10 17a2 2 0 0 1 4 0"/></symbol>
+  <symbol id="i-dragon" viewBox="0 0 24 24"><path d="M16 8a4 4 0 0 0-8 0c0 3 3 4 3 7H8l-2 5h10c2 0 4-2 4-5 0-4-4-5-4-9Z"/><path d="M16 8 22 5l-3 4"/><circle cx="13" cy="6" r=".5" fill="currentColor"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-fairy" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M12 11v8M9 14l-5-2 5-1M15 14l5-2-5-1"/><path d="M10 19s-2 2-5 2M14 19s2 2 5 2"/></symbol>
+  <symbol id="i-mouse" viewBox="0 0 24 24"><path d="M5 8a4 4 0 0 1-2-3.5C3 3 4 2 5 3s2 2 3 2M19 8a4 4 0 0 0 2-3.5C21 3 20 2 19 3s-2 2-3 2"/><circle cx="12" cy="13" r="8"/><circle cx="12" cy="13" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-spider" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 8V3M9 9 5 5M15 9l4-4M8 12H2M16 12h6M9 15l-4 4M15 15l4 4M12 16v5"/></symbol>
+  <symbol id="i-snowflake" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><path d="m5 5 14 14M19 5 5 19M8 4l4 2 4-2M8 20l4-2 4 2M4 8l2 4-2 4M20 8l-2 4 2 4"/></symbol>
+</svg>
+
+<!-- ══════ FX CANVAS (starfield) ══════ -->
+<canvas id="fx-canvas" aria-hidden="true"></canvas>
+<div class="aurora" aria-hidden="true">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div>
+</div>
+
+<!-- ══════ PRELOADER ══════ -->
+<div id="pre" aria-hidden="true">
+  <div class="pre-inner">
+    <div class="pre-crown"><svg class="ico"><use href="#i-crown"/></svg></div>
+    <div class="pre-name">Royal Dream</div>
+    <div class="pre-bar"><i></i></div>
+  </div>
+</div>
+
+<div id="progress" aria-hidden="true"></div>
+
+<!-- ══════ NAV ══════ -->
+<nav id="nav" aria-label="Navigation principale">
+  <a href="#hero" class="brand"><svg class="ico"><use href="#i-crown"/></svg><span>Royal Dream</span></a>
+  <ul class="nav-links">
+    <li><a href="#mascottes">Mascottes</a></li>
+    <li><a href="#chateaux">Châteaux</a></li>
+    <li><a href="#tarifs">Tarifs</a></li>
+    <li><a href="#avis">Avis</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+  <div class="nav-actions">
+    <button class="icon-btn" id="soundBtn" aria-pressed="false" aria-label="Activer les effets sonores">
+      <svg class="ico"><use href="#i-volume-x" id="soundUse"/></svg>
+    </button>
+    <a href="#contact" class="cta" data-sfx="click"><svg class="ico"><use href="#i-crown"/></svg>Réserver</a>
+    <button class="icon-btn burger" id="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="drawer">
+      <svg class="ico"><use href="#i-menu"/></svg>
+    </button>
+  </div>
+</nav>
+
+<!-- ══════ MOBILE DRAWER ══════ -->
+<div id="drawer" role="dialog" aria-modal="true" aria-label="Menu">
+  <div class="drawer-panel">
+    <button class="icon-btn drawer-close" id="drawerClose" aria-label="Fermer le menu"><svg class="ico"><use href="#i-x"/></svg></button>
+    <a href="#mascottes"><svg class="ico"><use href="#i-smile"/></svg>Mascottes</a>
+    <a href="#chateaux"><svg class="ico"><use href="#i-castle"/></svg>Châteaux</a>
+    <a href="#tarifs"><svg class="ico"><use href="#i-sparkles"/></svg>Tarifs</a>
+    <a href="#avis"><svg class="ico"><use href="#i-star"/></svg>Avis</a>
+    <a href="#faq"><svg class="ico"><use href="#i-chat"/></svg>FAQ</a>
+    <a href="#contact" class="cta" style="margin-top:1rem;justify-content:center"><svg class="ico"><use href="#i-crown"/></svg>Réserver maintenant</a>
+  </div>
+</div>
+
+<div class="wrap">
+<!-- ══════ HERO ══════ -->
+<section id="hero">
+  <div class="hero-grid">
+    <div class="hero-content">
+      <div class="hero-badge"><svg class="ico"><use href="#i-pin"/></svg>Bruxelles &amp; Belgique francophone</div>
+      <h1>La magie <span class="grad">arrive</span><br>chez vous.</h1>
+      <p class="hero-sub">Location de <strong>châteaux gonflables</strong> et de <strong>mascottes</strong> (Mickey, Spider-Man, Elsa…) pour les <strong>anniversaires d'enfants</strong>. On livre, on installe, on repart — vous profitez de la fête.</p>
+      <div class="hero-btns">
+        <a href="#contact" class="btn-big" data-confetti data-sfx="pop"><svg class="ico"><use href="#i-castle"/></svg>Réserver mon château</a>
+        <a href="#chateaux" class="btn-ghost" data-sfx="click"><svg class="ico"><use href="#i-sparkles"/></svg>Voir les châteaux</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="n" data-count="10">0</div><div class="l">Châteaux</div></div>
+        <div class="stat"><div class="n" data-count="4">0</div><div class="l">Mascottes</div></div>
+        <div class="stat"><div class="n" data-count="20" data-suffix="km">0</div><div class="l">Livraison</div></div>
+        <div class="stat"><div class="n" data-count="500" data-suffix="+">0</div><div class="l">Familles ravies</div></div>
+      </div>
+    </div>
+    <div class="hero-visual" id="heroVisual">
+      <div class="float f1"><svg class="ico"><use href="#i-cake"/></svg><div><small>Événement</small>Anniversaires</div></div>
+      <div class="float f2"><svg class="ico"><use href="#i-crown"/></svg><div><small>Qualité</small>Royale</div></div>
+      <div class="float f3"><svg class="ico"><use href="#i-party"/></svg><div><small>Résultat</small>Inoubliable</div></div>
+      <div class="hero-stage" id="heroStage">
+        <div class="castle"><svg class="ico"><use href="#i-castle"/></svg></div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint" aria-hidden="true"><i></i><i></i><i></i></div>
+</section>
+
+<!-- ══════ TRUST ══════ -->
+<div class="trust" aria-label="Nos garanties">
+  <div class="track" id="trustTrack">
+    <div class="it"><svg class="ico"><use href="#i-star"/></svg>Note 4.9/5</div>
+    <div class="it"><svg class="ico"><use href="#i-crown"/></svg>8 ans d'expérience</div>
+    <div class="it"><svg class="ico"><use href="#i-pin"/></svg>Bruxelles &amp; Belgique</div>
+    <div class="it"><svg class="ico"><use href="#i-party"/></svg>527 anniversaires réalisés</div>
+    <div class="it"><svg class="ico"><use href="#i-shield"/></svg>Assuré &amp; certifié CE</div>
+    <div class="it"><svg class="ico"><use href="#i-truck"/></svg>Livraison incluse 20 km</div>
+    <div class="it"><svg class="ico"><use href="#i-droplet"/></svg>Désinfecté à chaque location</div>
+  </div>
+</div>
+
+<!-- ══════ STEPS ══════ -->
+<section>
+  <div class="container">
+    <div class="head reveal">
+      <div class="label"><svg class="ico"><use href="#i-rocket"/></svg>Comment ça marche</div>
+      <h2 class="h-title">3 étapes vers la <span class="grad">magie</span></h2>
+      <p class="h-sub">En quelques clics, transformez votre jardin en un véritable royaume enchanté.</p>
+    </div>
+    <div class="grid-3 stagger">
+      <div class="step clay tilt"><div class="num n1">1</div><svg class="ico si"><use href="#i-castle"/></svg><h3>Choisissez votre château</h3><p>Parcourez notre galerie et trouvez la structure parfaite pour le thème de la fête.</p></div>
+      <div class="step clay tilt"><div class="num n2">2</div><svg class="ico si"><use href="#i-truck"/></svg><h3>On livre &amp; on installe</h3><p>Notre équipe dépose, gonfle et sécurise tout le matériel avant l'arrivée des invités.</p></div>
+      <div class="step clay tilt"><div class="num n3">3</div><svg class="ico si"><use href="#i-party"/></svg><h3>Place à la fête !</h3><p>Les enfants s'amusent en sécurité. On vient tout récupérer à la fin de la journée.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ MASCOTTES ══════ -->
+<section id="mascottes">
+  <div class="container">
+    <div class="head reveal">
+      <div class="label"><svg class="ico"><use href="#i-smile"/></svg>Nos mascottes</div>
+      <h2 class="h-title">Vos héros préférés <span class="grad">à votre porte</span></h2>
+      <p class="h-sub">Nos artistes costumés animent les fêtes et font briller les yeux des petits comme des grands.</p>
+    </div>
+    <div class="grid-4 stagger">
+      <div class="masc clay" data-sfx="pop"><div class="av" style="background:linear-gradient(135deg,#1f1147,#0b0b22)"><svg class="ico"><use href="#i-mouse"/></svg></div><h3>Mickey &amp; Minnie</h3><p>Le duo magique de Disney pour une fête inoubliable.</p><div class="price-pill">dès 89,99€/h</div></div>
+      <div class="masc clay" data-sfx="pop"><div class="av" style="background:linear-gradient(135deg,#7f1d1d,#1d4ed8)"><svg class="ico"><use href="#i-spider"/></svg></div><h3>Super-Héros</h3><p>Spider-Man, Superman et leurs amis débarquent !</p><div class="price-pill">dès 89,99€/h</div></div>
+      <div class="masc clay" data-sfx="pop"><div class="av" style="background:linear-gradient(135deg,#1e3a8a,#06b6d4)"><svg class="ico"><use href="#i-snowflake"/></svg></div><h3>Reine des Glaces</h3><p>Elsa et la magie d'un royaume de glace et de neige.</p><div class="price-pill">dès 89,99€/h</div></div>
+      <div class="masc clay" data-sfx="pop"><div class="av" style="background:linear-gradient(135deg,#9d174d,#7c3aed)"><svg class="ico"><use href="#i-unicorn"/></svg></div><h3>Licorne Magique</h3><p>Le personnage préféré des tout-petits pour une surprise.</p><div class="price-pill">dès 89,99€/h</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ CHÂTEAUX ══════ -->
+<section id="chateaux">
+  <div class="container">
+    <div class="head reveal">
+      <div class="label"><svg class="ico"><use href="#i-castle"/></svg>Nos châteaux gonflables</div>
+      <h2 class="h-title">Choisissez votre <span class="grad">royaume</span></h2>
+      <p class="h-sub">Des structures premium, désinfectées avant chaque location, livrées et installées par notre équipe.</p>
+    </div>
+    <div class="filters reveal" role="group" aria-label="Filtrer les châteaux">
+      <button class="chip" data-filter="all" aria-pressed="true" data-sfx="click">Tous</button>
+      <button class="chip" data-filter="princesse" aria-pressed="false" data-sfx="click">Princesse</button>
+      <button class="chip" data-filter="aventure" aria-pressed="false" data-sfx="click">Aventure</button>
+      <button class="chip" data-filter="petits" aria-pressed="false" data-sfx="click">Tout-petits</button>
+    </div>
+    <div class="cards stagger" id="castleGrid">
+      <article class="castle-card clay tilt" data-cat="aventure">
+        <div class="thumb" style="background:linear-gradient(135deg,#ec4899,#7c3aed)"><svg class="ico"><use href="#i-rainbow"/></svg></div>
+        <div class="tag-pop"><svg class="ico"><use href="#i-star"/></svg>Populaire</div>
+        <div class="cc-body"><h3>Le Palais Arc-en-ciel</h3>
+          <div class="specs"><span class="spec"><svg class="ico"><use href="#i-ruler"/></svg>5×4 m</span><span class="spec"><svg class="ico"><use href="#i-cake"/></svg>3-10 ans</span><span class="spec"><svg class="ico"><use href="#i-users"/></svg>8 enfants</span></div>
+          <div class="cc-foot"><div class="cc-price">149€ <span>/ jour</span></div><button class="btn-sm" data-confetti data-sfx="pop"><svg class="ico"><use href="#i-crown"/></svg>Réserver</button></div>
+        </div>
+      </article>
+      <article class="castle-card clay tilt" data-cat="princesse">
+        <div class="thumb" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)"><svg class="ico"><use href="#i-castle"/></svg></div>
+        <div class="cc-body"><h3>La Forteresse des Princes</h3>
+          <div class="specs"><span class="spec"><svg class="ico"><use href="#i-ruler"/></svg>6×5 m</span><span class="spec"><svg class="ico"><use href="#i-cake"/></svg>5-12 ans</span><span class="spec"><svg class="ico"><use href="#i-users"/></svg>10 enfants</span></div>
+          <div class="cc-foot"><div class="cc-price">159€ <span>/ jour</span></div><button class="btn-sm" data-confetti data-sfx="pop"><svg class="ico"><use href="#i-crown"/></svg>Réserver</button></div>
+        </div>
+      </article>
+      <article class="castle-card clay tilt" data-cat="princesse">
+        <div class="thumb" style="background:linear-gradient(135deg,#f0abfc,#c084fc)"><svg class="ico"><use href="#i-unicorn"/></svg></div>
+        <div class="tag-pop"><svg class="ico"><use href="#i-star"/></svg>Populaire</div>
+        <div class="cc-body"><h3>Le Château Licorne</h3>
+          <div class="specs"><span class="spec"><svg class="ico"><use href="#i-ruler"/></svg>5×5 m</span><span class="spec"><svg class="ico"><use href="#i-cake"/></svg>3-10 ans</span><span class="spec"><svg class="ico"><use href="#i-users"/></svg>8 enfants</span></div>
+          <div class="cc-foot"><div class="cc-price">169€ <span>/ jour</span></div><button class="btn-sm" data-confetti data-sfx="pop"><svg class="ico"><use href="#i-crown"/></svg>Réserver</button></div>
+        </div>
+      </article>
+      <article class="castle-card clay tilt" data-cat="aventure">
+        <div class="thumb" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><svg class="ico"><use href="#i-dragon"/></svg></div>
+        <div class="tag-new"><svg class="ico"><use href="#i-sparkles"/></svg>Nouveau</div>
+        <div class="cc-body"><h3>La Tour du Dragon</h3>
+          <div class="specs"><span class="spec"><svg class="ico"><use href="#i-ruler"/></svg>7×5 m</span><span class="spec"><svg class="ico"><use href="#i-cake"/></svg>6-14 ans</span><span class="spec"><svg class="ico"><use href="#i-users"/></svg>12 enfants</span></div>
+          <div class="cc-foot"><div class="cc-price">189€ <span>/ jour</span></div><button class="btn-sm" data-confetti data-sfx="pop"><svg class="ico"><use href="#i-crown"/></svg>Réserver</button></div>
+        </div>
+      </article>
+      <article class="castle-card clay tilt" data-cat="petits">
+        <div class="thumb" style="background:linear-gradient(135deg,#10b981,#059669)"><svg class="ico"><use href="#i-fairy"/></svg></div>
+        <div class="cc-body"><h3>La Grotte des Fées</h3>
+          <div class="specs"><span class="spec"><svg class="ico"><use href="#i-ruler"/></svg>4×4 m</span><span class="spec"><svg class="ico"><use href="#i-cake"/></svg>2-8 ans</span><span class="spec"><svg class="ico"><use href="#i-users"/></svg>6 enfants</span></div>
+          <div class="cc-foot"><div class="cc-price">139€ <span>/ jour</span></div><button class="btn-sm" data-confetti data-sfx="pop"><svg class="ico"><use href="#i-crown"/></svg>Réserver</button></div>
+        </div>
+      </article>
+      <article class="castle-card clay tilt" data-cat="petits">
+        <div class="thumb" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)"><svg class="ico"><use href="#i-sun"/></svg></div>
+        <div class="cc-body"><h3>Le Soleil des Petits</h3>
+          <div class="specs"><span class="spec"><svg class="ico"><use href="#i-ruler"/></svg>3×3 m</span><span class="spec"><svg class="ico"><use href="#i-cake"/></svg>1-5 ans</span><span class="spec"><svg class="ico"><use href="#i-users"/></svg>5 enfants</span></div>
+          <div class="cc-foot"><div class="cc-price">119€ <span>/ jour</span></div><button class="btn-sm" data-confetti data-sfx="pop"><svg class="ico"><use href="#i-crown"/></svg>Réserver</button></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ POURQUOI ══════ -->
+<section class="why">
+  <div class="container">
+    <div class="head reveal">
+      <div class="label"><svg class="ico"><use href="#i-heart"/></svg>Pourquoi Royal Dream</div>
+      <h2 class="h-title">Ce qui nous rend <span class="grad">uniques</span></h2>
+      <p class="h-sub">Pourquoi des centaines de familles nous confient chaque année leurs plus beaux souvenirs.</p>
+    </div>
+    <div class="grid-3 stagger">
+      <div class="feat clay"><div class="fi" style="background:rgba(236,72,153,.15)"><svg class="ico" style="color:var(--rose)"><use href="#i-shield"/></svg></div><h3>Sécurité certifiée</h3><p>Matériel homologué CE, contrôlé et assuré. Votre tranquillité d'esprit est notre priorité.</p></div>
+      <div class="feat clay"><div class="fi" style="background:rgba(124,58,237,.15)"><svg class="ico" style="color:var(--primary)"><use href="#i-droplet"/></svg></div><h3>Hygiène irréprochable</h3><p>Chaque structure est désinfectée et nettoyée en profondeur avant et après location.</p></div>
+      <div class="feat clay"><div class="fi" style="background:rgba(251,191,36,.15)"><svg class="ico" style="color:var(--gold)"><use href="#i-clock"/></svg></div><h3>Ponctualité garantie</h3><p>On arrive à l'heure, on installe tout, on repart discrètement. La fête commence comme prévu.</p></div>
+      <div class="feat clay"><div class="fi" style="background:rgba(59,130,246,.15)"><svg class="ico" style="color:var(--blue)"><use href="#i-trophy"/></svg></div><h3>Matériel premium</h3><p>Des structures colorées, solides et visuellement époustouflantes qui font rêver.</p></div>
+      <div class="feat clay"><div class="fi" style="background:rgba(52,211,153,.15)"><svg class="ico" style="color:var(--green)"><use href="#i-smile"/></svg></div><h3>Équipe passionnée</h3><p>Nous aimons ce que nous faisons. Chaque fête est unique et nous y mettons tout notre cœur.</p></div>
+      <div class="feat clay"><div class="fi" style="background:rgba(236,72,153,.15)"><svg class="ico" style="color:var(--rose)"><use href="#i-sparkles"/></svg></div><h3>Satisfaction garantie</h3><p>Pas satisfait ? On trouve une solution. Des centaines d'avis 5 étoiles parlent pour nous.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ PRICING ══════ -->
+<section id="tarifs">
+  <div class="container">
+    <div class="head reveal">
+      <div class="label"><svg class="ico"><use href="#i-crown"/></svg>Formules &amp; tarifs</div>
+      <h2 class="h-title">Choisissez votre <span class="grad">formule royale</span></h2>
+      <p class="h-sub">Aucun frais caché. Livraison offerte dans un rayon de 20 km autour de Bruxelles.</p>
+    </div>
+    <div class="pricing-grid stagger">
+      <div class="plan clay">
+        <h3>Fête Royale</h3><p class="desc">L'essentiel pour un anniversaire réussi</p>
+        <div class="amt">149€ <span>/ jour</span></div>
+        <ul>
+          <li><svg class="ico"><use href="#i-check"/></svg>Un château au choix (standard)</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Livraison dans un rayon de 20 km</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Installation complète et sécurisée</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Assurance incluse</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Démontage le soir même</li>
+        </ul>
+        <button class="btn-plan line" data-sfx="click">Choisir cette formule</button>
+      </div>
+      <div class="plan clay feat-plan">
+        <div class="plan-badge"><svg class="ico"><use href="#i-crown"/></svg>Le plus populaire</div>
+        <h3>Grand Bal</h3><p class="desc">La formule préférée des parents</p>
+        <div class="amt">229€ <span>/ jour</span></div>
+        <ul>
+          <li><svg class="ico"><use href="#i-check"/></svg>Château premium au choix</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Livraison &amp; installation VIP</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Tapis de saut &amp; barricades</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Présence d'un animateur (1h)</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Photos souvenir (×10)</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Assurance complète</li>
+        </ul>
+        <button class="btn-plan solid" data-confetti data-sfx="pop"><svg class="ico"><use href="#i-sparkles"/></svg>Choisir cette formule</button>
+      </div>
+      <div class="plan clay">
+        <h3>Royaume Complet</h3><p class="desc">Pour une fête 100 % clé en main</p>
+        <div class="amt">329€ <span>/ jour</span></div>
+        <ul>
+          <li><svg class="ico"><use href="#i-check"/></svg>Tout ce qui est dans Grand Bal</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Mascotte déguisée (3h)</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Décoration thématique complète</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Gâteau d'anniversaire surprise</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Barbe à papa ou popcorn</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Invitations personnalisées</li>
+        </ul>
+        <button class="btn-plan line" data-sfx="click">Choisir cette formule</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ AVIS ══════ -->
+<section id="avis">
+  <div class="container">
+    <div class="head reveal">
+      <div class="label"><svg class="ico"><use href="#i-star"/></svg>Témoignages</div>
+      <h2 class="h-title">Ce que les familles <span class="grad">racontent</span></h2>
+      <p class="h-sub">De vraies histoires de parents qui ont offert un moment inoubliable à leurs enfants.</p>
+    </div>
+    <div class="car reveal">
+      <div class="car-track" id="avisTrack" role="list">
+        <div class="avis clay" role="listitem"><div class="stars">★★★★★</div><p class="txt">« Le château était magnifique et les enfants n'ont pas voulu partir ! L'équipe est super pro, ponctuelle et souriante. Je recommande les yeux fermés. »</p><div class="who"><div class="ava" style="background:linear-gradient(135deg,#ec4899,#7c3aed)">S</div><div><div class="nm">Sophie M.</div><div class="lo">Bruxelles</div></div></div></div>
+        <div class="avis clay" role="listitem"><div class="stars">★★★★★</div><p class="txt">« La mascotte Mickey a fait pleurer de joie ma fille. On a pris la formule Royaume Complet et franchement, ça valait chaque centime. Une fête de rêve ! »</p><div class="who"><div class="ava" style="background:linear-gradient(135deg,#3b82f6,#7c3aed)">A</div><div><div class="nm">Arnaud D.</div><div class="lo">Liège</div></div></div></div>
+        <div class="avis clay" role="listitem"><div class="stars">★★★★★</div><p class="txt">« Troisième fois qu'on fait appel à Royal Dream. Toujours aussi parfait. La qualité du matériel est vraiment premium. »</p><div class="who"><div class="ava" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0a00">M</div><div><div class="nm">Marie-Claire L.</div><div class="lo">Namur</div></div></div></div>
+        <div class="avis clay" role="listitem"><div class="stars">★★★★★</div><p class="txt">« Réponse en moins d'1h sur WhatsApp, livraison à l'heure, équipe adorable. Mon fils a eu les yeux grands ouverts en voyant le château Licorne ! »</p><div class="who"><div class="ava" style="background:linear-gradient(135deg,#10b981,#059669)">K</div><div><div class="nm">Karim B.</div><div class="lo">Charleroi</div></div></div></div>
+      </div>
+      <div class="car-nav">
+        <button class="icon-btn" id="prev" aria-label="Avis précédent" data-sfx="click"><svg class="ico"><use href="#i-arrow-left"/></svg></button>
+        <button class="icon-btn" id="next" aria-label="Avis suivant" data-sfx="click"><svg class="ico"><use href="#i-arrow-right"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ FAQ ══════ -->
+<section id="faq">
+  <div class="container">
+    <div class="head reveal">
+      <div class="label"><svg class="ico"><use href="#i-chat"/></svg>Questions fréquentes</div>
+      <h2 class="h-title">Tout ce que vous <span class="grad">voulez savoir</span></h2>
+    </div>
+    <div class="faq stagger" id="faqList">
+      <div class="qa clay" data-open="false">
+        <button class="q" aria-expanded="false" data-sfx="click">Le château est-il sécurisé pour les enfants ?<svg class="ico"><use href="#i-plus"/></svg></button>
+        <div class="a"><div><p>Absolument. Tous nos châteaux sont homologués CE et contrôlés régulièrement. Chaque installation est réalisée par un technicien certifié qui vérifie l'ancrage et la sécurité avant de partir. Nous fournissons aussi des barricades de protection.</p></div></div>
+      </div>
+      <div class="qa clay" data-open="false">
+        <button class="q" aria-expanded="false" data-sfx="click">Que se passe-t-il en cas de pluie ?<svg class="ico"><use href="#i-plus"/></svg></button>
+        <div class="a"><div><p>Nous surveillons la météo avec vous. En cas de pluie légère, certains châteaux couverts restent utilisables. En cas de mauvais temps avéré, nous reportons sans frais à une date qui vous convient. Votre anniversaire aura toujours lieu !</p></div></div>
+      </div>
+      <div class="qa clay" data-open="false">
+        <button class="q" aria-expanded="false" data-sfx="click">Faut-il une alimentation électrique ?<svg class="ico"><use href="#i-plus"/></svg></button>
+        <div class="a"><div><p>Oui, une prise 220V standard à moins de 30 mètres du lieu d'installation. Nous fournissons la rallonge. Le château reste gonflé en permanence grâce à une soufflerie silencieuse (environ 800W).</p></div></div>
+      </div>
+      <div class="qa clay" data-open="false">
+        <button class="q" aria-expanded="false" data-sfx="click">Quelles sont les zones desservies ?<svg class="ico"><use href="#i-plus"/></svg></button>
+        <div class="a"><div><p>Nous livrons dans tout Bruxelles et dans un rayon de 20 km (Waterloo, Louvain-la-Neuve, Liège, Namur, Charleroi…). Pour les distances plus importantes, contactez-nous : on trouve toujours une solution.</p></div></div>
+      </div>
+      <div class="qa clay" data-open="false">
+        <button class="q" aria-expanded="false" data-sfx="click">Peut-on annuler ou reporter une réservation ?<svg class="ico"><use href="#i-plus"/></svg></button>
+        <div class="a"><div><p>Oui, jusqu'à 48h avant la date vous pouvez reporter gratuitement. Une annulation à moins de 48h entraîne des frais de déplacement. En cas de force majeure (météo extrême, maladie), nous faisons preuve de compréhension.</p></div></div>
+      </div>
+      <div class="qa clay" data-open="false">
+        <button class="q" aria-expanded="false" data-sfx="click">À partir de quel âge peut-on l'utiliser ?<svg class="ico"><use href="#i-plus"/></svg></button>
+        <div class="a"><div><p>Nous avons des structures adaptées dès 1 an (Le Soleil des Petits) jusqu'à 14 ans (La Tour du Dragon). Chaque château indique sa tranche d'âge recommandée. Un adulte doit superviser les enfants à tout moment.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ CTA FINAL ══════ -->
+<section id="contact" class="final">
+  <div class="container">
+    <svg class="ico ico-xl reveal"><use href="#i-castle"/></svg>
+    <h2 class="reveal">Prêt à vivre <span class="grad">la magie ?</span></h2>
+    <p class="reveal">Demandez votre devis gratuit — dites-nous la date, le thème et la mascotte choisie, on s'occupe du reste.</p>
+    <div class="final-btns reveal">
+      <a href="https://wa.me/32400000000" class="btn-big" data-confetti data-sfx="chime"><svg class="ico"><use href="#i-chat"/></svg>Devis WhatsApp</a>
+      <a href="tel:+32400000000" class="btn-ghost" data-sfx="click"><svg class="ico"><use href="#i-phone"/></svg>+32 400 00 00 00</a>
+    </div>
+    <div class="contact-row reveal">
+      <a href="mailto:hello@royaldream.events"><svg class="ico"><use href="#i-mail"/></svg>hello@royaldream.events</a>
+      <span style="color:var(--text-muted)"><svg class="ico" style="vertical-align:-3px"><use href="#i-clock"/></svg> Réponse en quelques minutes</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ FOOTER ══════ -->
+<footer>
+  <div class="foot-grid">
+    <div class="foot-brand">
+      <a href="#hero" class="brand"><svg class="ico"><use href="#i-crown"/></svg><span>Royal Dream</span></a>
+      <p>Location de châteaux gonflables et mascottes pour anniversaires d'enfants à Bruxelles et en Belgique francophone. La magie, livrée chez vous.</p>
+      <div class="socials">
+        <a href="#" aria-label="Instagram"><svg class="ico"><use href="#i-instagram"/></svg></a>
+        <a href="#" aria-label="Facebook"><svg class="ico"><use href="#i-facebook"/></svg></a>
+        <a href="#" aria-label="TikTok"><svg class="ico"><use href="#i-music"/></svg></a>
+      </div>
+    </div>
+    <div class="foot-col"><h4>Navigation</h4><ul><li><a href="#mascottes">Mascottes</a></li><li><a href="#chateaux">Châteaux</a></li><li><a href="#tarifs">Tarifs</a></li><li><a href="#avis">Avis</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+    <div class="foot-col"><h4>Zones desservies</h4><ul><li><a href="#">Bruxelles</a></li><li><a href="#">Waterloo</a></li><li><a href="#">Louvain-la-Neuve</a></li><li><a href="#">Liège</a></li><li><a href="#">Namur</a></li><li><a href="#">Charleroi</a></li></ul></div>
+    <div class="foot-col"><h4>Contact</h4><ul><li><a href="tel:+32400000000">+32 400 00 00 00</a></li><li><a href="mailto:hello@royaldream.events">hello@royaldream.events</a></li><li><a href="https://wa.me/32400000000">WhatsApp</a></li><li><a href="#">Mentions légales</a></li><li><a href="#">Confidentialité</a></li></ul></div>
+  </div>
+  <div class="foot-bottom">
+    <span>© 2026 Royal Dream Events. Tous droits réservés.</span>
+    <span style="color:var(--gold)">Fait avec passion à Bruxelles</span>
+  </div>
+</footer>
+</div>
+
+<!-- ══════ FLOATING ACTIONS ══════ -->
+<a href="https://wa.me/32400000000" class="fab wa" aria-label="Contacter sur WhatsApp" data-sfx="click"><svg class="ico"><use href="#i-chat"/></svg></a>
+<button class="fab top" id="toTop" aria-label="Retour en haut"><svg class="ico"><use href="#i-arrow-up"/></svg></button>
+
+<canvas id="confetti-canvas" style="position:fixed;inset:0;z-index:200;pointer-events:none" aria-hidden="true"></canvas>
+
+<script>
+"use strict";
+const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (s,c=document)=>c.querySelector(s);
+const $$ = (s,c=document)=>[...c.querySelectorAll(s)];
+
+/* ════════ SFX — Web Audio synthesis (opt-in, skill: no autoplay sound) ════════ */
+const Sound = (()=>{
+  let ctx=null, on=false;
+  const ensure=()=>{ if(!ctx){ const A=window.AudioContext||window.webkitAudioContext; if(A) ctx=new A(); } if(ctx&&ctx.state==='suspended') ctx.resume(); return ctx; };
+  const tone=(f,d,type='sine',vol=.14,glide)=>{
+    if(!on||RM) return; const c=ensure(); if(!c) return;
+    const o=c.createOscillator(), g=c.createGain();
+    o.type=type; o.frequency.setValueAtTime(f,c.currentTime);
+    if(glide) o.frequency.exponentialRampToValueAtTime(glide,c.currentTime+d);
+    g.gain.setValueAtTime(0.0001,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(vol,c.currentTime+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+d);
+    o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime+d+.02);
+  };
+  return {
+    toggle(){ on=!on; if(on) ensure(); return on; },
+    get on(){ return on; },
+    play(kind){
+      if(!on||RM) return;
+      if(kind==='hover') tone(880,.07,'sine',.05,1100);
+      else if(kind==='click') tone(523.25,.12,'triangle',.1,784);
+      else if(kind==='pop'){ tone(300,.14,'sine',.18,920); }
+      else if(kind==='chime'){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.32,'sine',.09),i*75)); }
+    }
+  };
+})();
+
+const soundBtn=$('#soundBtn'), soundUse=$('#soundUse');
+soundBtn.addEventListener('click',()=>{
+  const on=Sound.toggle();
+  soundBtn.setAttribute('aria-pressed',String(on));
+  soundBtn.setAttribute('aria-label',on?'Couper les effets sonores':'Activer les effets sonores');
+  soundUse.setAttribute('href',on?'#i-volume':'#i-volume-x');
+  if(on) Sound.play('chime');
+});
+/* generic SFX wiring */
+$$('[data-sfx]').forEach(el=>{
+  el.addEventListener('click',()=>Sound.play(el.dataset.sfx));
+  if(el.dataset.sfx!=='hover') el.addEventListener('mouseenter',()=>Sound.play('hover'));
+});
+
+/* ════════ CONFETTI VFX ════════ */
+const Confetti=(()=>{
+  const cv=$('#confetti-canvas'), cx=cv.getContext('2d'); let parts=[],raf=null;
+  const size=()=>{cv.width=innerWidth;cv.height=innerHeight;};
+  size(); addEventListener('resize',size,{passive:true});
+  const COL=['#ec4899','#7c3aed','#3b82f6','#fbbf24','#34d399','#f0abfc'];
+  function burst(x,y){
+    if(RM) return;
+    for(let i=0;i<90;i++){
+      const a=Math.random()*Math.PI*2, sp=4+Math.random()*9;
+      parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-6,g:.22+Math.random()*.1,
+        s:5+Math.random()*7,c:COL[i%COL.length],rot:Math.random()*6.28,vr:(.2-Math.random()*.4),life:1});
+    }
+    if(!raf) loop();
+  }
+  function loop(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    parts.forEach(p=>{p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;p.life-=.009;
+      cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);cx.globalAlpha=Math.max(p.life,0);
+      cx.fillStyle=p.c;cx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);cx.restore();});
+    parts=parts.filter(p=>p.life>0&&p.y<cv.height+40);
+    raf=parts.length?requestAnimationFrame(loop):(cx.clearRect(0,0,cv.width,cv.height),null);
+  }
+  return {burst};
+})();
+$$('[data-confetti]').forEach(el=>el.addEventListener('click',e=>{
+  const r=el.getBoundingClientRect();
+  Confetti.burst(r.left+r.width/2,r.top+r.height/2);
+}));
+
+/* ════════ STARFIELD CANVAS VFX ════════ */
+(()=>{
+  if(RM) return;
+  const cv=$('#fx-canvas'), cx=cv.getContext('2d'); let stars=[],sparks=[],w,h;
+  function init(){ w=cv.width=innerWidth; h=cv.height=innerHeight;
+    stars=Array.from({length:Math.min(120,Math.floor(w/12))},()=>({
+      x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.4+.3,
+      a:Math.random(),da:(Math.random()*.02+.005)*(Math.random()<.5?-1:1)})); }
+  init(); addEventListener('resize',init,{passive:true});
+  function loop(){
+    cx.clearRect(0,0,w,h);
+    stars.forEach(s=>{s.a+=s.da; if(s.a>1||s.a<0)s.da*=-1;
+      cx.globalAlpha=Math.abs(s.a)*.8;cx.fillStyle='#fff';
+      cx.beginPath();cx.arc(s.x,s.y,s.r,0,6.28);cx.fill();});
+    sparks.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.05;p.life-=.02;
+      cx.globalAlpha=Math.max(p.life,0);cx.fillStyle=p.c;
+      cx.beginPath();cx.arc(p.x,p.y,p.r,0,6.28);cx.fill();});
+    sparks=sparks.filter(p=>p.life>0);
+    requestAnimationFrame(loop);
+  }
+  loop();
+  /* cursor sparkle trail (fine pointers only) */
+  if(matchMedia('(pointer:fine)').matches){
+    let last=0;
+    addEventListener('pointermove',e=>{
+      const t=performance.now(); if(t-last<40)return; last=t;
+      const C=['#fbbf24','#ec4899','#a78bfa','#fff'];
+      sparks.push({x:e.clientX,y:e.clientY,vx:(Math.random()-.5)*1.5,vy:(Math.random()-.5)*1.5,
+        r:Math.random()*2+1,life:1,c:C[(Math.random()*C.length)|0]});
+      if(sparks.length>120)sparks.shift();
+    },{passive:true});
+  }
+})();
+
+/* ════════ PRELOADER (non-blocking) ════════ */
+addEventListener('load',()=>{ setTimeout(()=>$('#pre')?.classList.add('hide'),350); });
+setTimeout(()=>$('#pre')?.classList.add('hide'),1600); // safety cap
+
+/* ════════ NAV scroll state + progress + toTop ════════ */
+const nav=$('#nav'), prog=$('#progress'), toTop=$('#toTop');
+addEventListener('scroll',()=>{
+  const y=scrollY;
+  nav.classList.toggle('scrolled',y>60);
+  toTop.classList.toggle('show',y>500);
+  const max=document.documentElement.scrollHeight-innerHeight;
+  prog.style.width=(max>0?(y/max*100):0)+'%';
+},{passive:true});
+toTop.addEventListener('click',()=>scrollTo({top:0,behavior:RM?'auto':'smooth'}));
+
+/* ════════ MOBILE DRAWER (accessible) ════════ */
+const drawer=$('#drawer'), burger=$('#burger');
+const openDrawer=()=>{drawer.classList.add('open');burger.setAttribute('aria-expanded','true');$('#drawerClose').focus();};
+const closeDrawer=()=>{drawer.classList.remove('open');burger.setAttribute('aria-expanded','false');burger.focus();};
+burger.addEventListener('click',openDrawer);
+$('#drawerClose').addEventListener('click',closeDrawer);
+drawer.addEventListener('click',e=>{if(e.target===drawer)closeDrawer();});
+$$('#drawer a').forEach(a=>a.addEventListener('click',closeDrawer));
+addEventListener('keydown',e=>{if(e.key==='Escape'&&drawer.classList.contains('open'))closeDrawer();});
+
+/* ════════ SCROLL REVEAL ════════ */
+(()=>{
+  const io=new IntersectionObserver((es)=>es.forEach(e=>{
+    if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}
+  }),{threshold:.12,rootMargin:'-50px 0px'});
+  $$('.reveal,.stagger').forEach(el=>io.observe(el));
+})();
+
+/* ════════ COUNT-UP ════════ */
+(()=>{
+  const io=new IntersectionObserver((es)=>es.forEach(e=>{
+    if(!e.isIntersecting)return; const el=e.target, target=+el.dataset.count, suf=el.dataset.suffix||'';
+    if(RM){el.textContent=target+suf;io.unobserve(el);return;}
+    const dur=1500,st=performance.now();
+    (function tick(now){const p=Math.min((now-st)/dur,1);
+      el.textContent=Math.round((1-Math.pow(1-p,3))*target)+suf;
+      if(p<1)requestAnimationFrame(tick);})(st);
+    io.unobserve(el);
+  }),{threshold:.6});
+  $$('[data-count]').forEach(el=>io.observe(el));
+})();
+
+/* ════════ FAQ accordion (aria-expanded) ════════ */
+$$('#faqList .qa').forEach(qa=>{
+  const btn=$('.q',qa);
+  btn.addEventListener('click',()=>{
+    const open=qa.dataset.open==='true';
+    $$('#faqList .qa').forEach(o=>{o.dataset.open='false';$('.q',o).setAttribute('aria-expanded','false');});
+    qa.dataset.open=String(!open);
+    btn.setAttribute('aria-expanded',String(!open));
+  });
+});
+
+/* ════════ CHÂTEAUX filter ════════ */
+$$('.chip').forEach(chip=>chip.addEventListener('click',()=>{
+  $$('.chip').forEach(c=>c.setAttribute('aria-pressed','false'));
+  chip.setAttribute('aria-pressed','true');
+  const f=chip.dataset.filter;
+  $$('#castleGrid .castle-card').forEach(card=>{
+    card.classList.toggle('hide',!(f==='all'||card.dataset.cat===f));
+  });
+}));
+
+/* ════════ AVIS carousel (responsive, looping) ════════ */
+(()=>{
+  const track=$('#avisTrack'); if(!track)return;
+  const cards=$$('.avis',track); let idx=0;
+  const step=()=>{const c=cards[0];const g=parseFloat(getComputedStyle(track).gap)||24;return c.offsetWidth+g;};
+  const perView=()=>Math.max(1,Math.round(track.parentElement.offsetWidth/step()));
+  const max=()=>Math.max(0,cards.length-perView());
+  const go=d=>{idx=Math.min(Math.max(idx+d,0),max());track.style.transform=`translateX(-${idx*step()}px)`;};
+  $('#next').addEventListener('click',()=>{idx>=max()?(idx=-1):0;go(1);});
+  $('#prev').addEventListener('click',()=>{idx<=0?(idx=max()+1):0;go(-1);});
+  addEventListener('resize',()=>{idx=Math.min(idx,max());track.style.transform=`translateX(-${idx*step()}px)`;},{passive:true});
+  let timer=setInterval(()=>{idx>=max()?(idx=-1):0;go(1);},5000);
+  track.parentElement.addEventListener('mouseenter',()=>clearInterval(timer));
+  track.parentElement.addEventListener('mouseleave',()=>timer=setInterval(()=>{idx>=max()?(idx=-1):0;go(1);},5000));
+})();
+
+/* ════════ 3D TILT (rAF, transform/opacity only — skill: transform-performance) ════════ */
+if(!RM && matchMedia('(pointer:fine)').matches){
+  $$('.tilt').forEach(card=>{
+    let rq=null,rx=0,ry=0;
+    card.addEventListener('pointermove',e=>{
+      const r=card.getBoundingClientRect();
+      const px=(e.clientX-r.left)/r.width-.5, py=(e.clientY-r.top)/r.height-.5;
+      ry=px*7; rx=-py*7;
+      if(!rq)rq=requestAnimationFrame(()=>{card.style.transform=`perspective(700px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-6px)`;rq=null;});
+    });
+    card.addEventListener('pointerleave',()=>{card.style.transform='';});
+  });
+}
+
+/* ════════ HERO parallax (subtle, transform only) ════════ */
+if(!RM){
+  const stage=$('#heroStage');
+  $('#heroVisual')?.addEventListener('pointermove',e=>{
+    const r=e.currentTarget.getBoundingClientRect();
+    const px=(e.clientX-r.left)/r.width-.5, py=(e.clientY-r.top)/r.height-.5;
+    stage.style.transform=`rotateX(${-py*6}deg) rotateY(${px*6}deg)`;
+  });
+  $('#heroVisual')?.addEventListener('pointerleave',()=>stage.style.transform='');
+}
+
+/* ════════ smooth anchor scroll ════════ */
+$$('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{
+  const id=a.getAttribute('href'); if(id==='#'||id.length<2)return;
+  const t=$(id); if(t){e.preventDefault();t.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});}
+}));
+</script>
+</body>
+</html>
