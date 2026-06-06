@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="OBSIDIAN — Location de véhicules premium & de luxe. L'Audi RS6 et une flotte d'exception, gérées par une plateforme digne d'une keynote.">
+<meta name="theme-color" content="#08090c">
+<title>OBSIDIAN — Premium & Luxury Car Rental</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ════════ TOKENS (dark cinematic premium · skill: liquid-glass + action red) ════════ */
+:root{
+  --bg:#08090c; --bg-2:#0d0f14; --panel:#13161d; --ink:#f6f7fa; --soft:#aeb4c2; --muted:#727a8c;
+  --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.14);
+  --red:#e11d2a; --red-2:#ff3b46; --red-glow:rgba(225,29,42,.45);
+  --chrome:linear-gradient(180deg,#fff,#9aa1ad 60%,#5b616d);
+  --glass:rgba(255,255,255,.05); --glass-2:rgba(255,255,255,.08);
+  --r:16px; --r-lg:24px; --pill:999px; --ease:cubic-bezier(.22,1,.36,1);
+  /* swap points for your real photos: */
+  --rs6-side:none; --rs6-front:none; --rs6-rear:none;
+}
+@property --p{syntax:'<number>';inherits:true;initial-value:0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased;line-height:1.6}
+h1,h2,h3{font-family:'Sora','Inter',sans-serif;line-height:1.04;letter-spacing:-.02em;font-weight:800}
+a{color:inherit;text-decoration:none}
+.disp{font-family:'Sora',sans-serif}
+:focus-visible{outline:2px solid var(--red-2);outline-offset:3px;border-radius:6px}
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.shell{max-width:1240px;margin-inline:auto;padding-inline:clamp(1.1rem,4vw,2.5rem)}
+.eyebrow{font-size:.74rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--red-2)}
+.lede{color:var(--soft);font-size:1.05rem;max-width:56ch}
+
+/* scroll progress */
+#bar{position:fixed;top:0;left:0;height:2px;width:0;z-index:200;background:linear-gradient(90deg,var(--red),var(--red-2));box-shadow:0 0 12px var(--red-glow)}
+
+/* ════════ HEADER ════════ */
+header{position:fixed;top:0;inset-inline:0;z-index:100;display:flex;align-items:center;justify-content:space-between;
+  padding:1.1rem clamp(1.1rem,4vw,2.5rem);transition:background .4s var(--ease),backdrop-filter .4s,border-color .4s;border-bottom:1px solid transparent}
+header.solid{background:rgba(8,9,12,.72);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border-color:var(--line)}
+.brand{display:flex;align-items:center;gap:.6rem;font-family:'Sora';font-weight:800;font-size:1.15rem;letter-spacing:.02em}
+.brand .mk{width:26px;height:26px;border-radius:7px;background:var(--chrome);display:grid;place-items:center;color:#08090c;font-size:.8rem;box-shadow:0 2px 10px rgba(255,255,255,.18)}
+.nav{display:flex;gap:.3rem;align-items:center}
+.nav a{font-size:.88rem;font-weight:500;color:var(--soft);padding:.5rem .9rem;border-radius:var(--pill);transition:color .25s,background .25s}
+.nav a:hover{color:#fff;background:var(--glass)}
+.btn{display:inline-flex;align-items:center;gap:.5rem;font-family:'Inter';font-weight:700;font-size:.9rem;cursor:pointer;border:none;border-radius:var(--pill);transition:transform .25s var(--ease),box-shadow .3s,background .3s}
+.btn .ico{width:17px;height:17px}
+.btn-red{background:var(--red);color:#fff;padding:.7rem 1.4rem;box-shadow:0 8px 26px var(--red-glow)}
+.btn-red:hover{transform:translateY(-2px);box-shadow:0 12px 36px var(--red-glow);background:var(--red-2)}
+.btn-ghost{background:var(--glass);color:#fff;border:1px solid var(--line-2);padding:.7rem 1.3rem}
+.btn-ghost:hover{background:var(--glass-2);transform:translateY(-2px)}
+.btn-lg{padding:.95rem 1.9rem;font-size:1rem}
+.burger{display:none;background:var(--glass);border:1px solid var(--line-2);width:42px;height:42px;border-radius:12px;color:#fff;cursor:pointer;align-items:center;justify-content:center}
+.burger .ico{width:20px;height:20px}
+
+/* ════════ ACT 1 — PINNED CINEMATIC REVEAL ════════ */
+.pin-track{height:340vh;position:relative}
+.pin{position:sticky;top:0;height:100svh;overflow:hidden;display:grid;place-items:center}
+/* environment */
+.floor{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);width:160%;height:46%;
+  background:radial-gradient(60% 100% at 50% 0%,rgba(255,255,255,.07),transparent 70%);filter:blur(4px)}
+.spot{position:absolute;top:-10%;width:60%;height:120%;pointer-events:none;
+  background:conic-gradient(from 90deg at 50% 0,transparent 78deg,rgba(255,255,255,.10) 90deg,transparent 102deg);
+  opacity:calc(.2 + var(--p)*.8);transition:opacity .2s}
+.spot.l{left:2%;transform:rotate(8deg)} .spot.r{right:2%;transform:rotate(-8deg)}
+.vign{position:absolute;inset:0;background:radial-gradient(80% 70% at 50% 46%,transparent 40%,rgba(0,0,0,.7));pointer-events:none}
+.grid-floor{position:absolute;left:0;right:0;bottom:0;height:38%;
+  background:linear-gradient(transparent,rgba(225,29,42,.05)),
+    repeating-linear-gradient(90deg,transparent 0 78px,rgba(255,255,255,.04) 78px 79px);
+  transform:perspective(420px) rotateX(64deg);transform-origin:bottom;opacity:.6}
+
+/* the RS6 — anchor of the whole story */
+.stage{position:relative;z-index:2;width:min(92vw,1080px);
+  transform:translateX(calc(var(--p)*-7%)) scale(calc(1 + var(--p)*.14));
+  filter:drop-shadow(0 50px 60px rgba(0,0,0,.6));animation:breathe 6s ease-in-out infinite}
+@keyframes breathe{0%,100%{translate:0 0}50%{translate:0 -10px}}
+.car{position:relative}
+.car svg,.car img{width:100%;display:block}
+.car .swap{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+/* light sheen sweeping the body */
+.sheen{position:absolute;inset:0;mix-blend-mode:overlay;pointer-events:none;
+  background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.55) 46%,rgba(255,255,255,.0) 60%);
+  background-size:240% 100%;animation:sweep 6.5s linear infinite}
+@keyframes sweep{0%{background-position:170% 0}100%{background-position:-70% 0}}
+/* reveal-from-black on load */
+.stage{opacity:0;animation:emerge 1.8s var(--ease) .2s forwards,breathe 6s ease-in-out 2s infinite}
+@keyframes emerge{0%{opacity:0;transform:translateY(40px) scale(.94);filter:blur(14px) drop-shadow(0 50px 60px #000)}100%{opacity:1;transform:none;filter:blur(0) drop-shadow(0 50px 60px rgba(0,0,0,.6))}}
+
+/* giant kinetic wordmark behind */
+.kinetic{position:absolute;z-index:1;left:50%;top:50%;translate:-50% -50%;white-space:nowrap;font-family:'Sora';font-weight:800;
+  font-size:clamp(4rem,17vw,15rem);letter-spacing:-.03em;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.12);
+  opacity:calc(.5 - var(--p)*.4);transform:translate(-50%,-50%) translateX(calc(var(--p)*-6vw))}
+
+/* act copy overlays */
+.acts{position:absolute;inset:0;z-index:3;pointer-events:none}
+.act{position:absolute;inset:auto auto 13% 0;width:100%;opacity:0;transition:opacity .5s var(--ease),transform .5s var(--ease);transform:translateY(20px)}
+.act.on{opacity:1;transform:none;pointer-events:auto}
+.act .shell{display:flex;flex-direction:column;gap:1.1rem;align-items:flex-start}
+.act h1{font-size:clamp(2.6rem,6.4vw,5.2rem)}
+.act .row{display:flex;gap:.9rem;flex-wrap:wrap;align-items:center}
+.scrollcue{position:absolute;left:50%;bottom:2rem;translate:-50% 0;z-index:4;color:var(--muted);font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:.5rem;opacity:calc(1 - var(--p)*2)}
+.scrollcue i{width:1px;height:34px;background:linear-gradient(var(--red-2),transparent);animation:drop 1.6s infinite}
+@keyframes drop{0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}51%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* ════════ GENERIC SECTION ════════ */
+section.blk{padding:clamp(5rem,11vw,9rem) 0;position:relative}
+.head2{max-width:720px;margin-bottom:3rem}
+.head2 h2{font-size:clamp(2rem,4.6vw,3.3rem);margin:.7rem 0 1rem}
+.reveal{opacity:0;transform:translateY(40px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+.delay-1{transition-delay:.08s}.delay-2{transition-delay:.16s}.delay-3{transition-delay:.24s}
+
+/* ════════ COLLECTION (spotlight reveal) ════════ */
+.collection{display:flex;flex-direction:column;gap:clamp(2rem,5vw,4.5rem)}
+.vehicle{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1.5rem,4vw,3.5rem);align-items:center}
+.vehicle:nth-child(even){direction:rtl}.vehicle:nth-child(even)>*{direction:ltr}
+.veh-stage{position:relative;border-radius:var(--r-lg);overflow:hidden;aspect-ratio:16/10;
+  background:radial-gradient(70% 90% at 50% 30%,#1a1d25,#0a0b0f 75%);border:1px solid var(--line);display:grid;place-items:center}
+.veh-stage::before{content:"";position:absolute;top:-30%;left:50%;translate:-50% 0;width:70%;height:90%;
+  background:conic-gradient(from 90deg at 50% 0,transparent 76deg,rgba(255,255,255,.12) 90deg,transparent 104deg);opacity:0;transition:opacity .8s var(--ease)}
+.vehicle.in .veh-stage::before{opacity:1}
+.veh-stage svg,.veh-stage img{width:86%;filter:drop-shadow(0 30px 40px rgba(0,0,0,.6));transform:scale(.9);opacity:0;transition:transform 1s var(--ease),opacity .8s}
+.vehicle.in .veh-stage svg,.vehicle.in .veh-stage img{transform:none;opacity:1}
+.veh-badge{position:absolute;top:14px;left:14px;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  padding:.34rem .8rem;border-radius:var(--pill);background:var(--glass);border:1px solid var(--line-2);backdrop-filter:blur(8px)}
+.veh-info h3{font-size:clamp(1.8rem,3.4vw,2.6rem);margin-bottom:.5rem}
+.veh-specs{display:flex;gap:1.6rem;flex-wrap:wrap;margin:1.4rem 0}
+.veh-specs .s b{font-family:'Sora';font-size:1.5rem;display:block}
+.veh-specs .s span{font-size:.76rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.veh-price{color:var(--soft);margin-bottom:1.4rem}.veh-price b{color:#fff;font-family:'Sora';font-size:1.3rem}
+
+/* ════════ ANATOMY details ════════ */
+.anat{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem}
+.detail{position:relative;border-radius:var(--r);overflow:hidden;aspect-ratio:3/4;border:1px solid var(--line);
+  background:linear-gradient(160deg,#15181f,#0b0c10);padding:1.4rem;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;transition:transform .4s var(--ease),border-color .4s}
+.detail:hover{transform:translateY(-6px);border-color:var(--red)}
+.detail .di{position:absolute;top:1.2rem;left:1.2rem;width:30px;height:30px;color:var(--red-2)}
+.detail .di .ico{width:30px;height:30px}
+.detail h4{font-size:1.05rem;font-family:'Sora'}
+.detail p{font-size:.82rem;color:var(--soft)}
+.detail::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 50% at 50% 30%,rgba(225,29,42,.16),transparent 70%);opacity:0;transition:opacity .4s}
+.detail:hover::after{opacity:1}
+
+/* ════════ CONFIGURATOR ════════ */
+.config{border:1px solid var(--line);border-radius:var(--r-lg);background:linear-gradient(160deg,rgba(255,255,255,.04),transparent);overflow:hidden}
+.config-top{display:flex;gap:.5rem;padding:1.1rem 1.4rem;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.step-dot{display:flex;align-items:center;gap:.55rem;font-size:.84rem;color:var(--muted);font-weight:600;padding:.4rem .8rem;border-radius:var(--pill)}
+.step-dot b{width:22px;height:22px;border-radius:50%;background:var(--glass-2);display:grid;place-items:center;font-size:.74rem;border:1px solid var(--line-2)}
+.step-dot.active{color:#fff}.step-dot.active b{background:var(--red);border-color:var(--red)}
+.config-body{padding:clamp(1.4rem,3vw,2.4rem)}
+.cfg-step{display:none;animation:fade .5s var(--ease)}.cfg-step.show{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.opt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.9rem;margin-top:1.2rem}
+.opt{border:1px solid var(--line-2);border-radius:var(--r);padding:1.1rem;cursor:pointer;background:var(--glass);transition:border-color .25s,background .25s,transform .25s}
+.opt:hover{transform:translateY(-3px)}
+.opt[aria-pressed="true"]{border-color:var(--red);background:rgba(225,29,42,.1)}
+.opt .t{font-family:'Sora';font-weight:700;margin-bottom:.2rem}.opt .d{font-size:.8rem;color:var(--soft)}
+.opt .pr{margin-top:.6rem;font-size:.85rem;color:var(--red-2);font-weight:700}
+.field{display:flex;flex-direction:column;gap:.4rem;margin-top:1rem}
+.field label{font-size:.8rem;color:var(--soft);font-weight:600}
+.field input{background:var(--bg-2);border:1px solid var(--line-2);border-radius:12px;padding:.8rem 1rem;color:#fff;font-family:'Inter';font-size:.95rem}
+.field input:focus{border-color:var(--red)}
+.config-foot{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.2rem 1.4rem;border-top:1px solid var(--line);flex-wrap:wrap}
+.summary{font-size:.9rem;color:var(--soft)}.summary b{color:#fff;font-family:'Sora';font-size:1.5rem}
+
+/* ════════ TRUST ════════ */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:3.5rem}
+.stat{border:1px solid var(--line);border-radius:var(--r);padding:1.6rem;background:var(--glass)}
+.stat b{font-family:'Sora';font-size:clamp(1.8rem,3.6vw,2.6rem);display:block;background:var(--chrome);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.stat span{font-size:.82rem;color:var(--muted)}
+.cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem}
+.tcard{border:1px solid var(--line);border-radius:var(--r);padding:1.6rem;background:linear-gradient(160deg,rgba(255,255,255,.04),transparent)}
+.tcard .di{width:34px;height:34px;color:var(--red-2);margin-bottom:1rem}.tcard .di .ico{width:34px;height:34px}
+.tcard h4{font-family:'Sora';margin-bottom:.4rem}.tcard p{font-size:.88rem;color:var(--soft)}
+.stars{color:var(--red-2);letter-spacing:2px;margin-bottom:.7rem}
+
+/* ════════ ECOSYSTEM (dashboard + admin previews) ════════ */
+.frame{border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;background:#0a0c11;box-shadow:0 40px 90px rgba(0,0,0,.6)}
+.frame-bar{display:flex;align-items:center;gap:.5rem;padding:.7rem 1rem;background:#0e1117;border-bottom:1px solid var(--line)}
+.frame-bar i{width:11px;height:11px;border-radius:50%;background:#2a2f3a}
+.frame-bar .url{margin-left:.8rem;font-size:.76rem;color:var(--muted);background:#0a0c11;border:1px solid var(--line);border-radius:8px;padding:.3rem .8rem}
+.dash{display:grid;grid-template-columns:200px 1fr;min-height:380px}
+.dash-side{border-right:1px solid var(--line);padding:1.1rem;display:flex;flex-direction:column;gap:.25rem;background:#0b0e13}
+.dash-side .si{display:flex;align-items:center;gap:.7rem;font-size:.85rem;color:var(--soft);padding:.6rem .7rem;border-radius:10px}
+.dash-side .si .ico{width:17px;height:17px}
+.dash-side .si.active{background:var(--glass-2);color:#fff}
+.dash-main{padding:1.4rem}
+.dash-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-bottom:1.1rem}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:1rem;background:var(--glass)}
+.kpi span{font-size:.74rem;color:var(--muted)}.kpi b{font-family:'Sora';font-size:1.5rem;display:block;margin-top:.2rem}
+.kpi .up{color:#34d399;font-size:.74rem;font-weight:700}
+.tbl{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tbl .tr{display:grid;grid-template-columns:1.6fr 1fr 1fr .8rem;gap:.5rem;padding:.7rem 1rem;font-size:.82rem;border-bottom:1px solid var(--line);align-items:center}
+.tbl .tr.h{color:var(--muted);font-weight:700;background:#0b0e13}.tbl .tr:last-child{border-bottom:none}
+.tag{font-size:.7rem;font-weight:700;padding:.2rem .55rem;border-radius:var(--pill)}
+.tag.g{background:rgba(52,211,153,.16);color:#34d399}.tag.r{background:rgba(225,29,42,.16);color:var(--red-2)}.tag.b{background:rgba(59,130,246,.16);color:#60a5fa}
+.spark{display:flex;align-items:flex-end;gap:4px;height:60px;margin-top:.6rem}
+.spark i{flex:1;background:linear-gradient(var(--red-2),var(--red));border-radius:3px 3px 0 0;opacity:.85}
+.gauge{--g:78;width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--red) calc(var(--g)*1%),#1b1e26 0);display:grid;place-items:center;margin:0 auto}
+.gauge::after{content:"78%";width:84px;height:84px;border-radius:50%;background:#0b0e13;display:grid;place-items:center;font-family:'Sora';font-weight:700}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:center}
+
+/* ════════ FINAL CTA ════════ */
+.final{text-align:center;background:radial-gradient(70% 100% at 50% 0%,rgba(225,29,42,.14),transparent 60%)}
+.final h2{font-size:clamp(2.4rem,6vw,4.4rem);margin-bottom:1.1rem}
+.final p{color:var(--soft);max-width:50ch;margin:0 auto 2.2rem}
+
+footer{border-top:1px solid var(--line);padding:3rem 0 2rem;color:var(--muted);font-size:.85rem}
+.foot-grid{display:flex;justify-content:space-between;gap:2rem;flex-wrap:wrap;margin-bottom:2rem}
+.foot-grid a{color:var(--soft);display:block;padding:.25rem 0}
+.foot-grid a:hover{color:#fff}
+
+/* ════════ RESPONSIVE ════════ */
+@media(max-width:900px){
+  .nav{display:none}.burger{display:flex}
+  .vehicle,.vehicle:nth-child(even){grid-template-columns:1fr;direction:ltr}
+  .anat{grid-template-columns:repeat(2,1fr)}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .cards3{grid-template-columns:1fr}
+  .dash{grid-template-columns:1fr}.dash-side{flex-direction:row;overflow:auto;border-right:none;border-bottom:1px solid var(--line)}
+  .dash-row{grid-template-columns:1fr}.two{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition-duration:.01ms!important}
+  .stage{opacity:1!important;transform:none!important}
+  .pin-track{height:auto}.pin{position:relative;height:auto;padding:7rem 0}
+  .act{position:relative;opacity:1;transform:none}.kinetic{display:none}
+}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.5 12.5 8-8M16 6l2 2M14 8l2 2"/></symbol>
+  <symbol id="i-headlight" viewBox="0 0 24 24"><path d="M3 8a4 4 0 0 1 4-4h6a8 8 0 0 1 0 16H7a4 4 0 0 1-4-4z"/><path d="M17 9v6"/></symbol>
+  <symbol id="i-wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/></symbol>
+  <symbol id="i-brake" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M21 12h-3M12 21v-3M3 12h3"/></symbol>
+  <symbol id="i-cockpit" viewBox="0 0 24 24"><path d="M3 13a9 9 0 0 1 18 0"/><circle cx="12" cy="13" r="2.5"/><path d="M12 15.5V21M8 21h8"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/></symbol>
+  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2" y="14" width="5" height="7" rx="2"/><rect x="17" y="14" width="5" height="7" rx="2"/><path d="M20 21a4 4 0 0 1-4 3h-2"/></symbol>
+  <!-- RS6 Avant placeholder (swap with your photo) -->
+  <symbol id="rs6" viewBox="0 0 1000 380">
+    <defs>
+      <linearGradient id="paint" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34373d"/><stop offset=".4" stop-color="#16181c"/><stop offset="1" stop-color="#050507"/></linearGradient>
+      <linearGradient id="gloss" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <linearGradient id="glassg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7e8794"/><stop offset="1" stop-color="#2a2e35"/></linearGradient>
+    </defs>
+    <ellipse cx="500" cy="330" rx="430" ry="20" fill="#000" opacity=".5"/>
+    <!-- body: long Avant wagon roofline -->
+    <path d="M60 260 C90 214 150 206 196 200 C236 168 300 150 392 150 L735 152 C812 156 880 178 922 214 C946 230 952 250 940 268 C952 276 950 296 930 300 L120 300 C92 298 70 286 60 270 Z" fill="url(#paint)"/>
+    <path d="M60 260 C90 214 150 206 196 200 C236 168 300 150 392 150 L735 152 C812 156 880 178 922 214" fill="none" stroke="url(#gloss)" stroke-width="3"/>
+    <!-- greenhouse / windows -->
+    <path d="M236 196 C272 168 326 156 396 156 L700 158 C760 160 800 178 824 198 C760 192 660 190 540 190 C420 190 320 192 236 196 Z" fill="url(#glassg)" opacity=".92"/>
+    <path d="M404 158 V190 M548 158 V190 M676 162 V190" stroke="#0a0b0d" stroke-width="3" opacity=".55"/>
+    <!-- shoulder line -->
+    <path d="M150 244 q380 -30 770 6" stroke="#000" stroke-width="2" opacity=".5"/>
+    <!-- front splitter / grille hint -->
+    <path d="M60 270 q-6 14 14 18 l60 2 -6 -22 Z" fill="#0a0b0d"/>
+    <!-- full-width tail light -->
+    <path d="M922 234 q18 6 18 26 l-26 2 -4 -26 Z" fill="#e11d2a" opacity=".9"/>
+    <rect x="906" y="252" width="34" height="6" rx="3" fill="#ff3b46" opacity=".8"/>
+    <!-- headlight -->
+    <path d="M84 252 l44 4 -2 14 -46 -2 Z" fill="#dfe6f0" opacity=".9"/>
+    <!-- wheels: big gloss black 5-twin-spoke -->
+    <g>
+      <circle cx="278" cy="300" r="74" fill="#050506"/><circle cx="278" cy="300" r="46" fill="#1b1d22"/><circle cx="278" cy="300" r="14" fill="#3a3e46"/>
+      <g stroke="#0a0b0d" stroke-width="6"><path d="M278 256v88M234 300h88M247 269l62 62M309 269l-62 62"/></g>
+      <circle cx="668" cy="300" r="74" fill="#050506"/><circle cx="668" cy="300" r="46" fill="#1b1d22"/><circle cx="668" cy="300" r="14" fill="#3a3e46"/>
+      <g stroke="#0a0b0d" stroke-width="6"><path d="M668 256v88M624 300h88M637 269l62 62M699 269l-62 62"/></g>
+      <!-- red caliper -->
+      <rect x="262" y="294" width="10" height="14" rx="3" fill="#e11d2a"/><rect x="652" y="294" width="10" height="14" rx="3" fill="#e11d2a"/>
+    </g>
+  </symbol>
+</svg>
+
+<!-- ════════ HEADER ════════ -->
+<header id="hdr">
+  <a href="#top" class="brand"><span class="mk">◆</span> OBSIDIAN</a>
+  <nav class="nav">
+    <a href="#collection">Collection</a>
+    <a href="#anatomie">Détails</a>
+    <a href="#reserver">Réserver</a>
+    <a href="#plateforme">Plateforme</a>
+    <a href="#espace">Espace client</a>
+  </nav>
+  <div style="display:flex;gap:.6rem;align-items:center">
+    <button class="btn btn-red">Réserver<svg class="ico"><use href="#i-arrow"/></svg></button>
+    <button class="burger" aria-label="Menu"><svg class="ico"><use href="#i-menu"/></svg></button>
+  </div>
+</header>
+
+<!-- ════════ ACT 1 — pinned cinematic reveal ════════ -->
+<div class="pin-track" id="top">
+  <div class="pin" id="pin">
+    <div class="spot l"></div><div class="spot r"></div>
+    <div class="grid-floor"></div>
+    <div class="kinetic" id="kinetic">RS6</div>
+    <div class="floor"></div>
+    <div class="stage" id="stage">
+      <div class="car">
+        <svg viewBox="0 0 1000 380" aria-label="Audi RS6 Avant"><use href="#rs6"/></svg>
+        <!-- 👉 SWAP: <img class="swap" src="rs6-side.jpg" alt="Audi RS6"> -->
+        <div class="sheen"></div>
+      </div>
+    </div>
+    <div class="acts" id="acts">
+      <div class="act on" data-act="0"><div class="shell">
+        <p class="eyebrow">Obsidian · Private Collection</p>
+        <h1>L'exception<br>se conduit.</h1>
+        <p class="lede">Une flotte de véhicules premium et de luxe, orchestrée par une plateforme d'une précision absolue. Bienvenue dans le cercle.</p>
+        <div class="row"><button class="btn btn-red btn-lg">Découvrir la flotte<svg class="ico"><use href="#i-arrow"/></svg></button><button class="btn btn-ghost btn-lg"><svg class="ico"><use href="#i-play"/></svg> Le film</button></div>
+      </div></div>
+      <div class="act" data-act="1"><div class="shell">
+        <p class="eyebrow">RS6 Avant · 630 ch</p>
+        <h1>600 chevaux.<br>Zéro compromis.</h1>
+        <p class="lede">Châssis sport, transmission quattro, 0 à 100 en 3,4 s. La puissance d'une supercar dans le silence d'un salon privé.</p>
+      </div></div>
+      <div class="act" data-act="2"><div class="shell">
+        <p class="eyebrow">Chaque détail compte</p>
+        <h1>Conçue pour<br>marquer les esprits.</h1>
+        <p class="lede">Des reflets qui glissent sur la carrosserie aux jantes forgées : tout est pensé pour l'émotion. Continuez la visite.</p>
+      </div></div>
+    </div>
+    <div class="scrollcue">Scroll<i></i></div>
+  </div>
+</div>
+
+<!-- ════════ COLLECTION ════════ -->
+<section class="blk shell" id="collection">
+  <div class="head2 reveal"><p class="eyebrow">La Collection</p><h2>Un showroom privé, révélé un projecteur à la fois.</h2><p class="lede">Chaque véhicule est une pièce d'exception. Faites défiler : les projecteurs s'allument.</p></div>
+  <div class="collection">
+    <article class="vehicle reveal">
+      <div class="veh-stage"><span class="veh-badge">Signature</span><svg viewBox="0 0 1000 380" aria-label="RS6 Avant"><use href="#rs6"/></svg></div>
+      <div class="veh-info">
+        <p class="eyebrow">Audi</p><h3>RS6 Avant — ABT</h3>
+        <p class="lede">L'icône familiale qui terrasse les supercars. Présence brutale, raffinement total.</p>
+        <div class="veh-specs"><div class="s"><b>630</b><span>chevaux</span></div><div class="s"><b>3,4s</b><span>0–100 km/h</span></div><div class="s"><b>305</b><span>km/h</span></div></div>
+        <p class="veh-price">À partir de <b>890 €</b> / jour</p>
+        <button class="btn btn-red">Réserver la RS6<svg class="ico"><use href="#i-arrow"/></svg></button>
+      </div>
+    </article>
+    <article class="vehicle reveal">
+      <div class="veh-stage"><span class="veh-badge">Grand Tourisme</span><svg viewBox="0 0 1000 380" style="filter:hue-rotate(200deg) drop-shadow(0 30px 40px rgba(0,0,0,.6))"><use href="#rs6"/></svg></div>
+      <div class="veh-info">
+        <p class="eyebrow">Flotte</p><h3>Berline Executive</h3>
+        <p class="lede">Le confort d'une suite, la prestance d'un dirigeant. Pour les trajets qui comptent.</p>
+        <div class="veh-specs"><div class="s"><b>510</b><span>chevaux</span></div><div class="s"><b>4,1s</b><span>0–100 km/h</span></div><div class="s"><b>5★</b><span>confort</span></div></div>
+        <p class="veh-price">À partir de <b>650 €</b> / jour</p>
+        <button class="btn btn-ghost">Découvrir<svg class="ico"><use href="#i-arrow"/></svg></button>
+      </div>
+    </article>
+    <article class="vehicle reveal">
+      <div class="veh-stage"><span class="veh-badge">Performance</span><svg viewBox="0 0 1000 380" style="filter:saturate(.3) brightness(1.1) drop-shadow(0 30px 40px rgba(0,0,0,.6))"><use href="#rs6"/></svg></div>
+      <div class="veh-info">
+        <p class="eyebrow">Flotte</p><h3>GT Coupé</h3>
+        <p class="lede">Lignes tendues, son envoûtant, adrénaline immédiate. L'expérience pure.</p>
+        <div class="veh-specs"><div class="s"><b>720</b><span>chevaux</span></div><div class="s"><b>2,8s</b><span>0–100 km/h</span></div><div class="s"><b>330</b><span>km/h</span></div></div>
+        <p class="veh-price">À partir de <b>1 290 €</b> / jour</p>
+        <button class="btn btn-ghost">Découvrir<svg class="ico"><use href="#i-arrow"/></svg></button>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ════════ ANATOMY ════════ -->
+<section class="blk shell" id="anatomie">
+  <div class="head2 reveal"><p class="eyebrow">Anatomie</p><h2>Le diable est dans les détails.</h2></div>
+  <div class="anat">
+    <div class="detail reveal"><div class="di"><svg class="ico"><use href="#i-headlight"/></svg></div><h4>Phares Matrix</h4><p>Signature lumineuse pilotée, lecture de la route en temps réel.</p></div>
+    <div class="detail reveal delay-1"><div class="di"><svg class="ico"><use href="#i-wheel"/></svg></div><h4>Jantes 22"</h4><p>Forgées, allègement non suspendu, design aérodynamique.</p></div>
+    <div class="detail reveal delay-2"><div class="di"><svg class="ico"><use href="#i-brake"/></svg></div><h4>Freins céramique</h4><p>Endurance piste, mordant constant, étriers signature.</p></div>
+    <div class="detail reveal delay-3"><div class="di"><svg class="ico"><use href="#i-cockpit"/></svg></div><h4>Cockpit pilote</h4><p>Cuir nappa, affichage virtuel, immersion totale.</p></div>
+  </div>
+</section>
+
+<!-- ════════ CONFIGURATOR ════════ -->
+<section class="blk shell" id="reserver">
+  <div class="head2 reveal"><p class="eyebrow">Réservation</p><h2>Configurez votre expérience.</h2><p class="lede">Pas un formulaire — une mise en scène. Trois étapes, zéro friction.</p></div>
+  <div class="config reveal" id="config">
+    <div class="config-top">
+      <div class="step-dot active" data-s="0"><b>1</b> Véhicule</div>
+      <div class="step-dot" data-s="1"><b>2</b> Dates</div>
+      <div class="step-dot" data-s="2"><b>3</b> Expérience</div>
+    </div>
+    <div class="config-body">
+      <div class="cfg-step show" data-step="0">
+        <p class="lede">Choisissez votre voiture d'exception.</p>
+        <div class="opt-grid" data-group="car">
+          <div class="opt" aria-pressed="true" data-price="890"><div class="t">RS6 Avant — ABT</div><div class="d">630 ch · l'icône</div><div class="pr">890 €/j</div></div>
+          <div class="opt" aria-pressed="false" data-price="650"><div class="t">Berline Executive</div><div class="d">510 ch · confort</div><div class="pr">650 €/j</div></div>
+          <div class="opt" aria-pressed="false" data-price="1290"><div class="t">GT Coupé</div><div class="d">720 ch · adrénaline</div><div class="pr">1 290 €/j</div></div>
+        </div>
+      </div>
+      <div class="cfg-step" data-step="1">
+        <p class="lede">Quand prenez-vous le volant ?</p>
+        <div class="field"><label for="d1">Date de départ</label><input id="d1" type="date"></div>
+        <div class="field"><label for="d2">Date de retour</label><input id="d2" type="date"></div>
+      </div>
+      <div class="cfg-step" data-step="2">
+        <p class="lede">Sublimez l'expérience.</p>
+        <div class="opt-grid" data-group="exp" data-multi="1">
+          <div class="opt" aria-pressed="false" data-price="120"><div class="t">Livraison conciergerie</div><div class="d">Où vous voulez, quand vous voulez</div><div class="pr">+120 €</div></div>
+          <div class="opt" aria-pressed="false" data-price="90"><div class="t">Chauffeur privé</div><div class="d">Discrétion absolue</div><div class="pr">+90 €/j</div></div>
+          <div class="opt" aria-pressed="false" data-price="0"><div class="t">Assurance tous risques</div><div class="d">Sérénité totale · incluse</div><div class="pr">Inclus</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="config-foot">
+      <div class="summary">Estimation <b id="total">890 €</b> <span style="color:var(--muted)">/ jour</span></div>
+      <div style="display:flex;gap:.6rem">
+        <button class="btn btn-ghost" id="prevStep">Retour</button>
+        <button class="btn btn-red" id="nextStep">Continuer<svg class="ico"><use href="#i-arrow"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ TRUST ════════ -->
+<section class="blk shell">
+  <div class="stats">
+    <div class="stat reveal"><b data-c="240">0</b><span>véhicules d'exception</span></div>
+    <div class="stat reveal delay-1"><b data-c="18" data-suf=" M€">0</b><span>de flotte gérée</span></div>
+    <div class="stat reveal delay-2"><b data-c="12000" data-suf="+">0</b><span>locations premium</span></div>
+    <div class="stat reveal delay-3"><b data-c="4.9" data-dec="1">0</b><span>note moyenne</span></div>
+  </div>
+  <div class="cards3">
+    <div class="tcard reveal"><div class="di"><svg class="ico"><use href="#i-shield"/></svg></div><h4>Assurance & garanties</h4><p>Couverture tous risques, dépôt sécurisé, assistance 24/7 partout en Europe.</p></div>
+    <div class="tcard reveal delay-1"><div class="di"><svg class="ico"><use href="#i-key"/></svg></div><h4>Remise irréprochable</h4><p>Véhicules préparés en détail, contrôlés et désinfectés avant chaque remise.</p></div>
+    <div class="tcard reveal delay-2"><div class="di"><svg class="ico"><use href="#i-headset"/></svg></div><h4>Conciergerie dédiée</h4><p>Un interlocuteur unique, joignable à tout instant. Le luxe, c'est le service.</p></div>
+  </div>
+  <div class="cards3" style="margin-top:1.1rem">
+    <div class="tcard reveal"><div class="stars">★★★★★</div><p>« Réservation en 2 minutes, RS6 livrée devant l'hôtel. Service irréprochable. »</p><p style="color:var(--muted);margin-top:.6rem">— Julien R., Genève</p></div>
+    <div class="tcard reveal delay-1"><div class="stars">★★★★★</div><p>« On se croirait chez un constructeur. L'app de suivi est bluffante. »</p><p style="color:var(--muted);margin-top:.6rem">— Inès M., Paris</p></div>
+    <div class="tcard reveal delay-2"><div class="stars">★★★★★</div><p>« Des voitures parfaites et une équipe d'un professionnalisme rare. »</p><p style="color:var(--muted);margin-top:.6rem">— Marc D., Bruxelles</p></div>
+  </div>
+</section>
+
+<!-- ════════ ECOSYSTEM — CLIENT DASHBOARD ════════ -->
+<section class="blk shell" id="plateforme">
+  <div class="head2 reveal"><p class="eyebrow">La plateforme</p><h2>Derrière la marque, un véritable système.</h2><p class="lede">Réservations, contrats, paiements, factures, support — tout dans un espace aussi épuré qu'Apple, aussi précis que Linear, aussi fiable que Stripe.</p></div>
+  <div class="frame reveal">
+    <div class="frame-bar"><i></i><i></i><i></i><span class="url">app.obsidian.car/dashboard</span></div>
+    <div class="dash">
+      <aside class="dash-side">
+        <div class="si active"><svg class="ico"><use href="#i-grid"/></svg> Tableau de bord</div>
+        <div class="si"><svg class="ico"><use href="#i-calendar"/></svg> Réservations</div>
+        <div class="si"><svg class="ico"><use href="#i-card"/></svg> Paiements</div>
+        <div class="si"><svg class="ico"><use href="#i-doc"/></svg> Contrats</div>
+        <div class="si"><svg class="ico"><use href="#i-headset"/></svg> Support</div>
+      </aside>
+      <div class="dash-main">
+        <div class="dash-row">
+          <div class="kpi"><span>Location en cours</span><b>RS6 Avant</b><span class="up">J-2 avant retour</span></div>
+          <div class="kpi"><span>Prochaine réservation</span><b>14 juin</b><span style="color:var(--muted)">GT Coupé · 3 j</span></div>
+          <div class="kpi"><span>Statut paiement</span><b>À jour</b><span class="up">✓ Aucun impayé</span></div>
+        </div>
+        <div class="tbl">
+          <div class="tr h"><div>Réservation</div><div>Dates</div><div>Statut</div><div></div></div>
+          <div class="tr"><div>RS6 Avant — ABT</div><div>02 → 07 juin</div><div><span class="tag g">En cours</span></div><div>›</div></div>
+          <div class="tr"><div>GT Coupé</div><div>14 → 17 juin</div><div><span class="tag b">Confirmée</span></div><div>›</div></div>
+          <div class="tr"><div>Berline Executive</div><div>28 mai</div><div><span class="tag" style="background:var(--glass-2);color:var(--soft)">Terminée</span></div><div>›</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ ECOSYSTEM — ADMIN ════════ -->
+<section class="blk shell" id="admin">
+  <div class="head2 reveal"><p class="eyebrow">Centre opérationnel</p><h2>Pilotez plusieurs millions d'euros d'actifs.</h2><p class="lede">Flotte, disponibilité, clients, facturation, maintenance, assurances et performance — en un seul cockpit.</p></div>
+  <div class="frame reveal">
+    <div class="frame-bar"><i></i><i></i><i></i><span class="url">admin.obsidian.car</span></div>
+    <div class="dash">
+      <aside class="dash-side">
+        <div class="si active"><svg class="ico"><use href="#i-chart"/></svg> Vue globale</div>
+        <div class="si"><svg class="ico"><use href="#i-grid"/></svg> Flotte</div>
+        <div class="si"><svg class="ico"><use href="#i-calendar"/></svg> Réservations</div>
+        <div class="si"><svg class="ico"><use href="#i-users"/></svg> Clients</div>
+        <div class="si"><svg class="ico"><use href="#i-card"/></svg> Facturation</div>
+      </aside>
+      <div class="dash-main">
+        <div class="dash-row">
+          <div class="kpi"><span>Revenu (30 j)</span><b>412 K€</b><span class="up">▲ 14%</span></div>
+          <div class="kpi"><span>Taux d'occupation</span><b>78%</b><span class="up">▲ 6 pts</span></div>
+          <div class="kpi"><span>Véhicules actifs</span><b>240</b><span style="color:var(--muted)">31 en maintenance</span></div>
+        </div>
+        <div class="two">
+          <div class="kpi"><span>Revenus hebdomadaires</span><div class="spark"><i style="height:40%"></i><i style="height:60%"></i><i style="height:48%"></i><i style="height:72%"></i><i style="height:65%"></i><i style="height:88%"></i><i style="height:100%"></i></div></div>
+          <div class="kpi"><span>Occupation flotte</span><div class="gauge"></div></div>
+        </div>
+        <div class="tbl" style="margin-top:1.1rem">
+          <div class="tr h"><div>Véhicule</div><div>Client</div><div>État</div><div></div></div>
+          <div class="tr"><div>RS6 Avant #07</div><div>J. Rey</div><div><span class="tag g">Loué</span></div><div>›</div></div>
+          <div class="tr"><div>GT Coupé #02</div><div>—</div><div><span class="tag b">Disponible</span></div><div>›</div></div>
+          <div class="tr"><div>Berline #11</div><div>Atelier</div><div><span class="tag r">Maintenance</span></div><div>›</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ FINAL CTA ════════ -->
+<section class="blk final" id="espace">
+  <div class="shell reveal">
+    <p class="eyebrow">Rejoignez le cercle</p>
+    <h2>Votre prochaine conduite<br>sera inoubliable.</h2>
+    <p>Réservez la RS6 — ou n'importe quelle pièce de la collection — en quelques secondes.</p>
+    <div style="display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-red btn-lg">Réserver maintenant<svg class="ico"><use href="#i-arrow"/></svg></button>
+      <button class="btn btn-ghost btn-lg">Créer mon espace client</button>
+    </div>
+  </div>
+</section>
+
+<footer class="shell">
+  <div class="foot-grid">
+    <div><a href="#top" class="brand" style="margin-bottom:.6rem"><span class="mk">◆</span> OBSIDIAN</a><p style="max-width:30ch">Location de véhicules premium & de luxe. L'exception, livrée chez vous.</p></div>
+    <div><strong style="color:#fff">Collection</strong><a href="#collection">RS6 Avant</a><a href="#collection">Berline Executive</a><a href="#collection">GT Coupé</a></div>
+    <div><strong style="color:#fff">Plateforme</strong><a href="#plateforme">Espace client</a><a href="#admin">Administration</a><a href="#reserver">Réserver</a></div>
+    <div><strong style="color:#fff">Contact</strong><a href="#">+33 1 00 00 00 00</a><a href="#">concierge@obsidian.car</a><a href="#">Mentions légales</a></div>
+  </div>
+  <div style="border-top:1px solid var(--line);padding-top:1.4rem">© 2026 OBSIDIAN. Tous droits réservés.</div>
+</footer>
+
+<script>
+"use strict";
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=(s,c=document)=>c.querySelector(s), $$=(s,c=document)=>[...c.querySelectorAll(s)];
+
+/* progress + header */
+const bar=document.getElementById('bar'), hdr=document.getElementById('hdr');
+addEventListener('scroll',()=>{
+  const max=document.documentElement.scrollHeight-innerHeight, y=scrollY;
+  bar.style.width=(max>0?y/max*100:0)+'%';
+  hdr.classList.toggle('solid',y>40);
+},{passive:true});
+
+/* ACT 1 — scroll drives --p on the pinned stage + act crossfade */
+if(!RM){
+  const track=document.getElementById('pin-track')||document.querySelector('.pin-track');
+  const stage=document.getElementById('stage'), kinetic=document.getElementById('kinetic'), acts=$$('#acts .act');
+  let raf=null;
+  function update(){
+    raf=null;
+    const r=track.getBoundingClientRect();
+    const total=track.offsetHeight-innerHeight;
+    const p=Math.min(Math.max(-r.top/total,0),1);
+    track.style.setProperty('--p',p.toFixed(4));
+    stage.style.setProperty('--p',p.toFixed(4));
+    kinetic.style.setProperty('--p',p.toFixed(4));
+    $$('.spot').forEach(s=>s.style.setProperty('--p',p.toFixed(4)));
+    document.querySelector('.scrollcue').style.setProperty('--p',p.toFixed(4));
+    const idx=p<.34?0:p<.7?1:2;
+    acts.forEach((a,i)=>a.classList.toggle('on',i===idx));
+  }
+  addEventListener('scroll',()=>{if(!raf)raf=requestAnimationFrame(update)},{passive:true});
+  addEventListener('resize',update); update();
+}
+
+/* reveal on scroll */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.15,rootMargin:'-40px 0px'});
+$$('.reveal,.vehicle').forEach(el=>io.observe(el));
+
+/* counters */
+const cio=new IntersectionObserver(es=>es.forEach(e=>{
+  if(!e.isIntersecting)return; const el=e.target, t=+el.dataset.c, dec=+(el.dataset.dec||0), suf=el.dataset.suf||'';
+  if(RM){el.textContent=t.toFixed(dec)+suf;cio.unobserve(el);return;}
+  const dur=1500, st=performance.now();
+  (function tick(n){const k=Math.min((n-st)/dur,1), v=(1-Math.pow(1-k,3))*t;
+    el.textContent=(dec?v.toFixed(dec):Math.round(v).toLocaleString('fr-FR'))+suf;
+    if(k<1)requestAnimationFrame(tick);})(st);
+  cio.unobserve(el);
+},{threshold:.6});
+$$('[data-c]').forEach(el=>cio.observe(el));
+
+/* configurator */
+(()=>{
+  let step=0; const steps=$$('.cfg-step'), dots=$$('.step-dot'), total=$('#total');
+  const prev=$('#prevStep'), next=$('#nextStep');
+  function calc(){
+    let base=+($('[data-group="car"] .opt[aria-pressed="true"]')?.dataset.price||0);
+    let extra=0; $$('[data-group="exp"] .opt[aria-pressed="true"]').forEach(o=>extra+=+o.dataset.price);
+    total.textContent=(base+extra).toLocaleString('fr-FR')+' €';
+  }
+  function show(){ steps.forEach((s,i)=>s.classList.toggle('show',i===step));
+    dots.forEach((d,i)=>d.classList.toggle('active',i<=step));
+    prev.style.visibility=step===0?'hidden':'visible';
+    next.innerHTML=step===2?'Confirmer la demande':'Continuer<svg class="ico"><use href="#i-arrow"/></svg>'; }
+  $$('.opt').forEach(o=>o.addEventListener('click',()=>{
+    const grp=o.closest('[data-group]');
+    if(grp.dataset.multi){ o.setAttribute('aria-pressed', o.getAttribute('aria-pressed')==='true'?'false':'true'); }
+    else { $$('.opt',grp).forEach(x=>x.setAttribute('aria-pressed','false')); o.setAttribute('aria-pressed','true'); }
+    calc();
+  }));
+  next.addEventListener('click',()=>{ if(step<2){step++;show();} else {next.textContent='✓ Demande envoyée';next.style.background='#34d399';} });
+  prev.addEventListener('click',()=>{ if(step>0){step--;show();} });
+  dots.forEach((d,i)=>d.addEventListener('click',()=>{step=i;show();}));
+  show(); calc();
+})();
+</script>
+</body>
+</html>

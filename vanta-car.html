@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="VANTA ONE — la voiture électrique qui révèle son intérieur. Survolez pour regarder à l'intérieur.">
+<meta name="theme-color" content="#eef0f2">
+<title>VANTA ONE — Regardez à l'intérieur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ─── TOKENS (light premium DA) ─── */
+  :root{
+    --bg:#eceef1; --bg-2:#f7f8fa; --ink:#0c0e12; --ink-soft:#3d424b; --muted:#878d98;
+    --line:rgba(12,14,18,.1); --pill:#0c0e12; --pill-ink:#fff;
+    --accent:#2563eb; --accent-2:#38bdf8; --live:#22c55e;
+    --r-pill:999px; --ease:cubic-bezier(.22,1,.36,1);
+    --lens:150px;
+  }
+  @property --lr{syntax:'<length>';inherits:true;initial-value:0px}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Inter',system-ui,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(60% 80% at 100% 0%, #ffffff 0%, transparent 55%),
+      radial-gradient(50% 60% at 0% 100%, #e3e6ea 0%, transparent 60%),
+      linear-gradient(180deg,#eceef1,#e6e9ed);
+    background-attachment:fixed;min-height:100svh;-webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+  .ico{width:1em;height:1em;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+
+  /* ─── TOP BAR ─── */
+  header{position:fixed;top:0;inset-inline:0;z-index:30;display:flex;align-items:center;
+    justify-content:space-between;padding:1.2rem clamp(1rem,3vw,2rem)}
+  .logo{width:40px;height:40px;border-radius:50%;background:var(--ink);color:#fff;
+    display:grid;place-items:center;font-weight:700;font-size:1.1rem;letter-spacing:-.02em}
+  .logo .ico{width:20px;height:20px;stroke-width:2}
+  nav.pill{display:flex;gap:.2rem;background:rgba(255,255,255,.7);backdrop-filter:blur(14px);
+    border:1px solid var(--line);border-radius:var(--r-pill);padding:.3rem;box-shadow:0 6px 24px rgba(12,14,18,.06)}
+  nav.pill a{font-size:.86rem;font-weight:500;color:var(--ink-soft);padding:.5rem .95rem;border-radius:var(--r-pill);
+    transition:background .25s var(--ease),color .25s}
+  nav.pill a:hover{color:var(--ink)}
+  nav.pill a.active{background:var(--ink);color:#fff}
+  .reserve{display:inline-flex;align-items:center;gap:.5rem;background:var(--ink);color:#fff;
+    font-size:.86rem;font-weight:600;padding:.6rem 1.1rem;border-radius:var(--r-pill);border:none;cursor:pointer;
+    transition:transform .25s var(--ease),box-shadow .25s}
+  .reserve:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(12,14,18,.18)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 rgba(34,197,94,.5);animation:pulse 2.2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+  .menu-btn{display:none;background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:50%;
+    width:40px;height:40px;cursor:pointer;align-items:center;justify-content:center}
+  .menu-btn .ico{width:20px;height:20px;color:var(--ink)}
+
+  /* ─── HERO ─── */
+  main{position:relative;min-height:100svh;display:flex;align-items:flex-end;justify-content:center;
+    padding:0 clamp(1rem,3vw,2rem) clamp(1.5rem,4vw,2.5rem)}
+  .stage-wrap{position:absolute;inset:0;display:grid;place-items:center;z-index:1}
+  .stage{position:relative;width:min(92vw,1040px);aspect-ratio:16/9;
+    cursor:none;touch-action:none;border-radius:18px}
+  .layer{position:absolute;inset:0;width:100%;height:100%}
+  .layer svg,.layer img{width:100%;height:100%;object-fit:contain;display:block}
+  /* interior sits beneath; exterior on top with a mask hole at the lens */
+  .car-int{filter:drop-shadow(0 30px 50px rgba(12,14,18,.18))}
+  .car-ext{
+    --mx:50%; --my:50%; --lr:0px;
+    -webkit-mask:radial-gradient(circle var(--lr) at var(--mx) var(--my),transparent 0 var(--lr),#000 calc(var(--lr) + 2px));
+    mask:radial-gradient(circle var(--lr) at var(--mx) var(--my),transparent 0 var(--lr),#000 calc(var(--lr) + 2px));
+    filter:drop-shadow(0 30px 50px rgba(12,14,18,.22));transition:--lr .35s var(--ease)}
+  .stage.peek .car-ext{--lr:var(--lens)}
+  .stage.open .car-ext{opacity:0;transition:opacity .5s var(--ease)}
+  /* lens ring follows cursor */
+  .lens-ring{position:absolute;width:calc(var(--lens)*2);height:calc(var(--lens)*2);left:0;top:0;
+    transform:translate(-50%,-50%) scale(.4);border-radius:50%;pointer-events:none;opacity:0;
+    border:1.5px solid rgba(37,99,235,.9);box-shadow:0 0 0 1px rgba(255,255,255,.6),0 10px 30px rgba(37,99,235,.25);
+    transition:opacity .3s var(--ease),transform .3s var(--ease)}
+  .stage.peek .lens-ring{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  .lens-ring::after{content:"";position:absolute;inset:42%;border-radius:50%;background:var(--accent);opacity:.5}
+  .hint{position:absolute;left:50%;bottom:-2.4rem;transform:translateX(-50%);font-size:.78rem;color:var(--muted);
+    display:flex;align-items:center;gap:.45rem;letter-spacing:.02em;transition:opacity .4s}
+  .hint .ico{width:15px;height:15px}
+  .stage.peek ~ .hint,.stage.open ~ .hint{opacity:0}
+
+  /* hero copy */
+  .copy{position:relative;z-index:2;max-width:520px;pointer-events:none}
+  .copy>*{pointer-events:auto}
+  .eyebrow{font-size:.74rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+  .copy h1{font-size:clamp(2.1rem,4.6vw,3.4rem);font-weight:600;line-height:1.04;letter-spacing:-.025em;margin-bottom:1.6rem}
+  .actions{display:flex;align-items:center;gap:1.1rem}
+  .btn-dark{display:inline-flex;align-items:center;gap:.5rem;background:var(--ink);color:#fff;font-weight:600;
+    font-size:.92rem;padding:.8rem 1.6rem;border-radius:var(--r-pill);border:none;cursor:pointer;
+    transition:transform .25s var(--ease),box-shadow .25s}
+  .btn-dark:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(12,14,18,.22)}
+  .btn-text{display:inline-flex;align-items:center;gap:.5rem;font-weight:500;font-size:.92rem;color:var(--ink-soft);
+    background:none;border:none;cursor:pointer;transition:color .25s}
+  .btn-text:hover{color:var(--ink)}
+  .btn-text .ico{width:16px;height:16px;fill:currentColor;stroke:none}
+
+  /* corner meta */
+  .meta{position:fixed;z-index:5;font-size:.72rem;color:var(--muted);letter-spacing:.04em}
+  .meta.br{right:clamp(1rem,3vw,2rem);bottom:clamp(1.2rem,4vw,2rem);text-align:right}
+  .meta.bl-spec{display:none}
+
+  @media(max-width:820px){
+    nav.pill{display:none}.menu-btn{display:flex}
+    main{align-items:flex-end;padding-bottom:2rem}
+    .stage{width:104vw}
+    .copy{max-width:none}
+    .meta.br{display:none}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition-duration:.01ms!important}
+    .car-ext{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- icon defs -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></symbol>
+</svg>
+
+<header>
+  <a href="#" class="logo" aria-label="VANTA — accueil">V</a>
+  <nav class="pill" aria-label="Navigation">
+    <a href="#" class="active">Modèle</a>
+    <a href="#">Histoires</a>
+    <a href="#">Technologie</a>
+    <a href="#">Offres</a>
+    <a href="#">Contact</a>
+  </nav>
+  <button class="reserve"><span class="dot"></span>Réserver</button>
+  <button class="menu-btn" aria-label="Menu"><svg class="ico"><use href="#i-menu"/></svg></button>
+</header>
+
+<main>
+  <!-- product with hover reveal -->
+  <div class="stage-wrap">
+    <div class="stage" id="stage" role="img" aria-label="VANTA ONE — survolez pour voir l'intérieur">
+      <!-- BENEATH: interior (revealed through the lens) -->
+      <div class="layer car-int">
+        <!-- 👉 Remplace ce SVG par ton image intérieur: <img src="interieur.jpg" alt=""> -->
+        <svg viewBox="0 0 800 450" aria-hidden="true"><use href="#car-interior"/></svg>
+      </div>
+      <!-- ON TOP: exterior (masked under the cursor) -->
+      <div class="layer car-ext" id="carExt">
+        <!-- 👉 Remplace ce SVG par ton image extérieur: <img src="exterieur.jpg" alt=""> -->
+        <svg viewBox="0 0 800 450" aria-hidden="true"><use href="#car-exterior"/></svg>
+      </div>
+      <div class="lens-ring" id="lensRing"></div>
+    </div>
+    <p class="hint" id="hint"><svg class="ico"><use href="#i-move"/></svg> Passez la souris sur la voiture pour voir l'intérieur</p>
+  </div>
+
+  <div class="copy">
+    <p class="eyebrow">VANTA ONE</p>
+    <h1>L'extérieur séduit.<br>L'intérieur vous transforme.</h1>
+    <div class="actions">
+      <button class="btn-dark" id="peekBtn">Voir l'intérieur</button>
+      <button class="btn-text"><svg class="ico"><use href="#i-play"/></svg> Fiche technique</button>
+    </div>
+  </div>
+</main>
+
+<div class="meta br">100% électrique · 0 émission<br>Autonomie 620 km · 0-100 en 3,2 s</div>
+
+<!-- ════ PLACEHOLDER CAR ART (swap for real images) ════ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- EXTERIOR: sleek side silhouette -->
+  <symbol id="car-exterior" viewBox="0 0 800 450">
+    <defs>
+      <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#3a3f47"/><stop offset=".5" stop-color="#1b1e24"/><stop offset="1" stop-color="#0c0e12"/>
+      </linearGradient>
+      <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#aeb6c2"/><stop offset="1" stop-color="#4b5563"/>
+      </linearGradient>
+    </defs>
+    <ellipse cx="400" cy="372" rx="330" ry="22" fill="#0c0e12" opacity=".12"/>
+    <path d="M70 300 C110 250 160 240 210 232 C250 200 320 168 410 166 C500 164 560 196 596 232 C660 240 712 256 736 296 C742 314 740 332 726 340 L96 340 C78 334 66 318 70 300 Z" fill="url(#body)"/>
+    <path d="M236 226 C280 192 330 176 404 175 C474 174 524 196 556 226 C520 222 470 220 404 220 C334 220 282 222 236 226 Z" fill="url(#glass)" opacity=".9"/>
+    <path d="M404 178 V222" stroke="#0c0e12" stroke-width="4" opacity=".5"/>
+    <path d="M120 300 q280 -36 560 0" stroke="#2563eb" stroke-width="3" fill="none" opacity=".8"/>
+    <circle cx="246" cy="340" r="58" fill="#0c0e12"/><circle cx="246" cy="340" r="34" fill="#2b2f37"/><circle cx="246" cy="340" r="12" fill="#5b616b"/>
+    <circle cx="566" cy="340" r="58" fill="#0c0e12"/><circle cx="566" cy="340" r="34" fill="#2b2f37"/><circle cx="566" cy="340" r="12" fill="#5b616b"/>
+    <path d="M708 286 q22 4 24 22 l-30 2 Z" fill="#38bdf8"/>
+    <rect x="92" y="292" width="20" height="12" rx="3" fill="#ef4444" opacity=".85"/>
+  </symbol>
+  <!-- INTERIOR: cabin blueprint look -->
+  <symbol id="car-interior" viewBox="0 0 800 450">
+    <defs>
+      <linearGradient id="cabin" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#eef2f8"/><stop offset="1" stop-color="#d7deea"/>
+      </linearGradient>
+    </defs>
+    <ellipse cx="400" cy="372" rx="330" ry="22" fill="#0c0e12" opacity=".1"/>
+    <path d="M70 300 C110 250 160 240 210 232 C250 200 320 168 410 166 C500 164 560 196 596 232 C660 240 712 256 736 296 C742 314 740 332 726 340 L96 340 C78 334 66 318 70 300 Z" fill="url(#cabin)" stroke="#9aa6b8" stroke-width="2"/>
+    <path d="M236 226 C280 192 330 176 404 175 C474 174 524 196 556 226 C520 222 470 220 404 220 C334 220 282 222 236 226 Z" fill="#f4f7fc" opacity=".7"/>
+    <!-- dashboard + steering -->
+    <path d="M560 230 q40 6 60 40 l-6 30 q-40 -30 -70 -30 Z" fill="#c2ccdb" stroke="#7c8aa3" stroke-width="2"/>
+    <circle cx="556" cy="272" r="26" fill="none" stroke="#2563eb" stroke-width="4"/>
+    <circle cx="556" cy="272" r="6" fill="#2563eb"/>
+    <line x1="556" y1="252" x2="556" y2="292" stroke="#2563eb" stroke-width="3"/><line x1="536" y1="272" x2="576" y2="272" stroke="#2563eb" stroke-width="3"/>
+    <rect x="470" y="244" width="64" height="36" rx="5" fill="#0c0e12"/><rect x="476" y="250" width="52" height="24" rx="3" fill="#38bdf8" opacity=".85"/>
+    <!-- front seat -->
+    <path d="M430 250 q26 -6 30 22 l4 60 q-30 6 -46 0 l-2 -60 q2 -18 14 -22 Z" fill="#aab6c8" stroke="#7c8aa3" stroke-width="2"/>
+    <!-- rear seat -->
+    <path d="M300 252 q30 -8 40 24 l2 56 q-40 6 -60 0 l0 -56 q4 -20 18 -24 Z" fill="#9fabbe" stroke="#7c8aa3" stroke-width="2"/>
+    <!-- floor / console line -->
+    <path d="M120 312 q280 -20 560 0" stroke="#2563eb" stroke-width="3" fill="none" opacity=".7"/>
+    <text x="250" y="210" font-family="Inter,sans-serif" font-size="16" font-weight="600" fill="#2563eb" opacity=".8">CABINE PREMIUM</text>
+    <!-- wheels (faint, alignment with exterior) -->
+    <circle cx="246" cy="340" r="58" fill="none" stroke="#9aa6b8" stroke-width="3" opacity=".5"/>
+    <circle cx="566" cy="340" r="58" fill="none" stroke="#9aa6b8" stroke-width="3" opacity=".5"/>
+  </symbol>
+</svg>
+
+<script>
+"use strict";
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const stage=document.getElementById('stage');
+const ext=document.getElementById('carExt');
+const ring=document.getElementById('lensRing');
+
+function moveLens(e){
+  const r=stage.getBoundingClientRect();
+  const x=e.clientX-r.left, y=e.clientY-r.top;
+  ext.style.setProperty('--mx', x+'px');
+  ext.style.setProperty('--my', y+'px');
+  ring.style.left=x+'px'; ring.style.top=y+'px';
+}
+if(!RM && matchMedia('(pointer:fine)').matches){
+  stage.addEventListener('pointerenter',()=>stage.classList.add('peek'));
+  stage.addEventListener('pointerleave',()=>stage.classList.remove('peek'));
+  stage.addEventListener('pointermove',moveLens,{passive:true});
+}else{
+  stage.style.cursor='pointer';
+}
+
+// accessible / touch fallback: toggle full interior
+const peekBtn=document.getElementById('peekBtn');
+function toggleOpen(){
+  const open=stage.classList.toggle('open');
+  peekBtn.textContent=open?'Voir l’extérieur':'Voir l’intérieur';
+}
+peekBtn.addEventListener('click',toggleOpen);
+// tap on car (touch) toggles too
+stage.addEventListener('click',e=>{ if(!matchMedia('(pointer:fine)').matches) toggleOpen(); });
+</script>
+</body>
+</html>
