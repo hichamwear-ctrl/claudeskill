@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.DS_Store
+node_modules/
+
+# CAD files - protect user designs from accidental commit
+*.stl
+*.step
+*.stp
+*.3mf
+*.obj
+*.iges
+*.brep
+
+# Output directories
+renders/
+workspace/
+source_models/
+models/
+exports/
+scripts/
