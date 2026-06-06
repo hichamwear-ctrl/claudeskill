@@ -79,7 +79,8 @@ header.solid{background:rgba(8,9,12,.72);backdrop-filter:blur(16px) saturate(140
 @keyframes breathe{0%,100%{translate:0 0}50%{translate:0 -10px}}
 .car{position:relative}
 .car svg,.car img{width:100%;display:block}
-.car .swap{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+.car .swap{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.car svg+.swap{z-index:1}
 /* light sheen sweeping the body */
 .sheen{position:absolute;inset:0;mix-blend-mode:overlay;pointer-events:none;
   background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.55) 46%,rgba(255,255,255,.0) 60%);
@@ -314,8 +315,8 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;color:var(--muted);f
     <div class="stage" id="stage">
       <div class="car">
         <svg viewBox="0 0 1000 380" aria-label="Audi RS6 Avant"><use href="#rs6"/></svg>
-        <!-- 👉 SWAP: <img class="swap" src="rs6-side.jpg" alt="Audi RS6"> -->
-        <div class="sheen"></div>
+        <img class="swap" src="assets/rs6-side.jpg" alt="Audi RS6 Avant" onerror="this.style.display='none'">
+        <div class="sheen" style="z-index:2"></div>
       </div>
     </div>
     <div class="acts" id="acts">
@@ -345,33 +346,33 @@ footer{border-top:1px solid var(--line);padding:3rem 0 2rem;color:var(--muted);f
   <div class="head2 reveal"><p class="eyebrow">La Collection</p><h2>Un showroom privé, révélé un projecteur à la fois.</h2><p class="lede">Chaque véhicule est une pièce d'exception. Faites défiler : les projecteurs s'allument.</p></div>
   <div class="collection">
     <article class="vehicle reveal">
-      <div class="veh-stage"><span class="veh-badge">Signature</span><svg viewBox="0 0 1000 380" aria-label="RS6 Avant"><use href="#rs6"/></svg></div>
+      <div class="veh-stage"><span class="veh-badge">Profil</span><svg viewBox="0 0 1000 380" aria-label="RS6 Avant — profil"><use href="#rs6"/></svg><img class="swap" src="assets/rs6-side.jpg" alt="Audi RS6 Avant de profil" onerror="this.style.display='none'"></div>
       <div class="veh-info">
-        <p class="eyebrow">Audi</p><h3>RS6 Avant — ABT</h3>
-        <p class="lede">L'icône familiale qui terrasse les supercars. Présence brutale, raffinement total.</p>
+        <p class="eyebrow">Audi RS6 Avant — ABT</p><h3>La silhouette.</h3>
+        <p class="lede">L'icône familiale qui terrasse les supercars. Stance abaissée, jantes 22", présence brutale et raffinement total.</p>
         <div class="veh-specs"><div class="s"><b>630</b><span>chevaux</span></div><div class="s"><b>3,4s</b><span>0–100 km/h</span></div><div class="s"><b>305</b><span>km/h</span></div></div>
         <p class="veh-price">À partir de <b>890 €</b> / jour</p>
         <button class="btn btn-red">Réserver la RS6<svg class="ico"><use href="#i-arrow"/></svg></button>
       </div>
     </article>
     <article class="vehicle reveal">
-      <div class="veh-stage"><span class="veh-badge">Grand Tourisme</span><svg viewBox="0 0 1000 380" style="filter:hue-rotate(200deg) drop-shadow(0 30px 40px rgba(0,0,0,.6))"><use href="#rs6"/></svg></div>
+      <div class="veh-stage"><span class="veh-badge">Face</span><svg viewBox="0 0 1000 380" aria-label="RS6 Avant — face"><use href="#rs6"/></svg><img class="swap" src="assets/rs6-front.jpg" alt="Audi RS6 Avant de face" onerror="this.style.display='none'"></div>
       <div class="veh-info">
-        <p class="eyebrow">Flotte</p><h3>Berline Executive</h3>
-        <p class="lede">Le confort d'une suite, la prestance d'un dirigeant. Pour les trajets qui comptent.</p>
-        <div class="veh-specs"><div class="s"><b>510</b><span>chevaux</span></div><div class="s"><b>4,1s</b><span>0–100 km/h</span></div><div class="s"><b>5★</b><span>confort</span></div></div>
-        <p class="veh-price">À partir de <b>650 €</b> / jour</p>
-        <button class="btn btn-ghost">Découvrir<svg class="ico"><use href="#i-arrow"/></svg></button>
+        <p class="eyebrow">Calandre Singleframe · ABT</p><h3>La présence.</h3>
+        <p class="lede">Bouclier carbone, phares Matrix LED, prises d'air béantes. Dans le rétroviseur, on ne voit qu'elle.</p>
+        <div class="veh-specs"><div class="s"><b>V8</b><span>4.0 biturbo</span></div><div class="s"><b>quattro</b><span>4 roues motrices</span></div><div class="s"><b>Matrix</b><span>LED pilotés</span></div></div>
+        <p class="veh-price">Préparation signature <b>ABT</b></p>
+        <button class="btn btn-ghost">Voir les détails<svg class="ico"><use href="#i-arrow"/></svg></button>
       </div>
     </article>
     <article class="vehicle reveal">
-      <div class="veh-stage"><span class="veh-badge">Performance</span><svg viewBox="0 0 1000 380" style="filter:saturate(.3) brightness(1.1) drop-shadow(0 30px 40px rgba(0,0,0,.6))"><use href="#rs6"/></svg></div>
+      <div class="veh-stage"><span class="veh-badge">Signature arrière</span><svg viewBox="0 0 1000 380" aria-label="RS6 Avant — arrière"><use href="#rs6"/></svg><img class="swap" src="assets/rs6-rear.jpg" alt="Audi RS6 Avant arrière" onerror="this.style.display='none'"></div>
       <div class="veh-info">
-        <p class="eyebrow">Flotte</p><h3>GT Coupé</h3>
-        <p class="lede">Lignes tendues, son envoûtant, adrénaline immédiate. L'expérience pure.</p>
-        <div class="veh-specs"><div class="s"><b>720</b><span>chevaux</span></div><div class="s"><b>2,8s</b><span>0–100 km/h</span></div><div class="s"><b>330</b><span>km/h</span></div></div>
-        <p class="veh-price">À partir de <b>1 290 €</b> / jour</p>
-        <button class="btn btn-ghost">Découvrir<svg class="ico"><use href="#i-arrow"/></svg></button>
+        <p class="eyebrow">Diffuseur carbone · échappement quad</p><h3>La signature.</h3>
+        <p class="lede">Bandeau lumineux pleine largeur, double sortie d'échappement quadruple, diffuseur sport. Une sortie de scène inoubliable.</p>
+        <div class="veh-specs"><div class="s"><b>4×</b><span>échappements</span></div><div class="s"><b>Carbone</b><span>diffuseur</span></div><div class="s"><b>OLED</b><span>feux pleine largeur</span></div></div>
+        <p class="veh-price">L'exception, vue de derrière</p>
+        <button class="btn btn-ghost">Réserver la RS6<svg class="ico"><use href="#i-arrow"/></svg></button>
       </div>
     </article>
   </div>
