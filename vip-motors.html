@@ -3,29 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="VIP MOTORS — Maison automobile. L'art de posséder l'exception. Collection privée d'automobiles d'exception, sur rendez-vous. Dubaï.">
-<meta name="theme-color" content="#0a0a0b">
-<title>VIP MOTORS — L'art de posséder l'exception</title>
+<meta name="description" content="VIP MOTORS — Maison automobile. Automobiles d'exception et pièces uniques. Mansory F9XX Spider, One of One. Sur rendez-vous, Dubaï.">
+<meta name="theme-color" content="#070809">
+<title>VIP MOTORS — L'exception, à l'état pur</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
 <link rel="preload" as="image" href="assets/media/poster.jpg">
 
 <style>
 /* ════════════════════════════════════════════════════════════
-   VIP MOTORS — DA : noir laque · platine · ambre en fusion
-   La vidéo du showroom est la pièce maîtresse, pilotée au scroll.
+   VIP MOTORS — DA : noir profond · platine · turquoise carbone (ADN F9XX)
+   La vidéo (Mansory F9XX Spider) est la pièce maîtresse, plein cadre,
+   pilotée au scroll. Ambiance cinéma plein écran (réf. studio).
    ════════════════════════════════════════════════════════════ */
 :root{
-  --bg:#0a0a0b; --bg-2:#0e0e10; --bg-3:#141416;
-  --surface:rgba(255,255,255,.035); --surface-2:rgba(255,255,255,.05);
-  --ink:#f4f2ee; --ink-soft:#b6b1a8; --muted:#7a766e;
-  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.055);
-  --amber:#ee8b3d; --amber-soft:#f4a861; --ember:#b85e16; --amber-glow:rgba(238,139,61,.35);
+  --bg:#070809; --bg-2:#0b0d0e; --bg-3:#111416;
+  --surface:rgba(255,255,255,.04); --surface-2:rgba(255,255,255,.06);
+  --ink:#f3f5f5; --ink-soft:#aeb4b5; --muted:#71777a;
+  --line:rgba(255,255,255,.10); --line-soft:rgba(255,255,255,.06);
+  --teal:#36e0d0; --teal-soft:#7af0e4; --teal-deep:#12a99b; --teal-glow:rgba(54,224,208,.30);
   --r-pill:999px; --r-card:18px;
   --ease:cubic-bezier(.16,1,.3,1); --ease-soft:cubic-bezier(.22,.61,.36,1);
-  --maxw:1240px; --pad:clamp(1.25rem,5vw,4rem);
+  --maxw:1320px; --pad:clamp(1.25rem,5vw,4rem);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -34,12 +35,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 img,svg,video{display:block;max-width:100%}
-::selection{background:var(--amber-glow);color:#fff}
-:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:6px}
+::selection{background:var(--teal-glow);color:#fff}
+:focus-visible{outline:2px solid var(--teal);outline-offset:3px;border-radius:6px}
 
 .serif{font-family:'Playfair Display',Georgia,serif}
-.eyebrow{font-size:.74rem;font-weight:500;letter-spacing:.32em;text-transform:uppercase;color:var(--amber-soft);display:inline-flex;align-items:center;gap:.7rem}
-.eyebrow::before{content:"";width:28px;height:1px;background:linear-gradient(90deg,transparent,var(--amber))}
+.eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.3em;text-transform:uppercase;color:var(--teal-soft);display:inline-flex;align-items:center;gap:.7rem}
+.eyebrow::before{content:"";width:26px;height:1px;background:linear-gradient(90deg,transparent,var(--teal))}
 .muted{color:var(--muted)}
 .wrap{max-width:var(--maxw);margin-inline:auto;padding-inline:var(--pad)}
 .ico{width:1em;height:1em;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -50,71 +51,66 @@ body::after{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;o
 
 /* ════════ NAV ════════ */
 header{position:fixed;top:0;inset-inline:0;z-index:100;transition:background .5s var(--ease),backdrop-filter .5s,border-color .5s;border-bottom:1px solid transparent}
-header.scrolled{background:rgba(10,10,11,.72);backdrop-filter:blur(18px) saturate(140%);border-bottom:1px solid var(--line-soft)}
+header.scrolled{background:rgba(7,8,9,.7);backdrop-filter:blur(18px) saturate(140%);border-bottom:1px solid var(--line-soft)}
 .nav{display:flex;align-items:center;justify-content:space-between;height:74px}
 .brand{display:flex;align-items:center;gap:.7rem;letter-spacing:.02em}
-.monogram{width:38px;height:38px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;font-family:'Playfair Display',serif;font-size:1.05rem;background:radial-gradient(120% 120% at 30% 20%,rgba(255,255,255,.08),transparent 60%)}
-.brand b{font-weight:500;font-size:.95rem;letter-spacing:.22em}
+.monogram{width:38px;height:38px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;font-family:'Playfair Display',serif;font-size:1.05rem;background:radial-gradient(120% 120% at 30% 20%,rgba(255,255,255,.09),transparent 60%)}
+.brand b{font-weight:600;font-size:.95rem;letter-spacing:.22em}
 .brand small{display:block;font-size:.6rem;letter-spacing:.34em;color:var(--muted);text-transform:uppercase;margin-top:1px}
 .nav-links{display:flex;align-items:center;gap:.4rem}
 .nav-links a{font-size:.82rem;color:var(--ink-soft);padding:.55rem .95rem;border-radius:var(--r-pill);transition:color .3s,background .3s}
 .nav-links a:hover{color:var(--ink)}
 .nav-right{display:flex;align-items:center;gap:1.2rem}
 .clock{font-size:.72rem;letter-spacing:.12em;color:var(--ink-soft);display:flex;align-items:center;gap:.5rem;font-variant-numeric:tabular-nums}
-.clock .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.clock .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal)}
 .btn{display:inline-flex;align-items:center;gap:.6rem;font-size:.82rem;font-weight:500;letter-spacing:.02em;padding:.7rem 1.3rem;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:transform .4s var(--ease),box-shadow .4s,border-color .4s,background .4s}
-.btn:hover{transform:translateY(-2px);border-color:rgba(238,139,61,.5);box-shadow:0 10px 30px -10px var(--amber-glow)}
-.btn-amber{background:linear-gradient(180deg,var(--amber-soft),var(--amber));color:#1a0f04;border:none;font-weight:600;box-shadow:0 8px 26px -10px var(--amber-glow)}
-.btn-amber:hover{box-shadow:0 14px 40px -10px var(--amber-glow);filter:brightness(1.05)}
-.btn-ghost{background:transparent}
+.btn:hover{transform:translateY(-2px);border-color:rgba(54,224,208,.5);box-shadow:0 10px 30px -10px var(--teal-glow)}
+.btn-cta{background:#fff;color:#0a0c0d;border:none;font-weight:600}
+.btn-cta:hover{filter:brightness(.96);box-shadow:0 14px 40px -12px rgba(255,255,255,.25)}
+.btn-teal{background:linear-gradient(180deg,var(--teal-soft),var(--teal));color:#04201d;border:none;font-weight:600;box-shadow:0 8px 26px -10px var(--teal-glow)}
+.btn-teal:hover{box-shadow:0 14px 40px -10px var(--teal-glow);filter:brightness(1.04)}
+.btn-ghost{background:rgba(7,8,9,.35);backdrop-filter:blur(8px)}
 .menu-btn{display:none;width:42px;height:42px;border:1px solid var(--line);border-radius:50%;background:var(--surface);align-items:center;justify-content:center;color:var(--ink)}
 .menu-btn .ico{width:20px;height:20px}
 
-/* ════════ FILM — vidéo pilotée au scroll (la pièce maîtresse) ════════ */
-.film{position:relative;background:#060607}
-.film-sticky{position:sticky;top:0;height:100svh;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.film-bg{position:absolute;inset:0;z-index:0;background:#060607}
-/* studio prolongé : la même image vidéo, floutée, remplit les côtés */
-.film-ambient{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;
-  filter:blur(48px) saturate(1.3) brightness(.5);transform:scale(1.18);opacity:.92}
-.film-ambient-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
-  background:radial-gradient(58% 64% at 50% 50%, transparent 32%, rgba(6,6,7,.55) 100%),
-             linear-gradient(180deg, rgba(6,6,7,.45), rgba(6,6,7,.12) 38%, rgba(6,6,7,.72))}
-.film-video{position:relative;z-index:2;height:100%;width:auto;object-fit:contain;background:transparent;will-change:contents;
-  box-shadow:0 30px 120px -20px rgba(0,0,0,.75)}
-.film-fade{position:absolute;inset:0;z-index:3;pointer-events:none;
-  background:linear-gradient(180deg, rgba(6,6,7,.75) 0%, transparent 18%, transparent 42%, rgba(6,6,7,.55) 78%, rgba(6,6,7,.96) 100%)}
+/* ════════ FILM — vidéo plein cadre pilotée au scroll (réf. WISA) ════════ */
+.film{position:relative;background:#050607}
+.film-sticky{position:sticky;top:0;height:100svh;overflow:hidden}
+.film-video{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;background:#050607;will-change:contents}
+.film-fade{position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:
+    linear-gradient(180deg, rgba(5,6,7,.55) 0%, transparent 15%, transparent 48%, rgba(5,6,7,.5) 76%, rgba(5,6,7,.95) 100%),
+    linear-gradient(90deg, rgba(5,6,7,.6) 0%, rgba(5,6,7,.15) 38%, transparent 60%)}
 
-/* titre d'ouverture (segment 0) */
-.film-title{position:absolute;z-index:4;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 var(--pad);
-  transition:opacity .8s var(--ease),transform .8s var(--ease)}
-.film-title.hide{opacity:0;transform:translateY(-24px) scale(.99);pointer-events:none}
-.film-title .eyebrow{justify-content:center}
-.film-title h1{font-family:'Playfair Display',serif;font-weight:400;font-size:clamp(2.9rem,8vw,6.6rem);line-height:.98;letter-spacing:-.015em;margin:1.3rem 0 0;max-width:14ch}
-.film-title h1 em{font-style:italic;background:linear-gradient(100deg,var(--ink) 30%,#fff 45%,var(--amber-soft) 52%,var(--ink) 65%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sheen 7s ease-in-out 1.4s infinite}
-.film-title p{margin-top:1.5rem;max-width:44ch;color:var(--ink-soft);font-weight:300;font-size:clamp(1rem,1.4vw,1.12rem)}
+/* overlay d'accueil (état départ, façon WISA) */
+.film-hero{position:absolute;z-index:4;inset:0;pointer-events:none;transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.film-hero.hide{opacity:0;transform:translateY(-12px);pointer-events:none}
+.film-hero .intro{position:absolute;top:clamp(92px,15vh,160px);right:var(--pad);max-width:34ch;text-align:right;color:var(--ink-soft);font-weight:300;font-size:clamp(.92rem,1.2vw,1.05rem)}
+.film-hero .intro b{color:var(--ink);font-weight:600}
+.film-hero .headline{position:absolute;left:var(--pad);bottom:clamp(2.4rem,8vh,5.5rem);max-width:20ch}
+.film-hero .headline .eyebrow{margin-bottom:1.1rem}
+.film-hero .headline h1{font-family:'Inter',sans-serif;font-weight:800;font-size:clamp(3rem,9vw,8rem);line-height:.92;letter-spacing:-.035em}
+.film-hero .headline h1 em{font-style:normal;color:var(--teal)}
+.film-hero .cta{position:absolute;right:var(--pad);bottom:clamp(2.4rem,8vh,5.5rem);pointer-events:auto;display:flex;gap:.8rem;flex-wrap:wrap;justify-content:flex-end}
 
-/* sous-titres synchronisés au film (segments) */
-.film-caps{position:absolute;z-index:4;left:0;right:0;bottom:clamp(2.2rem,7vh,5rem);padding:0 var(--pad);pointer-events:none}
-.film-caps .cap{position:absolute;left:var(--pad);right:var(--pad);max-width:var(--maxw);margin-inline:auto;opacity:0;transform:translateY(18px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+/* sous-titres synchronisés (lower-third bas-gauche) */
+.film-caps{position:absolute;z-index:4;left:var(--pad);right:var(--pad);bottom:clamp(2.4rem,8vh,5.5rem);max-width:var(--maxw);margin-inline:auto;pointer-events:none}
+.film-caps .cap{position:absolute;left:0;right:0;max-width:46ch;opacity:0;transform:translateY(18px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
 .film-caps .cap.active{opacity:1;transform:none;position:relative}
-.film-caps .k{font-size:.72rem;letter-spacing:.26em;text-transform:uppercase;color:var(--amber-soft)}
-.film-caps h2{font-family:'Playfair Display',serif;font-weight:400;font-size:clamp(1.8rem,4.5vw,3rem);line-height:1.04;margin:.6rem 0 .2rem;letter-spacing:-.01em}
-.film-caps p{color:var(--ink-soft);font-weight:300;font-size:1rem;max-width:40ch}
+.film-caps .k{font-size:.72rem;letter-spacing:.26em;text-transform:uppercase;color:var(--teal-soft)}
+.film-caps h2{font-family:'Playfair Display',serif;font-weight:400;font-size:clamp(1.9rem,4.6vw,3.1rem);line-height:1.04;margin:.6rem 0 .2rem;letter-spacing:-.01em}
+.film-caps p{color:var(--ink-soft);font-weight:300;font-size:1rem;max-width:42ch}
 .film-caps .cta{pointer-events:auto;margin-top:1.3rem;display:inline-flex}
 
-/* scrubber + indice */
-.film-scrub{position:absolute;z-index:4;left:var(--pad);right:var(--pad);bottom:1.4rem;height:2px;background:rgba(255,255,255,.12);border-radius:2px;max-width:var(--maxw);margin-inline:auto}
-.film-scrub i{position:absolute;left:0;top:0;height:100%;width:0;background:linear-gradient(90deg,var(--ember),var(--amber-soft));border-radius:2px}
-.film-hint{position:absolute;z-index:4;left:50%;bottom:2.4rem;transform:translateX(-50%);font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:.6rem;transition:opacity .6s}
+.film-scrub{position:absolute;z-index:4;left:var(--pad);right:var(--pad);bottom:1.4rem;height:2px;background:rgba(255,255,255,.14);border-radius:2px;max-width:var(--maxw);margin-inline:auto}
+.film-scrub i{position:absolute;left:0;top:0;height:100%;width:0;background:linear-gradient(90deg,var(--teal-deep),var(--teal-soft));border-radius:2px}
+.film-hint{position:absolute;z-index:4;left:50%;bottom:2.6rem;transform:translateX(-50%);font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:.6rem;transition:opacity .6s}
 .film-hint.hide{opacity:0}
-.film-hint .bar{width:1px;height:34px;background:linear-gradient(180deg,var(--amber),transparent);position:relative;overflow:hidden}
+.film-hint .bar{width:1px;height:34px;background:linear-gradient(180deg,var(--teal),transparent);position:relative;overflow:hidden}
 .film-hint .bar::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#fff,transparent);animation:drop 2.4s var(--ease) infinite}
-
-@keyframes sheen{0%,18%{background-position:120% 0}55%,100%{background-position:-60% 0}}
 @keyframes drop{0%{transform:translateY(-100%)}60%,100%{transform:translateY(100%)}}
 
-/* ════════ Reveal au scroll ════════ */
+/* ════════ Reveal ════════ */
 .reveal{opacity:0;transform:translateY(26px);transition:opacity 1.1s var(--ease),transform 1.1s var(--ease)}
 .reveal.in{opacity:1;transform:none}
 [data-stagger]>*{opacity:0;transform:translateY(24px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
@@ -130,14 +126,14 @@ section{position:relative}
 .manifesto p{font-family:'Playfair Display',serif;font-weight:400;font-size:clamp(1.7rem,4.2vw,3.1rem);line-height:1.32;letter-spacing:-.01em;max-width:20ch}
 .manifesto .w{display:inline-block;opacity:.16;transition:opacity .6s var(--ease),color .6s}
 .manifesto .w.lit{opacity:1}
-.manifesto .accent{color:var(--amber);font-style:italic}
+.manifesto .accent{color:var(--teal);font-style:italic}
 .manifesto .sign{margin-top:2.6rem;display:flex;align-items:center;gap:1rem;color:var(--muted);font-size:.85rem;letter-spacing:.04em}
 .manifesto .sign .ln{width:46px;height:1px;background:var(--line)}
 
-/* ════════ LA PIÈCE (véhicule en vedette, vraies images) ════════ */
+/* ════════ LA PIÈCE ════════ */
 .piece{padding:clamp(4rem,8vh,7rem) 0 clamp(6rem,12vh,10rem)}
-.piece-stage{display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:clamp(2rem,5vw,5rem);margin-top:3rem}
-.piece-copy .idx{font-family:'Playfair Display',serif;font-style:italic;color:var(--amber);font-size:1.1rem}
+.piece-stage{display:grid;grid-template-columns:.95fr 1.05fr;align-items:center;gap:clamp(2rem,5vw,5rem);margin-top:3rem}
+.piece-copy .idx{font-family:'Playfair Display',serif;font-style:italic;color:var(--teal);font-size:1.1rem}
 .piece-copy h3{font-family:'Playfair Display',serif;font-weight:400;font-size:clamp(2rem,4.4vw,3.2rem);line-height:1.02;margin:.5rem 0 .2rem;letter-spacing:-.01em}
 .piece-copy .tag{font-size:.74rem;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)}
 .piece-copy .desc{margin-top:1.2rem;color:var(--ink-soft);font-weight:300;max-width:44ch}
@@ -146,63 +142,58 @@ section{position:relative}
 .spec .l{font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-top:.4rem}
 .piece-copy .actions{margin-top:2rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
 .status{display:inline-flex;align-items:center;gap:.5rem;font-size:.74rem;color:var(--ink-soft)}
-.status .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal)}
 .photo-stage{position:relative}
-.photo-frame{position:relative;aspect-ratio:4/5;border-radius:var(--r-card);overflow:hidden;border:1px solid var(--line-soft);
-  background:#0c0c0d;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 40px 80px -40px rgba(0,0,0,.8)}
-.photo-frame::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 50% at 50% 18%,rgba(255,255,255,.08),transparent 60%);pointer-events:none}
+.photo-frame{position:relative;aspect-ratio:16/11;border-radius:var(--r-card);overflow:hidden;border:1px solid var(--line-soft);background:#0c0e0f;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 40px 80px -40px rgba(0,0,0,.8)}
+.photo-frame::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 50% at 50% 12%,rgba(255,255,255,.07),transparent 60%);pointer-events:none}
 .photo-frame img{width:100%;height:100%;object-fit:cover}
-.photo-glow{position:absolute;inset:-12% -8% -16%;z-index:-1;background:radial-gradient(60% 50% at 50% 70%,var(--amber-glow),transparent 65%);filter:blur(20px)}
+.photo-glow{position:absolute;inset:-12% -8% -16%;z-index:-1;background:radial-gradient(60% 50% at 50% 60%,var(--teal-glow),transparent 65%);filter:blur(22px)}
 .photo-plate{position:absolute;left:1rem;bottom:1rem;font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft);background:rgba(0,0,0,.42);border:1px solid var(--line-soft);padding:.35rem .7rem;border-radius:6px;backdrop-filter:blur(6px)}
 
-/* ════════ L'ART DU DÉTAIL (vrais stills macro) ════════ */
+/* ════════ L'ART DU DÉTAIL ════════ */
 .details{padding:clamp(6rem,12vh,10rem) 0;background:linear-gradient(180deg,transparent,var(--bg-2) 30%,var(--bg-2) 70%,transparent)}
 .detail-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:1.2rem;margin-top:3.4rem}
 .detail{position:relative;border-radius:var(--r-card);overflow:hidden;border:1px solid var(--line-soft);min-height:300px;display:flex;flex-direction:column;justify-content:flex-end;padding:1.8rem;isolation:isolate;background:var(--bg-3);transition:transform .8s var(--ease),border-color .6s}
-.detail:hover{transform:translateY(-5px);border-color:rgba(238,139,61,.4)}
+.detail:hover{transform:translateY(-5px);border-color:rgba(54,224,208,.4)}
 .detail img{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;transition:transform 1.4s var(--ease)}
 .detail:hover img{transform:scale(1.06)}
-.detail .scrim{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,transparent 28%,rgba(8,8,9,.5) 62%,rgba(8,8,9,.92))}
+.detail .scrim{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,transparent 26%,rgba(6,7,8,.5) 60%,rgba(6,7,8,.92))}
 .detail h4{font-family:'Playfair Display',serif;font-weight:400;font-size:1.5rem;line-height:1.05}
 .detail p{color:var(--ink-soft);font-weight:300;font-size:.95rem;margin-top:.5rem;max-width:34ch}
-.detail .k{font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;color:var(--amber-soft);margin-bottom:.8rem}
-.d-leather{grid-column:span 7}
-.d-stars{grid-column:span 5}
-.d-emblem{grid-column:span 5}
-.d-wheel{grid-column:span 4}
-.d-clock{grid-column:span 3}
+.detail .k{font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;color:var(--teal-soft);margin-bottom:.8rem}
+.d-a{grid-column:span 7}.d-b{grid-column:span 5}.d-c{grid-column:span 5}.d-d{grid-column:span 4}.d-e{grid-column:span 3}
 
 /* ════════ MAISON ════════ */
 .maison{padding:clamp(6rem,12vh,10rem) 0}
 .pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:3.4rem;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:var(--r-card);overflow:hidden}
 .pillar{background:var(--bg);padding:2.4rem 1.8rem;transition:background .5s var(--ease)}
 .pillar:hover{background:var(--bg-3)}
-.pillar .num{font-family:'Playfair Display',serif;font-style:italic;color:var(--amber);font-size:1.1rem}
-.pillar h4{font-weight:500;font-size:1.15rem;margin:1.4rem 0 .6rem}
+.pillar .num{font-family:'Playfair Display',serif;font-style:italic;color:var(--teal);font-size:1.1rem}
+.pillar h4{font-weight:600;font-size:1.15rem;margin:1.4rem 0 .6rem}
 .pillar p{color:var(--ink-soft);font-weight:300;font-size:.92rem}
-.pillar .ico{width:26px;height:26px;color:var(--amber-soft);margin-bottom:1.4rem;stroke-width:1.2}
+.pillar .ico{width:26px;height:26px;color:var(--teal-soft);margin-bottom:1.4rem;stroke-width:1.2}
 
 /* ════════ INVITATION ════════ */
 .invite{position:relative;padding:clamp(6rem,13vh,11rem) 0;overflow:hidden}
-.invite::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(70% 90% at 50% 120%, rgba(238,139,61,.16), transparent 60%)}
+.invite::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(70% 90% at 50% 120%, rgba(54,224,208,.14), transparent 60%)}
 .invite-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(2.5rem,6vw,6rem);align-items:start}
 .invite h2{font-family:'Playfair Display',serif;font-weight:400;font-size:clamp(2.2rem,5vw,3.6rem);line-height:1.02;letter-spacing:-.01em}
 .invite .lead{margin-top:1.4rem;color:var(--ink-soft);font-weight:300;font-size:1.05rem;max-width:40ch}
 .invite .contact-row{margin-top:2.4rem;display:flex;flex-direction:column;gap:1.1rem}
 .invite .contact-row a{display:flex;align-items:center;gap:1rem;color:var(--ink-soft);transition:color .3s}
 .invite .contact-row a:hover{color:var(--ink)}
-.invite .contact-row .ico{width:20px;height:20px;color:var(--amber-soft)}
+.invite .contact-row .ico{width:20px;height:20px;color:var(--teal-soft)}
 form{display:grid;gap:1.2rem;background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r-card);padding:clamp(1.6rem,3vw,2.4rem)}
 .field{display:flex;flex-direction:column;gap:.5rem}
 .field label{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
-.field label .req{color:var(--amber)}
+.field label .req{color:var(--teal)}
 .field input,.field select,.field textarea{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:.85rem 1rem;font-size:.95rem;font-family:inherit;transition:border-color .3s,background .3s}
-.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--amber);background:rgba(0,0,0,.4)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--teal);background:rgba(0,0,0,.4)}
 .field input::placeholder,.field textarea::placeholder{color:var(--muted)}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
 form button[type=submit]{margin-top:.4rem;justify-content:center;padding:1rem}
 .form-note{font-size:.74rem;color:var(--muted);text-align:center}
-.form-success{display:none;align-items:center;gap:.7rem;color:var(--amber-soft);font-size:.92rem;background:rgba(238,139,61,.08);border:1px solid rgba(238,139,61,.3);border-radius:10px;padding:.9rem 1.1rem}
+.form-success{display:none;align-items:center;gap:.7rem;color:var(--teal-soft);font-size:.92rem;background:rgba(54,224,208,.08);border:1px solid rgba(54,224,208,.3);border-radius:10px;padding:.9rem 1.1rem}
 .form-success.show{display:flex}
 
 /* ════════ FOOTER ════════ */
@@ -211,38 +202,39 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
 .foot-cols{display:flex;gap:clamp(2rem,6vw,5rem);flex-wrap:wrap}
 .foot-col h5{font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin-bottom:1.1rem}
 .foot-col a{display:block;color:var(--ink-soft);font-size:.9rem;padding:.3rem 0;transition:color .3s}
-.foot-col a:hover{color:var(--amber-soft)}
+.foot-col a:hover{color:var(--teal-soft)}
 .foot-brand{max-width:30ch}
 .foot-brand p{color:var(--muted);font-size:.88rem;font-weight:300;margin-top:1rem}
 .foot-bottom{margin-top:clamp(2.5rem,6vh,4rem);padding-top:1.8rem;border-top:1px solid var(--line-soft);display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;color:var(--muted);font-size:.78rem}
 
 /* ════════ MENU MOBILE ════════ */
-.mobile-menu{position:fixed;inset:0;z-index:99;background:rgba(10,10,11,.97);backdrop-filter:blur(20px);display:flex;flex-direction:column;justify-content:center;gap:.5rem;padding:var(--pad);opacity:0;visibility:hidden;transition:opacity .5s var(--ease),visibility .5s}
+.mobile-menu{position:fixed;inset:0;z-index:99;background:rgba(7,8,9,.97);backdrop-filter:blur(20px);display:flex;flex-direction:column;justify-content:center;gap:.5rem;padding:var(--pad);opacity:0;visibility:hidden;transition:opacity .5s var(--ease),visibility .5s}
 .mobile-menu.open{opacity:1;visibility:visible}
 .mobile-menu a{font-family:'Playfair Display',serif;font-size:2rem;color:var(--ink-soft);padding:.6rem 0;transition:color .3s}
-.mobile-menu a:hover{color:var(--amber-soft)}
+.mobile-menu a:hover{color:var(--teal-soft)}
 .mobile-menu .close{position:absolute;top:1.5rem;right:var(--pad);width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center}
 
 /* ════════ RESPONSIVE ════════ */
 @media(max-width:980px){
   .piece-stage{grid-template-columns:1fr;gap:2rem}
   .detail-grid{gap:1rem}
-  .d-leather,.d-stars,.d-emblem,.d-wheel,.d-clock{grid-column:span 6}
+  .d-a,.d-b,.d-c,.d-d,.d-e{grid-column:span 6}
   .pillars{grid-template-columns:repeat(2,1fr)}
   .invite-grid{grid-template-columns:1fr;gap:2.5rem}
 }
 @media(max-width:720px){
   .nav-links,.clock{display:none}
   .menu-btn{display:flex}
-  .nav-right .btn-amber{display:none}
-  .film-video{width:100%;height:100%;object-fit:cover}   /* plein cadre sur mobile (source verticale) */
+  .nav-right .btn-cta{display:none}
+  .film-hero .intro{display:none}
+  .film-hero .cta{left:var(--pad);right:var(--pad);justify-content:flex-start;bottom:clamp(1.6rem,5vh,3rem)}
+  .film-hero .headline{bottom:clamp(6.5rem,18vh,9rem)}
   .detail-grid{grid-template-columns:1fr}
-  .d-leather,.d-stars,.d-emblem,.d-wheel,.d-clock{grid-column:span 1}
+  .d-a,.d-b,.d-c,.d-d,.d-e{grid-column:span 1}
   .pillars{grid-template-columns:1fr}
   .field-row{grid-template-columns:1fr}
 }
 
-/* ════════ Mouvement réduit ════════ */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
   .reveal,[data-stagger]>*{opacity:1!important;transform:none!important}
@@ -266,7 +258,7 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
     </nav>
     <div class="nav-right">
       <span class="clock" aria-hidden="true"><span class="dot"></span><span id="clock">— : —</span> Dubaï</span>
-      <a href="#invite" class="btn btn-amber">Visite privée</a>
+      <a href="#invite" class="btn btn-cta">Visite privée</a>
       <button class="menu-btn" id="menuOpen" aria-label="Ouvrir le menu">
         <svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
@@ -286,55 +278,59 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
 
 <main id="top">
 
-<!-- ════════ FILM : la vidéo du showroom, pilotée au scroll ════════ -->
+<!-- ════════ FILM : Mansory F9XX Spider, plein cadre, pilotée au scroll ════════ -->
 <section class="film" id="film">
   <div class="film-sticky">
-    <div class="film-bg"></div>
-    <canvas class="film-ambient" id="filmAmbient" aria-hidden="true"></canvas>
-    <div class="film-ambient-scrim"></div>
-    <video class="film-video" id="filmVideo" muted playsinline preload="auto" poster="assets/media/poster.jpg" aria-label="Visite filmée du showroom VIP Motors">
+    <video class="film-video" id="filmVideo" muted playsinline preload="auto" poster="assets/media/poster.jpg" aria-label="Présentation filmée de la Mansory F9XX Spider chez VIP Motors">
       <source src="assets/media/showroom.mp4" type="video/mp4">
     </video>
     <div class="film-fade"></div>
 
-    <!-- titre d'ouverture -->
-    <div class="film-title" id="filmTitle">
-      <span class="eyebrow">Maison automobile · Dubaï · Sur rendez-vous</span>
-      <h1 class="serif">L'art de posséder <em>l'exception.</em></h1>
-      <p>Défilez&nbsp;— et entrez dans le showroom.</p>
+    <!-- overlay d'accueil (réf. WISA) -->
+    <div class="film-hero" id="filmHero">
+      <p class="intro">Sélection, préparation et présentation d'automobiles d'exception. Des pièces uniques, vérifiées et livrées partout dans le monde. <b>Nous rapprochons le mythe de votre garage.</b></p>
+      <div class="headline">
+        <span class="eyebrow">Mansory F9XX Spider · One of One</span>
+        <h1>Une seule.<br><em>Au monde.</em></h1>
+      </div>
+      <div class="cta">
+        <a href="#piece" class="btn btn-ghost">Découvrir la pièce
+          <svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
     </div>
 
     <!-- sous-titres synchronisés au film -->
     <div class="film-caps" id="filmCaps">
-      <div class="cap" data-from=".12" data-to=".30">
+      <div class="cap" data-from=".10" data-to=".22">
         <div class="k">01 — Présence</div>
         <h2 class="serif">La présence, avant les mots.</h2>
-        <p>Cullinan Series II. Une silhouette qui occupe l'espace sans jamais hausser le ton.</p>
+        <p>Carbone forgé, accents turquoise. Une silhouette qui occupe l'espace sans hausser le ton.</p>
       </div>
-      <div class="cap" data-from=".30" data-to=".46">
-        <div class="k">02 — L'emblème</div>
-        <h2 class="serif">Le geste signé.</h2>
-        <p>À l'avant, le symbole qui veille. Le détail qui dit tout, en silence.</p>
+      <div class="cap" data-from=".22" data-to=".44">
+        <div class="k">02 — Le profil</div>
+        <h2 class="serif">La ligne tendue.</h2>
+        <p>Une découpe dessinée par la vitesse. Chaque trait file vers l'avant.</p>
       </div>
-      <div class="cap" data-from=".46" data-to=".62">
-        <div class="k">03 — L'artisanat</div>
-        <h2 class="serif">Cousu, jamais assemblé.</h2>
-        <p>Le cuir ambré garde la mémoire du geste. Une matière qui se patine, pas qui vieillit.</p>
+      <div class="cap" data-from=".44" data-to=".58">
+        <div class="k">03 — L'aéro</div>
+        <h2 class="serif">Chaque courbe a une raison.</h2>
+        <p>Aileron, extracteurs, prises d'air : la forme au service de l'appui.</p>
       </div>
-      <div class="cap" data-from=".62" data-to=".80">
-        <div class="k">04 — Une nuit privée</div>
-        <h2 class="serif">Le ciel, replié.</h2>
-        <p>Mille points de lumière au-dessus de vous. Le firmament logé dans l'habitacle.</p>
+      <div class="cap" data-from=".58" data-to=".74">
+        <div class="k">04 — L'habitacle</div>
+        <h2 class="serif">Taillé pour le pilote.</h2>
+        <p>Cuir clair, carbone apparent, et l'essentiel à portée de main.</p>
       </div>
-      <div class="cap" data-from=".80" data-to=".92">
-        <div class="k">05 — Le détail</div>
-        <h2 class="serif">Jusqu'à l'aiguille.</h2>
-        <p>La jante, l'horloge, le reflet. Rien n'est laissé au hasard.</p>
+      <div class="cap" data-from=".74" data-to=".88">
+        <div class="k">05 — La mécanique</div>
+        <h2 class="serif">Un V8 hybride, contenu.</h2>
+        <p>La puissance d'une hypercar, la maîtrise d'une pièce d'exception.</p>
       </div>
-      <div class="cap" data-from=".92" data-to="1.01">
+      <div class="cap" data-from=".88" data-to="1.01">
         <div class="k">VIP MOTORS</div>
         <h2 class="serif">À vous, désormais.</h2>
-        <a href="#invite" class="btn btn-amber cta">Organiser une visite privée
+        <a href="#invite" class="btn btn-teal cta">Organiser une visite privée
           <svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </a>
       </div>
@@ -351,88 +347,88 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
   <div class="sign reveal"><span class="ln"></span> La Maison VIP MOTORS</div>
 </section>
 
-<!-- ════════ LA PIÈCE (véhicule en vedette — vraie image du film) ════════ -->
+<!-- ════════ LA PIÈCE ════════ -->
 <section class="piece wrap" id="piece">
   <div class="section-head reveal">
     <span class="eyebrow">La pièce du moment</span>
     <h2 class="serif">Une seule, mais choisie.</h2>
-    <p>Pas un catalogue. Une pièce présentée comme elle le mérite&nbsp;— sous les projecteurs du showroom.</p>
+    <p>Pas un catalogue. Une pièce présentée comme elle le mérite&nbsp;— sous les projecteurs du studio.</p>
   </div>
 
   <div class="piece-stage">
     <div class="piece-copy reveal">
       <span class="idx serif">01</span>
-      <div class="tag">Sport Utility · Sommet</div>
-      <h3 class="serif">Cullinan Series II</h3>
-      <p class="desc">Le voyage porté à son point culminant. Présence absolue, silence souverain, et un habitacle ambré taillé pour le temps qui s'étire.</p>
+      <div class="tag">Hypercar · One of One</div>
+      <h3 class="serif">Mansory F9XX Spider</h3>
+      <p class="desc">Une réinterprétation radicale de la Ferrari SF90, signée Mansory. Carrosserie en carbone forgé, V8 hybride, et une exclusivité absolue&nbsp;: un seul exemplaire au monde.</p>
       <div class="spec">
-        <div><div class="n serif">2025</div><div class="l">Millésime</div></div>
-        <div><div class="n serif">V12 · 6,75 L</div><div class="l">Motorisation</div></div>
-        <div><div class="n serif">Noir Diamant</div><div class="l">Teinte</div></div>
+        <div><div class="n serif">2024</div><div class="l">Millésime</div></div>
+        <div><div class="n serif">V8 hybride · ~1100 ch</div><div class="l">Motorisation</div></div>
+        <div><div class="n serif">Carbone &amp; Teal</div><div class="l">Finition</div></div>
       </div>
       <div class="actions">
-        <a href="#invite" class="btn btn-amber">Réserver une visite</a>
-        <span class="status"><span class="dot"></span>Disponible · Dubaï</span>
+        <a href="#invite" class="btn btn-teal">Réserver une visite</a>
+        <span class="status"><span class="dot"></span>One of One · Dubaï</span>
       </div>
     </div>
     <div class="photo-stage reveal">
       <div class="photo-glow"></div>
       <div class="photo-frame">
-        <img src="assets/media/still-rear.jpg" alt="Cullinan Series II noire de trois-quarts arrière dans le showroom VIP Motors" width="1000" height="1250" loading="lazy" decoding="async">
-        <span class="photo-plate">VIP · DXB 01</span>
+        <img src="assets/media/still-profile.jpg" alt="Mansory F9XX Spider de profil, carbone et accents turquoise, dans le studio VIP Motors" width="1600" height="1100" loading="lazy" decoding="async">
+        <span class="photo-plate">VIP · DXB · 1/1</span>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ════════ L'ART DU DÉTAIL (vrais stills du film) ════════ -->
+<!-- ════════ L'ART DU DÉTAIL (vrais plans du film) ════════ -->
 <section class="details" id="details">
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow">L'art du détail</span>
       <h2 class="serif">La valeur se trouve<br>dans ce que l'on ressent.</h2>
-      <p>Le prix se lit sur une fiche. Le luxe, lui, se touche, s'écoute et se respire. Voici ce qui ne se voit pas sur une annonce.</p>
+      <p>La fiche technique se lit. L'émotion, elle, se regarde de près. Voici ce qui fait la différence d'une pièce d'exception.</p>
     </div>
 
     <div class="detail-grid" data-stagger>
-      <article class="detail d-leather">
-        <img src="assets/media/still-console.jpg" alt="Console centrale et cuir ambré cousu main" loading="lazy" decoding="async">
+      <article class="detail d-a">
+        <img src="assets/media/still-engine.jpg" alt="Compartiment carbone forgé de la F9XX" loading="lazy" decoding="async">
         <div class="scrim"></div>
-        <span class="k">Le cuir</span>
-        <h4 class="serif">Cousu main</h4>
-        <p>Chaque surpiqûre garde la mémoire du geste. Une matière qui se patine au lieu de vieillir.</p>
+        <span class="k">Le carbone</span>
+        <h4 class="serif">Forgé, pas plaqué</h4>
+        <p>Le carbone Mansory&nbsp;: visible, structurel, signé. La matière comme parure.</p>
       </article>
 
-      <article class="detail d-stars">
-        <img src="assets/media/still-stars.jpg" alt="Ciel étoilé du pavillon de toit" loading="lazy" decoding="async">
+      <article class="detail d-b">
+        <img src="assets/media/still-cockpit.jpg" alt="Habitacle cuir clair et carbone" loading="lazy" decoding="async">
         <div class="scrim"></div>
-        <span class="k">Le ciel étoilé</span>
-        <h4 class="serif">Une nuit privée</h4>
-        <p>Mille points de lumière au-dessus de vous. Le firmament, replié dans un habitacle.</p>
+        <span class="k">L'habitacle</span>
+        <h4 class="serif">Taillé pour le pilote</h4>
+        <p>Cuir clair, carbone apparent. Le luxe au service de la conduite.</p>
       </article>
 
-      <article class="detail d-emblem">
-        <img src="assets/media/still-emblem.jpg" alt="Emblème chromé sur le capot" loading="lazy" decoding="async">
+      <article class="detail d-c">
+        <img src="assets/media/still-aero.jpg" alt="Aileron et aérodynamique arrière" loading="lazy" decoding="async">
         <div class="scrim"></div>
-        <span class="k">L'emblème</span>
-        <h4 class="serif">Le geste signé</h4>
-        <p>Le symbole qui veille à l'avant. Le détail qui dit tout, sans un mot.</p>
+        <span class="k">L'aéro</span>
+        <h4 class="serif">Chaque courbe a une raison</h4>
+        <p>L'appui avant l'esbroufe. Une forme dessinée par la physique.</p>
       </article>
 
-      <article class="detail d-wheel">
-        <img src="assets/media/still-wheel.jpg" alt="Jante bicolore en gros plan" loading="lazy" decoding="async">
+      <article class="detail d-d">
+        <img src="assets/media/still-front.jpg" alt="Face avant de la F9XX Spider" loading="lazy" decoding="async">
         <div class="scrim"></div>
-        <span class="k">La jante</span>
-        <h4 class="serif">L'équilibre</h4>
-        <p>Le centre reste droit. La précision, jusqu'au mouvement.</p>
+        <span class="k">La face</span>
+        <h4 class="serif">Un regard</h4>
+        <p>Une signature lumineuse qui ne s'oublie pas.</p>
       </article>
 
-      <article class="detail d-clock">
-        <img src="assets/media/still-clock.jpg" alt="Horloge analogique du tableau de bord" loading="lazy" decoding="async">
+      <article class="detail d-e">
+        <img src="assets/media/still-rear.jpg" alt="Arrière et sorties d'échappement" loading="lazy" decoding="async">
         <div class="scrim"></div>
-        <span class="k">L'instant</span>
-        <h4 class="serif">Le temps choisi</h4>
-        <p>Une horloge qui ne mesure que les beaux moments.</p>
+        <span class="k">L'arrière</span>
+        <h4 class="serif">La signature</h4>
+        <p>Quatre sorties, un V8.</p>
       </article>
     </div>
   </div>
@@ -443,7 +439,7 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
   <div class="section-head reveal">
     <span class="eyebrow">La Maison</span>
     <h2 class="serif">Le prestige est une<br>question de confiance.</h2>
-    <p>Acheter une automobile d'exception, c'est avant tout choisir une maison. La nôtre repose sur quatre engagements.</p>
+    <p>Acquérir une automobile d'exception, c'est avant tout choisir une maison. La nôtre repose sur quatre engagements.</p>
   </div>
 
   <div class="pillars reveal">
@@ -475,7 +471,7 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
   <div class="wrap invite-grid">
     <div class="reveal">
       <span class="eyebrow">L'invitation</span>
-      <h2 class="serif">Entrez dans<br>le showroom.</h2>
+      <h2 class="serif">Entrez dans<br>le studio.</h2>
       <p class="lead">Sur rendez-vous uniquement. Indiquez-nous la pièce qui vous intéresse&nbsp;— ou laissez-nous composer une sélection à votre image.</p>
       <div class="contact-row">
         <a href="tel:+97140000000">
@@ -495,7 +491,7 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
 
     <form class="reveal" id="bookForm" novalidate>
       <div class="form-success" id="formSuccess" role="status" aria-live="polite">
-        <svg class="ico" viewBox="0 0 24 24" style="width:20px;height:20px;color:var(--amber)"><path d="M20 6L9 17l-5-5"/></svg>
+        <svg class="ico" viewBox="0 0 24 24" style="width:20px;height:20px;color:var(--teal)"><path d="M20 6L9 17l-5-5"/></svg>
         Merci. Notre concierge vous recontacte sous 24&nbsp;h.
       </div>
       <div class="field-row">
@@ -509,12 +505,12 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
       <div class="field"><label for="fcar">Pièce qui vous intéresse</label>
         <select id="fcar" name="vehicle">
           <option value="">Composez ma sélection</option>
-          <option>Cullinan Series II</option>
+          <option>Mansory F9XX Spider (One of One)</option>
           <option>Autre / Recherche spécifique</option>
         </select></div>
       <div class="field"><label for="fmsg">Message</label>
         <textarea id="fmsg" name="message" rows="3" placeholder="Vos souhaits, votre calendrier…"></textarea></div>
-      <button type="submit" class="btn btn-amber">Demander une visite privée</button>
+      <button type="submit" class="btn btn-teal">Demander une visite privée</button>
       <p class="form-note">Réponse confidentielle sous 24 h · Aucun engagement</p>
     </form>
   </div>
@@ -530,7 +526,7 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
           <span class="monogram serif">V</span>
           <span><b>VIP MOTORS</b><small>Maison automobile</small></span>
         </a>
-        <p>Une collection privée d'automobiles d'exception. Curation, provenance, discrétion. Dubaï — dans le monde entier.</p>
+        <p>Une collection privée d'automobiles d'exception et de pièces uniques. Curation, provenance, discrétion. Dubaï — dans le monde entier.</p>
       </div>
       <div class="foot-cols">
         <div class="foot-col"><h5>Explorer</h5>
@@ -543,7 +539,7 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
     </div>
     <div class="foot-bottom">
       <span>© 2026 VIP MOTORS — Maison automobile. Tous droits réservés.</span>
-      <span>Conçu comme un showroom. Dubaï.</span>
+      <span>Conçu comme un studio. Dubaï.</span>
     </div>
   </div>
 </footer>
@@ -554,71 +550,45 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
-  /* Header */
   const header = document.getElementById('header');
   const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 40);
   onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
 
-  /* Menu mobile */
   const mm = document.getElementById('mobileMenu');
   document.getElementById('menuOpen').addEventListener('click', () => {mm.classList.add('open');mm.setAttribute('aria-hidden','false');});
   const closeMenu = () => {mm.classList.remove('open');mm.setAttribute('aria-hidden','true');};
   document.getElementById('menuClose').addEventListener('click', closeMenu);
   mm.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
 
-  /* Horloge Dubaï */
   const clock = document.getElementById('clock');
   const tick = () => { try{ clock.textContent = new Intl.DateTimeFormat('fr-FR',{timeZone:'Asia/Dubai',hour:'2-digit',minute:'2-digit'}).format(new Date()); }catch(e){ clock.textContent='—'; } };
   tick(); setInterval(tick, 15000);
 
-  /* ─── FILM : scroll-scrubbing de la vraie vidéo ─── */
+  /* ─── FILM : scroll-scrubbing plein cadre de la vraie vidéo ─── */
   const film   = document.getElementById('film');
   const video  = document.getElementById('filmVideo');
-  const title  = document.getElementById('filmTitle');
+  const hero   = document.getElementById('filmHero');
   const hint   = document.getElementById('filmHint');
   const scrub  = document.getElementById('filmScrub');
-  const caps   = [...document.querySelectorAll('#filmCaps .cap')].map(el => ({
-    el, from:parseFloat(el.dataset.from), to:parseFloat(el.dataset.to)
-  }));
+  const caps   = [...document.querySelectorAll('#filmCaps .cap')].map(el => ({el, from:parseFloat(el.dataset.from), to:parseFloat(el.dataset.to)}));
 
-  // mode scrub : desktop, pointeur fin, mouvement non réduit
   const canScrub = window.matchMedia('(min-width:768px) and (pointer:fine)').matches && !reduce;
-  // hauteur de la zone de défilement du film (pacing lent = luxe)
-  const FILM_VH = canScrub ? 540 : 100;
+  const FILM_VH = canScrub ? 620 : 100;       // pacing lent = luxe
   film.style.height = FILM_VH + 'vh';
 
   let duration = 0, ready = false, targetT = 0, curT = 0;
-  video.addEventListener('loadedmetadata', () => { duration = video.duration || 19.3; ready = true; });
-
-  /* studio prolongé : on recopie l'image vidéo dans un petit canvas (flouté en CSS)
-     pour remplir les côtés avec le même environnement, au même instant */
-  const amb = document.getElementById('filmAmbient');
-  const actx = amb.getContext('2d');
-  amb.width = 90; amb.height = 160;                    // minuscule = quasi gratuit
-  let ambRun = true;
-  const drawAmbient = () => {
-    if (ambRun && video.readyState >= 2){
-      try{ actx.drawImage(video, 0, 0, amb.width, amb.height); }catch(e){}
-    }
-    requestAnimationFrame(drawAmbient);
-  };
-  requestAnimationFrame(drawAmbient);
-  document.addEventListener('visibilitychange', () => { ambRun = !document.hidden; });
-  // amorce le décodeur pour un scrubbing net (lecture muette très courte)
-  video.addEventListener('canplay', () => {
-    if (canScrub){ video.play().then(()=>video.pause()).catch(()=>{}); }
-  }, {once:true});
+  video.addEventListener('loadedmetadata', () => { duration = video.duration || 57; ready = true; });
+  // amorce le décodeur → évite tout écran noir au démarrage du scrub
+  video.addEventListener('canplay', () => { if (canScrub){ video.play().then(()=>video.pause()).catch(()=>{}); } }, {once:true});
 
   function setCaptions(p){
-    let title_done = p > 0.10;
-    title.classList.toggle('hide', title_done);
-    hint.classList.toggle('hide', p > 0.04);
+    hero.classList.toggle('hide', p > 0.06);
+    hint.classList.toggle('hide', p > 0.03);
     let active = -1;
     caps.forEach((c,i)=>{ if (p>=c.from && p<c.to) active=i; });
     caps.forEach((c,i)=> c.el.classList.toggle('active', i===active));
     scrub.style.width = (clamp(p,0,1)*100).toFixed(2)+'%';
   }
-
   function filmProgress(){
     const rect = film.getBoundingClientRect();
     const total = film.offsetHeight - window.innerHeight;
@@ -632,71 +602,58 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
       setCaptions(p);
       if (ready){
         targetT = p * (duration - 0.05);
-        curT += (targetT - curT) * 0.14;            // lerp = fluidité
+        curT += (targetT - curT) * 0.14;
         if (Math.abs(targetT - curT) < 0.004) curT = targetT;
-        if (Math.abs(video.currentTime - curT) > 0.015){
-          try{ video.currentTime = curT; }catch(e){}
-        }
+        if (Math.abs(video.currentTime - curT) > 0.015){ try{ video.currentTime = curT; }catch(e){} }
       }
       if (running) requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
-    document.addEventListener('visibilitychange', () => {
-      running = !document.hidden;
-      if (running) requestAnimationFrame(loop);
-    });
+    document.addEventListener('visibilitychange', () => { running = !document.hidden; if (running) requestAnimationFrame(loop); });
   } else {
-    // Fallback (mobile / reduced-motion) : la vraie vidéo joue en boucle, les légendes suivent sa lecture
-    video.loop = true; video.autoplay = true;
-    const play = () => video.play().catch(()=>{});
-    play(); document.addEventListener('click', play, {once:true});
-    if (reduce){ setCaptions(0.15); }
-    else { video.addEventListener('timeupdate', () => setCaptions(duration ? video.currentTime/duration : 0)); }
+    // Fallback (mobile / reduced-motion) : la vraie vidéo joue en boucle plein cadre
+    if (reduce){ setCaptions(0); }
+    else {
+      video.loop = true; video.autoplay = true;
+      const play = () => video.play().catch(()=>{});
+      play(); document.addEventListener('click', play, {once:true}); document.addEventListener('touchstart', play, {once:true});
+      video.addEventListener('timeupdate', () => setCaptions(duration ? video.currentTime/duration : 0));
+    }
   }
 
-  /* ─── Reveals au scroll ─── */
+  /* ─── Reveals ─── */
   if ('IntersectionObserver' in window && !reduce){
     const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (!e.isIntersecting) return;
-        const el = e.target;
+      entries.forEach(e => { if (!e.isIntersecting) return; const el=e.target;
         if (el.hasAttribute('data-stagger')) [...el.children].forEach((c,i)=>{ c.style.transitionDelay=(i*70)+'ms'; });
-        el.classList.add('in'); io.unobserve(el);
-      });
+        el.classList.add('in'); io.unobserve(el); });
     }, {threshold:.16, rootMargin:'0px 0px -8% 0px'});
     document.querySelectorAll('.reveal,[data-stagger]').forEach(el => io.observe(el));
-  } else {
-    document.querySelectorAll('.reveal,[data-stagger]').forEach(el => el.classList.add('in'));
-  }
+  } else { document.querySelectorAll('.reveal,[data-stagger]').forEach(el => el.classList.add('in')); }
 
-  /* ─── Manifeste : mots qui s'allument ─── */
+  /* ─── Manifeste ─── */
   const man = document.querySelector('[data-words]');
   if (man){
-    const accent = man.querySelector('.accent');
-    const accentText = accent ? accent.textContent : '';
-    const before = man.childNodes[0].textContent;
-    man.innerHTML = '';
+    const accent = man.querySelector('.accent'); const accentText = accent ? accent.textContent : '';
+    const before = man.childNodes[0].textContent; man.innerHTML = '';
     const frag = document.createDocumentFragment();
     before.trim().split(/\s+/).forEach(w => { const s=document.createElement('span'); s.className='w'; s.textContent=w+' '; frag.appendChild(s); });
     if (accentText){ const a=document.createElement('span'); a.className='w accent'; a.textContent=accentText; frag.appendChild(a); }
     man.appendChild(frag);
     const words = [...man.querySelectorAll('.w')];
     if (reduce){ words.forEach(w=>w.classList.add('lit')); }
-    else {
-      const wo = new IntersectionObserver((entries) => {
+    else { const wo = new IntersectionObserver((entries) => {
         entries.forEach(e => { if (e.isIntersecting){ const i=words.indexOf(e.target); setTimeout(()=>e.target.classList.add('lit'), i*55); wo.unobserve(e.target); } });
       }, {threshold:1, rootMargin:'0px 0px -20% 0px'});
-      words.forEach(w => wo.observe(w));
-    }
+      words.forEach(w => wo.observe(w)); }
   }
 
   /* ─── Formulaire ─── */
-  const form = document.getElementById('bookForm');
-  const success = document.getElementById('formSuccess');
+  const form = document.getElementById('bookForm'); const success = document.getElementById('formSuccess');
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const name=form.name, phone=form.phone; let ok=true;
-    [name,phone].forEach(f => { if(!f.value.trim()){ f.style.borderColor='var(--amber)'; ok=false; } else f.style.borderColor=''; });
+    [name,phone].forEach(f => { if(!f.value.trim()){ f.style.borderColor='var(--teal)'; ok=false; } else f.style.borderColor=''; });
     if (!ok){ (name.value.trim()?phone:name).focus(); return; }
     success.classList.add('show');
     form.querySelectorAll('input,select,textarea,button').forEach(el => el.disabled=true);
