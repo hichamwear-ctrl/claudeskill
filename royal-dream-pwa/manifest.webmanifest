@@ -1,0 +1,19 @@
+{
+  "name": "Royal Dream Events",
+  "short_name": "Royal Dream",
+  "description": "Location de châteaux gonflables & mascottes pour anniversaires à Bruxelles et en Belgique francophone.",
+  "lang": "fr",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0b22",
+  "theme_color": "#0b0b22",
+  "categories": ["entertainment", "lifestyle", "shopping"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
