@@ -73,12 +73,16 @@ header.scrolled{background:rgba(10,10,11,.72);backdrop-filter:blur(18px) saturat
 /* ════════ FILM — vidéo pilotée au scroll (la pièce maîtresse) ════════ */
 .film{position:relative;background:#060607}
 .film-sticky{position:sticky;top:0;height:100svh;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.film-bg{position:absolute;inset:0;z-index:0;
-  background:radial-gradient(70% 60% at 50% 92%, rgba(238,139,61,.18), transparent 60%),
-             radial-gradient(90% 90% at 50% 30%, rgba(255,255,255,.04), transparent 60%),
-             #060607}
-.film-video{position:relative;z-index:1;height:100%;width:auto;object-fit:contain;background:#060607;will-change:contents}
-.film-fade{position:absolute;inset:0;z-index:2;pointer-events:none;
+.film-bg{position:absolute;inset:0;z-index:0;background:#060607}
+/* studio prolongé : la même image vidéo, floutée, remplit les côtés */
+.film-ambient{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;
+  filter:blur(48px) saturate(1.3) brightness(.5);transform:scale(1.18);opacity:.92}
+.film-ambient-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(58% 64% at 50% 50%, transparent 32%, rgba(6,6,7,.55) 100%),
+             linear-gradient(180deg, rgba(6,6,7,.45), rgba(6,6,7,.12) 38%, rgba(6,6,7,.72))}
+.film-video{position:relative;z-index:2;height:100%;width:auto;object-fit:contain;background:transparent;will-change:contents;
+  box-shadow:0 30px 120px -20px rgba(0,0,0,.75)}
+.film-fade{position:absolute;inset:0;z-index:3;pointer-events:none;
   background:linear-gradient(180deg, rgba(6,6,7,.75) 0%, transparent 18%, transparent 42%, rgba(6,6,7,.55) 78%, rgba(6,6,7,.96) 100%)}
 
 /* titre d'ouverture (segment 0) */
@@ -286,6 +290,8 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
 <section class="film" id="film">
   <div class="film-sticky">
     <div class="film-bg"></div>
+    <canvas class="film-ambient" id="filmAmbient" aria-hidden="true"></canvas>
+    <div class="film-ambient-scrim"></div>
     <video class="film-video" id="filmVideo" muted playsinline preload="auto" poster="assets/media/poster.jpg" aria-label="Visite filmée du showroom VIP Motors">
       <source src="assets/media/showroom.mp4" type="video/mp4">
     </video>
@@ -583,6 +589,21 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
 
   let duration = 0, ready = false, targetT = 0, curT = 0;
   video.addEventListener('loadedmetadata', () => { duration = video.duration || 19.3; ready = true; });
+
+  /* studio prolongé : on recopie l'image vidéo dans un petit canvas (flouté en CSS)
+     pour remplir les côtés avec le même environnement, au même instant */
+  const amb = document.getElementById('filmAmbient');
+  const actx = amb.getContext('2d');
+  amb.width = 90; amb.height = 160;                    // minuscule = quasi gratuit
+  let ambRun = true;
+  const drawAmbient = () => {
+    if (ambRun && video.readyState >= 2){
+      try{ actx.drawImage(video, 0, 0, amb.width, amb.height); }catch(e){}
+    }
+    requestAnimationFrame(drawAmbient);
+  };
+  requestAnimationFrame(drawAmbient);
+  document.addEventListener('visibilitychange', () => { ambRun = !document.hidden; });
   // amorce le décodeur pour un scrubbing net (lecture muette très courte)
   video.addEventListener('canplay', () => {
     if (canScrub){ video.play().then(()=>video.pause()).catch(()=>{}); }
