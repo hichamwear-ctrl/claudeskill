@@ -1,0 +1,20 @@
+# Netlify configuration.
+# The deliverable for Netlify is the static PWA in royal-dream-pwa/ — it needs
+# NO build step. This file overrides Netlify's automatic Expo detection (which
+# was wrongly running `expo export -p web`).
+[build]
+  publish = "royal-dream-pwa"
+  command = "echo 'Static PWA — no build needed'"
+
+# Ensure the web manifest is served with the right content type.
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+
+# Allow the service worker to control the whole scope.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"
