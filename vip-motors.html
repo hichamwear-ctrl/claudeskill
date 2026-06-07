@@ -325,40 +325,19 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
       </div>
     </div>
 
-    <!-- sous-titres synchronisés au film -->
+    <!-- légendes : une par angle (changement d'angle à chaque palier de scroll) -->
     <div class="film-caps" id="filmCaps">
-      <div class="cap" data-from=".10" data-to=".22">
-        <div class="k">01 — Présence</div>
-        <h2 class="serif">La présence, avant les mots.</h2>
-        <p>Carbone forgé, accents turquoise. Une silhouette qui occupe l'espace sans hausser le ton.</p>
-      </div>
-      <div class="cap" data-from=".22" data-to=".44">
-        <div class="k">02 — Le profil</div>
-        <h2 class="serif">La ligne tendue.</h2>
-        <p>Une découpe dessinée par la vitesse. Chaque trait file vers l'avant.</p>
-      </div>
-      <div class="cap" data-from=".44" data-to=".58">
-        <div class="k">03 — L'aéro</div>
-        <h2 class="serif">Chaque courbe a une raison.</h2>
-        <p>Aileron, extracteurs, prises d'air : la forme au service de l'appui.</p>
-      </div>
-      <div class="cap" data-from=".58" data-to=".74">
-        <div class="k">04 — L'habitacle</div>
-        <h2 class="serif">Taillé pour le pilote.</h2>
-        <p>Cuir clair, carbone apparent, et l'essentiel à portée de main.</p>
-      </div>
-      <div class="cap" data-from=".74" data-to=".88">
-        <div class="k">05 — La mécanique</div>
-        <h2 class="serif">Un V8 hybride, contenu.</h2>
-        <p>La puissance d'une hypercar, la maîtrise d'une pièce d'exception.</p>
-      </div>
-      <div class="cap" data-from=".88" data-to="1.01">
-        <div class="k">VIP MOTORS</div>
-        <h2 class="serif">À vous, désormais.</h2>
+      <div class="cap"><div class="k">01 — Présence</div><h2 class="serif">La présence, avant les mots.</h2><p>Carbone forgé, accents turquoise. Une silhouette qui occupe l'espace.</p></div>
+      <div class="cap"><div class="k">02 — Le profil</div><h2 class="serif">La ligne tendue.</h2><p>Une découpe dessinée par la vitesse. Chaque trait file vers l'avant.</p></div>
+      <div class="cap"><div class="k">03 — La signature</div><h2 class="serif">Mansory, gravé.</h2><p>Une pièce numérotée. Un seul exemplaire au monde.</p></div>
+      <div class="cap"><div class="k">04 — L'aéro</div><h2 class="serif">Chaque courbe a une raison.</h2><p>Aileron, extracteurs : la forme au service de l'appui.</p></div>
+      <div class="cap"><div class="k">05 — La mécanique</div><h2 class="serif">Le cœur, à nu.</h2><p>Un V8 hybride, contenu dans une pièce d'exception.</p></div>
+      <div class="cap"><div class="k">06 — Le carbone</div><h2 class="serif">Forgé, pas plaqué.</h2><p>La matière comme parure. Visible, structurel, signé.</p></div>
+      <div class="cap"><div class="k">07 — La stature</div><h2 class="serif">De dos, déjà reconnaissable.</h2><p>Une présence qui ne s'explique pas. Elle s'impose.</p></div>
+      <div class="cap"><div class="k">VIP MOTORS</div><h2 class="serif">À vous, désormais.</h2>
         <a href="#invite" class="btn btn-teal cta">Organiser une visite privée
           <svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </a>
-      </div>
+        </a></div>
     </div>
 
     <div class="film-hint" id="filmHint" aria-hidden="true"><div class="bar"></div>Faites défiler</div>
@@ -596,10 +575,10 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
   const hero   = document.getElementById('filmHero');
   const hint   = document.getElementById('filmHint');
   const scrub  = document.getElementById('filmScrub');
-  const caps   = [...document.querySelectorAll('#filmCaps .cap')].map(el => ({el, from:parseFloat(el.dataset.from), to:parseFloat(el.dataset.to)}));
+  const caps   = [...document.querySelectorAll('#filmCaps .cap')];
 
   const canScrub = window.matchMedia('(min-width:768px) and (pointer:fine)').matches && !reduce;
-  const FILM_VH = canScrub ? 620 : 100;       // pacing lent = luxe
+  const FILM_VH = canScrub ? 760 : 100;       // 8 angles, dwell confortable
   film.style.height = FILM_VH + 'vh';
 
   /* ─── Sound design (synthèse Web Audio, aucun fichier externe) ─── */
@@ -637,21 +616,23 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
     else if (!canScrub){ video.muted=true; }
   });
 
-  let duration = 0, ready = false, targetT = 0, curT = 0;
-  video.addEventListener('loadedmetadata', () => { duration = video.duration || 57; ready = true; });
-  // amorce le décodeur → évite tout écran noir au démarrage du scrub
-  video.addEventListener('canplay', () => { if (canScrub){ video.play().then(()=>video.pause()).catch(()=>{}); } }, {once:true});
+  /* angles distincts : à chaque palier de scroll on s'arrête sur un angle (net),
+     et on traverse vers le suivant avec un flou qui monte puis redescend (in/out) */
+  const ANGLES = [3.0, 16.0, 24.0, 29.0, 34.0, 38.0, 48.0, 53.0];
+  const N = ANGLES.length, MAXBLUR = 18;
+  const smooth = x => x*x*(3-2*x), lerp = (a,b,t) => a+(b-a)*t;
 
-  function setCaptions(p){
-    hero.classList.toggle('hide', p > 0.06);
-    hint.classList.toggle('hide', p > 0.03);
-    let active = -1;
-    caps.forEach((c,i)=>{ if (p>=c.from && p<c.to) active=i; });
-    caps.forEach((c,i)=> c.el.classList.toggle('active', i===active));
-    scrub.style.width = (clamp(p,0,1)*100).toFixed(2)+'%';
-    if (active !== prevActive){
-      if (soundOn && AC && active >= 0){ (active === caps.length-1) ? boom() : whoosh(); }
-      prevActive = active;
+  let ready = false, curT = ANGLES[0], introDone = false;
+  video.addEventListener('loadedmetadata', () => { ready = true; });
+  // amorce le décodeur → pas d'écran noir
+  video.addEventListener('canplay', () => { if (canScrub){ video.play().then(()=>video.pause()).catch(()=>{}); } }, {once:true});
+  video.addEventListener('animationend', () => { introDone = true; video.style.animation = 'none'; }, {once:true});
+
+  function setActive(idx){
+    caps.forEach((c,i)=> c.classList.toggle('active', i===idx));
+    if (idx !== prevActive){
+      if (soundOn && AC && idx>=0){ (idx===N-1) ? boom() : whoosh(); }
+      prevActive = idx;
     }
   }
   function filmProgress(){
@@ -660,29 +641,51 @@ footer{border-top:1px solid var(--line-soft);padding:clamp(3rem,7vh,5rem) 0 2.5r
     return clamp(-rect.top / (total||1), 0, 1);
   }
 
+  function frame(){
+    const p = filmProgress();
+    hero.classList.toggle('hide', p > 0.06);
+    hint.classList.toggle('hide', p > 0.03);
+    scrub.style.width = (clamp(p,0,1)*100).toFixed(2)+'%';
+
+    const a = clamp(p*(N-1), 0, N-1);
+    const i = Math.min(Math.floor(a), N-2);
+    const f = a - i;
+    const fe = smooth(clamp((f-0.40)/0.20, 0, 1));   // palier net 0-0.4, transition 0.4-0.6, net 0.6-1
+    const targetT = lerp(ANGLES[i], ANGLES[i+1], fe);
+    const blur = MAXBLUR * Math.sin(fe*Math.PI);     // 0 sur l'angle, max au milieu = in/out
+
+    setActive(f < 0.5 ? i : i+1);
+
+    if (ready){
+      curT += (targetT - curT) * 0.18;
+      if (Math.abs(targetT - curT) < 0.004) curT = targetT;
+      if (Math.abs(video.currentTime - curT) > 0.012){ try{ video.currentTime = curT; }catch(e){} }
+    }
+    if (introDone){
+      if (blur > 0.3){
+        video.style.filter = `blur(${blur.toFixed(1)}px)`;
+        video.style.transform = `scale(${(1 + blur*0.0035).toFixed(3)})`;
+      } else { video.style.filter = 'none'; video.style.transform = 'none'; }
+    }
+  }
+
   if (canScrub){
     let running = true;
-    const loop = () => {
-      const p = filmProgress();
-      setCaptions(p);
-      if (ready){
-        targetT = p * (duration - 0.05);
-        curT += (targetT - curT) * 0.14;
-        if (Math.abs(targetT - curT) < 0.004) curT = targetT;
-        if (Math.abs(video.currentTime - curT) > 0.015){ try{ video.currentTime = curT; }catch(e){} }
-      }
-      if (running) requestAnimationFrame(loop);
-    };
+    const loop = () => { frame(); if (running) requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
     document.addEventListener('visibilitychange', () => { running = !document.hidden; if (running) requestAnimationFrame(loop); });
   } else {
     // Fallback (mobile / reduced-motion) : la vraie vidéo joue en boucle plein cadre
-    if (reduce){ setCaptions(0); }
+    if (reduce){ hero.classList.remove('hide'); setActive(-1); }
     else {
       video.loop = true; video.autoplay = true;
       const play = () => video.play().catch(()=>{});
       play(); document.addEventListener('click', play, {once:true}); document.addEventListener('touchstart', play, {once:true});
-      video.addEventListener('timeupdate', () => setCaptions(duration ? video.currentTime/duration : 0));
+      video.addEventListener('timeupdate', () => {
+        const p = ready ? video.currentTime/video.duration : 0;
+        hero.classList.toggle('hide', p > 0.04);
+        setActive(Math.round(clamp(p,0,1)*(N-1)));
+      });
     }
   }
 
