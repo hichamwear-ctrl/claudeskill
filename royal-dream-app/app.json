@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Royal Dream Events",
+    "slug": "royal-dream-events",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0b0b22",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "events.royaldream.app"
+    },
+    "android": {
+      "package": "events.royaldream.app",
+      "backgroundColor": "#0b0b22"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
