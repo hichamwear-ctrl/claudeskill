@@ -448,6 +448,13 @@
       <section class="view" id="v-account">
         <div class="lt-head"><h1 data-i18n="accountTab">Compte</h1><p class="lt-sub" id="dashHello">Bonjour</p></div>
         <div class="dash-card"><div class="av" id="dashAv">?</div><div><div class="du" id="dashName">—</div><div class="de" id="dashEmail">—</div></div></div>
+        <div class="pad" style="padding-top:12px;">
+          <div class="sec" style="margin-top:6px;"><h3 data-i18n="profileTitle">Mon profil</h3></div>
+          <div class="field"><label data-i18n="fName">Nom complet</label><input id="pfName" placeholder="..."></div>
+          <div class="field"><label data-i18n="fPhone">Téléphone</label><input id="pfPhone" type="tel" placeholder="+32 ..."></div>
+          <div class="field"><label data-i18n="fEmail">Email</label><input id="pfEmail" type="email" placeholder="..."></div>
+          <button class="btn btn-grad btn-full" onclick="saveProfile()" data-i18n="saveProfile">Enregistrer mon profil</button>
+        </div>
         <div class="pad" style="padding-top:6px;">
           <div class="sec" style="margin-top:14px;"><h3 data-i18n="myReservations">Mes réservations</h3></div>
           <div id="resList"></div>
@@ -915,10 +922,14 @@ async function confirmOrder(){
 
 function renderDash(){
   if(!currentUser)return;
-  document.getElementById("dashHello").textContent=(lang==="nl"?"Hallo 👋":lang==="en"?"Hello 👋":"Bonjour 👋");
-  document.getElementById("dashName").textContent=(lang==="nl"?"Mijn aanvragen":lang==="en"?"My requests":"Mes demandes");
-  document.getElementById("dashEmail").textContent=(lang==="nl"?"Op dit toestel":lang==="en"?"On this device":"Sur cet appareil");
-  document.getElementById("dashAv").textContent="🎈";
+  var gName=(currentUser.pseudo||"").trim();
+  document.getElementById("dashHello").textContent=gName?((lang==="nl"?"Hallo, ":lang==="en"?"Hello, ":"Bonjour, ")+gName+" 👋"):(lang==="nl"?"Hallo 👋":lang==="en"?"Hello 👋":"Bonjour 👋");
+  document.getElementById("dashName").textContent=gName||(lang==="nl"?"Mijn profiel":lang==="en"?"My profile":"Mon profil");
+  document.getElementById("dashEmail").textContent=(currentUser.email||"").trim()||(lang==="nl"?"Op dit toestel":lang==="en"?"On this device":"Sur cet appareil");
+  document.getElementById("dashAv").textContent=gName?gName[0].toUpperCase():"🎈";
+  var _pn=document.getElementById("pfName");if(_pn)_pn.value=currentUser.pseudo||"";
+  var _pp=document.getElementById("pfPhone");if(_pp)_pp.value=currentUser.phone||"";
+  var _pe=document.getElementById("pfEmail");if(_pe)_pe.value=currentUser.email||"";
   var list=document.getElementById("resList");var r=currentUser.reservations||[];
   if(r.length===0){list.innerHTML='<div class="cart-empty" style="padding:30px 10px;"><div class="em">🎈</div><h3 style="font-size:18px;">'+t("noRes")+'</h3><p>'+t("noResSub")+'</p></div>';return;}
   var steps=["waiting","confirmed","delivered"];var lbls=[t("statusWaiting"),t("statusConfirmed"),t("statusDelivered")];
@@ -1045,10 +1056,15 @@ async function confirmOrder(){
   if(df>0)lines.push(t("delivery")+": +"+df+" EUR");
   if(hasPack())lines.push("Pack: 30 min "+(lang==="en"?"free":lang==="nl"?"gratis":"offertes"));
   lines.push(t("total")+": "+totalv+" EUR",t("fName")+": "+name,t("fDate")+": "+date);if(cp)lines.push(t("fCp")+": "+cp);if(ph)lines.push(t("fPhone")+": "+ph);
-  document.getElementById("waBtn").href="https://wa.me/"+WA_NUMBER+"?text="+encodeURIComponent(lines.join("\n"));
+  if(currentUser&&currentUser.email)lines.push("Email: "+currentUser.email);
+  var waURL="https://wa.me/"+WA_NUMBER+"?text="+encodeURIComponent(lines.join("\n"));
+  document.getElementById("waBtn").href=waURL;
+  // Ouvre WhatsApp immédiatement (dans le geste de clic), puis enregistre
+  var w=window.open(waURL,"_blank");
   if(currentUser){currentUser.reservations.unshift({num:num,date:date,cp:cp,phone:ph,total:totalv,items:items,delivery:df,status:"waiting",themeIdx:themeIdx,ts:Date.now()});await saveDB();}
-  cart=[];afterCart();renderCart();renderDash();
-  document.getElementById("orderForm").style.display="none";document.getElementById("orderSuccess").style.display="block";
+  cart=[];afterCart();renderCart();renderDash();closeOrder();
+  if(!w)window.location.href=waURL;
+  toast(t("orderSent"));
 }
 
 function openInvite(ts){
@@ -1200,6 +1216,10 @@ function renderAdmin(){
   Object.assign(I18N.nl,{clearReq:"Mijn aanvragen wissen",reqCleared:"Aanvragen gewist ✓"});
   Object.assign(I18N.en,{clearReq:"Clear my requests",reqCleared:"Requests cleared ✓"});
   async function clearMyRequests(){if(currentUser){currentUser.reservations=[];}await saveDB();renderDash();toast(t("reqCleared"));go("home");}
+  Object.assign(I18N.fr,{profileTitle:"Mon profil",saveProfile:"Enregistrer mon profil",profileSaved:"Profil enregistré ✓",orderSent:"Commande envoyée sur WhatsApp 💬"});
+  Object.assign(I18N.nl,{profileTitle:"Mijn profiel",saveProfile:"Mijn profiel opslaan",profileSaved:"Profiel opgeslagen ✓",orderSent:"Bestelling verzonden via WhatsApp 💬"});
+  Object.assign(I18N.en,{profileTitle:"My profile",saveProfile:"Save my profile",profileSaved:"Profile saved ✓",orderSent:"Order sent on WhatsApp 💬"});
+  async function saveProfile(){if(!currentUser)return;currentUser.pseudo=document.getElementById("pfName").value.trim();currentUser.phone=document.getElementById("pfPhone").value.trim();currentUser.email=document.getElementById("pfEmail").value.trim();await saveDB();renderDash();toast(t("profileSaved"));}
   /* ---- init ---- */
   (async function(){
     await loadDB();
