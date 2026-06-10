@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Éclat d'Or — Maison Aurélia</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@200;300;400&display=swap');
+
+  :root {
+    --bg: #0b0a08;
+    --gold: #d4af37;
+    --champagne: #f0e2c4;
+    --text: rgba(244, 238, 226, 0.92);
+    --text-dim: rgba(244, 238, 226, 0.55);
+    --line: rgba(212, 175, 55, 0.25);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: auto; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Jost', sans-serif;
+    font-weight: 300;
+    overflow-x: hidden;
+  }
+
+  /* ---------- Canvas 3D fixe ---------- */
+  #canvas-container {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+  }
+  #canvas-container canvas { display: block; }
+
+  /* ---------- Grain ---------- */
+  .grain {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- Vignette ---------- */
+  .vignette {
+    position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(5, 4, 2, 0.55) 100%);
+  }
+
+  /* ---------- Navigation ---------- */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 2rem 3.5rem;
+    mix-blend-mode: difference;
+  }
+  nav .brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.15rem; letter-spacing: 0.45em; text-transform: uppercase;
+    color: #fff;
+  }
+  nav .menu {
+    font-size: 0.7rem; letter-spacing: 0.35em; text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* ---------- Barre de progression ---------- */
+  .progress {
+    position: fixed; top: 50%; right: 2.2rem; transform: translateY(-50%);
+    z-index: 10; width: 1px; height: 32vh; background: rgba(255,255,255,0.12);
+  }
+  .progress .fill {
+    width: 100%; height: 0%;
+    background: linear-gradient(to bottom, var(--champagne), var(--gold));
+    transition: height 0.1s linear;
+  }
+
+  /* ---------- Contenu scrollable ---------- */
+  main { position: relative; z-index: 4; pointer-events: none; }
+  main a, main button { pointer-events: auto; }
+
+  section {
+    min-height: 100vh;
+    display: flex; align-items: center;
+    padding: 0 8vw;
+  }
+
+  /* Révélation au scroll */
+  .reveal > * {
+    opacity: 0;
+    transform: translateY(36px);
+    transition: opacity 1.1s cubic-bezier(0.16, 1, 0.3, 1), transform 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.visible > * { opacity: 1; transform: translateY(0); }
+  .reveal.visible > *:nth-child(1) { transition-delay: 0.05s; }
+  .reveal.visible > *:nth-child(2) { transition-delay: 0.18s; }
+  .reveal.visible > *:nth-child(3) { transition-delay: 0.32s; }
+  .reveal.visible > *:nth-child(4) { transition-delay: 0.46s; }
+  .reveal.visible > *:nth-child(5) { transition-delay: 0.60s; }
+
+  .eyebrow {
+    font-size: 0.68rem; letter-spacing: 0.5em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 1.6rem;
+  }
+  .eyebrow::before {
+    content: ''; display: inline-block; width: 2.4rem; height: 1px;
+    background: var(--line); vertical-align: middle; margin-right: 1rem;
+  }
+
+  h1, h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; line-height: 1.04;
+  }
+
+  /* ---------- Hero ---------- */
+  #hero { justify-content: flex-start; }
+  #hero .inner { max-width: 620px; }
+  #hero h1 {
+    font-size: clamp(3.4rem, 9vw, 7.5rem);
+    letter-spacing: 0.01em;
+  }
+  #hero h1 em {
+    font-style: italic;
+    background: linear-gradient(115deg, var(--champagne) 20%, var(--gold) 60%, #9a7420 90%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  #hero .tagline {
+    margin-top: 2rem; font-size: 1rem; letter-spacing: 0.16em;
+    color: var(--text-dim); max-width: 360px; line-height: 1.9;
+  }
+
+  .scroll-hint {
+    position: absolute; bottom: 3rem; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 0.9rem;
+    font-size: 0.62rem; letter-spacing: 0.45em; text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .scroll-hint .line {
+    width: 1px; height: 52px; overflow: hidden; position: relative;
+    background: rgba(244,238,226,0.12);
+  }
+  .scroll-hint .line::after {
+    content: ''; position: absolute; left: 0; top: -50%;
+    width: 100%; height: 50%;
+    background: var(--gold);
+    animation: drip 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+  @keyframes drip { 0% { top: -50%; } 100% { top: 110%; } }
+
+  /* ---------- Sections notes ---------- */
+  .note-section .inner { max-width: 480px; }
+  .note-section.right { justify-content: flex-end; }
+  .note-section h2 { font-size: clamp(2.6rem, 6vw, 4.6rem); margin-bottom: 2.2rem; }
+  .note-section h2 em { font-style: italic; color: var(--gold); }
+  .note-section p {
+    color: var(--text-dim); line-height: 2.1; letter-spacing: 0.06em;
+    font-size: 0.95rem;
+  }
+  .notes-list {
+    margin-top: 2.6rem; list-style: none;
+    border-top: 1px solid var(--line);
+  }
+  .notes-list li {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 1.05rem 0; border-bottom: 1px solid var(--line);
+    font-size: 0.85rem; letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .notes-list li span:last-child {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; text-transform: none; letter-spacing: 0.04em;
+    color: var(--gold); font-size: 1rem;
+  }
+
+  /* ---------- Citation ---------- */
+  #quote { justify-content: center; text-align: center; }
+  #quote .inner { max-width: 760px; }
+  #quote blockquote {
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 300;
+    font-size: clamp(1.8rem, 4.4vw, 3.2rem); line-height: 1.45;
+  }
+  #quote cite {
+    display: block; margin-top: 2.4rem; font-family: 'Jost', sans-serif;
+    font-style: normal; font-size: 0.68rem; letter-spacing: 0.5em;
+    text-transform: uppercase; color: var(--gold);
+  }
+
+  /* ---------- Final ---------- */
+  #final { justify-content: center; text-align: center; }
+  #final h2 { font-size: clamp(2.8rem, 7vw, 5.6rem); margin-bottom: 1.4rem; }
+  #final p { color: var(--text-dim); letter-spacing: 0.14em; margin-bottom: 3rem; }
+  .cta {
+    display: inline-block; padding: 1.15rem 3.4rem;
+    border: 1px solid var(--gold); color: var(--champagne);
+    background: transparent; cursor: pointer;
+    font-family: 'Jost', sans-serif; font-size: 0.72rem;
+    letter-spacing: 0.45em; text-transform: uppercase;
+    text-decoration: none;
+    transition: background 0.5s ease, color 0.5s ease, box-shadow 0.5s ease;
+  }
+  .cta:hover {
+    background: var(--gold); color: #14100a;
+    box-shadow: 0 0 48px rgba(212, 175, 55, 0.35);
+  }
+  #final .footer-note {
+    position: absolute; bottom: 2.6rem; left: 50%; transform: translateX(-50%);
+    font-size: 0.6rem; letter-spacing: 0.4em; text-transform: uppercase;
+    color: rgba(244,238,226,0.3);
+  }
+
+  /* ---------- Fallback WebGL ---------- */
+  #webgl-fallback {
+    display: none;
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 50% 40%, #2a2010 0%, var(--bg) 70%);
+  }
+
+  @media (max-width: 768px) {
+    nav { padding: 1.4rem 1.6rem; }
+    nav .brand { letter-spacing: 0.3em; font-size: 1rem; }
+    section { padding: 0 8vw; }
+    .note-section.right { justify-content: flex-start; }
+    .progress { right: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="webgl-fallback"></div>
+<div id="canvas-container"></div>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<nav>
+  <div class="brand">Maison Aurélia</div>
+  <div class="menu">Paris — Grasse</div>
+</nav>
+
+<div class="progress"><div class="fill" id="progress-fill"></div></div>
+
+<main>
+  <!-- 01 — Hero -->
+  <section id="hero">
+    <div class="inner reveal visible">
+      <div class="eyebrow">Eau de parfum — Extrait n°1</div>
+      <h1>Éclat<br><em>d'Or</em></h1>
+      <p class="tagline">Une lumière que l'on porte. Capturée dans le verre, révélée sur la peau.</p>
+    </div>
+    <div class="scroll-hint">
+      <span>Découvrir</span>
+      <div class="line"></div>
+    </div>
+  </section>
+
+  <!-- 02 — Notes de tête -->
+  <section class="note-section right" id="tete">
+    <div class="inner reveal">
+      <div class="eyebrow">Premier souffle</div>
+      <h2>Notes de <em>tête</em></h2>
+      <p>L'ouverture est une étincelle : la bergamote de Calabre fuse, traversée d'un frisson de poivre rose. Le safran s'installe, solaire et précieux.</p>
+      <ul class="notes-list">
+        <li><span>Bergamote</span><span>Calabre</span></li>
+        <li><span>Poivre rose</span><span>Réunion</span></li>
+        <li><span>Safran</span><span>Khorasan</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 03 — Cœur -->
+  <section class="note-section" id="coeur">
+    <div class="inner reveal">
+      <div class="eyebrow">L'âme du parfum</div>
+      <h2>Notes de <em>cœur</em></h2>
+      <p>Au centre, la rose de Damas s'épanouit, charnelle, enlacée au jasmin de Grasse. Un murmure de oud lui donne sa profondeur d'ombre.</p>
+      <ul class="notes-list">
+        <li><span>Rose</span><span>Damas</span></li>
+        <li><span>Jasmin</span><span>Grasse</span></li>
+        <li><span>Oud</span><span>Assam</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 04 — Citation -->
+  <section id="quote">
+    <div class="inner reveal">
+      <blockquote>« Le parfum est la forme la plus intense du souvenir. »</blockquote>
+      <cite>Jean-Paul Guerlain</cite>
+    </div>
+  </section>
+
+  <!-- 05 — Fond -->
+  <section class="note-section right" id="fond">
+    <div class="inner reveal">
+      <div class="eyebrow">Le sillage</div>
+      <h2>Notes de <em>fond</em></h2>
+      <p>Le sillage s'étire pendant des heures : ambre gris, santal crémeux et vanille de Madagascar fondent en une seconde peau, dorée et persistante.</p>
+      <ul class="notes-list">
+        <li><span>Ambre gris</span><span>Océan Indien</span></li>
+        <li><span>Santal</span><span>Mysore</span></li>
+        <li><span>Vanille</span><span>Madagascar</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 06 — Final -->
+  <section id="final">
+    <div class="inner reveal">
+      <div class="eyebrow" style="display:inline-block;">Édition limitée — 500 exemplaires</div>
+      <h2>L'or se <em>porte</em></h2>
+      <p>Flacon numéroté, soufflé à la main — 100 ml</p>
+      <a class="cta" href="#hero">Réserver le vôtre</a>
+    </div>
+    <div class="footer-note">Maison Aurélia — MMXXVI</div>
+  </section>
+</main>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+/* =====================================================
+   Constantes
+===================================================== */
+const COLORS = {
+  bg: 0x0b0a08,
+  gold: new THREE.Color('#d4af37'),
+  champagne: new THREE.Color('#f0e2c4'),
+  deepGold: new THREE.Color('#8a5a18'),
+};
+const IS_MOBILE = window.innerWidth <= 768;
+const PARTICLE_COUNT = IS_MOBILE ? 700 : 1600;
+const X_SCALE = IS_MOBILE ? 0.32 : 1.0;
+const Z_PUSH = IS_MOBILE ? 1.8 : 0;
+
+/* =====================================================
+   Machine à phases — keyframes pilotés par le scroll
+   Chaque phase : position caméra, cible, position/rotation flacon
+===================================================== */
+const PHASES = [
+  // 0 — Hero : flacon à droite, présentation
+  { t: 0.00, cam: [0.0, 0.15, 6.4], look: [0, 0, 0], pos: [1.55, 0, 0], rotY: 0.45, rotZ: 0.00 },
+  // 1 — Notes de tête : flacon à gauche, rotation
+  { t: 0.22, cam: [0.0, 0.10, 5.2], look: [0, 0.1, 0], pos: [-1.55, 0.1, 0], rotY: 2.10, rotZ: 0.06 },
+  // 2 — Cœur : plongée rapprochée, flacon à droite incliné
+  { t: 0.44, cam: [0.0, 0.95, 4.2], look: [0, 0.1, 0], pos: [1.45, -0.15, 0.3], rotY: 3.60, rotZ: -0.14 },
+  // 3 — Citation : flacon centré au loin, contre-plongée
+  { t: 0.62, cam: [0.0, -0.45, 7.4], look: [0, 0.35, 0], pos: [0, 0.55, -1.2], rotY: 4.70, rotZ: 0.00 },
+  // 4 — Fond : flacon à gauche, très proche
+  { t: 0.82, cam: [0.0, 0.05, 4.0], look: [0, 0, 0], pos: [-1.40, 0, 0.5], rotY: 5.85, rotZ: 0.10 },
+  // 5 — Final : flacon centré, face caméra, recul majestueux
+  { t: 1.00, cam: [0.0, 0.30, 7.0], look: [0, 0.1, 0], pos: [0, -1.6, 0], rotY: 6.73, rotZ: 0.00 },
+];
+
+/* =====================================================
+   État global
+===================================================== */
+let scene, camera, renderer, composer;
+let bottleGroup, particles, particleBase;
+let scrollProgress = 0;
+const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+const current = {
+  cam: new THREE.Vector3(0, 0.15, 6.4 + Z_PUSH),
+  look: new THREE.Vector3(0, 0, 0),
+  pos: new THREE.Vector3(1.55 * X_SCALE, 0, 0),
+  rotY: 0.45, rotZ: 0,
+};
+const clock = new THREE.Clock();
+
+/* =====================================================
+   Initialisation
+===================================================== */
+function init() {
+  const container = document.getElementById('canvas-container');
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(COLORS.bg);
+  scene.fog = new THREE.FogExp2(COLORS.bg, 0.028);
+
+  camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.copy(current.cam);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
+
+  // Environnement pour les reflets du verre
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.05).texture;
+
+  createLights();
+  createBottle();
+  createParticles();
+  setupPostProcessing();
+  setupEventListeners();
+  setupReveals();
+}
+
+/* =====================================================
+   Lumières — clé chaude, contre-jour froid, braise dorée
+===================================================== */
+function createLights() {
+  const key = new THREE.DirectionalLight(0xfff2d8, 2.4);
+  key.position.set(4, 5, 6);
+  scene.add(key);
+
+  const rim = new THREE.DirectionalLight(0xbfd4ff, 1.1);
+  rim.position.set(-5, 3, -4);
+  scene.add(rim);
+
+  const ember = new THREE.PointLight(0xd4af37, 14, 18, 2);
+  ember.position.set(-2, -1.5, 2.5);
+  scene.add(ember);
+
+  scene.add(new THREE.AmbientLight(0x2a2418, 1.6));
+}
+
+/* =====================================================
+   Le flacon — verre physique : réfraction + dispersion
+===================================================== */
+function createBottle() {
+  bottleGroup = new THREE.Group();
+
+  // Corps en verre
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    transmission: 1.0,
+    thickness: 1.5,
+    roughness: 0.05,
+    metalness: 0,
+    ior: 1.5,
+    dispersion: 0.32,
+    iridescence: 0.28,
+    iridescenceIOR: 1.3,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
+    attenuationColor: new THREE.Color('#f5e0b0'),
+    attenuationDistance: 2.8,
+    envMapIntensity: 1.3,
+  });
+  const body = new THREE.Mesh(new RoundedBoxGeometry(1.55, 2.15, 0.72, 6, 0.16), glassMat);
+  bottleGroup.add(body);
+
+  // Liquide doré à l'intérieur
+  const liquidMat = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color('#c8821a'),
+    transmission: 0.88,
+    thickness: 1.0,
+    roughness: 0.22,
+    ior: 1.33,
+    attenuationColor: new THREE.Color('#e09a28'),
+    attenuationDistance: 0.7,
+    envMapIntensity: 0.8,
+  });
+  const liquid = new THREE.Mesh(new RoundedBoxGeometry(1.34, 1.78, 0.54, 5, 0.13), liquidMat);
+  liquid.position.y = -0.12;
+  bottleGroup.add(liquid);
+
+  // Col
+  const goldMat = new THREE.MeshStandardMaterial({
+    color: 0xcaa24a, metalness: 1, roughness: 0.26, envMapIntensity: 1.5,
+  });
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.25, 0.28, 32), goldMat);
+  neck.position.y = 1.2;
+  bottleGroup.add(neck);
+
+  // Capot facetté or
+  const capMat = new THREE.MeshStandardMaterial({
+    color: 0xd9b454, metalness: 1, roughness: 0.18, envMapIntensity: 1.7,
+  });
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.34, 0.55, 8), capMat);
+  cap.position.y = 1.62;
+  bottleGroup.add(cap);
+
+  // Plaque gravée
+  const plaque = new THREE.Mesh(
+    new RoundedBoxGeometry(0.78, 0.5, 0.03, 3, 0.015),
+    new THREE.MeshStandardMaterial({
+      color: 0xb8923a, metalness: 0.95, roughness: 0.35,
+      emissive: 0x2a1c08, envMapIntensity: 1.2,
+    })
+  );
+  plaque.position.set(0, 0.15, 0.38);
+  bottleGroup.add(plaque);
+
+  bottleGroup.position.set(current.pos.x, current.pos.y, current.pos.z);
+  bottleGroup.rotation.y = current.rotY;
+  scene.add(bottleGroup);
+}
+
+/* =====================================================
+   Particules dorées — effluves en suspension
+===================================================== */
+function makeSprite() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255, 240, 210, 1)');
+  g.addColorStop(0.35, 'rgba(240, 215, 150, 0.55)');
+  g.addColorStop(1, 'rgba(212, 175, 55, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function createParticles() {
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(PARTICLE_COUNT * 3);
+  const colors = new Float32Array(PARTICLE_COUNT * 3);
+  const sizes = new Float32Array(PARTICLE_COUNT);
+  particleBase = new Float32Array(PARTICLE_COUNT * 4); // x,y,z + phase
+
+  const palette = [COLORS.gold, COLORS.champagne, COLORS.deepGold];
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // Distribution : coquille elliptique autour de la scène
+    const r = 3 + Math.random() * 9;
+    const theta = Math.random() * Math.PI * 2;
+    const y = (Math.random() - 0.5) * 10;
+    const x = Math.cos(theta) * r;
+    const z = Math.sin(theta) * r * 0.7 - 1;
+
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+
+    particleBase[i * 4] = x;
+    particleBase[i * 4 + 1] = y;
+    particleBase[i * 4 + 2] = z;
+    particleBase[i * 4 + 3] = Math.random() * Math.PI * 2;
+
+    const col = palette[Math.floor(Math.random() * palette.length)];
+    colors[i * 3] = col.r;
+    colors[i * 3 + 1] = col.g;
+    colors[i * 3 + 2] = col.b;
+
+    sizes[i] = 0.5 + Math.random();
+  }
+
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.09,
+    map: makeSprite(),
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    sizeAttenuation: true,
+  });
+
+  particles = new THREE.Points(geo, mat);
+  scene.add(particles);
+}
+
+/* =====================================================
+   Post-processing — bloom subtil sur l'or
+===================================================== */
+function setupPostProcessing() {
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.32,  // strength
+    0.85,  // radius
+    0.78   // threshold
+  );
+  composer.addPass(bloom);
+}
+
+/* =====================================================
+   Interpolation des phases selon le scroll
+===================================================== */
+function samplePhases(p) {
+  p = THREE.MathUtils.clamp(p, 0, 1);
+  let a = PHASES[0], b = PHASES[PHASES.length - 1];
+  for (let i = 0; i < PHASES.length - 1; i++) {
+    if (p >= PHASES[i].t && p <= PHASES[i + 1].t) {
+      a = PHASES[i]; b = PHASES[i + 1];
+      break;
+    }
+  }
+  const span = b.t - a.t || 1;
+  let k = (p - a.t) / span;
+  k = THREE.MathUtils.smoothstep(k, 0, 1);
+
+  return {
+    cam: [
+      THREE.MathUtils.lerp(a.cam[0], b.cam[0], k),
+      THREE.MathUtils.lerp(a.cam[1], b.cam[1], k),
+      THREE.MathUtils.lerp(a.cam[2], b.cam[2], k) + Z_PUSH,
+    ],
+    look: [
+      THREE.MathUtils.lerp(a.look[0], b.look[0], k),
+      THREE.MathUtils.lerp(a.look[1], b.look[1], k),
+      THREE.MathUtils.lerp(a.look[2], b.look[2], k),
+    ],
+    pos: [
+      THREE.MathUtils.lerp(a.pos[0], b.pos[0], k) * X_SCALE,
+      THREE.MathUtils.lerp(a.pos[1], b.pos[1], k),
+      THREE.MathUtils.lerp(a.pos[2], b.pos[2], k),
+    ],
+    rotY: THREE.MathUtils.lerp(a.rotY, b.rotY, k),
+    rotZ: THREE.MathUtils.lerp(a.rotZ, b.rotZ, k),
+  };
+}
+
+/* =====================================================
+   Boucle d'animation
+===================================================== */
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const ease = 0.065;
+
+  // Cible issue du scroll
+  const target = samplePhases(scrollProgress);
+
+  current.cam.lerp(new THREE.Vector3(...target.cam), ease);
+  current.look.lerp(new THREE.Vector3(...target.look), ease);
+  current.pos.lerp(new THREE.Vector3(...target.pos), ease);
+  current.rotY = THREE.MathUtils.lerp(current.rotY, target.rotY, ease);
+  current.rotZ = THREE.MathUtils.lerp(current.rotZ, target.rotZ, ease);
+
+  // Parallaxe souris
+  mouse.x = THREE.MathUtils.lerp(mouse.x, mouse.tx, 0.04);
+  mouse.y = THREE.MathUtils.lerp(mouse.y, mouse.ty, 0.04);
+
+  camera.position.set(
+    current.cam.x + mouse.x * 0.22,
+    current.cam.y + mouse.y * 0.14,
+    current.cam.z
+  );
+  camera.lookAt(current.look);
+
+  // Flottement du flacon
+  bottleGroup.position.set(
+    current.pos.x,
+    current.pos.y + Math.sin(t * 0.8) * 0.055,
+    current.pos.z
+  );
+  bottleGroup.rotation.y = current.rotY + Math.sin(t * 0.4) * 0.03;
+  bottleGroup.rotation.z = current.rotZ + Math.sin(t * 0.55) * 0.015;
+
+  // Dérive des particules — effluves lentes montantes
+  const posAttr = particles.geometry.attributes.position;
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const bx = particleBase[i * 4];
+    const by = particleBase[i * 4 + 1];
+    const bz = particleBase[i * 4 + 2];
+    const ph = particleBase[i * 4 + 3];
+
+    posAttr.array[i * 3] = bx + Math.sin(t * 0.18 + ph) * 0.45;
+    let y = by + t * 0.12 + Math.sin(t * 0.3 + ph * 2) * 0.2;
+    // Boucle verticale silencieuse
+    y = ((y + 5) % 10) - 5;
+    posAttr.array[i * 3 + 1] = y;
+    posAttr.array[i * 3 + 2] = bz + Math.cos(t * 0.15 + ph) * 0.4;
+  }
+  posAttr.needsUpdate = true;
+  particles.rotation.y = t * 0.012;
+
+  composer.render();
+}
+
+/* =====================================================
+   Écouteurs
+===================================================== */
+function setupEventListeners() {
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  window.addEventListener('mousemove', (e) => {
+    mouse.tx = (e.clientX / window.innerWidth - 0.5) * 2;
+    mouse.ty = -(e.clientY / window.innerHeight - 0.5) * 2;
+  });
+
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 0) {
+      mouse.tx = (e.touches[0].clientX / window.innerWidth - 0.5) * 1.2;
+      mouse.ty = -(e.touches[0].clientY / window.innerHeight - 0.5) * 1.2;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 0) {
+      mouse.tx = (e.touches[0].clientX / window.innerWidth - 0.5) * 1.2;
+      mouse.ty = -(e.touches[0].clientY / window.innerHeight - 0.5) * 1.2;
+    }
+  }, { passive: true });
+
+  window.addEventListener('resize', onResize);
+}
+
+function onScroll() {
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  scrollProgress = max > 0 ? window.scrollY / max : 0;
+  document.getElementById('progress-fill').style.height = (scrollProgress * 100) + '%';
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/* =====================================================
+   Révélation des sections au scroll
+===================================================== */
+function setupReveals() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) entry.target.classList.add('visible');
+      else entry.target.classList.remove('visible');
+    });
+  }, { threshold: 0.25 });
+  document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+}
+
+/* =====================================================
+   Lancement + fallback WebGL
+===================================================== */
+try {
+  init();
+  animate();
+  onScroll();
+} catch (err) {
+  console.error('WebGL non disponible :', err);
+  document.getElementById('webgl-fallback').style.display = 'block';
+  document.getElementById('canvas-container').style.display = 'none';
+}
+</script>
+</body>
+</html>
