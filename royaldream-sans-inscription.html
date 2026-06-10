@@ -450,10 +450,20 @@
         <div class="dash-card"><div class="av" id="dashAv">?</div><div><div class="du" id="dashName">—</div><div class="de" id="dashEmail">—</div></div></div>
         <div class="pad" style="padding-top:12px;">
           <div class="sec" style="margin-top:6px;"><h3 data-i18n="profileTitle">Mon profil</h3></div>
-          <div class="field"><label data-i18n="fName">Nom complet</label><input id="pfName" placeholder="..."></div>
-          <div class="field"><label data-i18n="fPhone">Téléphone</label><input id="pfPhone" type="tel" placeholder="+32 ..."></div>
-          <div class="field"><label data-i18n="fEmail">Email</label><input id="pfEmail" type="email" placeholder="..."></div>
-          <button class="btn btn-grad btn-full" onclick="saveProfile()" data-i18n="saveProfile">Enregistrer mon profil</button>
+          <div id="profileView" style="display:none;">
+            <div class="res-card" style="margin-bottom:12px;">
+              <div class="res-meta" id="pvName">—</div>
+              <div class="res-meta" id="pvPhone">—</div>
+              <div class="res-meta" id="pvEmail">—</div>
+            </div>
+            <button class="btn btn-glass btn-full" onclick="editProfile()" data-i18n="editProfile">Modifier mon profil</button>
+          </div>
+          <div id="profileEdit">
+            <div class="field"><label data-i18n="fName">Nom complet</label><input id="pfName" placeholder="..."></div>
+            <div class="field"><label data-i18n="fPhone">Téléphone</label><input id="pfPhone" type="tel" placeholder="+32 ..."></div>
+            <div class="field"><label data-i18n="fEmail">Email</label><input id="pfEmail" type="email" placeholder="..."></div>
+            <button class="btn btn-grad btn-full" onclick="saveProfile()" data-i18n="saveProfile">Enregistrer mon profil</button>
+          </div>
         </div>
         <div class="pad" style="padding-top:6px;">
           <div class="sec" style="margin-top:14px;"><h3 data-i18n="myReservations">Mes réservations</h3></div>
@@ -927,9 +937,7 @@ function renderDash(){
   document.getElementById("dashName").textContent=gName||(lang==="nl"?"Mijn profiel":lang==="en"?"My profile":"Mon profil");
   document.getElementById("dashEmail").textContent=(currentUser.email||"").trim()||(lang==="nl"?"Op dit toestel":lang==="en"?"On this device":"Sur cet appareil");
   document.getElementById("dashAv").textContent=gName?gName[0].toUpperCase():"🎈";
-  var _pn=document.getElementById("pfName");if(_pn)_pn.value=currentUser.pseudo||"";
-  var _pp=document.getElementById("pfPhone");if(_pp)_pp.value=currentUser.phone||"";
-  var _pe=document.getElementById("pfEmail");if(_pe)_pe.value=currentUser.email||"";
+  renderProfile();
   var list=document.getElementById("resList");var r=currentUser.reservations||[];
   if(r.length===0){list.innerHTML='<div class="cart-empty" style="padding:30px 10px;"><div class="em">🎈</div><h3 style="font-size:18px;">'+t("noRes")+'</h3><p>'+t("noResSub")+'</p></div>';return;}
   var steps=["waiting","confirmed","delivered"];var lbls=[t("statusWaiting"),t("statusConfirmed"),t("statusDelivered")];
@@ -1216,10 +1224,15 @@ function renderAdmin(){
   Object.assign(I18N.nl,{clearReq:"Mijn aanvragen wissen",reqCleared:"Aanvragen gewist ✓"});
   Object.assign(I18N.en,{clearReq:"Clear my requests",reqCleared:"Requests cleared ✓"});
   async function clearMyRequests(){if(currentUser){currentUser.reservations=[];}await saveDB();renderDash();toast(t("reqCleared"));go("home");}
-  Object.assign(I18N.fr,{profileTitle:"Mon profil",saveProfile:"Enregistrer mon profil",profileSaved:"Profil enregistré ✓",orderSent:"Commande envoyée sur WhatsApp 💬"});
-  Object.assign(I18N.nl,{profileTitle:"Mijn profiel",saveProfile:"Mijn profiel opslaan",profileSaved:"Profiel opgeslagen ✓",orderSent:"Bestelling verzonden via WhatsApp 💬"});
-  Object.assign(I18N.en,{profileTitle:"My profile",saveProfile:"Save my profile",profileSaved:"Profile saved ✓",orderSent:"Order sent on WhatsApp 💬"});
-  async function saveProfile(){if(!currentUser)return;currentUser.pseudo=document.getElementById("pfName").value.trim();currentUser.phone=document.getElementById("pfPhone").value.trim();currentUser.email=document.getElementById("pfEmail").value.trim();await saveDB();renderDash();toast(t("profileSaved"));}
+  Object.assign(I18N.fr,{profileTitle:"Mon profil",saveProfile:"Enregistrer mon profil",editProfile:"Modifier mon profil",profileSaved:"Profil enregistré ✓",orderSent:"Commande envoyée sur WhatsApp 💬"});
+  Object.assign(I18N.nl,{profileTitle:"Mijn profiel",saveProfile:"Mijn profiel opslaan",editProfile:"Mijn profiel wijzigen",profileSaved:"Profiel opgeslagen ✓",orderSent:"Bestelling verzonden via WhatsApp 💬"});
+  Object.assign(I18N.en,{profileTitle:"My profile",saveProfile:"Save my profile",editProfile:"Edit my profile",profileSaved:"Profile saved ✓",orderSent:"Order sent on WhatsApp 💬"});
+  function renderProfile(){var u=currentUser||{};var pv=document.getElementById("profileView"),pe=document.getElementById("profileEdit");if(!pv||!pe)return;
+    document.getElementById("pfName").value=u.pseudo||"";document.getElementById("pfPhone").value=u.phone||"";document.getElementById("pfEmail").value=u.email||"";
+    if(u.pseudo||u.phone||u.email){document.getElementById("pvName").textContent="👤 "+(u.pseudo||"—");document.getElementById("pvPhone").textContent="📱 "+(u.phone||"—");document.getElementById("pvEmail").textContent="✉️ "+(u.email||"—");pv.style.display="block";pe.style.display="none";}
+    else{pv.style.display="none";pe.style.display="block";}}
+  function editProfile(){document.getElementById("profileView").style.display="none";document.getElementById("profileEdit").style.display="block";}
+  async function saveProfile(){if(!currentUser)return;currentUser.pseudo=document.getElementById("pfName").value.trim();currentUser.phone=document.getElementById("pfPhone").value.trim();currentUser.email=document.getElementById("pfEmail").value.trim();await saveDB();renderProfile();renderDash();toast(t("profileSaved"));}
   /* ---- init ---- */
   (async function(){
     await loadDB();
