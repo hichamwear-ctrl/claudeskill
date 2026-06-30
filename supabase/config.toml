@@ -403,6 +403,14 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# --- Edge Functions ---------------------------------------------------------
+# Par défaut, verify_jwt = true : le runtime exige un JWT valide. On ne l'ouvre
+# explicitement que pour les fonctions publiques (sonde, webhooks à signature).
+
+# Sonde de disponibilité — publique.
+[functions.health]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

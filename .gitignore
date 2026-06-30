@@ -6,6 +6,9 @@ __pycache__/
 node_modules/
 npm-debug.log*
 
+# Deno (cache local des Edge Functions)
+.deno_cache/
+
 # Secrets & variables d'environnement (ne JAMAIS committer)
 .env
 .env.*
