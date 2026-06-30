@@ -255,18 +255,19 @@ otp_expiry = 3600
 # content_path = "./templates/password_changed_notification.html"
 
 [auth.sms]
-# Allow/disallow new user signups via SMS to your project.
-enable_signup = false
-# If enabled, users need to confirm their phone number before signing in.
-enable_confirmations = false
-# Template for sending OTP to users
-template = "Your code is {{ `{{ .Code }}` }}"
-# Controls the minimum amount of time that must pass before sending another sms otp.
-max_frequency = "5s"
+# Inscription/connexion par téléphone (OTP) activée : canal principal du produit.
+enable_signup = true
+# Confirmation du numéro requise avant connexion.
+enable_confirmations = true
+# Gabarit du SMS d'OTP.
+template = "Votre code est {{ `{{ .Code }}` }}"
+# Délai minimal entre deux envois d'OTP.
+max_frequency = "60s"
 
-# Use pre-defined map of phone number to OTP for testing.
-# [auth.sms.test_otp]
-# 4152127777 = "123456"
+# OTP de test pour le DÉVELOPPEMENT LOCAL uniquement (n'a aucun effet en prod) :
+# permet de tester le flux téléphone sans fournisseur SMS réel.
+[auth.sms.test_otp]
+32499000000 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
@@ -280,12 +281,14 @@ max_frequency = "5s"
 # enabled = true
 # uri = "pg-functions://postgres/auth/before-user-created-hook"
 
-# This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
-# [auth.hook.custom_access_token]
-# enabled = true
-# uri = "pg-functions://<database>/<schema>/<hook_name>"
+# Custom Access Token Hook — injecte le claim `user_role` dans chaque JWT (§5.2).
+# Indépendant du provider de connexion : vaut pour téléphone, Apple, Google...
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
 
-# Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
+# Fournisseur SMS de PRODUCTION (Twilio). Préparé : passer enabled = true et
+# renseigner account_sid / message_service_sid + le token (via env) pour finaliser.
 [auth.sms.twilio]
 enabled = false
 account_sid = ""
@@ -316,9 +319,12 @@ max_frequency = "5s"
 # enroll_enabled = true
 # verify_enabled = true
 
-# Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
+# Providers OAuth externes. Liste complète : `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
+#
+# Sign in with Apple — PRÉPARÉ, non finalisé : nécessite client_id (Service ID
+# Apple) + secret (clé signée, via env). Passer enabled = true une fois fournis.
 [auth.external.apple]
 enabled = false
 client_id = ""
@@ -333,6 +339,18 @@ url = ""
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
+
+# Google — PRÉPARÉ pour une version future (V2). Bloc prêt : activer en passant
+# enabled = true + client_id (public) et secret (via env). Aucun impact sur le
+# schéma, le hook ou la RLS : l'ajout d'un provider reste purement déclaratif.
+[auth.external.google]
+enabled = false
+client_id = ""
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = false
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
