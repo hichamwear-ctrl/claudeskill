@@ -16,8 +16,11 @@ tant que le PRD et la Spec UX ne sont pas finalisés.
 |------|---------|
 | ✅ | Structure Supabase versionnée (`config.toml`, `migrations/`) |
 | ✅ | Extensions PostgreSQL (`postgis`, `pgcrypto`, `pg_net`, `pg_cron`, `uuid-ossp`) |
-| ⏳ | Enums & rôles, RLS, hook JWT, auth — étapes suivantes |
-| 🚫 | Tables métier — en attente du PRD / Spec UX |
+| ✅ | Enum `user_role`, table `profiles`, création auto, `updated_at`, RLS |
+| ✅ | Custom Access Token Hook (claim `user_role`) + config Auth multi-provider |
+| ✅ | Buckets Storage (`avatars`, `request-photos`, `mission-proofs`, `documents`) + RLS |
+| ⏳ | Squelette des Edge Functions — étape suivante |
+| 🚫 | Tables métier & logique métier — en attente du PRD / Spec UX |
 
 ## Prérequis
 
