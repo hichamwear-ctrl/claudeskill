@@ -1,0 +1,23 @@
+{
+  "name": "claudeskill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend Supabase — socle technique (app services & livraisons à la demande)",
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff",
+    "db:lint": "supabase db lint",
+    "migration:new": "supabase migration new",
+    "functions:serve": "supabase functions serve"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/hichamwear-ctrl/claudeskill"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "supabase": "^2.109.0"
+  }
+}

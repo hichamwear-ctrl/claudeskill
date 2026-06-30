@@ -1,3 +1,17 @@
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# Node / npm
+node_modules/
+npm-debug.log*
+
+# Secrets & variables d'environnement (ne JAMAIS committer)
+.env
+.env.*
+!.env.example
+
+# Supabase (artefacts locaux)
+supabase/.branches
+supabase/.temp
+supabase/signing_keys.json
