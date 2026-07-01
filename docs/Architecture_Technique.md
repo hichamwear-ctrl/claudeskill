@@ -89,6 +89,10 @@ la logique sensible vit dans des **Edge Functions**.
 - **P9 — Intake ≠ exécution.** Conversation d'intake (`conversations`) et chat de
   mission (`messages`) sont **totalement indépendants** : tables, règles et
   notifications distinctes.
+- **P10 — Aucune dette d'architecture.** Chaque implémentation respecte la cible,
+  reste **compatible avec le différé (V2)**, évite migrations complexes et hacks,
+  reste **additive**. Distinction permanente **V1 implémenté** vs **cible
+  différée** (`LEAN_V1.md`). En cas de doute : revoir la conception avant de coder.
 
 ---
 
