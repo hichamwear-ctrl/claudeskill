@@ -9,10 +9,15 @@ Sources de vérité du projet, par ordre de priorité selon le sujet.
 | [`SPEC_FONCTIONNELLE_V1.md`](./SPEC_FONCTIONNELLE_V1.md) | Spécification fonctionnelle V1 validée (catalogue, machine à états, tarification, paiement simulé, notifications, évolutivité) | les **règles métier** |
 | [`BUSINESS_RULES.md`](./BUSINESS_RULES.md) | Référence exhaustive des règles métier (validation opérateur, cas d'exploitation, décisions AUTO/OP/ADMIN) | les **règles métier détaillées** |
 | [`DATA_MODEL.md`](./DATA_MODEL.md) | Modèle de données piloté par la donnée (tables cœur + config/règles/contenu, généricité, RLS, index, traçabilité) | le **modèle de données** |
+| [`API_SPEC.md`](./API_SPEC.md) | Contrats d'API (PostgREST, RPC, Edge Functions, Realtime), autorisations, conventions | les **contrats d'API** |
 | [`UX_SPEC.md`](./UX_SPEC.md) | Spécification UX / écrans V1 (écrans client/intervenant/admin, parcours, composants, cas d'erreur, états vides, règles UX) | l'**expérience & les écrans** |
 
 ## Principes transverses (V1)
 
+- **Moteur de demandes (P0)** : l'utilisateur décrit son besoin en langage
+  naturel ; le système le classe (IA + règles, piloté par la donnée) et pose des
+  questions dynamiques. **Aucune liste de catégories** ; ajouter un métier =
+  enrichir les données, jamais le code.
 - **Contrôle humain obligatoire (v1.1)** : aucune mission n'est créée ni payée
   automatiquement. Toute demande passe par une **décision opérateur** (accepter /
   refuser / demander des infos) avant acceptation et avant tout paiement.

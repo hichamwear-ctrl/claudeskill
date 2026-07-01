@@ -1,0 +1,268 @@
+# API SPEC — Contrats d'API — `[NOM_PRODUIT]`
+
+> **Version :** 1.0 · **Statut :** proposition à valider
+> **Fil conducteur (P0) :** l'app est un **moteur de traitement de demandes**.
+> L'API reflète : *besoin libre → classification (données) → questions dynamiques
+> (données) → récapitulatif → `pending_review` → décision humaine → paiement
+> simulé gaté → exécution suivie*. **Rien codé en dur** : catalogue, questions,
+> transitions, notifications, textes, tarifs, seuils viennent de la base.
+>
+> **Cohérence :** `PRD.md`, `BUSINESS_RULES.md`, `SPEC_FONCTIONNELLE_V1.md`,
+> `DATA_MODEL.md`, `UX_SPEC.md`, `Architecture_Technique.md`.
+
+---
+
+## 1. Surfaces d'API
+
+| Surface | Usage | Sécurité |
+|---|---|---|
+| **PostgREST** (`/rest/v1/…`) | CRUD **soumis à la RLS** : lecture référentiel/questions, adresses, missions du client, messages, notifications, avis | clé `anon` + **JWT** utilisateur → RLS |
+| **RPC** (`/rest/v1/rpc/<fn>`) | Fonctions Postgres `SECURITY DEFINER` (ex. `transition_mission`) | JWT ; garde‑fous internes (allow‑list, rôle) |
+| **Edge Functions** (`/functions/v1/<fn>`) | Logique sensible/orchestration : classification, estimation, **paiement**, revue, push | JWT (sauf sondes/webhooks signés) ; `service_role` **serveur uniquement** |
+| **Realtime** | Statuts, positions (Broadcast), chat (Postgres Changes), présence | JWT ; RLS sur les tables sources |
+
+**Règle d'or :** `service_role` (contourne la RLS) **uniquement** dans les Edge
+Functions. L'app mobile n'utilise que `anon` + JWT.
+
+## 2. Conventions
+
+- **Réponses** (Edge Functions) : succès `{"data": …}` ; erreur
+  `{"error": {"message": string, "code"?: string}}`. En‑têtes CORS systématiques.
+- **Codes d'erreur** stables (`HttpError.code`) mappés au catalogue UX (`ERR_*`,
+  `UX_SPEC` §8). Ex. `unauthenticated`(401), `forbidden`(403), `bad_request`(400),
+  `not_found`(404), `conflict`(409), `payment_locked`(409), `zone_uncovered`(422),
+  `out_of_hours`(422), `validation_failed`(422), `rate_limited`(429),
+  `internal_error`(500).
+- **Idempotence** : en‑tête `Idempotency-Key` sur les mutations sensibles
+  (paiement, transitions déclenchant des effets) ; clé d'événement pour les push.
+- **Pagination** : curseur (`created_at`/`id`) ; jamais de `SELECT *` non borné.
+- **i18n** : les textes renvoyés proviennent de `content_strings` (locale du
+  profil) ; l'API renvoie des **clés** + valeurs résolues.
+- **Corrélation** : `x-request-id` propagé et journalisé (`_shared/handler.ts`).
+- **Rôles** (claim JWT `user_role`) : `client` / `operator` / `admin`.
+
+---
+
+## 3. Parcours ↔ API (vue d'ensemble)
+
+```
+C-07  POST /functions/v1/classify-request      (texte libre → services candidats)
+C-09  GET  /rest/v1/questions?set_id=eq.{…}     (formulaire dynamique) + validation à la soumission
+C-13  POST /functions/v1/zone-check             (couverture + horaires)
+      POST /functions/v1/estimate-price         (prix + ETA, si applicable)
+      POST /functions/v1/submit-request         (created → pending_review)  → push OPÉRATEUR
+OP-05 POST /functions/v1/review-request         (accept | reject | needs_information ; prix si custom)
+C-17  POST /functions/v1/create-authorization   (paiement sim ; GATED status=accepted)
+      (auto) assign-mission                      (accepted → assigned)
+OP-06 POST /rest/v1/rpc/transition_mission       (étapes d'exécution)
+OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
+      POST /functions/v1/refund                  (annulation/échec/litige ; admin)
+```
+
+---
+
+## 4. Edge Functions — contrats
+
+> Format par fonction : **méthode/chemin · auth · entrée · sortie · erreurs ·
+> effets · règles**.
+
+### 4.1 `classify-request` — besoin libre → service(s) (P0)
+- `POST /functions/v1/classify-request` · **client**
+- **Entrée :** `{ text: string, locale?, media?: [storage_path], context? }`
+- **Sortie :** `{ candidates: [{ category_id, slug, label, score }], top?: category_id, needs_disambiguation: bool }`
+- **Erreurs :** `bad_request`, `rate_limited`.
+- **Effets :** aucune écriture définitive ; peut créer/mettre à jour un
+  **brouillon** (`missions.status='created'`, `metadata.classification`).
+- **Règles :** IA + `category_classification` + seuils `app_config.classification.*`.
+  **Jamais** décisif — l'opérateur peut re‑classer en revue (P1).
+
+### 4.2 `zone-check` — couverture & horaires
+- `POST /functions/v1/zone-check` · **client**
+- **Entrée :** `{ lat, lng, at? }`
+- **Sortie :** `{ covered: bool, zone_id?, open: bool, next_window? }`
+- **Erreurs :** `bad_request`.
+- **Effets :** aucun (sinon proposer `waitlist`).
+- **Règles :** `ST_Covers` (PostGIS) + `service_windows` ; BR‑011/012/022.
+
+### 4.3 `estimate-price` — prix & ETA
+- `POST /functions/v1/estimate-price` · **client**
+- **Entrée :** `{ category_id, dropoff_point, pickup_point?, details?, advance_estimate? }`
+- **Sortie :** `{ price?, eta_min, breakdown, currency }` (pour `custom` : `price=null`)
+- **Effets :** aucun (snapshot posé à la soumission).
+- **Règles :** `pricing_rules` + `pricing_modifiers` (§3 SPEC) ; BR‑070/211.
+
+### 4.4 `submit-request` — soumission (created → pending_review)
+- `POST /functions/v1/submit-request` · **client (propriétaire)**
+- **Entrée :** `{ mission_id, details, dropoff_address|point, pickup_point?, items?, media?, notes? }`
+- **Sortie :** `{ mission_id, status: "pending_review", summary }`
+- **Erreurs :** `validation_failed` (questions obligatoires non satisfaites),
+  `zone_uncovered`, `out_of_hours`, `forbidden`.
+- **Effets :** **validation serveur** des réponses (`questions.validation`,
+  `required_when`) ; snapshot prix/ETA ; `transition_mission(created→pending_review)` ;
+  `submitted_at` ; **notification opérateur** `new_request_to_review` (via webhook).
+- **Règles :** P1 (le client ne va pas au‑delà de `pending_review`) ; PRD‑F04/F05/F06.
+
+### 4.5 `review-request` — décision humaine (OP/ADMIN)
+- `POST /functions/v1/review-request` · **operator | admin**
+- **Entrée :** `{ mission_id, decision: "accept"|"reject"|"need_info",
+  price?, eta_min?, reason?, questions? }`
+  - `accept` : pour `custom`, `price`+`eta_min` requis → écrit `quotes`
+    (`expires_at = now + app_config.quote_validity_hours`).
+  - `reject`/`need_info` : `reason` requis.
+- **Sortie :** `{ mission_id, status }`
+- **Erreurs :** `forbidden` (rôle), `conflict` (état ≠ `pending_review`),
+  `validation_failed` (prix manquant pour custom).
+- **Effets :** `transition_mission` vers `accepted|rejected|needs_information` ;
+  `reviewed_at`, `reviewed_by`, `review_reason` ; notif client
+  (`request_accepted|request_rejected|request_needs_info`) ; si `accept` →
+  **débloque le paiement**.
+- **Règles :** P1 ; BR‑010→035 (critères) ; §2 BUSINESS_RULES.
+
+### 4.6 `create-authorization` — paiement simulé (GATED)
+- `POST /functions/v1/create-authorization` · **client (propriétaire)**
+- **Entrée :** `{ mission_id, payment_method_ref? }`
+- **Sortie :** `{ payment_id, status: "requires_capture", amount_authorized }`
+- **Erreurs :** **`payment_locked`(409) si `status ≠ accepted`** ou appelant ≠
+  client ; `conflict` (déjà autorisé) ; `price_expired` (custom > 24 h).
+- **Effets :** `PaymentProvider.authorize` (mock) → `payments` ; **déclenche**
+  `assign-mission` (accepted → assigned).
+- **Règles :** **garde‑fou fondamental** — aucun paiement avant acceptation
+  (P1, BR‑210/211) ; interface remplaçable par Stripe sans changer ce contrat.
+
+### 4.7 `capture-payment` — clôture
+- `POST /functions/v1/capture-payment` · **operator (assigné) | admin**
+- **Entrée :** `{ mission_id, amount_final, advance_actual?, proof_path }`
+- **Sortie :** `{ payment_id, status: "succeeded"|"partially_captured", final_amount }`
+- **Erreurs :** `validation_failed` (preuve/ticket manquant ; montant > autorisé
+  au‑delà de `price_tolerance_pct` sans accord — BR‑072), `forbidden`, `conflict`.
+- **Effets :** `PaymentProvider.capture` ≤ autorisé ; `advances` (ticket) ;
+  `transition_mission(in_progress→completed)` ; notif `mission_completed` +
+  `receipt_available`.
+- **Règles :** BR‑140→145, BR‑190→192 ; capture ≤ autorisation.
+
+### 4.8 `refund` — remboursement / annulation (sim)
+- `POST /functions/v1/refund` · **operator (limité) | admin**
+- **Entrée :** `{ mission_id, kind: "void"|"refund", amount?, reason }`
+- **Sortie :** `{ payment_id, status: "canceled"|"refunded", amount }`
+- **Effets :** `void` (non capturé) ou `refund` (après capture) ; notif
+  `refund_simulated` ; idempotent.
+- **Règles :** BR‑130→133 ; remboursement **exceptionnel** = `admin`.
+
+### 4.9 `send-push` — notifications (interne)
+- `POST /functions/v1/send-push` · **service_role** (déclenché par Database Webhook)
+- **Entrée :** `{ event_key, mission_id?, user_id?, payload? }`
+- **Effets :** résout `notification_triggers` → `notification_templates` →
+  `content_strings` (locale) ; écrit `notifications` ; envoie Expo Push
+  (`device_tokens`) ; **idempotence** par clé d'événement.
+- **Règles :** `NOTIFICATIONS.md`, SPEC §6. **Data‑driven** (aucun texte en dur).
+
+### 4.10 `assign-mission` — affectation (interne/auto)
+- Déclenchée après autorisation (V1 **auto**, mono‑intervenant).
+- **Effets :** `operator_id` posé ; `transition_mission(accepted→assigned)` ;
+  notif `mission_new` (intervenant). En multi‑op (V2) : dispatch « plus proche ».
+- **Règles :** BR‑040→045 ; PRD‑F12.
+
+---
+
+## 5. RPC — transitions d'état
+
+### `rpc/transition_mission`
+- `POST /rest/v1/rpc/transition_mission` · **rôle selon la transition**
+- **Entrée :** `{ mission_id, to_status, metadata? }`
+- **Sortie :** `{ mission_id, from_status, to_status }`
+- **Erreurs :** `forbidden` (rôle non autorisé pour `(from,to)`), `conflict`
+  (transition non permise), `not_found`.
+- **Effets :** valide contre **`mission_transitions`** (données) + rôle ; met à
+  jour `missions.status` ; insère `mission_events` (acteur, motif) ; les
+  **effets métier** (paiement, notifs) sont branchés par webhooks/fonctions.
+- **Usage :** étapes d'exécution (OP‑06) : `assigned→shopping→…→completed`. Les
+  transitions de **revue** et de **paiement** passent par leurs Edge Functions
+  dédiées (§4.5/§4.6) pour l'atomicité (prix, autorisation).
+- **Règles :** SPEC §2.7 ; P1 (allow‑list, rôles).
+
+---
+
+## 6. PostgREST — surface REST (soumise à la RLS)
+
+| Ressource | Accès | Notes |
+|---|---|---|
+| `GET service_categories?is_active=eq.true` | authentifié | taxonomie (usage interne/classif.), pas un menu |
+| `GET question_sets`, `GET questions`, `GET question_options` | authentifié | **formulaire dynamique** ; conditions évaluées client + revalidées serveur |
+| `GET/POST addresses` | propriétaire | carnet d'adresses |
+| `GET missions?client_id=eq.{uid}` | client (RLS) | ses demandes/missions ; `operator` voit les siennes + file `pending_review` |
+| `GET mission_items`, `GET mission_events` | participants | détail & timeline |
+| `GET/POST messages?mission_id=eq.{id}` | participants | chat (insert réservé aux 2) |
+| `GET notifications?user_id=eq.{uid}` | destinataire | liste in‑app |
+| `POST ratings` | client (mission terminée) | avis facultatif |
+| `GET app_config?scope=eq.public` | authentifié | seuils publics + `feature.*` |
+| `POST waitlist` | authentifié | self‑insert |
+| **Écriture** catalogue/tarifs/zones/questions/templates/config | **admin** | administrabilité totale (RLS admin) |
+
+> Les **statuts de mission** ne sont **jamais** modifiés par `UPDATE` direct
+> (RLS) : uniquement via `transition_mission`/Edge Functions.
+
+---
+
+## 7. Realtime — canaux
+
+| Canal | Type | Émis vers | Source |
+|---|---|---|---|
+| `mission:{id}:status` | Postgres Changes | client + intervenant | `missions.status` |
+| `mission:{id}:location` | **Broadcast** | client | position live intervenant (éphémère) |
+| `mission:{id}:chat` | Postgres Changes | participants | `messages` |
+| `mission:{id}:typing` | Broadcast | participants | indicateur de frappe |
+| `operator:review-inbox` | Postgres Changes | opérateurs | nouvelles `missions` en `pending_review` |
+| `operator:presence` | Presence | dispatch | disponibilité intervenants |
+
+- Positions **haute fréquence** via **Broadcast** (pas d'écriture DB/tick) ;
+  `operator_locations` (dernière position) et `mission_tracks` (échantillon)
+  persistés peu fréquemment. Cf. `GPS_TRACKING.md`.
+- RLS garantit que seuls les participants reçoivent les changements pertinents.
+
+---
+
+## 8. Autorisation — matrice (extrait)
+
+| Opération | client | operator | admin |
+|---|---|---|---|
+| classifier / estimer / zone‑check | ✅ (les siennes) | ✅ | ✅ |
+| soumettre une demande | ✅ | — | ✅ |
+| **accepter/refuser/need_info** | ❌ | ✅ | ✅ |
+| fixer le prix (custom) | ❌ | ✅ | ✅ |
+| autoriser le paiement | ✅ (si `accepted`) | ❌ | ✅ |
+| capturer / clôturer | ❌ | ✅ (assigné) | ✅ |
+| remboursement exceptionnel | ❌ | ❌ | ✅ |
+| étapes d'exécution | ❌ | ✅ (assigné) | ✅ |
+| éditer catalogue/questions/tarifs/config/textes | ❌ | ❌ | ✅ |
+
+> Toute règle ci‑dessus est **doublée en RLS** (défense en profondeur), pas
+> seulement au niveau applicatif.
+
+---
+
+## 9. Sécurité & robustesse
+
+- **JWT** vérifié par le runtime (`verify_jwt=true`) sauf sondes/webhooks signés.
+- **Webhooks** (ex. Stripe futur) : signature vérifiée avant traitement.
+- **Idempotence** sur paiement, transitions à effets, push.
+- **Rate limiting** : OTP (Auth), `classify-request` (coût IA) via `app_config`.
+- **Validation serveur** systématique des réponses dynamiques (jamais confiance
+  au client) : `questions.validation` + `required_when`.
+- **Secrets** en Vault/env ; jamais dans l'app.
+
+## 10. Évolutivité (P0/P2)
+
+- **Nouveau métier** = données (catégorie + `category_classification` + questions
+  + `category_workflow` + tarifs + templates). **Aucun** changement d'API : les
+  mêmes endpoints (`classify-request`, `questions`, `submit-request`,
+  `review-request`, paiement) s'appliquent.
+- **Stripe** remplace le `mock` derrière `PaymentProvider` : contrats §4.6–4.8
+  **inchangés**.
+- **Multi‑intervenant** : `assign-mission` passe d'auto à dispatch ; contrats
+  clients inchangés.
+
+## 11. Références
+
+`PRD.md` · `BUSINESS_RULES.md` · `SPEC_FONCTIONNELLE_V1.md` · `DATA_MODEL.md` ·
+`UX_SPEC.md` · `Architecture_Technique.md` · à venir : `ADMIN_PANEL.md`,
+`GPS_TRACKING.md`, `NOTIFICATIONS.md`, `CHAT.md`.
