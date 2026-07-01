@@ -28,6 +28,12 @@ Impacts sur ce document :
   `quotes`, validité 24 h).
 - **§6.5 `missions` :** ajouter `submitted_at`, `reviewed_at`, `reviewed_by`,
   `review_reason`.
+- **§4.5 Edge Functions :** le corps historique liste des noms **remplacés** —
+  `create-payment-intent` → **`create-authorization`** (via `PaymentProvider`,
+  gaté `accepted`) ; `compose-quote` → intégré à **`review-request`** (prix fixé à
+  l'acceptation). **Nouvelles fonctions** : `classify-request`, `converse`,
+  `submit-request`, `review-request`. Contrats détaillés dans `API_SPEC.md` (fait
+  foi) ; `stripe-webhook` reste réservé à la V2.
 - **§9 / §12 Paiement :** `authorize` est **verrouillé** tant que
   `status ≠ accepted` ; en V1 le `PaymentProvider` est une simulation (mock)
   substituable par Stripe sans refonte.

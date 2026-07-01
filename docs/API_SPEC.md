@@ -46,8 +46,9 @@ Functions. L'app mobile n'utilise que `anon` + JWT.
 ## 3. Parcours ↔ API (vue d'ensemble)
 
 ```
-C-07  POST /functions/v1/classify-request      (texte libre → services candidats)
-C-09  GET  /rest/v1/questions?set_id=eq.{…}     (formulaire dynamique) + validation à la soumission
+C-07  POST /functions/v1/classify-request      (texte libre → intentions candidates)
+C-07→ POST /functions/v1/converse              (boucle dialogue : extraction + prochaine question)
+      GET  /rest/v1/questions?set_id=eq.{…}     (schéma des slots ; conditions revalidées serveur)
 C-13  POST /functions/v1/zone-check             (couverture + horaires)
       POST /functions/v1/estimate-price         (prix + ETA, si applicable)
       POST /functions/v1/submit-request         (created → pending_review)  → push OPÉRATEUR
@@ -76,6 +77,20 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 - **Règles :** IA + `category_classification` + seuils `app_config.classification.*`.
   **Jamais** décisif — l'opérateur peut re‑classer en revue (P1).
 
+### 4.1b `converse` — tour de dialogue (cœur conversationnel)
+- `POST /functions/v1/converse` · **client (propriétaire)**
+- **Entrée :** `{ conversation_id?, text?, media?, answer? }` (ouvre une
+  conversation si absente).
+- **Sortie :** `{ conversation_id, assistant_message, next_question?,
+  filled_slots, plan?, needs_disambiguation?, ready_for_summary: bool }`
+- **Erreurs :** `bad_request`, `rate_limited`, `validation_failed`.
+- **Effets :** oriente le **moteur déterministe** (prochaine question à partir des
+  `questions`/conditions) ; l'IA extrait les valeurs (revalidées) et reformule ;
+  écrit `conversation_turns` + met à jour `conversations.state`/`plan` ; **aucune**
+  création de mission définitive (reste `created`).
+- **Règles :** `CONVERSATION_ENGINE.md` (BR‑CE‑*) ; P0/P1 ; l'IA **ne décide
+  jamais** — s'arrête à la préparation du récapitulatif.
+
 ### 4.2 `zone-check` — couverture & horaires
 - `POST /functions/v1/zone-check` · **client**
 - **Entrée :** `{ lat, lng, at? }`
@@ -93,14 +108,19 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 
 ### 4.4 `submit-request` — soumission (created → pending_review)
 - `POST /functions/v1/submit-request` · **client (propriétaire)**
-- **Entrée :** `{ mission_id, details, dropoff_address|point, pickup_point?, items?, media?, notes? }`
-- **Sortie :** `{ mission_id, status: "pending_review", summary }`
-- **Erreurs :** `validation_failed` (questions obligatoires non satisfaites),
+- **Entrée :** `{ conversation_id, confirm_plan?: bool }` (le `plan` validé de la
+  conversation porte la/les mission(s), détails, adresses, ordre).
+- **Sortie :** `{ group_id?, missions: [{ mission_id, status: "pending_review" }], summary }`
+- **Erreurs :** `validation_failed` (slots obligatoires non satisfaits),
   `zone_uncovered`, `out_of_hours`, `forbidden`.
 - **Effets :** **validation serveur** des réponses (`questions.validation`,
-  `required_when`) ; snapshot prix/ETA ; `transition_mission(created→pending_review)` ;
-  `submitted_at` ; **notification opérateur** `new_request_to_review` (via webhook).
-- **Règles :** P1 (le client ne va pas au‑delà de `pending_review`) ; PRD‑F04/F05/F06.
+  `required_when`) ; snapshot prix/ETA ; **crée 1..N missions** (multi‑services :
+  même `group_id`, `sequence`/`depends_on` — `CONVERSATION_ENGINE.md` §7) ;
+  `transition_mission(created→pending_review)` par mission ; `submitted_at` ;
+  `conversations.status='submitted'` ; **notification opérateur**
+  `new_request_to_review`.
+- **Règles :** P1 (le client ne va pas au‑delà de `pending_review`) ; PRD‑F04/F05/F06 ;
+  BR‑CE‑30→33 (découpage validé ensuite par l'opérateur).
 
 ### 4.5 `review-request` — décision humaine (OP/ADMIN)
 - `POST /functions/v1/review-request` · **operator | admin**
@@ -187,7 +207,8 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 | Ressource | Accès | Notes |
 |---|---|---|
 | `GET service_categories?is_active=eq.true` | authentifié | taxonomie (usage interne/classif.), pas un menu |
-| `GET question_sets`, `GET questions`, `GET question_options` | authentifié | **formulaire dynamique** ; conditions évaluées client + revalidées serveur |
+| `GET conversations`, `GET conversation_turns` | propriétaire (client) ; operator/admin en revue | historique du dialogue ; écriture via `converse` |
+| `GET question_sets`, `GET questions`, `GET question_options` | authentifié | **schéma des slots** ; conditions évaluées client + revalidées serveur |
 | `GET/POST addresses` | propriétaire | carnet d'adresses |
 | `GET missions?client_id=eq.{uid}` | client (RLS) | ses demandes/missions ; `operator` voit les siennes + file `pending_review` |
 | `GET mission_items`, `GET mission_events` | participants | détail & timeline |
@@ -254,8 +275,8 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 
 - **Nouveau métier** = données (catégorie + `category_classification` + questions
   + `category_workflow` + tarifs + templates). **Aucun** changement d'API : les
-  mêmes endpoints (`classify-request`, `questions`, `submit-request`,
-  `review-request`, paiement) s'appliquent.
+  mêmes endpoints (`classify-request`, `converse`, `questions`, `submit-request`,
+  `review-request`, paiement) s'appliquent — le dialogue s'adapte via la donnée.
 - **Stripe** remplace le `mock` derrière `PaymentProvider` : contrats §4.6–4.8
   **inchangés**.
 - **Multi‑intervenant** : `assign-mission` passe d'auto à dispatch ; contrats

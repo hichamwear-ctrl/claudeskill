@@ -245,7 +245,8 @@ Un intervenant est **disponible** pour une nouvelle mission si **tout** est vrai
   deux fois (clé d'événement).
 
 ### 4.9 Avances de frais
-- **BR‑140** concernent les catégories `requires_shopping` (courses/pharmacie).
+- **BR‑140** concernent les catégories dont le `category_workflow` inclut l'étape
+  `shopping` (courses/pharmacie).
 - **BR‑141 `[AUTO]`** : l'autorisation inclut `advance_estimate` (saisi par le
   client / défaut catégorie).
 - **BR‑142 `[OP]`** : à l'achat, l'intervenant saisit `advance_actual` **avec

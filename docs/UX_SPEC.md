@@ -139,7 +139,7 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 | C-17 | Demande acceptée → **Paiement (simulé)** | visible **seulement** après acceptation ; prix (ou devis `custom`), carte fictive → **autorisation sim** |
 | C-18 | Suivi mission | timeline + statut + actions (chat, appel, annuler) |
 | C-19 | Suivi carte temps réel | position live |
-| C-20 | Chat mission | messagerie (aussi utilisée pour `needs_information`) |
+| C-20 | Chat mission | messagerie d'**exécution** (client ↔ intervenant) |
 | C-21 | Appel (simulé) | appel simulé en V1 ; relais/numéro masqué prêt pour ajout futur |
 | C-22 | Clôture & reçu | montant final + reçu sim (`completed`) |
 | C-23 | Notation | avis facultatif (étoiles + tags + commentaire) |
@@ -173,8 +173,10 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 - **C-14 Demande envoyée / en attente** — état `pending_review` : « Votre demande
   est en cours de validation. » · aucune option de paiement · action possible :
   **Annuler la demande** · reflète en direct la décision opérateur.
-- **C-15 Informations demandées** — état `needs_information` : bandeau + ouverture
-  de la **conversation** (C-20) ; le client répond → **Renvoyer** → `pending_review`.
+- **C-15 Informations demandées** — état `needs_information` : bandeau + **reprise
+  de la conversation** (moteur conversationnel, contexte conservé) avec les
+  nouvelles questions de l'opérateur ; le client répond → **Renvoyer** →
+  `pending_review`. *(≠ chat de mission C-20, réservé à l'exécution.)*
 - **C-16 Demande refusée** — état `rejected` : message (motif si fourni) · CTA
   « Faire une nouvelle demande ».
 - **C-17 Demande acceptée → Paiement (simulé)** — **accessible uniquement après
@@ -376,7 +378,8 @@ Client C-25 (motif) OU Intervenant OP-13 (impossible)
 |---|---|---|
 | C-07 | lecture catalogue | `service_categories` |
 | C-13 | `zone-check`, `estimate-price`, soumission → `transition_mission` (`pending_review`) | `coverage_zones`, `service_windows`, `pricing_rules`, `pricing_modifiers`, `missions`, `mission_events` |
-| C-14/15/16 | états de revue (Realtime) | `missions`, `mission_events`, `messages` |
+| C-07→C-13 | dialogue (`classify-request`, `converse`) | `conversations`, `conversation_turns`, `questions` |
+| C-14/15/16 | états de revue (Realtime) ; C-15 = reprise conversation | `missions`, `mission_events`, `conversations` |
 | C-17 | `PaymentProvider.authorize` (sim, **gated `accepted`**) | `payments` |
 | C-18/19 | Realtime status + Broadcast position | `missions`, `operator_locations`, `mission_tracks` |
 | C-20 | chat Realtime (dont `needs_information`) | `messages` |

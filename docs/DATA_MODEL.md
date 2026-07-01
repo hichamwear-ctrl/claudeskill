@@ -182,8 +182,10 @@
   colonne `scope` public/serveur pour restreindre certaines clés au serveur.)*
 - **Edge Functions :** toutes (lecture des seuils).
 - **Écrans :** AD‑11.
-- **Règles :** §0.3 BUSINESS_RULES (toutes les clés).
-- **💡 Généricité :** remplace **toute** constante métier → évite N colonnes/tables.
+- **Règles :** §0.3 BUSINESS_RULES (seuils) ; `CONVERSATION_ENGINE.md` §17
+  (clés `classification.*`, `conversation.*`) ; flags `feature.*`.
+- **💡 Généricité :** remplace **toute** constante métier, seuil et flag → évite
+  N colonnes/tables.
 
 ### 3.7 Feature flags → **dans `app_config`** (décision produit)
 - **Pas de table dédiée.** L'activation/désactivation d'une fonctionnalité est
@@ -330,8 +332,13 @@
 - **Colonnes clés :**
   - identité : `id`, `client_id`, `operator_id?`, `category_id?`, `family`,
     `status mission_status`.
+  - **origine conversationnelle** : `conversation_id?` (demande d'origine),
+    `group_id?` (regroupe les missions issues d'une même demande multi‑services),
+    `sequence?` (ordre dans le groupe), `depends_on_mission_id?` (dépendance
+    d'enchaînement). Cf. `CONVERSATION_ENGINE.md` §7.
   - contenu : `title?`, `free_text?`, `instructions?`, **`details jsonb`**
-    (réponses aux questions dynamiques), `metadata jsonb`.
+    (réponses aux questions dynamiques = slots remplis), `metadata jsonb`
+    (dont `classification`).
   - localisation : `dropoff_address?`, `dropoff_point geography`,
     `pickup_point? geography`.
   - tarif (snapshots) : `estimated_price?`, `estimated_eta_min?`, `service_fee?`,
@@ -342,11 +349,13 @@
     `queue_position?`.
   - timestamps.
 - **Relations :** N‑1 `profiles` (client), `operator_profiles`,
-  `service_categories`, `addresses` ; 1‑N `mission_items`, `mission_events`,
+  `service_categories`, `addresses`, **`conversations`** ; auto‑référence
+  `depends_on_mission_id` ; 1‑N `mission_items`, `mission_events`,
   `mission_tracks`, `messages`, `tips` ; 1‑0..1 `quotes`, `payments`, `ratings`,
   `disputes`.
 - **Index :** `client_idx`, `operator_idx`, `status_idx`, `created_idx desc`,
-  GIST `dropoff_point` ; partiel `status='pending_review'` (file de revue).
+  GIST `dropoff_point` ; partiel `status='pending_review'` (file de revue) ;
+  `conversation_idx`, `group_idx`.
 - **Contraintes :** FK ; `client_id on delete restrict`.
 - **RLS :** client = ses missions ; operator = les siennes **+** la file
   `pending_review` (revue) ; admin total. Transitions via
@@ -390,7 +399,40 @@
 - **Edge Functions :** revue (`transition_mission` acceptation), cron expiration.
 - **Écrans :** OP‑05 (saisie), C‑17 (paiement). **Règles :** BR‑016, §6 (24 h).
 
-### 4.5 `disputes` 🔜 *(nouveau — litiges)*
+### 4.5 Conversations (moteur conversationnel) 🔜
+> Cœur produit — cf. `CONVERSATION_ENGINE.md`. Réutilise le moteur de questions
+> comme **schéma de slots** (pas de table « slot »).
+
+#### `conversations`
+- **Rôle :** session de dialogue de constitution d'une demande ; **porte l'état**
+  (reprise + contexte).
+- **Colonnes :** `id`, `client_id`, `status conversation_status`, `state jsonb`
+  (slots remplis, position, intentions retenues), `plan jsonb` (mission(s)
+  proposée(s), ordre/dépendances), `detected_intents jsonb`, `locale`,
+  `metadata jsonb`, `created_at`, `updated_at`, `expires_at`.
+- **Relations :** N‑1 `profiles` ; 1‑N `conversation_turns` ; 1‑N `missions`
+  (une conversation → 1..N missions via `conversation_id`/`group_id`).
+- **Index :** `(client_id)`, `(status)`, `(expires_at)`.
+- **RLS :** propriétaire (client) ; opérateur/admin **lecture** pour la revue.
+- **Edge Functions :** `classify-request`, `converse`, `submit-request`.
+- **Écrans :** C‑07→C‑13 (dialogue), C‑15 (reprise sur `needs_information`),
+  OP‑05 (transcript en revue).
+- **Règles :** BR‑CE‑* ; P0/P1.
+
+#### `conversation_turns`
+- **Rôle :** historique **immuable** des tours (audit + contexte). **Distinct de
+  `messages`** : `conversation_turns` = dialogue de **constitution** (client ↔
+  moteur/IA, avant/pendant `pending_review`/`needs_information`) ; `messages` =
+  **chat d'exécution** (client ↔ intervenant, mission active).
+- **Colonnes :** `id`, `conversation_id`, `role ('user'|'assistant'|'system')`,
+  `content text`, `media jsonb?`, `intent_ref?`, `slot_key?`, `extracted jsonb?`,
+  `created_at`.
+- **Relations :** N‑1 `conversations`. **Index :** `(conversation_id, created_at)`.
+- **RLS :** participants + admin. **Edge Functions :** `converse`.
+- **💡 Généricité :** les **slots** = `questions` ; les **valeurs** = `state`
+  puis `missions.details` → aucune table EAV de réponses.
+
+### 4.6 `disputes` 🔜 *(nouveau — litiges)*
 - **Rôle :** litige lié à une mission (traçable, arbitrable).
 - **Colonnes :** `id`, `mission_id`, `opened_by`, `opened_role`, `reason`,
   `status dispute_status`, `resolution?`, `resolved_by?`, `refund_amount?`,
@@ -462,7 +504,10 @@
 ## 7. Couche Communication
 
 ### 7.1 `messages` 🔜
-- **Rôle :** chat persistant (porte aussi `needs_information`).
+- **Rôle :** **chat d'exécution** (client ↔ intervenant, mission active). Distinct
+  de `conversation_turns` (constitution du besoin, §4.5). La collecte
+  d'informations complémentaires en `needs_information` se fait via la
+  **conversation** (moteur), pas via ce chat.
 - **Colonnes :** `id`, `mission_id`, `sender_id`, `body`, `read_at?`,
   `metadata jsonb` (modération), `created_at`.
 - **Index :** `(mission_id, created_at)` ; **partitionnement** candidat.
@@ -515,6 +560,7 @@
 | `cancel_actor` | client, operator, system | 🔜 |
 | `dispute_status` | open, investigating, resolved_refund, resolved_rejected, cancelled | 🔜 |
 | `question_type` | text, number, boolean, select, multiselect, photo, document, address, date, time | 🔜 |
+| `conversation_status` | active, submitted, abandoned, expired | 🔜 |
 
 > **💡** Les valeurs *métier* extensibles (types de supplément, canaux, actions
 > d'audit) sont des **textes** (avec `content_strings`/`app_config`), pas des enums,
@@ -530,7 +576,9 @@ auth.users 1─1 profiles 1─1 operator_profiles 1─1 operator_locations
                  │  ├──< addresses   ├──< advances/payouts   └──< ratings
                  │  ├──< device_tokens
                  │  └──< notifications
+profiles(client) 1 ─< conversations 1─< conversation_turns
 profiles(client) 1 ─< missions >─ 1 operator_profiles
+   conversations 1─< missions (conversation_id ; group_id regroupe le multi‑services)
    missions 1─< mission_items | mission_events | mission_tracks | messages | tips
    missions 1─0..1 quotes | payments | ratings | disputes
 service_categories 1─< missions ; 1─< category_workflow ; 1─< category_classification ;
@@ -546,7 +594,8 @@ config: app_config (params + feature.* flags) · pricing_modifiers · content_st
 
 | Comportement | Piloté par | Ajouter/changer sans code ? |
 |---|---|---|
-| **Classer un besoin libre → service** | `classify-request` + `category_classification` + `app_config` | ✅ (ajouter un métier = données) |
+| **Dialogue de collecte du besoin** | `conversations` + moteur de questions (slots) + `content_strings` + `app_config` (`conversation.*`) | ✅ (flux déterministe sur données) |
+| **Classer un besoin libre → service** | `classify-request` + `category_classification` + `app_config` (`classification.*`) | ✅ (ajouter un métier = données) |
 | Catalogue (taxonomie), prix, zones, horaires | tables dédiées | ✅ |
 | Étapes d'une mission | `category_workflow` | ✅ |
 | Transitions autorisées | `mission_transitions` | ✅ (effets = code) |

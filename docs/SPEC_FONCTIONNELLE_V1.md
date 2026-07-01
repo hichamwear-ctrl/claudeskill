@@ -61,14 +61,18 @@ codée en dur** : la taxonomie et les questions viennent de la base.
 
 ### 1.1 Catalogue initial (démo)
 
-| slug | label | famille | `requires_shopping` | `base_fee` (€) | `legal_note` |
+| slug | label | famille | workflow (étapes optionnelles) | `base_fee` (€) | `legal_note` |
 |---|---|---|---|---|---|
-| `groceries` | Courses alimentaires | shopping | oui | 4,90 | — |
-| `pharmacy` | Pharmacie (sans ordonnance) | shopping | oui | 5,90 | « Produits **sans ordonnance** uniquement. » |
-| `parcel` | Livraison de colis | courier | non | 5,90 | — |
-| `car_assist` | Dépannage auto simple | auto | non | 9,90 | « Interventions simples (batterie, pneu, carburant). Hors remorquage. » |
-| `daily_help` | Services du quotidien | home_service | non | 6,90 | — |
-| `custom_request` | Demande libre | custom | non | 0,00 | Tarif fixé par **devis**. |
+| `groceries` | Courses alimentaires | shopping | `shopping` | 4,90 | — |
+| `pharmacy` | Pharmacie (sans ordonnance) | shopping | `shopping` | 5,90 | « Produits **sans ordonnance** uniquement. » |
+| `parcel` | Livraison de colis | courier | — | 5,90 | — |
+| `car_assist` | Dépannage auto simple | auto | — | 9,90 | « Interventions simples (batterie, pneu, carburant). Hors remorquage. » |
+| `daily_help` | Services du quotidien | home_service | — | 6,90 | — |
+| `custom_request` | Demande libre | custom | — | 0,00 | Tarif fixé par **devis**. |
+
+> Les étapes optionnelles (ex. `shopping`, `preparing`) sont définies dans
+> **`category_workflow`** (une ligne par étape, ordonnée) — cf. `DATA_MODEL.md`
+> §3.2 — **et non** par des booléens. Ajouter une étape = données.
 
 ### 1.2 Champs administrables (CRUD admin)
 
@@ -83,14 +87,15 @@ sans redéploiement :
 | `is_active` | activer/désactiver (retrait du catalogue sans suppression) | ✅ |
 | `base_fee` | supplément tarifaire de la catégorie | ✅ |
 | `prep_buffer_min` | délai estimé additionnel (ETA) | ✅ |
-| `requires_shopping` | la mission passe-t-elle par l'état `shopping` | ✅ |
-| `requires_preparation` | la mission passe-t-elle par l'état `preparing` | ✅ |
+| **workflow** (via `category_workflow`) | étapes optionnelles activées et ordonnées (`shopping`, `preparing`…) | ✅ |
 | `fulfillment` | `self` / `partner` | ✅ |
 | `sort_order` | ordre d'affichage | ✅ |
 
-> **Impact modèle de données (à construire) :** ajouter à `service_categories`
-> les colonnes `requires_shopping boolean`, `requires_preparation boolean`,
-> `prep_buffer_min int`. Le reste existe déjà dans le schéma cible (§6.3 archi).
+> **Impact modèle de données :** les étapes sont pilotées par **`category_workflow`**
+> (`DATA_MODEL.md` §3.2), qui **remplace** les booléens `requires_shopping`/
+> `requires_preparation`. Les booléens créés en M1.1 sont **transitoires** et
+> seront retirés à la reprise du dev. `prep_buffer_min` reste sur
+> `service_categories`.
 
 ---
 
@@ -123,9 +128,9 @@ created (brouillon)
                                           ▼
                                      assigned  (intervenant affecté ; démo: auto)
                                           │
-              ┌── shopping (si requires_shopping) ──┐
-              ▼                                       ▼
-        preparing (si requires_preparation) ──▶ en_route ─▶ arrived ─▶ in_progress
+              ┌── shopping (si l'étape est au workflow) ──┐
+              ▼                                             ▼
+        preparing (si l'étape est au workflow) ──▶ en_route ─▶ arrived ─▶ in_progress
                                                                             ▼
                                                                       completed ─▶ rated (facultatif)
 ```
@@ -175,10 +180,10 @@ actives), missions en cours, **localisation des intervenants** (`operator_locati
 
 | De → Vers | Acteur | Condition | Effets |
 |---|---|---|---|
-| `assigned → shopping` | operator | **si** `requires_shopping` | notif `operator_at_store` |
-| `assigned → preparing` | operator | sinon, **si** `requires_preparation` | notif `mission_preparing` |
+| `assigned → shopping` | operator | **si** l'étape `shopping` est au `category_workflow` | notif `operator_at_store` |
+| `assigned → preparing` | operator | sinon, **si** l'étape `preparing` est au workflow | notif `mission_preparing` |
 | `assigned → en_route` | operator | sinon | notif `mission_en_route` |
-| `shopping → preparing` | operator | achats finis + `requires_preparation` | notif `shopping_done` |
+| `shopping → preparing` | operator | achats finis + étape `preparing` au workflow | notif `shopping_done` |
 | `shopping → en_route` | operator | achats finis, sans préparation | `shopping_done` + `mission_en_route` |
 | `preparing → en_route` | operator | prêt à partir | notif `mission_en_route` ; **Broadcast position ON** |
 | `en_route → arrived` | operator | arrivé chez le client | `mission_arrived` (+ `operator_nearby` via géofence) |
@@ -214,7 +219,7 @@ completed         → rated [client]
 ```
 
 Le rôle autorisé est indiqué entre crochets. Le choix de l'étape offerte dans
-l'UI (saut de `shopping`/`preparing`) dépend des flags de catégorie — jamais codé
+l'UI (saut de `shopping`/`preparing`) dépend du `category_workflow` — jamais codé
 en dur.
 
 ---
@@ -399,7 +404,8 @@ respect des permissions (§13.3 archi), idempotence (§13.4 archi).
 | Élément | Action |
 |---|---|
 | enum `mission_status` | **à créer** avec `pending_review`, `needs_information`, `rejected`, `shopping` ; **sans** `quote_pending`/`quote_sent`/`quote_refused` (consolidés dans la revue) |
-| `service_categories` | ✅ créé (M1.1) avec `requires_shopping`, `requires_preparation`, `prep_buffer_min` |
+| `service_categories` | ✅ créé (M1.1) ; les booléens `requires_*` (transitoires) seront **remplacés par `category_workflow`** ; `prep_buffer_min` conservé |
+| `category_workflow` | **nouvelle table** : étapes optionnelles ordonnées par catégorie (DATA_MODEL §3.2) |
 | `coverage_zones` / `service_windows` / `waitlist` | ✅ créés (M1.2) |
 | `missions` | à créer avec, en plus du schéma cible : `submitted_at`, `reviewed_at`, `reviewed_by uuid`, `review_reason text` |
 | `mission_events` | trace déjà l'acteur/décideur de chaque transition (`actor_id`, `actor_role`) |
