@@ -8,6 +8,7 @@ Sources de vérité du projet, par ordre de priorité selon le sujet.
 | [`Architecture_Technique.md`](./Architecture_Technique.md) | Architecture technique v1.0 (stack, modèle de données cible, RLS, API, temps réel, sécurité, DevOps) | les **choix techniques** |
 | [`SPEC_FONCTIONNELLE_V1.md`](./SPEC_FONCTIONNELLE_V1.md) | Spécification fonctionnelle V1 validée (catalogue, machine à états, tarification, paiement simulé, notifications, évolutivité) | les **règles métier** |
 | [`BUSINESS_RULES.md`](./BUSINESS_RULES.md) | Référence exhaustive des règles métier (validation opérateur, cas d'exploitation, décisions AUTO/OP/ADMIN) | les **règles métier détaillées** |
+| [`DATA_MODEL.md`](./DATA_MODEL.md) | Modèle de données piloté par la donnée (tables cœur + config/règles/contenu, généricité, RLS, index, traçabilité) | le **modèle de données** |
 | [`UX_SPEC.md`](./UX_SPEC.md) | Spécification UX / écrans V1 (écrans client/intervenant/admin, parcours, composants, cas d'erreur, états vides, règles UX) | l'**expérience & les écrans** |
 
 ## Principes transverses (V1)
