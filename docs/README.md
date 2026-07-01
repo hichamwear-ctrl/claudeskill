@@ -7,6 +7,7 @@ Sources de vérité du projet, par ordre de priorité selon le sujet.
 | [`PRD.md`](./PRD.md) | Product Requirements : vision, personas, périmètre V1, exigences (F/NF), phasage | l'**intention produit** |
 | [`Architecture_Technique.md`](./Architecture_Technique.md) | Architecture technique v1.0 (stack, modèle de données cible, RLS, API, temps réel, sécurité, DevOps) | les **choix techniques** |
 | [`SPEC_FONCTIONNELLE_V1.md`](./SPEC_FONCTIONNELLE_V1.md) | Spécification fonctionnelle V1 validée (catalogue, machine à états, tarification, paiement simulé, notifications, évolutivité) | les **règles métier** |
+| [`CONVERSATION_ENGINE.md`](./CONVERSATION_ENGINE.md) | **Cœur du produit** : moteur conversationnel piloté par la donnée (intentions, slots, contexte, multi‑services, IA↔opérateur) | le **dialogue & la collecte du besoin** |
 | [`BUSINESS_RULES.md`](./BUSINESS_RULES.md) | Référence exhaustive des règles métier (validation opérateur, cas d'exploitation, décisions AUTO/OP/ADMIN) | les **règles métier détaillées** |
 | [`DATA_MODEL.md`](./DATA_MODEL.md) | Modèle de données piloté par la donnée (tables cœur + config/règles/contenu, généricité, RLS, index, traçabilité) | le **modèle de données** |
 | [`API_SPEC.md`](./API_SPEC.md) | Contrats d'API (PostgREST, RPC, Edge Functions, Realtime), autorisations, conventions | les **contrats d'API** |
