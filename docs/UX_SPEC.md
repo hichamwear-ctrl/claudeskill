@@ -126,7 +126,7 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 | C-04 | Connexion — code OTP | saisie code 6 chiffres |
 | C-05 | Profil — complétion | prénom (+ avatar optionnel) |
 | C-06 | Permissions | localisation & notifications |
-| C-07 | Accueil / catalogue | familles + catégories (depuis la base) |
+| C-07 | Accueil — « De quoi avez‑vous besoin ? » | **saisie libre** du besoin (+ voix/photo optionnelle) ; **aucune liste de catégories** — le système classe (P0) |
 | C-08 | Zone non couverte | message + liste d'attente |
 | C-09 | Création de demande | articles/instructions + réponses aux questions |
 | C-10 | Demande libre | texte libre + photos (custom) |
@@ -156,12 +156,16 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
   Apple · *erreurs* : n° invalide, rate-limit (minuterie) · *vide* n/a.
 - **C-04 Code OTP** — 6 cases + renvoi (minuterie) · *erreurs* : code faux
   (compteur d'essais), expiré · auto-submit à la 6ᵉ.
-- **C-07 Accueil/catalogue** — familles en sections, `CategoryCard` « à partir de
-  X € » · barre d'adresse en tête (zone active) · *chargement* skeletons ·
-  *vide* : « Aucun service disponible ici » + liste d'attente · *erreur* réessayer.
-- **C-09 Création de demande** — liste d'articles (ajout/quantité/notes) ou champ
-  simple selon catégorie · avance estimée (panier prévu) pour `groceries`/`pharmacy`
-  · mention légale affichée (`legal_note`) · CTA « Continuer ».
+- **C-07 Accueil — « De quoi avez‑vous besoin aujourd'hui ? »** — **champ de
+  saisie libre** (exemples inspirants en placeholder : « J'ai oublié du lait »,
+  « Mon pneu est crevé », « J'ai besoin d'un serrurier »…) · entrée voix/photo
+  optionnelle · **aucune liste de catégories** (P0) · CTA « Continuer » →
+  classification (`classify-request`). *En cas d'ambiguïté*, brève
+  **désambiguïsation** (« S'agit‑il plutôt de … ? »).
+- **C-09 Détails de la demande** — **formulaire dynamique généré depuis la base**
+  (moteur de questions) selon le service classé : articles/quantités, photos,
+  documents, dimensions, horaires, précisions… · champs **obligatoires/visibles
+  selon conditions** · mentions légales affichées · CTA « Continuer ».
 - **C-13 Récapitulatif** — besoin exprimé, réponses aux questions, photos,
   adresses, `PriceBreakdown` (si applicable), ETA, remarques · CTA **« Envoyer la
   demande »** (jamais « payer ») → `pending_review` · *erreur estimation* :
@@ -340,7 +344,7 @@ Client C-25 (motif) OU Intervenant OP-13 (impossible)
 
 | Écran | État vide | Message + CTA |
 |---|---|---|
-| C-07 catalogue | aucune catégorie en zone | « Rien ici pour l'instant » → liste d'attente |
+| C-07 accueil | service non couvert / besoin non classable | « Nous ne couvrons pas encore ce besoin » → liste d'attente / reformuler |
 | C-12 carnet d'adresses | aucune adresse | « Ajoutez votre première adresse » → ajouter |
 | C-26 mes missions | aucune mission | « Vous n'avez pas encore de mission » → catalogue |
 | C-28 notifications | vide | « Aucune notification » |

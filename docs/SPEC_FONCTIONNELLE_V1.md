@@ -49,9 +49,15 @@ Tables/config « pilotables » : `service_categories`, `pricing_rules`,
 
 ## 1. Catalogue de services (100 % administrable)
 
+> **Principe fondateur P0 :** le catalogue est une **taxonomie interne de
+> classification**, **jamais un menu** présenté au client. L'utilisateur décrit
+> son besoin en langage naturel ; le système le **classe** vers un service (IA +
+> règles, cf. `DATA_MODEL.md` §3.14) puis pose les **questions dynamiques**
+> associées. Ajouter un métier = enrichir les données, jamais le code.
+
 Familles = enum `mission_family` (`shopping / auto / home_service / courier / custom`).
 Chaque service = **une ligne** de `service_categories`. **Aucune catégorie n'est
-codée en dur** : l'app récupère le catalogue depuis la base.
+codée en dur** : la taxonomie et les questions viennent de la base.
 
 ### 1.1 Catalogue initial (démo)
 

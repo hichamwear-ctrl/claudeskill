@@ -103,8 +103,19 @@
 
 ## 3. Couche Référentiel & configuration (pilotée par la donnée)
 
+> **Principe fondateur — moteur de demandes (à garder en tête pour toute cette
+> couche) :** l'utilisateur **ne choisit jamais** de catégorie. Il décrit
+> librement son besoin (« De quoi avez‑vous besoin aujourd'hui ? »). Le système
+> (IA + règles, §3.14) **classe** la demande vers une `service_categories`
+> (taxonomie **interne**), puis charge le `question_set` correspondant. Ajouter un
+> métier (serrurier, plombier, montage IKEA, jardinage, garde d'animaux…) =
+> **enrichir les données** (catégorie + questions + indices de classification +
+> workflow + tarifs), **jamais** le code.
+
 ### 3.1 `service_categories` ✅ (à faire évoluer)
-- **Rôle :** catalogue administrable des services.
+- **Rôle :** **taxonomie interne** des services (cible de classification), **non**
+  un menu présenté au client. Administrable et **ouverte** : tout nouveau métier
+  s'ajoute par insertion.
 - **Colonnes :** `id`, `family mission_family`, `slug`, `label`, `icon?`,
   `is_active`, `fulfillment`, `legal_note?`, `base_fee`, `prep_buffer_min`,
   `sort_order`, `metadata jsonb`, timestamps.
@@ -174,14 +185,14 @@
 - **Règles :** §0.3 BUSINESS_RULES (toutes les clés).
 - **💡 Généricité :** remplace **toute** constante métier → évite N colonnes/tables.
 
-### 3.7 `feature_flags` 🔜
-- **Rôle :** activer/désactiver une fonctionnalité sans redéploiement.
-- **Colonnes :** `key text pk`, `is_enabled bool`, `description?`,
-  `rollout jsonb` (ciblage futur : %/rôle/zone), `updated_at`.
-- **RLS :** lecture authentifiée ; écriture admin.
-- **Écrans :** AD‑11.
-- **💡 Généricité :** *pourrait* être fondu dans `app_config` (clé `feature.*`).
-  Table dédiée retenue pour lisibilité admin + ciblage `rollout`.
+### 3.7 Feature flags → **dans `app_config`** (décision produit)
+- **Pas de table dédiée.** L'activation/désactivation d'une fonctionnalité est
+  une **clé `app_config`** (`value jsonb` : booléen, nombre, chaîne ou objet de
+  ciblage). **Une seule source de configuration** pour tous les paramètres et
+  flags → maintenance simplifiée.
+- Convention : clés `feature.<nom>` (ex. `feature.tips_enabled = true`,
+  `feature.google_login = {"enabled":false}`).
+- **Règle :** le code lit `app_config` ; jamais de flag codé en dur.
 
 ### 3.8 `pricing_rules` 🔜
 - **Rôle :** paramètres tarifaires par zone (`zone_id NULL` = défaut).
@@ -280,6 +291,35 @@
 - **Edge Functions / DB :** `transition_mission()` (validation).
 - **Écrans :** OP‑04/05/06, AD (visualisation workflow).
 - **Règles :** SPEC §2.7 (allow‑list), P1 (rôles décideurs).
+
+### 3.14 Moteur de classification 🔜 *(principe fondateur : besoin libre → service)*
+> Transforme un **texte libre** (« mon pneu est crevé ») en **service** de la
+> taxonomie, puis déclenche le bon `question_set`. **Entièrement piloté par la
+> donnée** : l'admin « apprend » au moteur en ajoutant des indices, sans code.
+> Décision **jamais** finale sans validation humaine (l'opérateur peut
+> re‑classer en revue).
+
+#### `category_classification`
+- **Rôle :** indices d'entraînement/matching d'une catégorie (mots‑clés,
+  synonymes, exemples de phrases) pour l'IA **et** un fallback par règles.
+- **Colonnes :** `id`, `category_id`, `kind ('keyword'|'synonym'|'example'|'regex')`,
+  `value`, `weight`, `locale?`, `is_active`.
+- **Relations :** N‑1 `service_categories`.
+- **Index :** `(category_id)`, `(kind)`, trigram/GIN sur `value` (matching).
+- **RLS :** lecture serveur ; écriture admin.
+- **Edge Functions :** `classify-request` (IA + règles).
+- **Écrans :** AD‑05 (édition), C‑07 (indirect). 
+- **💡 Généricité :** ajouter un métier = insérer catégorie + indices + questions ;
+  le moteur s'adapte **sans redéploiement**.
+
+#### Classification (fonctionnement)
+- `classify-request` (Edge) reçoit le texte libre → propose **1..N catégories
+  candidates** avec score (IA guidée par `category_classification` + règles).
+- Si confiance ≥ seuil (`app_config.classification.min_confidence`) → catégorie
+  retenue ; sinon **désambiguïsation** (question au client ou choix opérateur).
+- Le résultat (catégorie, score, alternatives) est stocké sur la demande
+  (`missions.metadata.classification`) ; **modifiable par l'opérateur** en revue.
+- Paramètres IA (modèle, seuils, garde‑fous) en **`app_config`** (`classification.*`).
 
 ---
 
@@ -493,9 +533,10 @@ auth.users 1─1 profiles 1─1 operator_profiles 1─1 operator_locations
 profiles(client) 1 ─< missions >─ 1 operator_profiles
    missions 1─< mission_items | mission_events | mission_tracks | messages | tips
    missions 1─0..1 quotes | payments | ratings | disputes
-service_categories 1─< missions ; 1─< category_workflow ; 1─< question_sets 1─< questions 1─< question_options
+service_categories 1─< missions ; 1─< category_workflow ; 1─< category_classification ;
+                   1─< question_sets 1─< questions 1─< question_options
 coverage_zones 1─< service_windows ; 1─< pricing_rules ; ⊃ addresses/points
-config: app_config · feature_flags · pricing_modifiers · content_strings ·
+config: app_config (params + feature.* flags) · pricing_modifiers · content_strings ·
         notification_templates · notification_triggers · mission_transitions · audit_log
 ```
 
@@ -505,7 +546,8 @@ config: app_config · feature_flags · pricing_modifiers · content_strings ·
 
 | Comportement | Piloté par | Ajouter/changer sans code ? |
 |---|---|---|
-| Catalogue, prix, zones, horaires | tables dédiées | ✅ |
+| **Classer un besoin libre → service** | `classify-request` + `category_classification` + `app_config` | ✅ (ajouter un métier = données) |
+| Catalogue (taxonomie), prix, zones, horaires | tables dédiées | ✅ |
 | Étapes d'une mission | `category_workflow` | ✅ |
 | Transitions autorisées | `mission_transitions` | ✅ (effets = code) |
 | Questions, ordre, conditions, obligation, docs/photos, validation | moteur de questions | ✅ |
@@ -513,7 +555,7 @@ config: app_config · feature_flags · pricing_modifiers · content_strings ·
 | Messages/labels/erreurs/mentions | `content_strings` | ✅ |
 | Suppléments tarifaires | `pricing_modifiers` | ✅ |
 | Délais, limites, constantes | `app_config` | ✅ |
-| Activation de fonctionnalités | `feature_flags` | ✅ |
+| Activation de fonctionnalités | `app_config` (clés `feature.*`) | ✅ |
 | Traçabilité | `audit_log` (générique) | ✅ |
 
 ## 12. Mini‑langage de conditions (borné)

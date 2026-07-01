@@ -44,6 +44,7 @@ architecture prête à accueillir Stripe et le multi‑intervenant **sans refont
 
 | # | Principe | Implication |
 |---|---|---|
+| **P0** | **Moteur de demandes, pas de catalogue** | L'utilisateur **ne choisit jamais** de catégorie. Il décrit librement son besoin (« De quoi avez‑vous besoin aujourd'hui ? »). Le système (IA + règles) **classe** la demande, **pose dynamiquement** les bonnes questions, et s'adapte. Ajouter un métier = **enrichir les données**, jamais réécrire l'app. Aucune limite fonctionnelle liée à une liste de catégories codée. |
 | P1 | **Contrôle humain total** | Aucune mission créée ni payée automatiquement ; l'opérateur décide (accepter / refuser / demander des infos). Le client ne dépasse jamais `pending_review` seul et ne paie jamais avant acceptation. |
 | P2 | **Construire pour une flotte, opérer avec une personne** | Le modèle est multi‑intervenant dès le schéma ; l'opération V1 est mono‑intervenant. |
 | P3 | **Rien codé en dur** | Catalogue, tarifs, délais, textes, zones, horaires, seuils vivent en base et sont administrables. |
@@ -97,10 +98,15 @@ architecture prête à accueillir Stripe et le multi‑intervenant **sans refont
 
 ## 8. Offre de services (résumé)
 
-6 services administrables (détail et paramètres dans `SPEC_FONCTIONNELLE_V1.md` §1) :
-Courses alimentaires, Pharmacie (sans ordonnance), Livraison de colis, Dépannage
-auto simple, Services du quotidien, **Demande libre** (prix par devis fixé par
-l'opérateur à l'acceptation).
+Le client **décrit son besoin en langage naturel** ; le système le **classe**
+vers un service de la **taxonomie interne** (jamais un menu). La V1 amorce cette
+taxonomie avec 6 services administrables (détail dans `SPEC_FONCTIONNELLE_V1.md`
+§1 : courses, pharmacie sans ordonnance, colis, dépannage auto simple, services
+du quotidien, demande libre). **La plateforme est ouverte** : serrurier,
+plombier, électricien, montage IKEA, jardinage, nettoyage, assistance
+informatique, garde d'animaux, aide administrative, transport… s'ajoutent
+**par la donnée** (catégorie + indices de classification + questions + workflow +
+tarifs), sans réécrire l'application (P0).
 
 ## 9. Parcours clés (résumé)
 
@@ -122,7 +128,7 @@ Détail des écrans et flux dans `UX_SPEC.md` (§4–§7).
 | ID | Exigence |
 |---|---|
 | PRD-F01 | Le client s'authentifie par OTP téléphone ou Sign in with Apple. |
-| PRD-F02 | Le client parcourt un catalogue de services **chargé depuis la base**. |
+| PRD-F02 | Le client **décrit librement** son besoin ; le système le **classe** (IA + règles, pilotées par la base) vers un service et déclenche les **questions dynamiques** adaptées. Aucune sélection de catégorie imposée. |
 | PRD-F03 | Avant toute demande, le système vérifie la **zone** et les **horaires** ; hors zone → liste d'attente. |
 | PRD-F04 | Le client constitue sa demande (questions, articles, photos, adresses, remarques) et voit un **récapitulatif** avec **prix estimatif** (si applicable) et **délai**. |
 | PRD-F05 | Le client **soumet** la demande (« Envoyer la demande ») ; elle passe en `pending_review`. Le client **ne peut pas** forcer sa création ni la payer à ce stade. |
