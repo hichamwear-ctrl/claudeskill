@@ -319,6 +319,12 @@
   candidates** avec score (IA guidée par `category_classification` + règles).
 - Si confiance ≥ seuil (`app_config.classification.min_confidence`) → catégorie
   retenue ; sinon **désambiguïsation** (question au client ou choix opérateur).
+- **Universalité (P0) :** si **aucune** catégorie ne correspond (demande inédite),
+  on **n'échoue pas** : la demande est traitée via un **`question_set` générique**
+  (`question_sets.category_id = null`, questions universelles) et
+  `missions.category_id = null` (+ `metadata.classification = unknown`).
+  **L'opérateur classe/tarifie à la revue.** La catégorie est une **optimisation**,
+  **jamais** une condition d'acceptation.
 - Le résultat (catégorie, score, alternatives) est stocké sur la demande
   (`missions.metadata.classification`) ; **modifiable par l'opérateur** en revue.
 - Paramètres IA (modèle, seuils, garde‑fous) en **`app_config`** (`classification.*`).
@@ -521,7 +527,16 @@
   `title`, `body?`, `mission_id?`, `read_at?`, `metadata jsonb`, `created_at`.
 - **Index :** `(user_id, created_at desc)` ; partitionnement candidat.
 - **RLS :** destinataire uniquement ; écriture serveur.
-- **Edge Functions :** `send-push`. **Écrans :** C‑28. **Règles :** SPEC §6.
+- **Edge Functions :** `send-push`. **Écrans :** C‑28. **Règles :** SPEC §6 ;
+  `NOTIFICATIONS.md`.
+
+#### `notification_preferences` 🔜 *(optionnel — surcharge par utilisateur)*
+- **Rôle :** préférences par type/canal (l'utilisateur coupe certaines notifs).
+- **Colonnes :** `user_id`, `type`, `channel`, `enabled` — **PK `(user_id, type,
+  channel)`**. Défauts dans les templates ; les types **critiques** (mission
+  active) ne sont pas désactivables.
+- **RLS :** propriétaire. **Règles :** `NOTIFICATIONS.md` §8. Clés associées :
+  `app_config.notifications.*` (quiet_hours, min_interval…).
 
 ---
 

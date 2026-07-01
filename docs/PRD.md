@@ -44,7 +44,7 @@ architecture prête à accueillir Stripe et le multi‑intervenant **sans refont
 
 | # | Principe | Implication |
 |---|---|---|
-| **P0** | **Moteur de demandes, pas de catalogue** | L'utilisateur **ne choisit jamais** de catégorie. Il décrit librement son besoin (« De quoi avez‑vous besoin aujourd'hui ? »). Le système (IA + règles) **classe** la demande, **pose dynamiquement** les bonnes questions, et s'adapte. Ajouter un métier = **enrichir les données**, jamais réécrire l'app. Aucune limite fonctionnelle liée à une liste de catégories codée. |
+| **P0** | **Moteur UNIVERSEL de traitement de demandes** | L'utilisateur **ne choisit jamais** de catégorie et **ne les voit jamais**. Il décrit librement son besoin (« De quoi avez‑vous besoin aujourd'hui ? »). Le moteur traite **n'importe quelle** demande — **même inédite, jamais vue** — via un parcours **générique** si nécessaire ; une catégorie n'est **jamais requise**. La taxonomie est **100 % interne** (classification, workflow, tarif, stats, affectation, règles). On **enrichit règles/questions/classification** pour *mieux* traiter ; on ne **modifie jamais l'architecture** ni n'« ajoute un métier » pour supporter un nouveau besoin. |
 | P1 | **Contrôle humain total** | Aucune mission créée ni payée automatiquement ; l'opérateur décide (accepter / refuser / demander des infos). Le client ne dépasse jamais `pending_review` seul et ne paie jamais avant acceptation. |
 | P2 | **Construire pour une flotte, opérer avec une personne** | Le modèle est multi‑intervenant dès le schéma ; l'opération V1 est mono‑intervenant. |
 | P3 | **Rien codé en dur** | Catalogue, tarifs, délais, textes, zones, horaires, seuils vivent en base et sont administrables. |
@@ -98,15 +98,18 @@ architecture prête à accueillir Stripe et le multi‑intervenant **sans refont
 
 ## 8. Offre de services (résumé)
 
-Le client **décrit son besoin en langage naturel** ; le système le **classe**
-vers un service de la **taxonomie interne** (jamais un menu). La V1 amorce cette
-taxonomie avec 6 services administrables (détail dans `SPEC_FONCTIONNELLE_V1.md`
-§1 : courses, pharmacie sans ordonnance, colis, dépannage auto simple, services
-du quotidien, demande libre). **La plateforme est ouverte** : serrurier,
-plombier, électricien, montage IKEA, jardinage, nettoyage, assistance
-informatique, garde d'animaux, aide administrative, transport… s'ajoutent
-**par la donnée** (catégorie + indices de classification + questions + workflow +
-tarifs), sans réécrire l'application (P0).
+Le client **décrit son besoin en langage naturel** ; le moteur le traite —
+**quel qu'il soit**. La **V1 traite déjà n'importe quelle demande** (serrurier,
+IKEA, déménagement, gâteau à livrer, clés perdues, plombier… ou une demande
+totalement inédite) via un **parcours générique** quand aucune catégorie ne
+correspond, puis **validation opérateur**.
+
+La **taxonomie interne** (6 entrées amorcées en V1 — `SPEC_FONCTIONNELLE_V1.md`
+§1) n'est **ni un catalogue à compléter, ni un menu** : c'est une **optimisation**
+(meilleures questions, tarif automatique, workflow, stats, affectation). Enrichir
+règles/questions/classification **améliore** le traitement d'un type de besoin ;
+ce n'est **jamais requis** pour l'accepter, et **jamais** une modification
+d'architecture (P0).
 
 ## 9. Parcours clés (résumé)
 

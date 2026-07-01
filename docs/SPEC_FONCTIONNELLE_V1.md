@@ -49,11 +49,14 @@ Tables/config « pilotables » : `service_categories`, `pricing_rules`,
 
 ## 1. Catalogue de services (100 % administrable)
 
-> **Principe fondateur P0 :** le catalogue est une **taxonomie interne de
-> classification**, **jamais un menu** présenté au client. L'utilisateur décrit
-> son besoin en langage naturel ; le système le **classe** vers un service (IA +
-> règles, cf. `DATA_MODEL.md` §3.14) puis pose les **questions dynamiques**
-> associées. Ajouter un métier = enrichir les données, jamais le code.
+> **Principe fondateur P0 (universalité) :** le catalogue est une **taxonomie
+> interne de classification**, **jamais un menu** ni un catalogue à compléter.
+> Le moteur traite **n'importe quelle** demande — même inédite — via un
+> **parcours générique** (`question_set` commun) quand aucune catégorie ne
+> correspond ; une catégorie n'est **jamais requise** pour accepter une demande.
+> Enrichir la taxonomie/les questions/la classification **améliore** le traitement,
+> **sans** modifier le code ni l'architecture. Détails : `DATA_MODEL.md` §3.14,
+> `CONVERSATION_ENGINE.md`.
 
 Familles = enum `mission_family` (`shopping / auto / home_service / courier / custom`).
 Chaque service = **une ligne** de `service_categories`. **Aucune catégorie n'est

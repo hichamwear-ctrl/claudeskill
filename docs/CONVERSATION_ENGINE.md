@@ -6,8 +6,13 @@
 > demande **complète**, puis la présente à l'opérateur pour décision.
 >
 > **Deux principes surplombent tout ce document :**
-> - **P0 — moteur de demandes :** pas de catalogue ; l'utilisateur décrit son
->   besoin, le moteur comprend et guide. Ajouter un métier = **données**.
+> - **P0 — moteur UNIVERSEL de traitement de demandes :** pas de catalogue exposé.
+>   Le moteur doit traiter **n'importe quelle** demande — **même inédite, jamais
+>   vue auparavant** — sans qu'on ait à « ajouter un service ». La taxonomie est
+>   **100 % interne** (classification, workflow, tarif, stats, affectation, règles)
+>   et **jamais montrée au client**. Elle **optimise** le traitement ; elle n'est
+>   **jamais une condition** pour accepter une demande. On enrichit *règles,
+>   questions, classification* — **jamais l'architecture** pour un « métier ».
 > - **P1 — contrôle humain :** l'IA **prépare**, l'opérateur **décide**. L'IA ne
 >   crée ni ne valide jamais une mission ; elle ne déclenche aucun paiement.
 >
@@ -115,12 +120,20 @@ plus aucune automatisation — **P1**.
   `1..N` intentions candidates avec score (IA guidée par `category_classification`
   + règles). 
 - **BR‑CE‑02 Confiance :** si `score ≥ app_config.classification.min_confidence`
-  et une seule intention nette → on la retient. Sinon → **désambiguïsation** (§9)
+  et une seule intention nette → on la retient. Sinon → **désambiguïsation** (§8)
   ou **multi‑intention** (§7).
 - **BR‑CE‑03 Re‑détection :** à chaque tour, si le texte introduit une intention
   **nouvelle** ou **contradictoire**, le moteur relance la détection (§5).
 - **BR‑CE‑04 [P1] :** l'intention retenue est **provisoire** ; l'opérateur peut la
   **corriger** en revue (re‑classification humaine).
+- **BR‑CE‑05 Intention GÉNÉRIQUE (universalité) :** si **aucune** catégorie ne
+  correspond (demande inédite), la conversation **ne s'arrête pas**. Le moteur
+  bascule sur un **`question_set` générique** (questions universelles : quoi,
+  où, quand, précisions, photos/documents éventuels) et construit un dossier
+  complet. La mission est marquée `category_id = null` (+ `metadata.classification
+  = unknown`) ; **l'opérateur classe/tarifie à la revue**. Une catégorie n'est
+  **jamais** requise pour accepter une demande — elle ne fait qu'**améliorer** le
+  questionnaire/tarif quand elle existe.
 
 ---
 
@@ -209,17 +222,24 @@ moteur propose, l'opérateur tranche si ambigu** :
 
 ---
 
-## 9. Demandes impossibles / hors périmètre
-- **BR‑CE‑50 :** si aucune intention couverte (hors taxonomie active) ou slot
-  révélant un **interdit** (ex. `car_assist` mais remorquage — BR‑051) →
-  l'IA l'explique **avec tact**, propose de **reformuler** ou l'inscription en
-  **liste d'attente** (`waitlist`).
+## 9. Demandes hors périmètre (≠ demande non reconnue)
+
+> **Important (P0) :** une demande **non reconnue** n'est **jamais** « impossible » —
+> elle est traitée par le **parcours générique** (BR‑CE‑05) et envoyée à
+> l'opérateur. « Hors périmètre » ne concerne **que** l'illégal/interdit ou
+> l'indisponibilité géographique.
+
+- **BR‑CE‑50 :** seul un slot révélant un **interdit** (illégal, dangereux,
+  remorquage, médicaments sur ordonnance… `BUSINESS_RULES` §3) déclenche une
+  explication **avec tact** + alternative éventuelle. **L'absence de catégorie
+  n'en fait pas partie** (→ parcours générique).
 - **BR‑CE‑51 [P1] :** l'IA **ne refuse jamais définitivement** de sa propre
   autorité une demande recevable ; en cas de doute, elle **laisse l'opérateur
   décider** (soumission avec drapeau). Le « refus » ferme est une décision
   **opérateur** (`rejected`).
 - **BR‑CE‑52 :** hors zone/horaires détecté tôt (`zone-check`) → proposé avant de
-  poursuivre le questionnaire (éviter un effort inutile).
+  poursuivre le questionnaire (éviter un effort inutile) ; sinon inscription
+  `waitlist`.
 
 ---
 

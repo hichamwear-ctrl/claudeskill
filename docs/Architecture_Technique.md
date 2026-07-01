@@ -54,10 +54,14 @@ la logique sensible vit dans des **Edge Functions**.
 
 **Principes fondateurs (non négociables) :**
 
-- **P0 — Moteur de demandes, pas de catalogue.** L'utilisateur **ne choisit
-  jamais** de catégorie. Il décrit son besoin (« De quoi avez‑vous besoin
-  aujourd'hui ? ») ; le système **classe** et **guide**. Ajouter un métier =
-  **enrichir les données**, jamais réécrire l'app.
+- **P0 — Moteur UNIVERSEL de traitement de demandes.** L'utilisateur **ne choisit
+  jamais** de catégorie et **ne les voit jamais**. Il décrit son besoin (« De quoi
+  avez‑vous besoin aujourd'hui ? ») ; le moteur traite **n'importe quelle** demande
+  — **même inédite** — via un **parcours générique** si aucune catégorie ne
+  correspond. La taxonomie est **100 % interne** (classification/workflow/tarif/
+  stats/affectation/règles) et n'est **jamais** une condition d'acceptation.
+  Enrichir *règles/questions/classification* améliore le traitement ; on ne
+  **modifie jamais l'architecture** pour un nouveau besoin.
 - **P1 — Contrôle humain total.** Aucune mission créée ni payée automatiquement.
   L'IA **prépare**, l'**opérateur décide** (accepter / refuser / demander des
   infos). Le client ne dépasse jamais `pending_review` de sa propre initiative et

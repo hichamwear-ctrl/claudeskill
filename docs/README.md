@@ -9,6 +9,7 @@ Sources de vérité du projet, par ordre de priorité selon le sujet.
 | [`SPEC_FONCTIONNELLE_V1.md`](./SPEC_FONCTIONNELLE_V1.md) | Spécification fonctionnelle V1 validée (catalogue, machine à états, tarification, paiement simulé, notifications, évolutivité) | les **règles métier** |
 | [`CONVERSATION_ENGINE.md`](./CONVERSATION_ENGINE.md) | **Cœur du produit** : moteur conversationnel piloté par la donnée (intentions, slots, contexte, multi‑services, IA↔opérateur) | le **dialogue & la collecte du besoin** |
 | [`GPS_TRACKING.md`](./GPS_TRACKING.md) | Suivi de position temps réel (Broadcast éphémère + persistance échantillonnée), piloté par la config, vie privée | le **suivi GPS** |
+| [`NOTIFICATIONS.md`](./NOTIFICATIONS.md) | Système de notifications piloté par la donnée (templates/triggers/content_strings), canaux, idempotence, préférences, silence nocturne, deep‑links | les **notifications** |
 | [`BUSINESS_RULES.md`](./BUSINESS_RULES.md) | Référence exhaustive des règles métier (validation opérateur, cas d'exploitation, décisions AUTO/OP/ADMIN) | les **règles métier détaillées** |
 | [`DATA_MODEL.md`](./DATA_MODEL.md) | Modèle de données piloté par la donnée (tables cœur + config/règles/contenu, généricité, RLS, index, traçabilité) | le **modèle de données** |
 | [`API_SPEC.md`](./API_SPEC.md) | Contrats d'API (PostgREST, RPC, Edge Functions, Realtime), autorisations, conventions | les **contrats d'API** |
@@ -18,10 +19,11 @@ Sources de vérité du projet, par ordre de priorité selon le sujet.
 
 ## Principes transverses (V1)
 
-- **Moteur de demandes (P0)** : l'utilisateur décrit son besoin en langage
-  naturel ; le système le classe (IA + règles, piloté par la donnée) et pose des
-  questions dynamiques. **Aucune liste de catégories** ; ajouter un métier =
-  enrichir les données, jamais le code.
+- **Moteur UNIVERSEL de demandes (P0)** : l'utilisateur décrit son besoin en
+  langage naturel ; le moteur traite **n'importe quelle** demande — **même
+  inédite** — via un parcours générique si besoin. **Catégories jamais exposées**
+  (taxonomie interne) et **jamais requises** ; on enrichit règles/questions/
+  classification, **jamais l'architecture**.
 - **Contrôle humain obligatoire (v1.1)** : aucune mission n'est créée ni payée
   automatiquement. Toute demande passe par une **décision opérateur** (accepter /
   refuser / demander des infos) avant acceptation et avant tout paiement.
