@@ -93,6 +93,14 @@ la logique sensible vit dans des **Edge Functions**.
   reste **compatible avec le différé (V2)**, évite migrations complexes et hacks,
   reste **additive**. Distinction permanente **V1 implémenté** vs **cible
   différée** (`LEAN_V1.md`). En cas de doute : revoir la conception avant de coder.
+- **P11 — Le parcours ne dépend jamais d'une catégorie.** Classification `unknown`
+  → le moteur **continue** (questions génériques → récapitulatif → `pending_review`).
+  L'opérateur peut accepter une demande **inédite**. La taxonomie **optimise**,
+  ne **limite** jamais. *« On ne crée pas des services, on traite des demandes. »*
+- **P12 — Edge Functions génériques.** Aucune fonction par métier
+  (`create_plumber_request`…). Le backend est **générique** (`converse`, `review`,
+  `payments`, `submit_request`, `transition_mission`, `estimate_price`,
+  `zone_check`, `send_push`) ; un nouveau métier = **données**, jamais de code.
 
 ---
 

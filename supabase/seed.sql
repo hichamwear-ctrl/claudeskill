@@ -71,3 +71,66 @@ insert into public.content_strings (key, locale, value, description) values
   ('notif.request_accepted.body',  'fr', 'Votre demande a été acceptée. Vous pouvez procéder au paiement.', 'Notification'),
   ('err.payment_locked',     'fr', 'Le paiement sera possible après validation de votre demande.', 'Erreur UX')
 on conflict (key, locale) do nothing;
+
+-- --- Textes des questions (labels) — content_strings ----------------------------
+insert into public.content_strings (key, locale, value) values
+  ('q.generic.details.label', 'fr', 'Pouvez-vous préciser votre besoin ?'),
+  ('q.generic.address.label', 'fr', 'À quelle adresse ?'),
+  ('q.generic.when.label',    'fr', 'Pour quand ?'),
+  ('q.generic.photo.label',   'fr', 'Une photo peut-elle aider ? (facultatif)'),
+  ('q.groceries.store.label', 'fr', 'Quelle enseigne ?'),
+  ('q.groceries.items.label', 'fr', 'Que faut-il acheter ?'),
+  ('q.groceries.budget.label','fr', 'Budget estimé des achats (€) ?'),
+  ('opt.store.carrefour',     'fr', 'Carrefour'),
+  ('opt.store.delhaize',      'fr', 'Delhaize'),
+  ('opt.store.colruyt',       'fr', 'Colruyt'),
+  ('opt.store.other',         'fr', 'Autre / peu importe')
+on conflict (key, locale) do nothing;
+
+-- --- Set GÉNÉRIQUE universel (category_id NULL) — P11 ----------------------------
+insert into public.question_sets (slug, name, category_id, sort_order)
+values ('generic', 'Demande générique', null, 0)
+on conflict (slug) do nothing;
+
+insert into public.questions (set_id, key, type, label_key, sort_order, required_when)
+select s.id, q.key, q.type::public.question_type, q.label_key, q.ord, q.req::jsonb
+from public.question_sets s
+cross join (values
+  ('details', 'text',    'q.generic.details.label', 10, '{"always":true}'),
+  ('address', 'address', 'q.generic.address.label', 20, '{"always":true}'),
+  ('when',    'text',    'q.generic.when.label',    30, '{}'),
+  ('photo',   'photo',   'q.generic.photo.label',   40, '{}')
+) as q(key, type, label_key, ord, req)
+where s.slug = 'generic'
+  and not exists (select 1 from public.questions x where x.set_id = s.id and x.key = q.key);
+
+-- --- Set spécifique 'groceries' (raffinement) -----------------------------------
+insert into public.question_sets (slug, name, category_id, sort_order)
+select 'groceries', 'Courses alimentaires', sc.id, 10
+from public.service_categories sc where sc.slug = 'groceries'
+on conflict (slug) do nothing;
+
+insert into public.questions (set_id, key, type, label_key, sort_order, required_when, validation)
+select s.id, q.key, q.type::public.question_type, q.label_key, q.ord, q.req::jsonb, q.val::jsonb
+from public.question_sets s
+cross join (values
+  ('store',  'select', 'q.groceries.store.label',  10, '{}',             '{}'),
+  ('items',  'text',   'q.groceries.items.label',  20, '{"always":true}','{"maxLen":500}'),
+  ('budget', 'number', 'q.groceries.budget.label', 30, '{}',             '{"min":0}')
+) as q(key, type, label_key, ord, req, val)
+where s.slug = 'groceries'
+  and not exists (select 1 from public.questions x where x.set_id = s.id and x.key = q.key);
+
+-- Options de la question 'store' (select)
+insert into public.question_options (question_id, value, label_key, sort_order)
+select qq.id, o.value, o.label_key, o.ord
+from public.questions qq
+join public.question_sets s on s.id = qq.set_id and s.slug = 'groceries'
+cross join (values
+  ('carrefour', 'opt.store.carrefour', 10),
+  ('delhaize',  'opt.store.delhaize',  20),
+  ('colruyt',   'opt.store.colruyt',   30),
+  ('other',     'opt.store.other',     40)
+) as o(value, label_key, ord)
+where qq.key = 'store'
+  and not exists (select 1 from public.question_options x where x.question_id = qq.id and x.value = o.value);
