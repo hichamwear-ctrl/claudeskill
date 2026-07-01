@@ -8,10 +8,12 @@ Sources de vérité du projet, par ordre de priorité selon le sujet.
 | [`Architecture_Technique.md`](./Architecture_Technique.md) | Architecture technique **v2.0 consolidée** (source unique, sans amendement) : stack, données, RLS, API, temps réel, conversation, paiement simulé, sécurité, DevOps | les **choix techniques** |
 | [`SPEC_FONCTIONNELLE_V1.md`](./SPEC_FONCTIONNELLE_V1.md) | Spécification fonctionnelle V1 validée (catalogue, machine à états, tarification, paiement simulé, notifications, évolutivité) | les **règles métier** |
 | [`CONVERSATION_ENGINE.md`](./CONVERSATION_ENGINE.md) | **Cœur du produit** : moteur conversationnel piloté par la donnée (intentions, slots, contexte, multi‑services, IA↔opérateur) | le **dialogue & la collecte du besoin** |
+| [`GPS_TRACKING.md`](./GPS_TRACKING.md) | Suivi de position temps réel (Broadcast éphémère + persistance échantillonnée), piloté par la config, vie privée | le **suivi GPS** |
 | [`BUSINESS_RULES.md`](./BUSINESS_RULES.md) | Référence exhaustive des règles métier (validation opérateur, cas d'exploitation, décisions AUTO/OP/ADMIN) | les **règles métier détaillées** |
 | [`DATA_MODEL.md`](./DATA_MODEL.md) | Modèle de données piloté par la donnée (tables cœur + config/règles/contenu, généricité, RLS, index, traçabilité) | le **modèle de données** |
 | [`API_SPEC.md`](./API_SPEC.md) | Contrats d'API (PostgREST, RPC, Edge Functions, Realtime), autorisations, conventions | les **contrats d'API** |
 | [`ADMIN_PANEL.md`](./ADMIN_PANEL.md) | Centre de pilotage (back‑office) : administrer la plateforme par la donnée (taxonomie, classification, questions, workflows, transitions, tarifs, textes, notifications, revue, audit) | le **back‑office** |
+| [`CONFIG_VERSIONING.md`](./CONFIG_VERSIONING.md) | Versionnement générique de **toute la configuration** (Brouillon → Validation → Publication → Rollback), registre extensible | la **gouvernance de configuration** |
 | [`UX_SPEC.md`](./UX_SPEC.md) | Spécification UX / écrans V1 (écrans client/intervenant/admin, parcours, composants, cas d'erreur, états vides, règles UX) | l'**expérience & les écrans** |
 
 ## Principes transverses (V1)

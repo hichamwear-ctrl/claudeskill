@@ -276,6 +276,7 @@ conversation_status = active | submitted | abandoned | expired
 | Suppléments tarifaires | `pricing_modifiers` (condition JSON) |
 | Seuils, délais, limites, flags | `app_config` (`feature.*`) |
 | Traçabilité | `audit_log` (générique) |
+| Versionnement de **toute** la configuration (brouillon→validation→publication→rollback) | `config_modules`/`config_versions`/`config_snapshots` (registre générique) — cf. `CONFIG_VERSIONING.md` |
 
 ---
 

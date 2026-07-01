@@ -545,6 +545,35 @@
 - **Écrans :** AD (audit). **Règles :** BR‑224.
 - **💡 Généricité :** **une** table remplace un historique par entité.
 
+### 8.3 Versionnement de configuration 🔜 *(cf. `CONFIG_VERSIONING.md`)*
+> Versionne **toute la configuration** (pas les données opérationnelles).
+> Générique via un **registre** : ajouter un module = 1 ligne, sans code.
+
+#### `config_modules` (registre)
+- **Rôle :** déclare les tables de configuration versionnées.
+- **Colonnes :** `key` (pk), `table_name` (unique), `natural_key`,
+  `apply_order int`, `schema jsonb?`, `soft_delete_column?`, `is_active`,
+  `description?`.
+- **RLS :** admin. **💡** ajouter un module de config = insérer une ligne.
+
+#### `config_versions`
+- **Colonnes :** `id`, `label`, `status config_version_status`, `notes?`,
+  `parent_version_id?`, `created_by`, `created_at`, `validated_by?`,
+  `validated_at?`, `published_by?`, `published_at?`, `checksum?`, `metadata jsonb`.
+- **Index :** partial `unique where status='published'` (une seule version active).
+- **RLS :** admin.
+
+#### `config_snapshots`
+- **Rôle :** snapshot JSONB d'un module pour une version (agnostique du schéma).
+- **Colonnes :** `id`, `version_id`, `module_key`, `payload jsonb`, `row_count`,
+  `created_at`. **Index :** `unique(version_id, module_key)`. **RLS :** admin.
+- **Edge Functions :** `config-create-draft`, `config-validate`,
+  `config-publish`, `config-rollback` (bornées au registre).
+- **Écrans :** AD‑26. **Règles :** admin ; garde‑fous P0/P1/RLS non versionnables.
+- **💡 Généricité :** stockage JSONB → nouvelle table de config versionnable
+  **sans migration** du système de versions ; upsert par `natural_key`
+  (PK stables) + soft‑delete → **intégrité opérationnelle préservée** au rollback.
+
 ---
 
 ## 9. Enums
@@ -561,6 +590,7 @@
 | `dispute_status` | open, investigating, resolved_refund, resolved_rejected, cancelled | 🔜 |
 | `question_type` | text, number, boolean, select, multiselect, photo, document, address, date, time | 🔜 |
 | `conversation_status` | active, submitted, abandoned, expired | 🔜 |
+| `config_version_status` | draft, validated, published, archived | 🔜 |
 
 > **💡** Les valeurs *métier* extensibles (types de supplément, canaux, actions
 > d'audit) sont des **textes** (avec `content_strings`/`app_config`), pas des enums,

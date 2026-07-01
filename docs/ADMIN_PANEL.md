@@ -187,9 +187,13 @@
 
 ### 3.18 AD‑25/26 Audit & publications
 - **Audit :** `audit_log` — qui a changé quoi, quand, diff. Filtrable.
-- **Publications/rollback :** pour les configurations sensibles (tarifs, questions,
-  workflows, transitions, classification), cycle **brouillon → prévisualisation →
-  publication**, avec **restauration** d'une version antérieure.
+- **Publications/rollback :** pilote le **versionnement de toute la configuration
+  métier** (cf. **`CONFIG_VERSIONING.md`**) : cycle **Brouillon → Validation →
+  Publication → Rollback** en un clic, générique (registre `config_modules`),
+  avec diff lisible et simulateurs avant publication. Une version couvre
+  taxonomie, classification, questions, workflows, transitions, règles, tarifs,
+  zones, horaires, paramètres, notifications, templates de conversation, contenus,
+  et tout futur module — **jamais** les données opérationnelles.
 
 ---
 
@@ -236,10 +240,9 @@
 
 - **Aucune nouvelle table indispensable** en V1 : le back‑office **édite les
   tables existantes** (référentiel, config, contenu, règles) sous RLS admin.
-- **Recommandé (gouvernance) :** une table générique de **versions de
-  configuration** (`config_versions` : table, row_id, payload jsonb, author,
-  published_at) pour publication/rollback — **optionnelle**, à acter dans
-  `DATA_MODEL.md` si vous validez le cycle brouillon→publication.
+- **Versionnement de configuration** (validé) : système générique
+  `config_modules` / `config_versions` / `config_snapshots` — cf.
+  **`CONFIG_VERSIONING.md`** (acté dans `DATA_MODEL.md`).
 - **`audit_log`** (déjà prévu) couvre la traçabilité.
 - **RBAC granulaire** (futur) : tables `roles`/`permissions` — **non V1**.
 
