@@ -10,8 +10,11 @@ Sources de vérité du projet, par ordre de priorité selon le sujet.
 
 ## Principes transverses (V1)
 
+- **Contrôle humain obligatoire (v1.1)** : aucune mission n'est créée ni payée
+  automatiquement. Toute demande passe par une **décision opérateur** (accepter /
+  refuser / demander des infos) avant acceptation et avant tout paiement.
 - **Démonstration** de bout en bout ; **paiement simulé** derrière l'interface
-  `PaymentProvider` (Stripe branchable sans refonte).
+  `PaymentProvider` (Stripe branchable sans refonte), **débloqué après acceptation**.
 - **Mono-intervenant**, attribution auto, acceptation immédiate — architecture
   multi-intervenant préservée.
 - **Aucune règle métier codée en dur** : catalogue, tarifs, délais, textes,

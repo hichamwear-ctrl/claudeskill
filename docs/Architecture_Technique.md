@@ -8,6 +8,37 @@
 
 ---
 
+## AMENDEMENT v1.1 — Validation opérateur obligatoire (contrôle humain)
+
+> Cet amendement **prévaut** sur le corps du document ci-dessous là où ils
+> divergent. Détail complet dans `SPEC_FONCTIONNELLE_V1.md` (§0, §2) et
+> `UX_SPEC.md` (§4, §5, §7).
+
+**Règle :** aucune mission n'est créée ni payée automatiquement. Toute demande
+passe par une **décision humaine** (`operator`/`admin`) avant acceptation et
+avant tout paiement.
+
+Impacts sur ce document :
+- **§5 Rôles :** la décision de revue (accepter/refuser/demander des infos) est
+  réservée à `operator`/`admin`. Le client ne dépasse jamais `pending_review`.
+- **§6.1 Enum `mission_status` :** **ajouter** `pending_review`,
+  `needs_information`, `rejected` (+ `shopping`) ; **retirer**
+  `quote_pending`/`quote_sent`/`quote_refused` (consolidés dans la revue ; le prix
+  d'une demande libre est fixé par l'opérateur à l'acceptation, enregistré dans
+  `quotes`, validité 24 h).
+- **§6.5 `missions` :** ajouter `submitted_at`, `reviewed_at`, `reviewed_by`,
+  `review_reason`.
+- **§9 / §12 Paiement :** `authorize` est **verrouillé** tant que
+  `status ≠ accepted` ; en V1 le `PaymentProvider` est une simulation (mock)
+  substituable par Stripe sans refonte.
+- **§15 Flux :** `created → pending_review → (revue) → accepted → (paiement sim)
+  → assigned → exécution`. `searching` réservé au dispatch multi-intervenant.
+- **§13 Notifications :** ajouter `new_request_to_review` (opérateur) et
+  `request_submitted` / `request_accepted` / `request_rejected` /
+  `request_needs_info` (client).
+
+---
+
 ## SOMMAIRE
 1. Vue d'ensemble & principes
 2. Schéma d'architecture

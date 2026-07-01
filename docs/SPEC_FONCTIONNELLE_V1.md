@@ -1,6 +1,10 @@
 # Spécification fonctionnelle — V1 (démonstration)
 
-> **Version :** 1.0 · **Statut :** validée (base pour le développement métier)
+> **Version :** 1.1 · **Statut :** validée (base pour le développement métier)
+>
+> **Changement v1.1 — Validation opérateur obligatoire :** aucune mission n'est
+> créée ni payée automatiquement. Toute demande passe par une **revue humaine**
+> (opérateur) avant acceptation et avant tout paiement. Voir §0 (principe) et §2.
 > **Documents de référence :** `docs/Architecture_Technique.md` (architecture technique, source de vérité technique).
 > **Ce document** est la source de vérité **fonctionnelle** de la V1. En cas de
 > divergence sur une règle métier, ce document prime ; sur un choix technique,
@@ -11,11 +15,25 @@
 - **Objectif :** démonstration complète et fonctionnelle d'un parcours de bout en bout.
 - **Paiement :** **simulé** uniquement (aucun paiement réel), derrière une
   interface `PaymentProvider` permettant de brancher Stripe **sans refonte** (§5).
-- **Opération :** **un seul intervenant**, **attribution automatique**,
-  **acceptation immédiate** — mais l'architecture reste multi-intervenant.
+  Le paiement n'est **jamais** proposé avant l'acceptation opérateur (§2).
+- **Opération :** **un seul intervenant**, **affectation automatique après
+  acceptation** — mais l'architecture reste multi-intervenant.
 - **Nom produit :** placeholder `[NOM_PRODUIT]` (inchangé pour l'instant).
 
-### Principe directeur d'évolutivité (non négociable)
+### Principe directeur n°1 — Contrôle humain total (non négociable)
+
+> **Aucune mission n'est créée ni payée automatiquement.** Toute demande, même
+> parfaitement comprise, est soumise à une **décision humaine** d'un opérateur
+> (rôle `operator`, ou `admin`) avant acceptation. Le client :
+> - ne peut **jamais** forcer la création d'une mission (il ne dépasse jamais
+>   l'état `pending_review` de sa propre initiative) ;
+> - ne peut **jamais** payer tant que la demande n'a pas été **acceptée**.
+>
+> L'IA/UX peut assister la constitution de la demande, mais la décision finale
+> (accepter / refuser / demander des informations) appartient toujours à
+> l'opérateur. Cette règle prime sur toute automatisation.
+
+### Principe directeur n°2 — Évolutivité (non négociable)
 
 > **Aucune règle métier codée en dur.** Tout ce qui est susceptible de changer
 > (catalogue, tarifs, délais, textes, zones, horaires, seuils, suppléments,
@@ -70,91 +88,128 @@ sans redéploiement :
 
 ---
 
-## 2. Machine à états de la mission
+## 2. Machine à états de la mission (avec validation opérateur)
 
 Toutes les transitions passent par **une fonction `SECURITY DEFINER`**
 `transition_mission(mission_id, to_status, metadata)` qui valide
 `(statut_courant, cible, rôle)` contre une **liste d'autorisations**, écrit dans
 `missions`, journalise dans `mission_events`, et déclenche les effets (paiement
-simulé, notifications, horodatage, temps réel). Un client ne peut **jamais**
-franchir une étape réservée à l'intervenant.
+simulé, notifications, horodatage, temps réel). Elle applique le **contrôle
+humain** (§0 principe n°1) : le client ne franchit jamais `pending_review` seul,
+et les décisions de revue sont réservées à `operator`/`admin`.
 
-### 2.1 Nouvel état `shopping`
-
-Ajout demandé : **`accepted → shopping`** pour signaler que l'intervenant
-effectue les achats. Le passage par `shopping` (et par `preparing`) est
-**piloté par la donnée** (`service_categories.requires_shopping` /
-`requires_preparation`), donc les services sans achat **sautent automatiquement**
-cet état.
-
-> **Impact modèle de données (à construire) :** ajouter la valeur `shopping` à
-> l'enum `mission_status` (enum métier **pas encore créé** → simple ajout, aucune
-> migration corrective).
-
-### 2.2 Parcours standard (hors demande libre)
+### 2.1 Vue d'ensemble
 
 ```
-created → searching → assigned → accepted
-        → shopping    (si requires_shopping)
-        → preparing   (si requires_preparation)
-        → en_route → arrived → in_progress → completed → rated (facultatif)
+created (brouillon)
+  └─(client « Envoyer la demande »)─▶ pending_review ──▶ push OPÉRATEUR
+                                          │
+        ┌── operator: refuse ────────────┤
+        │                                 ├── operator: demande infos ─▶ needs_information
+        ▼                                 │                                   │
+     rejected (terminal)                  │        (client répond) ◀──────────┘
+                                          ▼                │
+                             operator: ACCEPTE            └─▶ pending_review
+                                          │
+                                   accepted  ──▶ notif client « acceptée »
+                                          │      (PAIEMENT DÉBLOQUÉ ICI SEULEMENT)
+                       (client paie: autorisation sim)
+                                          ▼
+                                     assigned  (intervenant affecté ; démo: auto)
+                                          │
+              ┌── shopping (si requires_shopping) ──┐
+              ▼                                       ▼
+        preparing (si requires_preparation) ──▶ en_route ─▶ arrived ─▶ in_progress
+                                                                            ▼
+                                                                      completed ─▶ rated (facultatif)
 ```
 
-| De → Vers | Acteur | Condition / déclencheur | Effets |
-|---|---|---|---|
-| `created` | client | mission validée (adresse/panier OK) | snapshot prix ; **autorisation paiement simulée** |
-| `created → searching` | système | autorisation sim OK → `assign-mission` | — |
-| `searching → assigned` | système | attribution auto (unique intervenant dispo) | `operator_id` fixé ; notif `mission_new` |
-| `assigned → accepted` | operator | acceptation immédiate (démo) | `accepted_at` ; notif `mission_accepted` |
-| `accepted → shopping` | operator | **si** `requires_shopping` | notif `operator_at_store` (à l'entrée) |
-| `accepted → preparing` | operator | si pas d'achat mais `requires_preparation` | notif `mission_preparing` |
-| `accepted → en_route` | operator | si ni achat ni préparation | notif `mission_en_route` |
-| `shopping → preparing` | operator | achats terminés + `requires_preparation` | notif `shopping_done` |
-| `shopping → en_route` | operator | achats terminés, pas de préparation | notif `shopping_done` + `mission_en_route` |
-| `preparing → en_route` | operator | prêt à partir | notif `mission_en_route` ; **Broadcast position ON** |
-| `en_route → arrived` | operator | arrivé chez le client | notif `mission_arrived` (+ `operator_nearby` en amont via géofence) |
-| `arrived → in_progress` | operator | remise / réalisation | — |
-| `in_progress → completed` | operator | clôture + **montant réel** + preuve | **capture simulée** ; `completed_at` ; notif `mission_completed` + `receipt_available` ; notif différée `rating_request` |
-| `completed → rated` | client | avis (**facultatif**) | recalcul `rating_avg` |
+> **États ajoutés à l'enum `mission_status` :** `pending_review`,
+> `needs_information`, `rejected` (+ `shopping`). **États supprimés** (consolidés
+> dans la revue) : `quote_pending`, `quote_sent`, `quote_refused`.
 
-### 2.3 Annulation & échec (transverses)
-
-| De → Vers | Acteur | Règle | Effets |
-|---|---|---|---|
-| `created…arrived → cancelled` | client / operator / système | avant `in_progress` | `cancel_actor` + `cancel_reason` + `cancelled_at` ; **annulation de l'autorisation sim** (remboursement sim si déjà capturé → notif `refund_simulated`) ; notif `mission_cancelled` (client) / `mission_cancelled_by_client` (operator) |
-| `shopping…in_progress → failed` | operator / système | intervention impossible | preuve/raison ; remboursement sim → notif `refund_simulated` ; notif `intervention_impossible` |
-| *(retard)* | système (monitor/cron) | `now > ETA + délai de grâce` (config) | notif `mission_delayed` (sans changer d'état) |
-
-### 2.4 Branche demande libre (`custom`)
+### 2.2 Constitution & soumission (client)
 
 | De → Vers | Acteur | Déclencheur | Effets |
 |---|---|---|---|
-| `created → quote_pending` | client | demande libre soumise (pas d'estimation) | notif `quote_requested` (operator) |
-| `quote_pending → quote_sent` | operator | `compose-quote` — **1 seul devis** | `operator_id` fixé ; `quotes.expires_at = +24 h` ; notif `quote_ready` |
-| `quote_sent → accepted` | client | accepte le devis | **autorisation sim** → puis `preparing/en_route → … → completed` |
-| `quote_sent → quote_refused` | client | refuse | terminal |
-| `quote_sent → quote_refused` | système (cron) | **expiration 24 h** | `quotes.status='expired'` ; notif `quote_expired` |
-| `quote_pending / quote_sent → cancelled` | client | annulation | règle d'annulation §2.3 |
+| `created` | client | brouillon ; le client répond aux questions (chat/formulaire) | rien de figé ; **aucun paiement** |
+| `created → pending_review` | client | **« Envoyer la demande »** (récapitulatif complet) | `submitted_at` ; **push opérateur** `new_request_to_review` ; notif client `request_submitted` |
+| `created → cancelled` | client | abandon du brouillon | — |
 
-### 2.5 Liste d'autorisations (allow-list de la fonction de transition)
+### 2.3 Revue humaine (décision opérateur)
+
+> Réservé aux rôles **`operator`** et **`admin`**. Le client ne peut jamais
+> déclencher ces transitions.
+
+| De → Vers | Acteur | Déclencheur | Effets |
+|---|---|---|---|
+| `pending_review → accepted` | operator/admin | accepte (fixe/valide le prix ; pour `custom`, **saisit le prix** → `quotes`, validité 24 h) | `reviewed_at`, `reviewed_by` ; notif client `request_accepted` ; **paiement débloqué** |
+| `pending_review → rejected` | operator/admin | refuse | `review_reason` ; notif client `request_rejected` (terminal) |
+| `pending_review → needs_information` | operator/admin | demande des infos | `review_reason` ; notif client `request_needs_info` ; **rouvre la conversation** |
+| `needs_information → pending_review` | client | répond aux nouvelles questions (chat) | nouvelle soumission ; push opérateur |
+| `pending_review / needs_information → cancelled` | client | retire sa demande | — |
+
+**Tableau de bord de revue (lecture seule)** présenté à l'opérateur : disponibilité
+de l'équipe (`operator_profiles.status` / Presence), charge (nb de missions
+actives), missions en cours, **localisation des intervenants** (`operator_locations`).
+
+### 2.4 Paiement (gate) puis affectation
+
+| De → Vers | Acteur | Règle | Effets |
+|---|---|---|---|
+| *(paiement)* | client | possible **uniquement si `status = accepted`** | `PaymentProvider.authorize` (sim) → `payments.status = requires_capture` |
+| `accepted → assigned` | système | **après autorisation sim réussie** ; affecte l'intervenant (démo : auto) | `operator_id` fixé ; notif `mission_new` (intervenant) |
+| `accepted → cancelled` | client/operator | renoncement avant paiement / annulation | `void` sim si autorisation existante |
+
+> `searching` reste dans l'enum, **réservé au dispatch multi-intervenant** (phase
+> de recherche asynchrone d'un intervenant après paiement). En V1 mono-intervenant,
+> on passe directement `accepted → assigned`.
+
+### 2.5 Exécution
+
+| De → Vers | Acteur | Condition | Effets |
+|---|---|---|---|
+| `assigned → shopping` | operator | **si** `requires_shopping` | notif `operator_at_store` |
+| `assigned → preparing` | operator | sinon, **si** `requires_preparation` | notif `mission_preparing` |
+| `assigned → en_route` | operator | sinon | notif `mission_en_route` |
+| `shopping → preparing` | operator | achats finis + `requires_preparation` | notif `shopping_done` |
+| `shopping → en_route` | operator | achats finis, sans préparation | `shopping_done` + `mission_en_route` |
+| `preparing → en_route` | operator | prêt à partir | notif `mission_en_route` ; **Broadcast position ON** |
+| `en_route → arrived` | operator | arrivé chez le client | `mission_arrived` (+ `operator_nearby` via géofence) |
+| `arrived → in_progress` | operator | remise / réalisation | — |
+| `in_progress → completed` | operator | clôture + montant réel + preuve | **capture sim** ; `completed_at` ; `mission_completed` + `receipt_available` ; `rating_request` (différé) |
+| `completed → rated` | client | avis (**facultatif**) | recalcul `rating_avg` |
+
+### 2.6 Annulation & échec (transverses)
+
+| De → Vers | Acteur | Règle | Effets |
+|---|---|---|---|
+| `accepted…arrived → cancelled` | client / operator / système | avant `in_progress` | `cancel_actor`+`cancel_reason`+`cancelled_at` ; **`void`/`refund` sim** ; `mission_cancelled` / `mission_cancelled_by_client` |
+| `shopping…in_progress → failed` | operator / système | intervention impossible | preuve/raison ; **remboursement sim** → `refund_simulated` ; `intervention_impossible` |
+| *(retard)* | système (cron) | `now > ETA + délai de grâce` (config) | `mission_delayed` (sans changer d'état) |
+| `pending_review → cancelled` (expiration) | système (cron) | prix proposé non payé sous **24 h** (`custom`) | `rejected`/`cancelled` ; notif client |
+
+### 2.7 Liste d'autorisations (allow-list de `transition_mission`)
 
 ```
-created      → searching, cancelled, quote_pending
-searching    → assigned, cancelled, failed
-assigned     → accepted, cancelled, failed
-accepted     → shopping, preparing, en_route, cancelled, failed
-shopping     → preparing, en_route, cancelled, failed
-preparing    → en_route, cancelled, failed
-en_route     → arrived, cancelled, failed
-arrived      → in_progress, cancelled, failed
-in_progress  → completed, failed
-completed    → rated
-quote_pending→ quote_sent, cancelled
-quote_sent   → accepted, quote_refused, cancelled
+created           → pending_review [client], cancelled [client]
+pending_review    → accepted [operator/admin], rejected [operator/admin],
+                    needs_information [operator/admin], cancelled [client]
+needs_information → pending_review [client], cancelled [client]
+accepted          → assigned [system: paiement autorisé], cancelled [client/operator]
+assigned          → shopping [operator], preparing [operator], en_route [operator],
+                    cancelled [client/operator], failed [operator]
+shopping          → preparing, en_route, cancelled, failed [operator]
+preparing         → en_route, cancelled, failed [operator]
+en_route          → arrived, cancelled, failed [operator]
+arrived           → in_progress, cancelled, failed [operator]
+in_progress       → completed, failed [operator]
+completed         → rated [client]
 ```
 
-Le choix de la **prochaine étape offerte** dans l'UI (sauter `shopping`/`preparing`)
-est déterminé par les flags de la catégorie — **jamais codé en dur**.
+Le rôle autorisé est indiqué entre crochets. Le choix de l'étape offerte dans
+l'UI (saut de `shopping`/`preparing`) dépend des flags de catégorie — jamais codé
+en dur.
 
 ---
 
@@ -269,9 +324,13 @@ export interface PaymentProvider {
 
 ### 5.3 Correspondance états paiement ↔ mission
 
+> **Gate d'acceptation :** `authorize` est **refusé** par l'Edge Function tant que
+> `missions.status ≠ accepted` **et** que l'appelant n'est pas le client
+> propriétaire. Le client ne peut donc jamais payer une demande non validée (§0).
+
 | Événement mission | Appel provider | `payments.status` (sim) |
 |---|---|---|
-| `created` (validée) | `authorize` | `requires_capture` |
+| `accepted` + le client paie | `authorize` | `requires_capture` |
 | `completed` | `capture` | `succeeded` / `partially_captured` |
 | `cancelled` avant capture | `void` | `canceled` |
 | `cancelled`/`failed` après capture | `refund` | `refunded` |
@@ -291,7 +350,10 @@ base, pas de copie codée en dur).
 
 | `type` | Déclencheur | Titre | Corps (gabarit) |
 |---|---|---|---|
-| `mission_accepted` | → accepted | Intervenant trouvé | « {operator} prend en charge votre demande. » |
+| `request_submitted` | → pending_review | Demande envoyée | « Votre demande a bien été envoyée. Elle est en cours de validation. » |
+| `request_accepted` | → accepted | Demande acceptée | « Votre demande a été acceptée. Vous pouvez procéder au paiement. » |
+| `request_rejected` | → rejected | Demande non prise en charge | « Nous ne pouvons pas prendre en charge votre demande. {reason} » |
+| `request_needs_info` | → needs_information | Informations demandées | « L'opérateur a besoin de précisions. Ouvrez la conversation pour répondre. » |
 | `operator_at_store` | → shopping | Arrivé au magasin | « {operator} est au magasin pour vos achats. » |
 | `shopping_done` | shopping → suivant | Achats terminés | « Vos achats sont terminés. » |
 | `mission_preparing` | → preparing | En préparation | « Votre demande est en préparation. » |
@@ -304,17 +366,16 @@ base, pas de copie codée en dur).
 | `intervention_impossible` | → failed | Intervention impossible | « L'intervention n'a pas pu être réalisée. {reason} » |
 | `refund_simulated` | remboursement sim | Remboursement | « Un remboursement (simulé) de {amount} € a été effectué. » |
 | `mission_cancelled` | → cancelled | Demande annulée | « Votre demande a été annulée. {reason} » |
-| `quote_ready` | → quote_sent | Devis prêt | « Votre devis : {price} € (~{eta} min). Valable 24 h. » |
-| `quote_expired` | expiration 24 h | Devis expiré | « Votre devis a expiré. » |
+| `price_expired` | prix proposé non payé sous 24 h (`custom`) | Offre expirée | « L'offre pour votre demande a expiré. » |
 | `rating_request` | → completed (différé) | Votre avis ? | « Comment s'est passée votre expérience avec {operator} ? » |
 | `chat_message` | nouveau message | Nouveau message | « {sender} : {extrait} » |
 
-### 6.2 Destinataire INTERVENANT
+### 6.2 Destinataire OPÉRATEUR / INTERVENANT
 
 | `type` | Déclencheur | Titre | Corps |
 |---|---|---|---|
+| `new_request_to_review` | → pending_review | Nouvelle demande à valider | « Une demande attend votre décision. » |
 | `mission_new` | → assigned | Nouvelle mission | « {category} · {distance} km · {price} €. » |
-| `quote_requested` | → quote_pending | Devis à composer | « Nouvelle demande libre à chiffrer. » |
 | `mission_cancelled_by_client` | client annule | Mission annulée | « Le client a annulé la mission. » |
 | `chat_message` | nouveau message | Nouveau message | « {sender} : {extrait} » |
 
@@ -331,22 +392,27 @@ respect des permissions (§13.3 archi), idempotence (§13.4 archi).
 
 | Élément | Action |
 |---|---|
-| enum `mission_status` | **à créer** avec la valeur supplémentaire `shopping` |
-| `service_categories` | à créer avec `requires_shopping`, `requires_preparation`, `prep_buffer_min` |
-| `pricing_rules` | **nouvelle table** (§3.1) |
-| `pricing_modifiers` | **nouvelle table** (§3.3) |
-| `app_config` | **nouvelle table** clé/valeur (§4) |
-| `_shared/payments/` | interface `PaymentProvider` + `MockPaymentProvider` (§5) |
-| catalogue notifications | table/paramétrage des types & textes (§6) |
+| enum `mission_status` | **à créer** avec `pending_review`, `needs_information`, `rejected`, `shopping` ; **sans** `quote_pending`/`quote_sent`/`quote_refused` (consolidés dans la revue) |
+| `service_categories` | ✅ créé (M1.1) avec `requires_shopping`, `requires_preparation`, `prep_buffer_min` |
+| `coverage_zones` / `service_windows` / `waitlist` | ✅ créés (M1.2) |
+| `missions` | à créer avec, en plus du schéma cible : `submitted_at`, `reviewed_at`, `reviewed_by uuid`, `review_reason text` |
+| `mission_events` | trace déjà l'acteur/décideur de chaque transition (`actor_id`, `actor_role`) |
+| `quotes` | conservée : **enregistre le prix proposé à l'acceptation** (`custom`), validité 24 h ; plus liée à des états `quote_*` |
+| `pricing_rules` / `pricing_modifiers` / `app_config` | **nouvelles tables** (§3–§4) — M1.3 |
+| `transition_mission()` | fonction `SECURITY DEFINER` : allow-list `(from,to,rôle)` §2.7, gate paiement, garde-fous contrôle humain |
+| `_shared/payments/` | interface `PaymentProvider` + `MockPaymentProvider` (§5) ; `authorize` **gated** sur `accepted` |
+| catalogue notifications | types & textes éditables (§6), dont `new_request_to_review`, `request_*` |
 
-## 8. Compatibilité avec le socle gelé
+## 8. Compatibilité avec le socle gelé & les étapes déjà livrées
 
-- Enums/tables **métier non encore créés** → ajouts sans rupture (dont `shopping`).
-- `service_categories`, `coverage_zones`, `service_windows`, `payments`,
-  `advances`, `tips` : déjà prévus au schéma cible de l'architecture (§6).
-- RLS admin déjà en place (`current_user_role() = 'admin'`) → administrabilité
-  du catalogue/tarifs directement branchable.
-- Squelette Edge Functions (`_shared/`) prêt à accueillir `PaymentProvider`,
-  `estimate-price`, `assign-mission`, `compose-quote`, `send-push`.
+- **M1.1 (catalogue) et M1.2 (zones)** ne sont **pas impactés** par la validation
+  opérateur (données de référence) → aucun rework.
+- Enums/tables **missions non encore créés** → le nouveau flux (états de revue,
+  suppression des `quote_*`) se construit « à neuf », sans migration corrective.
+- RLS admin déjà en place (`current_user_role()`) → décisions de revue réservées
+  à `operator`/`admin` directement exprimables.
+- Squelette Edge Functions (`_shared/`) prêt à accueillir `PaymentProvider`
+  (gated), `estimate-price`, `assign-mission`, `send-push`, et la revue via
+  `transition_mission`.
 - Buckets Storage prêts ; la policy « participant de mission » sur
   `mission-proofs` sera ajoutée avec la table `missions` (M12).

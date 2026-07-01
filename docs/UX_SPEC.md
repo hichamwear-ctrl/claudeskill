@@ -1,6 +1,12 @@
 # Spécification UX / Écrans — V1 (démonstration)
 
-> **Version :** 1.0 · **Statut :** proposition à valider
+> **Version :** 1.1 · **Statut :** validée
+>
+> **Changement v1.1 — Validation opérateur obligatoire :** le client **soumet**
+> une demande (« Envoyer la demande ») ; elle passe en `pending_review` et attend
+> une **décision humaine** (accepter / refuser / demander des infos). Le
+> **paiement n'apparaît qu'après acceptation**. Écrans et parcours ci-dessous
+> adaptés en conséquence (voir §4, §5, §7).
 > **Sources de vérité amont :** `Architecture_Technique.md` (technique),
 > `SPEC_FONCTIONNELLE_V1.md` (règles métier). En cas de divergence UX vs règle
 > métier, la spec fonctionnelle prime.
@@ -39,6 +45,11 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 
 ## 1. Règles UX transverses
 
+0. **Contrôle humain obligatoire** : le client **soumet** une demande, il ne la
+   « crée » ni ne la paie de force. Toute demande attend une **décision opérateur**
+   (accepter / refuser / demander des infos). Le **paiement n'est proposé qu'après
+   acceptation**. L'UI ne doit jamais laisser croire qu'une demande est confirmée
+   avant décision.
 1. **Une action primaire par écran** (un seul CTA proéminent, bas de page/collant).
 2. **La base est la source de vérité** : l'UI **réagit en temps réel** aux
    transitions (Realtime) — pas d'état local qui diverge du serveur.
@@ -110,31 +121,31 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 | ID | Écran | But |
 |---|---|---|
 | C-01 | Splash / bootstrap | init, session, config/référentiel |
-| C-02 | Onboarding | 2–3 slides de présentation (skippable) |
+| C-02 | Onboarding | 2–3 écrans max (skippable) |
 | C-03 | Connexion — téléphone | saisie n° → OTP ; bouton **Apple** |
 | C-04 | Connexion — code OTP | saisie code 6 chiffres |
 | C-05 | Profil — complétion | prénom (+ avatar optionnel) |
 | C-06 | Permissions | localisation & notifications |
 | C-07 | Accueil / catalogue | familles + catégories (depuis la base) |
 | C-08 | Zone non couverte | message + liste d'attente |
-| C-09 | Création de demande | articles/instructions (catégories `self`) |
+| C-09 | Création de demande | articles/instructions + réponses aux questions |
 | C-10 | Demande libre | texte libre + photos (custom) |
 | C-11 | Adresse de livraison | sélection/ajout, carte, détails (étage, digicode) |
 | C-12 | Carnet d'adresses | gérer ses adresses |
-| C-13 | Récapitulatif & estimation | prix + ETA (`estimate-price`) + avance estimée |
-| C-14 | Moyen de paiement (simulé) | carte fictive par défaut |
-| C-15 | Validation commande | confirme → **autorisation sim** (C-16 archi) |
-| C-16 | Recherche d'intervenant | état `searching` (animation) |
-| C-17 | Suivi mission | timeline + statut + actions (chat, appel, annuler) |
-| C-18 | Suivi carte temps réel | position live (C-19 archi) |
-| C-19 | Détail devis | accepter/refuser (custom, `quote_sent`) |
-| C-20 | Chat mission | messagerie |
-| C-21 | Appel (simulé) | appel simulé en V1 ; relais/numéro masqué prêt pour ajout futur (C-23 archi) |
+| C-13 | Récapitulatif | besoin, réponses, photos, adresses, prix estim. (si applicable), délai, remarques → CTA **« Envoyer la demande »** (`pending_review`) |
+| C-14 | Demande envoyée / en attente | état `pending_review` : « en cours de validation » ; pas de paiement |
+| C-15 | Informations demandées | état `needs_information` : rouvre la **conversation**, le client répond → renvoie |
+| C-16 | Demande refusée | état `rejected` : message + relancer une demande |
+| C-17 | Demande acceptée → **Paiement (simulé)** | visible **seulement** après acceptation ; prix (ou devis `custom`), carte fictive → **autorisation sim** |
+| C-18 | Suivi mission | timeline + statut + actions (chat, appel, annuler) |
+| C-19 | Suivi carte temps réel | position live |
+| C-20 | Chat mission | messagerie (aussi utilisée pour `needs_information`) |
+| C-21 | Appel (simulé) | appel simulé en V1 ; relais/numéro masqué prêt pour ajout futur |
 | C-22 | Clôture & reçu | montant final + reçu sim (`completed`) |
 | C-23 | Notation | avis facultatif (étoiles + tags + commentaire) |
-| C-24 | Pourboire (simulé) | montants prédéfinis (C-25 archi) |
+| C-24 | Pourboire (simulé) | montants prédéfinis |
 | C-25 | Annulation | choix du motif |
-| C-26 | Mes missions | historique + mission active |
+| C-26 | Mes missions | historique + demandes en cours de validation + mission active |
 | C-27 | Détail mission passée | récapitulatif + reçu |
 | C-28 | Notifications | liste in-app |
 | C-29 | Profil & paramètres | profil, adresses, langue, déconnexion, RGPD |
@@ -151,24 +162,30 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 - **C-09 Création de demande** — liste d'articles (ajout/quantité/notes) ou champ
   simple selon catégorie · avance estimée (panier prévu) pour `groceries`/`pharmacy`
   · mention légale affichée (`legal_note`) · CTA « Continuer ».
-- **C-13 Récapitulatif** — `PriceBreakdown` (base + catégorie + km + avance +
-  marge), ETA · adresse · CTA « Valider et payer » · *erreur estimation* :
+- **C-13 Récapitulatif** — besoin exprimé, réponses aux questions, photos,
+  adresses, `PriceBreakdown` (si applicable), ETA, remarques · CTA **« Envoyer la
+  demande »** (jamais « payer ») → `pending_review` · *erreur estimation* :
   réessayer/modifier · **hors zone/horaires** → écran dédié.
-- **C-15 Validation** — récap + moyen de paiement (sim) · CTA « Confirmer » →
-  autorisation sim → `searching` · *erreur paiement sim* (si configuré) : message
-  + réessayer.
-- **C-17 Suivi mission** — `MissionTimeline` (créée→…→terminée, saut auto de
-  `shopping`/`preparing` selon catégorie) · `StatusBadge` · encart intervenant
-  (avatar, prénom, note) · boutons **Chat**, **Appeler**, **Annuler** (selon état)
-  · notifications d'étape reflétées en direct.
-- **C-18 Carte temps réel** — position live (Broadcast), itinéraire, ETA · repli
-  si position indisponible (dernière connue).
-- **C-19 Détail devis** — prix, ETA, note intervenant, **validité 24 h (minuterie)**
-  · CTA **Accepter** (→ autorisation sim) / **Refuser** · *expiré* : état verrouillé.
+- **C-14 Demande envoyée / en attente** — état `pending_review` : « Votre demande
+  est en cours de validation. » · aucune option de paiement · action possible :
+  **Annuler la demande** · reflète en direct la décision opérateur.
+- **C-15 Informations demandées** — état `needs_information` : bandeau + ouverture
+  de la **conversation** (C-20) ; le client répond → **Renvoyer** → `pending_review`.
+- **C-16 Demande refusée** — état `rejected` : message (motif si fourni) · CTA
+  « Faire une nouvelle demande ».
+- **C-17 Demande acceptée → Paiement (simulé)** — **accessible uniquement après
+  acceptation** · récap + prix (ou **devis** pour `custom`) + moyen de paiement
+  fictif · CTA « Payer (simulé) » → `authorize` sim → affectation → suivi ·
+  *erreur paiement sim* (si configuré) : message + réessayer.
+- **C-18 Suivi mission** — `MissionTimeline` (envoyée→acceptée→…→terminée, saut
+  auto de `shopping`/`preparing`) · `StatusBadge` · encart intervenant · boutons
+  **Chat**, **Appeler**, **Annuler** (selon état) · maj temps réel.
+- **C-19 Carte temps réel** — position live (Broadcast), itinéraire, ETA · repli
+  dernière position connue.
 - **C-22 Clôture & reçu** — montant final, détail (service + avance réelle), reçu
-  sim téléchargeable · CTA « Noter » (facultatif) / « Laisser un pourboire ».
-- **C-25 Annulation** — liste de motifs (config) · avertissement conséquences
-  (remboursement sim) · confirmation.
+  sim · CTA « Noter » (facultatif) / « Laisser un pourboire ».
+- **C-25 Annulation** — motifs (config) · avertissement (remboursement/void sim) ·
+  confirmation.
 
 ---
 
@@ -181,13 +198,13 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 | OP-01 | Connexion | identique client (rôle operator) |
 | OP-02 | Profil intervenant / vérification | véhicule, documents (`is_verified`) |
 | OP-03 | Cockpit / disponibilité | toggle online/offline (Presence), mission active |
-| OP-04 | Mission entrante | notification `assigned` → **Accepter** (immédiat) |
-| OP-05 | Mission en cours | étapes : `shopping`/`preparing`/`en_route`/`arrived`/`in_progress` |
-| OP-06 | Saisie montant réel + ticket | montant + photo ticket (proof) |
-| OP-07 | Clôture | confirme → **capture sim** → `completed` |
-| OP-08 | Navigation carte | itinéraire pickup/dropoff |
-| OP-09 | Chat mission | messagerie |
-| OP-10 | Composer un devis | demande libre → prix + ETA + note |
+| OP-04 | **Demandes à valider** (revue) | file `pending_review` → Accepter / Refuser / Demander des infos |
+| OP-05 | **Détail demande & décision** | toutes les infos + tableau de bord dispatch + décision humaine |
+| OP-06 | Mission en cours | étapes : `shopping`/`preparing`/`en_route`/`arrived`/`in_progress` |
+| OP-07 | Saisie montant réel + ticket | montant + photo ticket (proof) |
+| OP-08 | Clôture | confirme → **capture sim** → `completed` |
+| OP-09 | Navigation carte | itinéraire pickup/dropoff |
+| OP-10 | Chat mission | messagerie (aussi `needs_information`) |
 | OP-11 | Gains & avances | récap (simulé), avances de frais |
 | OP-12 | Historique missions | passées |
 | OP-13 | Intervention impossible | → `failed` (motif + preuve) |
@@ -195,23 +212,30 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 
 ### 5.2 Détail des écrans clés
 
-- **OP-03 Cockpit** — `AvailabilityToggle` (alimente Presence/dispo) · carte de
-  mission active si présente · *vide* (disponible, aucune mission) : « En attente
-  de missions » · *offline* : missions en pause.
-- **OP-04 Mission entrante** — résumé (catégorie, distance, prix, adresse) · CTA
-  **Accepter** (démo : immédiat) · minuterie/déclin possible (archi multi-op).
-- **OP-05 Mission en cours** — **bouton d'étape unique contextuel** qui avance
-  l'état selon la catégorie (saut auto `shopping`/`preparing` via
-  `requires_shopping`/`requires_preparation`) · accès Chat, Navigation, Appel ·
-  chaque appui = `transition_mission` (confirmation serveur avant maj UI).
-- **OP-06 Saisie montant réel** — montant réel + `PhotoPicker` ticket (upload
-  `mission-proofs`) · validation (montant ≤ autorisation, sinon avertissement
-  accord client) · *erreur upload* : réessayer.
-- **OP-07 Clôture** — récap + CTA « Clôturer » → capture sim → `completed`.
-- **OP-10 Composer un devis** — prix + ETA + note · rappel **1 devis / 24 h** ·
-  CTA « Envoyer le devis » → `quote_sent`.
+- **OP-03 Cockpit** — `AvailabilityToggle` (Presence/dispo) · badge « demandes à
+  valider » (compteur `pending_review`) · mission active si présente · *vide* :
+  « En attente de demandes ».
+- **OP-04 Demandes à valider** — liste des demandes `pending_review`
+  (catégorie, distance, prix estim., ancienneté) · *vide* : « Aucune demande à
+  valider ».
+- **OP-05 Détail demande & décision** — **toutes** les infos (besoin, réponses,
+  photos, adresses, prix estim./ETA, remarques) + **tableau de bord dispatch** :
+  disponibilité de l'équipe, charge (missions actives), missions en cours,
+  **localisation des intervenants** (carte). Trois décisions : **Accepter**
+  (pour `custom`, saisir le prix → devis 24 h) · **Refuser** (motif) · **Demander
+  des infos** (question → `needs_information`). Chaque décision = `transition_mission`.
+- **OP-06 Mission en cours** — **bouton d'étape unique contextuel** avançant
+  l'état selon la catégorie (saut auto `shopping`/`preparing`) · Chat, Navigation,
+  Appel · chaque appui = `transition_mission` (confirmation serveur avant maj UI).
+- **OP-07 Saisie montant réel** — montant réel + `PhotoPicker` ticket (upload
+  `mission-proofs`) · montant ≤ autorisation (sinon avertissement accord client).
+- **OP-08 Clôture** — récap + CTA « Clôturer » → capture sim → `completed`.
 - **OP-13 Intervention impossible** — motif (config) + preuve → `failed` →
   remboursement sim.
+
+> **Note V1 mono-intervenant :** l'affectation après paiement est automatique ;
+> l'opérateur décide (OP-05) puis réalise (OP-06+). En multi-intervenant, la
+> décision (dispatcher) et la réalisation (intervenant) pourront être dissociées.
 
 ---
 
@@ -239,33 +263,36 @@ tracée ; actions sensibles (remboursement, changement de rôle) confirmées.
 
 ## 7. Parcours utilisateurs (flows)
 
-### 7.1 Client — commande standard (avec achats)
+### 7.1 Client — demande standard (avec achats)
 ```
 C-03/04 Auth → C-05 profil → C-06 permissions → C-07 catalogue
-→ C-09 demande (articles + avance estimée) → C-11 adresse
-→ C-13 estimation (zone-check + estimate-price) → C-15 validation (autorisation sim)
-→ C-16 recherche → [assigned/accepted] → C-17 suivi (shopping→…→arrived)
-→ C-18 carte live → in_progress → C-22 reçu → C-23 note (facultatif) → C-24 pourboire (sim)
+→ C-09 demande (articles + réponses + avance estimée) → C-11 adresse
+→ C-13 récapitulatif (zone-check + estimate-price) → « ENVOYER LA DEMANDE » (pending_review)
+→ C-14 en attente de validation
+  ├─ [refusée]  → C-16
+  ├─ [infos]    → C-15 conversation → renvoie → C-14
+  └─ [ACCEPTÉE] → notif → C-17 PAIEMENT (sim) → affectation
+                 → C-18 suivi (shopping→…→arrived) → C-19 carte live
+                 → in_progress → C-22 reçu → C-23 note (facultatif) → C-24 pourboire (sim)
 ```
 
-### 7.2 Client — demande libre (devis)
+### 7.2 Client — demande libre (custom, prix par devis)
 ```
-C-07 → C-10 demande libre (texte + photos) → soumission (quote_pending)
-→ notif quote_ready → C-19 devis (accepter avant 24 h)
-→ autorisation sim → suivi standard → reçu
-```
-
-### 7.3 Intervenant — réalisation
-```
-OP-03 dispo (Presence) → notif mission_new → OP-04 accepter
-→ OP-05 étapes (shopping → achats → OP-06 montant+ticket) → preparing/en_route
-→ OP-08 navigation → arrived → in_progress → OP-07 clôture (capture sim) → completed
+C-07 → C-10 demande libre (texte + photos) → C-13 récap → « ENVOYER LA DEMANDE »
+→ pending_review → [opérateur accepte EN FIXANT LE PRIX] → C-17 paiement (devis, validité 24 h)
+→ suivi standard → reçu
 ```
 
-### 7.4 Intervenant — devis
+### 7.3 Opérateur — revue & décision (contrôle humain)
 ```
-notif quote_requested → OP-10 composer devis → quote_sent
-→ (client accepte) → OP-05 réalisation
+notif new_request_to_review → OP-04 file des demandes → OP-05 détail + tableau de bord dispatch
+→ décision : Accepter (custom: fixer le prix) | Refuser (motif) | Demander des infos
+```
+
+### 7.4 Intervenant — réalisation (après paiement)
+```
+(accepted + paiement sim → assigned) → OP-06 étapes (shopping → achats → OP-07 montant+ticket)
+→ preparing/en_route → OP-09 navigation → arrived → in_progress → OP-08 clôture (capture sim) → completed
 ```
 
 ### 7.5 Admin — exploitation
@@ -296,7 +323,9 @@ Client C-25 (motif) OU Intervenant OP-13 (impossible)
 | `ERR_ESTIMATE` | échec estimation | « Impossible d'estimer le prix. » | Réessayer/Modifier |
 | `ERR_PAYMENT_SIM` | paiement sim refusé (config) | « Paiement refusé (simulation). » | Changer de carte fictive |
 | `ERR_UPLOAD` | upload photo/ticket | « Envoi de l'image échoué. » | Réessayer |
-| `ERR_QUOTE_EXPIRED` | devis expiré | « Ce devis a expiré. » | Nouvelle demande |
+| `ERR_PAY_LOCKED` | tentative de paiement avant acceptation | « Le paiement sera possible après validation de votre demande. » | Attendre la décision |
+| `ERR_PRICE_EXPIRED` | prix proposé expiré (24 h) | « L'offre a expiré. » | Nouvelle demande |
+| `ERR_REQUEST_REJECTED` | demande refusée | « Votre demande n'a pas été acceptée. » | Nouvelle demande |
 | `ERR_MISSION_GONE` | mission annulée par l'autre partie | « La mission n'est plus disponible. » | Retour accueil |
 | `ERR_NO_OPERATOR` | aucun intervenant (multi-op futur) | « Aucun intervenant disponible. » | Réessayer plus tard |
 | `ERR_PERMISSION_NOTIF` | notifs refusées | « Notifications désactivées. » | Réglages |
@@ -316,7 +345,8 @@ Client C-25 (motif) OU Intervenant OP-13 (impossible)
 | C-26 mes missions | aucune mission | « Vous n'avez pas encore de mission » → catalogue |
 | C-28 notifications | vide | « Aucune notification » |
 | C-20 chat | aucun message | « Démarrez la conversation » |
-| OP-03 cockpit | disponible, sans mission | « En attente de missions » |
+| OP-03 cockpit | disponible, sans mission | « En attente de demandes » |
+| OP-04 demandes à valider | file vide | « Aucune demande à valider » |
 | OP-11 gains | aucun gain | « Vos gains apparaîtront ici » |
 | OP-12 historique | vide | « Aucune mission réalisée » |
 | AD-03 missions | filtre sans résultat | « Aucune mission pour ces critères » → réinitialiser |
@@ -341,16 +371,16 @@ Client C-25 (motif) OU Intervenant OP-13 (impossible)
 | Écran | Fonction / API | Table(s) |
 |---|---|---|
 | C-07 | lecture catalogue | `service_categories` |
-| C-13 | `zone-check`, `estimate-price` | `coverage_zones`, `service_windows`, `pricing_rules`, `pricing_modifiers` |
-| C-15 | `PaymentProvider.authorize` (sim) | `payments` |
-| C-16→ | `assign-mission` | `missions`, `mission_events` |
-| C-17/18 | Realtime status + Broadcast position | `missions`, `operator_locations`, `mission_tracks` |
-| C-19 | `compose-quote` / acceptation | `quotes` |
-| C-20 | chat Realtime | `messages` |
+| C-13 | `zone-check`, `estimate-price`, soumission → `transition_mission` (`pending_review`) | `coverage_zones`, `service_windows`, `pricing_rules`, `pricing_modifiers`, `missions`, `mission_events` |
+| C-14/15/16 | états de revue (Realtime) | `missions`, `mission_events`, `messages` |
+| C-17 | `PaymentProvider.authorize` (sim, **gated `accepted`**) | `payments` |
+| C-18/19 | Realtime status + Broadcast position | `missions`, `operator_locations`, `mission_tracks` |
+| C-20 | chat Realtime (dont `needs_information`) | `messages` |
 | C-22 | `PaymentProvider.capture` (sim) | `payments`, `advances` |
 | C-23/24 | notation / pourboire sim | `ratings`, `tips` |
-| OP-05 | `transition_mission` | `missions`, `mission_events` |
-| OP-06 | upload preuve | Storage `mission-proofs`, `advances` |
+| OP-04/05 | revue : `transition_mission` (accept/reject/needs_info) ; prix `custom` → `quotes` ; dispatch (lecture) | `missions`, `mission_events`, `quotes`, `operator_profiles`, `operator_locations` |
+| OP-06 | `transition_mission` (exécution) | `missions`, `mission_events` |
+| OP-07 | upload preuve + montant réel | Storage `mission-proofs`, `advances` |
 | AD-05/06/07 | CRUD admin | `service_categories`, `pricing_*`, `coverage_zones`, `service_windows`, `app_config` |
 | toutes | `send-push` | `notifications`, `device_tokens` |
 
