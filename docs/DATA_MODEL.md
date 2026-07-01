@@ -434,13 +434,20 @@
 - **Rôle :** session de dialogue de constitution d'une demande ; **porte l'état**
   (reprise + contexte).
 - **Colonnes (V1) :** `id`, `client_id`, `status conversation_status`, `locale`,
-  **`state jsonb`** = **mémoire de travail unique**
-  (`{answers, active_sets, position, classification, plan}`), `metadata jsonb`,
+  **`state jsonb`** = **mémoire de travail MINIMALE**
+  (`{answers, classification, media?}`), `metadata jsonb`,
   `created_at`, `updated_at`, `expires_at`.
-  - **Simplification V1 (P10) :** `plan` et `classification`/`detected_intents`
-    vivent **dans `state`** (sous‑clés) ; s'ils doivent être requêtés/indexés, on
-    les **promeut en colonnes** par migration **additive**. Évite 2 colonnes jsonb
-    spéculatives.
+  - **État minimal (P10, M2.3) :** on ne stocke **que** l'irréductible — les
+    données **non reproductibles** : `answers` (`{question.key → valeur}`) et
+    `classification` (catégorie retenue, `null` = générique/P8), `media` éventuel.
+    Tout le reste — **sets actifs**, **prochaine question**, **position**,
+    **complétude** — est **RECALCULÉ** à chaque tour par le moteur pur
+    (`compute(config, answers, classification)`), jamais persisté : pas de
+    dérive possible entre l'état et sa dérivation.
+  - **Simplification V1 (P10) :** `plan` (multi‑services) et une éventuelle
+    promotion de `classification` en **colonne** (si requête/index nécessaire)
+    seront ajoutés par migration **additive** le jour où on en a besoin. Évite
+    des colonnes/sous‑clés spéculatives.
 - **Relations :** N‑1 `profiles` ; 1‑N `conversation_turns` ; 1‑N `missions`
   (une conversation → 1..N missions via `conversation_id`/`group_id`).
 - **Index :** `(client_id, created_at)`, `(status) where active`, `(expires_at) where active`.

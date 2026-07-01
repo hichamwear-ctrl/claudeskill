@@ -84,12 +84,17 @@ plus aucune automatisation — **P1**.
 > `app_config` (modèle IA, seuils).
 
 ### 3.1 `conversations`
-- **Rôle :** session de dialogue d'un client ; **contient l'état** (source de
+- **Rôle :** session de dialogue d'un client ; **porte l'état minimal** (source de
   reprise et de contexte).
-- **Colonnes :** `id`, `client_id`, `status ('active'|'submitted'|'abandoned'|'expired')`,
-  `state jsonb` (slots remplis, position, intents retenus), `plan jsonb`
-  (mission(s) proposée(s)), `detected_intents jsonb`, `locale`, `created_at`,
-  `updated_at`, `expires_at`, `metadata jsonb`.
+- **Colonnes (V1) :** `id`, `client_id`, `status ('active'|'submitted'|'abandoned'|'expired')`,
+  `state jsonb`, `locale`, `created_at`, `updated_at`, `expires_at`, `metadata jsonb`.
+- **État MINIMAL (M2.3) :** `state = { answers: {key→valeur}, classification, media? }`.
+  On ne persiste **que** les données **non reproductibles** (les réponses et la
+  classification retenue). Les **sets actifs**, la **prochaine question**, la
+  **position** et la **complétude** sont **RECALCULÉS** à chaque tour par le
+  **moteur pur** — jamais stockés (pas de dérive possible). `plan` (multi‑services)
+  et une éventuelle promotion de `classification` en colonne = ajouts **additifs**
+  ultérieurs (P10), non spéculatifs.
 - **Relations :** N‑1 `profiles` ; 1‑N `conversation_turns` ; 1‑N `missions`
   (une conversation peut produire **plusieurs** missions — §7).
 - **RLS :** propriétaire (client) + opérateur/admin en lecture pour la revue.
@@ -152,19 +157,31 @@ plus aucune automatisation — **P1**.
 
 ## 5. Boucle de questions dynamiques (le cœur)
 
-### 5.1 Politique déterministe « prochaine question »
-À chaque tour, le **moteur** (pas l'IA) calcule :
+### 5.1 Politique déterministe « prochaine question » — **fonction pure** (M2.3)
+Le calcul du déroulé est une **fonction pure** `compute(config, answers,
+classification)` : **aucune** IA, **aucun** réseau, **aucune** base, **aucune**
+horloge système — **mêmes entrées → même sortie**. Elle est donc **rejouable** et
+**testable** indépendamment du modèle IA (et l'IA reste **retirable**).
 ```
-slots = questions des intentions retenues (ordonnées par sort_order)
-pending = slots où required_when(state)=vrai ET visible_when(state)=vrai ET valeur absente/invalide
-next = premier pending
-si next existe        → poser next (formulée par l'IA)
-sinon                 → proposer le RÉCAPITULATIF (§ SUMMARY)
+sets    = union( set générique TOUJOURS actif , set de la classification si présente )
+slots   = questions de ces sets, triées par (set.sort_order, question.sort_order, id)
+visible = slots où visible_when(answers) est vrai            (mini‑langage borné)
+pending = visible où (réponse absente) OU (réponse invalide) (validation type/obligation)
+next            = pending[0]  (ou null)
+required_remain = visible où required_when(answers)=vrai ET (absente OU invalide)
+can_summarize   = required_remain est vide
 ```
-- **Une seule question à la fois** (BR‑CE‑10).
-- **Conditions** évaluées via le **mini‑langage borné** (`DATA_MODEL` §12) — donc
-  « chaque réponse influence les questions suivantes » **sans code**.
-- **Slots optionnels** ignorés s'ils n'apportent rien ; on ne sur‑questionne pas.
+Sortie : `{ next, required_remaining, invalid, can_summarize }`.
+- **Une seule question à la fois** (BR‑CE‑10) : `next` = tête de `pending`.
+- **Conditions** évaluées via le **mini‑langage borné** (§5.5) — donc « chaque
+  réponse influence les questions suivantes » **sans code**.
+- **Slots optionnels** ignorés pour la complétude ; posés uniquement s'ils sont
+  `pending` (on ne sur‑questionne pas).
+- **Cohérence par construction :** `answers` est un dictionnaire (pas de doublon) ;
+  une réponse à une question **redevenue invisible** est **inerte** (ignorée par le
+  calcul, jamais effacée) ; une réponse **invalide** est **reposée** ; un
+  **changement de direction** (nouvelle classification) **recompose** simplement les
+  sets — les réponses génériques **persistent**. Aucun code de « rollback » dédié.
 
 ### 5.2 Rôle de l'IA dans la boucle
 - **Formulation :** transformer la question (template `content_strings`) en phrase
@@ -189,6 +206,20 @@ sinon                 → proposer le RÉCAPITULATIF (§ SUMMARY)
   slots: véhicule? roulable(bool)? position? photo? roue de secours(bool)?
         (si roulable=false → slot « nécessite remorquage » → HORS PÉRIMÈTRE → §10)
 ```
+
+### 5.5 Mini‑langage borné des conditions (`visible_when` / `required_when`)
+Les conditions vivent **en données** (jsonb) et sont évaluées par un évaluateur
+**borné** et **fail‑closed** — jamais du code arbitraire :
+- **Opérateurs sur liste blanche** uniquement : logiques `all` / `any` / `not`,
+  comparaisons `==` `!=` `>` `>=` `<` `<=`, appartenance `in`, présence `exists`.
+- **Contexte unique = les réponses** (`{"answer": "clé"}`) : **ni horloge, ni
+  aléa, ni réseau** → déterminisme total.
+- **Conventions :** `visible_when` absente/`{}` → **visible** ; `required_when`
+  absente/`{}` → **optionnelle**, `{"always": true}` → **requise**.
+- **Fail‑closed :** opérateur inconnu ou expression malformée → une condition de
+  **visibilité** renvoie `false` (on ne montre pas), une condition
+  d'**obligation** renvoie `false` (on ne bloque pas la soumission sur une règle
+  cassée). Jamais d'exception qui casse le tour.
 
 ---
 
