@@ -16,15 +16,18 @@
 - **Deux apps mobiles** (React Native/Expo, iOS d'abord) : **Client** et
   **Intervenant (cockpit)** — une base de code, deux expériences (sélection par
   rôle après connexion).
-- **Panneau d'administration = application web** séparée (back-office). 🔹 À valider
-  (alternative : écrans admin intégrés à l'app — non recommandé).
+- **Panneau d'administration = application web** séparée (back-office). ✅ validé
 - **Navigation client :** barre d'onglets (Accueil, Missions, Notifications,
-  Profil) + piles modales pour la création de demande et le suivi. 🔹 À valider
-- **Navigation intervenant :** cockpit à écran unique piloté par l'état + pile
-  (mission en cours, chat, gains, profil). 🔹 À valider
-- **Langue :** français (locale du profil, i18n prête). **Thème :** clair d'abord,
-  sombre en option. 🔹 À valider
+  Profil) + piles modales pour la création de demande et le suivi. ✅ validé
+- **Navigation intervenant :** cockpit à écran unique piloté par l'état de la
+  mission + pile (mission en cours, chat, gains, profil). ✅ validé
+- **Langue :** français (locale du profil, i18n prête). **Thème : clair pour la
+  V1** ; mode sombre ajouté ultérieurement. ✅ validé
+- **Onboarding :** très court, **2 à 3 écrans maximum**, skippable — l'utilisateur
+  doit pouvoir démarrer vite. ✅ validé
 - **Paiement :** écrans de paiement **simulé** (cartes fictives) — aucun SDK réel.
+- **Appels :** **simulés** en V1 (aucune intégration Twilio) ; l'architecture
+  réserve la place d'un relais (numéro masqué) pour un ajout ultérieur. ✅ validé
 
 ### Conventions d'identifiants d'écran
 
@@ -126,7 +129,7 @@ masqué, C-25 pourboire, OP-06 saisie montant, OP-07 clôture.)
 | C-18 | Suivi carte temps réel | position live (C-19 archi) |
 | C-19 | Détail devis | accepter/refuser (custom, `quote_sent`) |
 | C-20 | Chat mission | messagerie |
-| C-21 | Appel masqué | appel via relais (C-23 archi) |
+| C-21 | Appel (simulé) | appel simulé en V1 ; relais/numéro masqué prêt pour ajout futur (C-23 archi) |
 | C-22 | Clôture & reçu | montant final + reçu sim (`completed`) |
 | C-23 | Notation | avis facultatif (étoiles + tags + commentaire) |
 | C-24 | Pourboire (simulé) | montants prédéfinis (C-25 archi) |
@@ -353,15 +356,14 @@ Client C-25 (motif) OU Intervenant OP-13 (impossible)
 
 ---
 
-## 12. Décisions à valider (récapitulatif)
+## 12. Décisions de conception — validées
 
-1. **Admin = app web** séparée (vs intégré). 🔹
-2. **Navigation client** = tab bar (Accueil / Missions / Notifications / Profil). 🔹
-3. **Navigation intervenant** = cockpit piloté par l'état. 🔹
-4. **Thème** clair d'abord (sombre en option). 🔹
-5. **Onboarding** (C-02) inclus ou non. 🔹
-6. **Appel masqué** (C-21) : maintenu en V1 démo ou reporté (dépend de Twilio) ? 🔹
-7. **Numérotation des écrans** proposée (C-/OP-/AD-) : validée ?
+1. **Admin = application web** séparée. ✅
+2. **Navigation client** = barre d'onglets (Accueil / Missions / Notifications / Profil). ✅
+3. **Navigation intervenant** = cockpit piloté par l'état de la mission. ✅
+4. **Thème** = clair pour la V1 ; mode sombre ultérieur. ✅
+5. **Onboarding** = très court, 2–3 écrans max, skippable. ✅
+6. **Appels** = simulés en V1, aucune intégration Twilio ; architecture prête pour ajout ultérieur. ✅
+7. **Numérotation des écrans** (C- / OP- / AD-). ✅
 
-Après votre validation (et ajustements), la documentation produit sera complète
-et nous pourrons reprendre **M1** en l'utilisant comme source de vérité.
+Documentation produit **complète et validée** : source de vérité du projet.
