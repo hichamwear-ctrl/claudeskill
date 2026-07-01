@@ -564,7 +564,13 @@
 
 ## 7. Couche Communication
 
-### 7.1 `messages` 🔜
+### 7.1 `messages` ✅ *(M6)*
+> **V1 (M6) :** créée. **Append-only** — aucune UPDATE/DELETE (grants absents) ;
+> `read_at` via RPC `mark_messages_read`. Envoi = **INSERT gardé par la RLS**
+> (participant + `sender_id=self` + mission dans un état de chat ouvert
+> `assigned…in_progress`) + **trigger de modération déterministe** (email/tel/URL,
+> politique `app_config.chat.moderation`). **Aucune Edge Function** (Postgres
+> Changes pour le temps réel). P9 : **aucun** lien avec `conversations`.
 - **Rôle :** **chat d'exécution** (client ↔ intervenant, mission active). Distinct
   de `conversation_turns` (constitution du besoin, §4.5). La collecte
   d'informations complémentaires en `needs_information` se fait via la

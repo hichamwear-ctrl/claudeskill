@@ -354,6 +354,14 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   Idem `operator:review-inbox`/`operator:presence` : réservés aux rôles
   `operator`/`admin`. **Aucun** abonnement inter‑missions possible.
 - Pour Postgres Changes, la RLS des tables sources s'applique **en plus**.
+- **🔧 V1 (M6) — implémenté :** la décision d'accès est une fonction pure/testable
+  `can_access_topic(topic)` (fail‑closed) appelée par les policies
+  `realtime.messages` (créées si le schéma `realtime` est présent). Conventions :
+  `mission:{id}:*` (chat, typing, status, **location GPS**) → `is_mission_participant`
+  ; `conversation:{id}:*` → `owns_conversation` ; `operator:*` → rôle. **Chat sans
+  Edge Function** : envoi = `INSERT` (RLS participant + mission ouverte + trigger de
+  modération) ; lecture = PostgREST + Postgres Changes ; frappe = Broadcast ;
+  accusés de lecture = RPC `mark_messages_read`.
 
 ---
 

@@ -40,6 +40,11 @@ functions/
 └── payments/        # adaptateur PSP : authorize/capture/void/refund (auth, M5)
 ```
 
+> **Chat (M6) :** **aucune Edge Function** — le chat d'exécution est 100 % en base
+> (table `messages` append-only, envoi par `INSERT` gardé par la RLS + trigger de
+> modération déterministe, temps réel via Postgres Changes/Broadcast). L'accès aux
+> canaux Realtime est autorisé par `can_access_topic` (policies `realtime.messages`).
+
 > **Paiement (M5) :** l'interface métier `PaymentProvider` (mock→Stripe) vit dans
 > `_shared/payments/` — le domaine ne dépend d'AUCUN PSP. Le paiement suit
 > **intent → PSP → settle** : `payment_intent` (gate P1 en base), l'appel provider,

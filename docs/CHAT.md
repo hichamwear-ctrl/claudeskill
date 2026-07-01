@@ -150,6 +150,17 @@ mission acceptée → assignée (intervenant affecté)
 - **Ajoute** des clés `app_config.chat.*` (§9).
 - **Ne touche pas** `conversations`/`conversation_turns` (systèmes séparés, P9).
 
+> **🔧 Implémentation V1 (M6) :** **zéro Edge Function**. Envoi = `INSERT` gardé par
+> la RLS (participant + `sender_id=self` + mission `assigned…in_progress`) + trigger
+> `moderate_message` (déterministe : email/tél/URL selon `chat.moderation`, borne
+> `chat.max_len`). Table **append-only** (aucune UPDATE/DELETE) ; `read_at` via RPC
+> `mark_messages_read` (destinataire uniquement). Temps réel : **Postgres Changes**
+> (messages persistés, RLS) + **Broadcast** (frappe). Sécurité des canaux :
+> `can_access_topic` (fail-closed) sur `realtime.messages` — couvre chat, typing,
+> statut et **position GPS (M7)**. Évolutivité sans migration : `media jsonb`
+> (pièces jointes/photos/vocaux), `kind` (system/appels), `body` nullable
+> (message média seul), `metadata` (chiffrement futur).
+
 ## 12. Cohérence & références
 
 - **P9 respecté** : chat d'exécution 100 % distinct de l'intake (tables/règles/
