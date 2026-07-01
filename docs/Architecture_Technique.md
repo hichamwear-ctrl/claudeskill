@@ -77,6 +77,18 @@ la logique sensible vit dans des **Edge Functions**.
   dès le schéma ; V1 opérée en mono‑intervenant.
 - **P6 — Éphémère vs persistant.** La position GPS haute fréquence passe par
   **Realtime Broadcast** (pas d'écriture DB par tick) — clé de la scalabilité.
+- **P7 — Capacités, pas métiers.** Le moteur conversationnel raisonne en
+  **capacités** génériques (achat, récupération, transport, livraison, réparation,
+  installation, assistance, déplacement, manutention, diagnostic, intervention sur
+  site, accompagnement…). Un métier = **combinaison de capacités**. La taxonomie
+  interne (catégories) reste une **dérivation** (stats/workflow/tarif) ; le moteur
+  en est **indépendant** → aucun nouveau métier n'impose d'évolution du moteur.
+- **P8 — « Je ne sais pas ».** Le moteur n'invente pas : confiance faible →
+  questions **génériques**, `category_id = null` si besoin, dossier complet
+  transmis à l'**opérateur** qui tranche.
+- **P9 — Intake ≠ exécution.** Conversation d'intake (`conversations`) et chat de
+  mission (`messages`) sont **totalement indépendants** : tables, règles et
+  notifications distinctes.
 
 ---
 
@@ -163,7 +175,7 @@ la logique sensible vit dans des **Edge Functions**.
 ### 4.5 Edge Functions (Deno) — logique sensible
 | Fonction | Rôle | Appelée par |
 |---|---|---|
-| `classify-request` | texte libre → intentions candidates (IA + `category_classification`) | app (accueil) |
+| `classify-request` | texte libre → **capacités** (IA + `capability_classification`) ; catégorie **dérivée** | app (accueil) |
 | `converse` | tour de dialogue : extraction + prochaine question (IA + moteur déterministe) | app (dialogue) |
 | `zone-check` | couverture + horaires (PostGIS) | app |
 | `estimate-price` | prix + ETA (tarifs en base) | app |
@@ -221,8 +233,9 @@ dernière est réservée à la V2 (Stripe réel).
 ### 6.1 Trois couches
 1. **Structure (stable)** — `profiles`, `operator_profiles`, `missions`,
    `payments`, `messages`, `conversations`, `mission_events`…
-2. **Configuration & règles (data‑driven)** — `service_categories` (taxonomie),
-   `category_workflow`, `category_classification`, `question_sets/questions/
+2. **Configuration & règles (data‑driven)** — `capabilities` (P7),
+   `service_categories` (taxonomie interne), `category_capabilities`,
+   `category_workflow`, `capability_classification`, `question_sets/questions/
    question_options`, `mission_transitions`, `pricing_rules/pricing_modifiers`,
    `coverage_zones/service_windows`, `notification_templates/notification_triggers`,
    `app_config` (seuils + flags `feature.*`).
@@ -230,8 +243,9 @@ dernière est réservée à la V2 (Stripe réel).
 
 ### 6.2 Domaines (inventaire)
 - **Identité** : `profiles`, `operator_profiles`, `device_tokens`, `addresses`.
-- **Référentiel/config** : `service_categories`, `category_workflow`,
-  `category_classification`, `coverage_zones`, `service_windows`, `waitlist`,
+- **Référentiel/config** : `capabilities`, `service_categories`,
+  `category_capabilities`, `category_workflow`,
+  `capability_classification`, `coverage_zones`, `service_windows`, `waitlist`,
   `pricing_rules`, `pricing_modifiers`, `app_config`, `content_strings`,
   `question_sets`, `questions`, `question_options`, `notification_templates`,
   `notification_triggers`, `mission_transitions`.
@@ -272,7 +286,7 @@ conversation_status = active | submitted | abandoned | expired
 | Comportement | Piloté par |
 |---|---|
 | Dialogue de collecte du besoin | `conversations` + moteur de questions (slots) + `content_strings` + `app_config` |
-| Classer un besoin libre → service | `classify-request` + `category_classification` + `app_config` |
+| Classer un besoin libre → service | `classify-request` + `capability_classification` + `app_config` |
 | Étapes d'une mission | `category_workflow` (remplace des booléens) |
 | Transitions autorisées | `mission_transitions` (effets = code) |
 | Questions/ordre/conditions/obligation/validation/docs | moteur de questions |
@@ -318,9 +332,10 @@ transverses : cancelled | failed
   prochaine question à partir des **données** (`questions`, conditions du
   mini‑langage borné). L'**IA** comprend/extrait/reformule/propose — jamais
   décisionnaire.
-- **Classification** : `classify-request` (IA guidée par `category_classification`
-  + règles) → intentions candidates ; désambiguïsation si score bas ;
-  l'opérateur peut re‑classer en revue (P1).
+- **Capacités (P7)** : `classify-request` (IA guidée par `capability_classification`
+  + règles) détecte des **capacités** (le moteur ignore les métiers) ; la catégorie
+  interne est **dérivée** (`category_capabilities`) pour tarif/workflow/stats, ou
+  `null` (**P8**). Désambiguïsation si score bas ; l'opérateur peut re‑classer (P1).
 - **Multi‑intention** → **plan** de mission(s) (`conversations.plan`) : découpage
   en missions / mission enchaînée / **escalade opérateur** si ambigu.
 - **Contexte & reprise** : `conversations.state` (structuré) + `conversation_turns`
@@ -464,7 +479,7 @@ Cockpit → rpc transition_mission (étapes)     → shopping/preparing/en_route
 |---|---|
 | Pooling | **Supavisor** pour absorber les connexions app + Edge. |
 | Éphémère vs persistant | Positions live en **Broadcast** (levier #1). |
-| Index | GIST sur toutes les colonnes `geography` ; index FK/`status`/`created_at` ; trigram/GIN sur `category_classification.value`. |
+| Index | GIST sur toutes les colonnes `geography` ; index FK/`status`/`created_at` ; trigram/GIN sur `capability_classification.value`. |
 | Partitionnement | mensuel sur `mission_tracks`, `messages`, `mission_events`, `notifications`, `conversation_turns`. |
 | Realtime ciblé | Postgres Changes seulement sur les tables utiles. |
 | Pagination | curseur (`created_at`/id) ; jamais de `SELECT *` non borné. |

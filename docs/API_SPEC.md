@@ -67,15 +67,19 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 > Format par fonction : **méthode/chemin · auth · entrée · sortie · erreurs ·
 > effets · règles**.
 
-### 4.1 `classify-request` — besoin libre → service(s) (P0)
+### 4.1 `classify-request` — besoin libre → **capacités** (P7)
 - `POST /functions/v1/classify-request` · **client**
 - **Entrée :** `{ text: string, locale?, media?: [storage_path], context? }`
-- **Sortie :** `{ candidates: [{ category_id, slug, label, score }], top?: category_id, needs_disambiguation: bool }`
+- **Sortie :** `{ capabilities: [{ slug, score }], derived_category_id?: uuid|null,
+  needs_disambiguation: bool }`
 - **Erreurs :** `bad_request`, `rate_limited`.
 - **Effets :** aucune écriture définitive ; peut créer/mettre à jour un
   **brouillon** (`missions.status='created'`, `metadata.classification`).
-- **Règles :** IA + `category_classification` + seuils `app_config.classification.*`.
-  **Jamais** décisif — l'opérateur peut re‑classer en revue (P1).
+- **Règles (P7/P8) :** IA + `capability_classification` → **capacités** ; la
+  catégorie interne est **dérivée** via `category_capabilities` (pour tarif/
+  workflow/stats) ou `null` si aucune. Confiance faible → **capacités partielles +
+  questions génériques** (jamais bloquant). **Jamais** décisif — l'opérateur
+  tranche (P1).
 
 ### 4.1b `converse` — tour de dialogue (cœur conversationnel)
 - `POST /functions/v1/converse` · **client (propriétaire)**
@@ -273,7 +277,7 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 
 ## 10. Évolutivité (P0/P2)
 
-- **Nouveau métier** = données (catégorie + `category_classification` + questions
+- **Nouveau métier** = données (catégorie + `capability_classification` + questions
   + `category_workflow` + tarifs + templates). **Aucun** changement d'API : les
   mêmes endpoints (`classify-request`, `converse`, `questions`, `submit-request`,
   `review-request`, paiement) s'appliquent — le dialogue s'adapte via la donnée.

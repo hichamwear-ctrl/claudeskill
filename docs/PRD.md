@@ -51,6 +51,9 @@ architecture prête à accueillir Stripe et le multi‑intervenant **sans refont
 | P4 | **Paiement simulé, Stripe‑ready** | V1 = simulation fidèle (autorisation/capture/remboursement) derrière une interface `PaymentProvider` remplaçable par Stripe sans refonte. |
 | P5 | **La base est la source de vérité** | La machine à états de la mission vit en base ; l'UI y réagit en temps réel. |
 | P6 | **Sécurité par défaut** | RLS partout, refus par défaut, secrets côté serveur uniquement. |
+| **P7** | **Le moteur ne connaît jamais les métiers, seulement des CAPACITÉS** | Le moteur conversationnel raisonne en **capacités** (achat, récupération, transport, livraison, réparation, installation, assistance, déplacement, manutention, diagnostic, intervention sur site, accompagnement…). Un « métier » = une **combinaison de capacités** (« acheter du lait » = achat + livraison ; « pneu crevé » = diagnostic + intervention). La taxonomie interne (catégories) sert **stats/workflow/tarif**, mais le moteur en reste **indépendant**. |
+| **P8** | **Le moteur sait dire « je ne sais pas »** | Il n'**invente jamais**. Confiance faible → il **continue en questions génériques**, construit le dossier, laisse `category_id = null` si besoin, et **transmet un dossier complet à l'opérateur**. Une demande inconnue n'est **jamais** bloquée faute de catégorie. |
+| **P9** | **Deux systèmes indépendants : intake ≠ exécution** | **Conversation d'intake** (comprendre le besoin → `pending_review`) et **chat de mission** (après acceptation, exécution) sont **totalement séparés** : tables, règles métier et notifications **distinctes**. |
 
 ## 5. Personas & rôles
 

@@ -234,11 +234,15 @@
 > relationnel ; les **réponses** sont un JSONB sur la demande (`missions.details`).
 
 #### `question_sets`
-- **Rôle :** ensemble de questions rattaché à une catégorie (ou global).
-- **Colonnes :** `id`, `category_id?` (NULL = commun), `slug`, `name`,
-  `is_active`, `sort_order`, `metadata jsonb`.
-- **Relations :** N‑1 `service_categories` ; 1‑N `questions`.
+- **Rôle :** ensemble de questions rattaché à une **capacité** (P7), à une
+  catégorie (raffinement), ou **générique** (`NULL/NULL`).
+- **Colonnes :** `id`, `capability_id?`, `category_id?`, `slug`, `name`,
+  `is_active`, `sort_order`, `metadata jsonb`. (`capability_id` **et** `category_id`
+  NULL = **set générique universel**.)
+- **Relations :** N‑1 `capabilities` / `service_categories` ; 1‑N `questions`.
 - **RLS :** lecture authentifiée (actifs) ; écriture admin.
+- **💡** Le dialogue **compose** les sets des capacités détectées + éventuel
+  raffinement catégorie + set générique → questions **réutilisables** entre métiers.
 
 #### `questions`
 - **Rôle :** une question dynamique.
@@ -294,39 +298,52 @@
 - **Écrans :** OP‑04/05/06, AD (visualisation workflow).
 - **Règles :** SPEC §2.7 (allow‑list), P1 (rôles décideurs).
 
-### 3.14 Moteur de classification 🔜 *(principe fondateur : besoin libre → service)*
-> Transforme un **texte libre** (« mon pneu est crevé ») en **service** de la
-> taxonomie, puis déclenche le bon `question_set`. **Entièrement piloté par la
-> donnée** : l'admin « apprend » au moteur en ajoutant des indices, sans code.
-> Décision **jamais** finale sans validation humaine (l'opérateur peut
-> re‑classer en revue).
+### 3.14 Capacités & classification 🔜 *(P7 : capacités, pas métiers)*
+> Le moteur raisonne en **capacités** (achat, livraison, diagnostic…), **jamais**
+> en métiers. Un texte libre → **capacités** détectées → composition des questions.
+> La **catégorie** (taxonomie interne) est **dérivée** des capacités pour
+> stats/workflow/tarif — **jamais** une condition (P0/P8).
 
-#### `category_classification`
-- **Rôle :** indices d'entraînement/matching d'une catégorie (mots‑clés,
-  synonymes, exemples de phrases) pour l'IA **et** un fallback par règles.
-- **Colonnes :** `id`, `category_id`, `kind ('keyword'|'synonym'|'example'|'regex')`,
+#### `capabilities` *(le vocabulaire du moteur)*
+- **Rôle :** capacités atomiques et **génériques** que le moteur connaît.
+- **Colonnes :** `id`, `slug` (`purchase`,`pickup`,`transport`,`delivery`,
+  `repair`,`install`,`assist`,`travel`,`handling`,`diagnostic`,`onsite`,
+  `accompaniment`…), `label`, `description?`, `is_active`, `metadata jsonb`.
+- **RLS :** lecture authentifiée ; écriture admin.
+- **💡** Ajouter une capacité (rare) = insérer une ligne. Un métier n'en ajoute
+  généralement **aucune** : il **combine** l'existant.
+
+#### `category_capabilities` *(métier = combinaison de capacités)*
+- **Rôle :** relie une catégorie (taxonomie interne) à son **ensemble de
+  capacités** → permet de **dériver** la catégorie depuis les capacités détectées.
+- **Colonnes :** `category_id`, `capability_id`, `is_primary?` — PK composite.
+- **RLS :** lecture serveur/authentifiée ; écriture admin.
+
+#### `capability_classification` *(indices → capacité)*
+- **Rôle :** indices (mots‑clés, synonymes, exemples, regex) qui mappent un texte
+  vers une **capacité** (pour l'IA **et** un fallback par règles).
+- **Colonnes :** `id`, `capability_id`, `kind ('keyword'|'synonym'|'example'|'regex')`,
   `value`, `weight`, `locale?`, `is_active`.
-- **Relations :** N‑1 `service_categories`.
-- **Index :** `(category_id)`, `(kind)`, trigram/GIN sur `value` (matching).
-- **RLS :** lecture serveur ; écriture admin.
-- **Edge Functions :** `classify-request` (IA + règles).
-- **Écrans :** AD‑05 (édition), C‑07 (indirect). 
-- **💡 Généricité :** ajouter un métier = insérer catégorie + indices + questions ;
-  le moteur s'adapte **sans redéploiement**.
+- **Index :** `(capability_id)`, trigram/GIN sur `value`.
+- **RLS :** lecture serveur ; écriture admin. **Edge :** `classify-request`.
+
+> **`question_sets` attachés aux capacités :** `question_sets.capability_id?`
+> (primaire) en plus de `category_id?` (raffinement) et `NULL/NULL` (générique).
+> Le dialogue **compose** les questions des capacités détectées + le raffinement
+> catégorie éventuel + le set générique.
 
 #### Classification (fonctionnement)
-- `classify-request` (Edge) reçoit le texte libre → propose **1..N catégories
-  candidates** avec score (IA guidée par `category_classification` + règles).
-- Si confiance ≥ seuil (`app_config.classification.min_confidence`) → catégorie
-  retenue ; sinon **désambiguïsation** (question au client ou choix opérateur).
-- **Universalité (P0) :** si **aucune** catégorie ne correspond (demande inédite),
-  on **n'échoue pas** : la demande est traitée via un **`question_set` générique**
-  (`question_sets.category_id = null`, questions universelles) et
-  `missions.category_id = null` (+ `metadata.classification = unknown`).
-  **L'opérateur classe/tarifie à la revue.** La catégorie est une **optimisation**,
-  **jamais** une condition d'acceptation.
-- Le résultat (catégorie, score, alternatives) est stocké sur la demande
-  (`missions.metadata.classification`) ; **modifiable par l'opérateur** en revue.
+- `classify-request` (Edge) reçoit le texte libre → détecte **1..N capacités**
+  avec score (IA guidée par `capability_classification` + règles). Une demande =
+  **combinaison de capacités** (« pneu crevé » → `diagnostic` + `onsite`).
+- **Dérivation catégorie (interne) :** la meilleure correspondance
+  `category_capabilities` donne une `category_id` pour tarif/workflow/stats ; si
+  aucune → `category_id = null` (**P8**), les **capacités** pilotent quand même le
+  dialogue. **Jamais** bloquant.
+- Confiance faible / inconnu → **questions génériques** (set `NULL/NULL`), dossier
+  complet ; l'**opérateur** classe/tarifie à la revue (**P1/P8**).
+- Résultat (capacités, catégorie dérivée, scores, alternatives) stocké dans
+  `missions.metadata.classification` ; **modifiable par l'opérateur**.
 - Paramètres IA (modèle, seuils, garde‑fous) en **`app_config`** (`classification.*`).
 
 ---
@@ -626,8 +643,9 @@ profiles(client) 1 ─< missions >─ 1 operator_profiles
    conversations 1─< missions (conversation_id ; group_id regroupe le multi‑services)
    missions 1─< mission_items | mission_events | mission_tracks | messages | tips
    missions 1─0..1 quotes | payments | ratings | disputes
-service_categories 1─< missions ; 1─< category_workflow ; 1─< category_classification ;
-                   1─< question_sets 1─< questions 1─< question_options
+capabilities 1─< capability_classification ; capabilities >──< service_categories (category_capabilities)
+service_categories 1─< missions ; 1─< category_workflow ;
+capabilities/service_categories 1─< question_sets 1─< questions 1─< question_options
 coverage_zones 1─< service_windows ; 1─< pricing_rules ; ⊃ addresses/points
 config: app_config (params + feature.* flags) · pricing_modifiers · content_strings ·
         notification_templates · notification_triggers · mission_transitions · audit_log
@@ -640,7 +658,7 @@ config: app_config (params + feature.* flags) · pricing_modifiers · content_st
 | Comportement | Piloté par | Ajouter/changer sans code ? |
 |---|---|---|
 | **Dialogue de collecte du besoin** | `conversations` + moteur de questions (slots) + `content_strings` + `app_config` (`conversation.*`) | ✅ (flux déterministe sur données) |
-| **Classer un besoin libre → service** | `classify-request` + `category_classification` + `app_config` (`classification.*`) | ✅ (ajouter un métier = données) |
+| **Classer un besoin → CAPACITÉS (P7)** | `classify-request` + `capabilities` + `capability_classification` + `category_capabilities` (dérivation catégorie) + `app_config` | ✅ (nouveau besoin = données, jamais un métier codé) |
 | Catalogue (taxonomie), prix, zones, horaires | tables dédiées | ✅ |
 | Étapes d'une mission | `category_workflow` | ✅ |
 | Transitions autorisées | `mission_transitions` | ✅ (effets = code) |

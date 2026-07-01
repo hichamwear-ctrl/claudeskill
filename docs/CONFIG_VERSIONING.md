@@ -14,8 +14,9 @@
 
 ## 1. Périmètre : configuration ≠ opérationnel
 
-- **Versionné (configuration de la plateforme) :** taxonomie
-  (`service_categories`), classification (`category_classification`), questions
+- **Versionné (configuration de la plateforme) :** capacités (`capabilities`,
+  `category_capabilities`), taxonomie (`service_categories`), classification
+  (`capability_classification`), questions
   (`question_sets`/`questions`/`question_options`), workflows
   (`category_workflow`), transitions (`mission_transitions`), tarifs
   (`pricing_rules`/`pricing_modifiers`), zones (`coverage_zones`), horaires

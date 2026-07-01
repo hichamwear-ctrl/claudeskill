@@ -5,16 +5,23 @@
 > par les données** qui guide l'utilisateur, en langage naturel, jusqu'à une
 > demande **complète**, puis la présente à l'opérateur pour décision.
 >
-> **Deux principes surplombent tout ce document :**
+> **Principes qui surplombent tout ce document :**
 > - **P0 — moteur UNIVERSEL de traitement de demandes :** pas de catalogue exposé.
->   Le moteur doit traiter **n'importe quelle** demande — **même inédite, jamais
->   vue auparavant** — sans qu'on ait à « ajouter un service ». La taxonomie est
->   **100 % interne** (classification, workflow, tarif, stats, affectation, règles)
->   et **jamais montrée au client**. Elle **optimise** le traitement ; elle n'est
->   **jamais une condition** pour accepter une demande. On enrichit *règles,
->   questions, classification* — **jamais l'architecture** pour un « métier ».
+>   Le moteur traite **n'importe quelle** demande — **même inédite** — sans « ajout
+>   de service ». Taxonomie **100 % interne** (jamais montrée au client),
+>   **optimisation** et **jamais** une condition d'acceptation.
 > - **P1 — contrôle humain :** l'IA **prépare**, l'opérateur **décide**. L'IA ne
 >   crée ni ne valide jamais une mission ; elle ne déclenche aucun paiement.
+> - **P7 — capacités, pas métiers :** le moteur raisonne en **capacités**
+>   génériques (achat, livraison, diagnostic, installation, transport…), **jamais**
+>   en métiers. Un métier = **combinaison de capacités** → aucun nouveau métier
+>   n'impose d'évolution du moteur.
+> - **P8 — « je ne sais pas » :** confiance faible → **questions génériques**,
+>   pas d'invention, `category_id = null` si besoin, **dossier complet** transmis à
+>   l'opérateur. Une demande inconnue n'est **jamais** bloquée.
+> - **P9 — intake ≠ exécution :** cette conversation d'intake s'arrête à
+>   `pending_review`. Le **chat de mission** (exécution) est un système **séparé**
+>   (`CHAT.md`) : tables, règles et notifications **distinctes**.
 >
 > **Cohérence :** `PRD.md`, `BUSINESS_RULES.md`, `SPEC_FONCTIONNELLE_V1.md`,
 > `DATA_MODEL.md`, `API_SPEC.md`.
@@ -72,7 +79,7 @@ plus aucune automatisation — **P1**.
 
 > Nouvelles tables (à consolider dans `DATA_MODEL.md`). Elles s'appuient sur les
 > mécanismes existants : `service_categories` (taxonomie/intentions),
-> `category_classification` (indices), moteur de questions
+> `capability_classification` (indices), moteur de questions
 > (`question_sets/questions/question_options`), `content_strings` (formulations),
 > `app_config` (modèle IA, seuils).
 
@@ -95,14 +102,20 @@ plus aucune automatisation — **P1**.
   `created_at`.
 - **RLS :** participants de la conversation + admin.
 
-### 3.3 Intentions & slots (réutilisation)
-- **Intention** = une `service_categories` (taxonomie) atteignable par
-  classification. Une conversation peut porter **plusieurs** intentions.
-- **Slot** = une `questions` d'un `question_set` rattaché à la catégorie
-  (`required_when`, `visible_when`, `validation`, `type`). Les **valeurs** vont
-  dans `conversations.state` puis, à la soumission, dans `missions.details`.
-- **💡 Aucune nouvelle notion de « slot » n'est nécessaire** : le moteur de
-  questions **est** le schéma de slots. On évite une table dédiée.
+### 3.3 Capacités & slots (P7 — le moteur ne connaît pas les métiers)
+- **Intention = une ou plusieurs CAPACITÉS** (`capabilities` : achat, livraison,
+  diagnostic, installation…). Le moteur raisonne **uniquement** en capacités ;
+  il **ignore** les métiers. Une demande = **combinaison de capacités**
+  (« pneu crevé » → `diagnostic` + `onsite`).
+- **Catégorie (interne) dérivée** des capacités via `category_capabilities` — pour
+  **tarif/workflow/stats seulement**, jamais pour piloter le dialogue, jamais
+  requise (P0/P8).
+- **Slot** = une `questions` d'un `question_set` rattaché à une **capacité**
+  (`capability_id`), à une catégorie (raffinement) ou **générique** (`NULL/NULL`).
+  Le dialogue **compose** les questions des capacités détectées + éventuel
+  raffinement + set générique. Valeurs → `conversations.state` → `missions.details`.
+- **💡** Pas de notion de « slot » dédiée : le moteur de questions **est** le schéma
+  de slots ; les questions sont **réutilisées entre métiers** via les capacités.
 
 ### 3.4 Liens missions (multi‑services)
 - `missions.conversation_id` (origine), `missions.group_id?` (regroupe les
@@ -117,7 +130,7 @@ plus aucune automatisation — **P1**.
 ## 4. Gestion des intentions
 
 - **BR‑CE‑01 [AUTO/IA] Détection :** à l'intake, `classify-request` renvoie
-  `1..N` intentions candidates avec score (IA guidée par `category_classification`
+  `1..N` intentions candidates avec score (IA guidée par `capability_classification`
   + règles). 
 - **BR‑CE‑02 Confiance :** si `score ≥ app_config.classification.min_confidence`
   et une seule intention nette → on la retient. Sinon → **désambiguïsation** (§8)
@@ -300,7 +313,8 @@ corriger la classification ; fusionner/scinder le plan ; fixer le prix (`custom`
 
 | Élément | Piloté par |
 |---|---|
-| Intentions (taxonomie) & indices | `service_categories`, `category_classification` |
+| Capacités & indices (P7) | `capabilities`, `capability_classification`, `category_capabilities` |
+| Catégorie interne (dérivée) | `category_capabilities` → tarif/workflow/stats |
 | Slots, ordre, conditions, obligation, validation, photos/docs | moteur de questions |
 | Formulations, ton, désambiguïsation, récap | `content_strings` (templates) |
 | Modèle IA, seuils, bornes, TTL, nb max de questions | `app_config` (`classification.*`, `conversation.*`) |
@@ -329,7 +343,7 @@ corriger la classification ; fusionner/scinder le plan ; fixer le prix (`custom`
   `depends_on_mission_id?`.
 - **`app_config` :** clés `classification.*` (min_confidence, model, max_candidates),
   `conversation.*` (ttl_hours, max_questions, max_disambiguation, context_turns).
-- **Réutilisé sans nouvelle table :** questions (=slots), `category_classification`,
+- **Réutilisé sans nouvelle table :** questions (=slots), `capability_classification`,
   `content_strings`, `service_categories`.
 - **Edge Functions :** `classify-request` (intentions), `converse` (tour de
   dialogue : extraction + prochaine question), `submit-request` (clôture →

@@ -80,20 +80,25 @@
   menu client (P0).
 - **Contenu :** créer/modifier/**désactiver** un service ; famille, `base_fee`,
   `prep_buffer_min`, `legal_note`, `fulfillment`, `sort_order`, `metadata`.
-- **Au‑delà :** **ajouter un métier** (serrurier, plombier, jardinage…) déclenche
-  un **assistant** guidant la création des questions, workflow, indices de
-  classification et tarifs associés.
-- **Tables :** `service_categories`.
+- **Au‑delà (P7) :** une catégorie interne se définit comme une **combinaison de
+  capacités** (`category_capabilities`) ; un **assistant** aide à mapper
+  capacités → questions/workflow/tarifs. **Aucun** « métier » n'est requis pour
+  traiter une demande (le moteur reste universel, P0) ; la catégorie sert le
+  tarif/workflow/stats.
+- **Tables :** `service_categories`, `category_capabilities`.
 
-### 3.5 AD‑16 Moteur de classification
-- **Rôle :** apprendre au moteur à **comprendre** les besoins.
-- **Contenu :** par service, gérer les **indices** (`category_classification` :
-  mots‑clés, synonymes, exemples de phrases, regex, poids) ; seuils
-  (`app_config.classification.*`).
-- **Au‑delà (centre de pilotage) :** **simulateur de classification** — coller un
-  texte (« mon pneu est crevé ») et voir les intentions/scores retournés ;
-  **jeux de tests** (phrases attendues → catégorie) pour non‑régression.
-- **Tables :** `category_classification`, `app_config`.
+### 3.5 AD‑16 Capacités & classification (P7)
+- **Rôle :** gérer les **capacités** (`capabilities`) — le vocabulaire du moteur —
+  et apprendre au moteur à **comprendre** les besoins.
+- **Contenu :** capacités (achat, livraison, diagnostic…) ; **indices**
+  (`capability_classification` : mots‑clés, synonymes, exemples, regex, poids) ;
+  **mapping catégorie ↔ capacités** (`category_capabilities`, pour tarif/workflow/
+  stats) ; seuils (`app_config.classification.*`).
+- **Au‑delà (centre de pilotage) :** **simulateur** — coller un texte (« mon pneu
+  est crevé ») et voir les **capacités**/scores + catégorie dérivée ; **jeux de
+  tests** (phrases attendues → capacités) pour non‑régression.
+- **Tables :** `capabilities`, `capability_classification`, `category_capabilities`,
+  `app_config`.
 
 ### 3.6 AD‑17 Questions dynamiques (éditeur de formulaire)
 - **Rôle :** définir le **dialogue** de collecte, par service.
