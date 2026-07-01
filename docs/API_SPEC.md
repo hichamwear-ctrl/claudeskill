@@ -41,6 +41,22 @@ Functions. L'app mobile n'utilise que `anon` + JWT.
 - **Corrélation** : `x-request-id` propagé et journalisé (`_shared/handler.ts`).
 - **Rôles** (claim JWT `user_role`) : `client` / `operator` / `admin`.
 
+### 2.1 Versionnement de l'API (stratégie)
+- **Contrats Edge Functions** : versionnés par **en‑tête** `X-Api-Version: 1`
+  (défaut `1`). Un changement **cassant** = nouvelle version servie **en
+  parallèle** (l'ancienne reste jusqu'à dépréciation) ; réponses non cassantes =
+  ajouts de champs seulement (jamais de retrait/renommage dans une version).
+- **Compat mobile** : l'app envoie sa version ; le serveur peut renvoyer
+  `min_supported` → **forçage de mise à jour** (OTA/EAS). Politique de
+  **dépréciation** documentée (fenêtre de support).
+- **PostgREST** : évolutions **additives** ; les changements de forme passent par
+  des **vues versionnées** si nécessaire.
+- **Realtime** : les **noms de canaux** (`mission:{id}:*`) sont **stables** ; un
+  changement de payload = nouveau suffixe de canal.
+- **RPC** : signatures stables ; nouvelle signature = nouveau nom de fonction.
+- **Migrations** : additives et réversibles ; jamais de suppression de colonne en
+  usage sans période de transition (compat descendante).
+
 ---
 
 ## 3. Parcours ↔ API (vue d'ensemble)
@@ -126,6 +142,20 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 - **Règles :** P1 (le client ne va pas au‑delà de `pending_review`) ; PRD‑F04/F05/F06 ;
   BR‑CE‑30→33 (découpage validé ensuite par l'opérateur).
 
+### 4.4b `review-claim` — prise en charge d'une demande (OP/ADMIN)
+- `POST /functions/v1/review-claim` · **operator | admin**
+- **Entrée :** `{ mission_id, release?: bool }`
+- **Sortie :** `{ mission_id, claimed_by, claimed_at }`
+- **Effets :** pose **atomiquement** `review_claimed_by = auth.uid()`,
+  `review_claimed_at = now()` **si** non déjà claimé (verrou anti‑double‑traitement) ;
+  `release=true` libère. Expiration auto après `app_config.review.claim_ttl_min`.
+- **Erreurs :** `conflict` (déjà claimé par un autre), `forbidden`.
+- **Effets vie privée :** tant qu'une demande n'est pas claimée, la file n'expose
+  qu'un **résumé minimal** ; le **détail complet** (texte libre, transcript) n'est
+  lisible qu'après claim (RLS). *(Correctif de sécurité/scalabilité.)*
+- **Règles :** requis dès le multi‑opérateur ; `review-request` exige que
+  l'appelant ait **claimé** la demande (ou soit admin).
+
 ### 4.5 `review-request` — décision humaine (OP/ADMIN)
 - `POST /functions/v1/review-request` · **operator | admin**
 - **Entrée :** `{ mission_id, decision: "accept"|"reject"|"need_info",
@@ -134,8 +164,8 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
     (`expires_at = now + app_config.quote_validity_hours`).
   - `reject`/`need_info` : `reason` requis.
 - **Sortie :** `{ mission_id, status }`
-- **Erreurs :** `forbidden` (rôle), `conflict` (état ≠ `pending_review`),
-  `validation_failed` (prix manquant pour custom).
+- **Erreurs :** `forbidden` (rôle **ou non‑claimeur** — cf. `review-claim`),
+  `conflict` (état ≠ `pending_review`), `validation_failed` (prix manquant custom).
 - **Effets :** `transition_mission` vers `accepted|rejected|needs_information` ;
   `reviewed_at`, `reviewed_by`, `review_reason` ; notif client
   (`request_accepted|request_rejected|request_needs_info`) ; si `accept` →
@@ -214,7 +244,7 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 | `GET conversations`, `GET conversation_turns` | propriétaire (client) ; operator/admin en revue | historique du dialogue ; écriture via `converse` |
 | `GET question_sets`, `GET questions`, `GET question_options` | authentifié | **schéma des slots** ; conditions évaluées client + revalidées serveur |
 | `GET/POST addresses` | propriétaire | carnet d'adresses |
-| `GET missions?client_id=eq.{uid}` | client (RLS) | ses demandes/missions ; `operator` voit les siennes + file `pending_review` |
+| `GET missions?client_id=eq.{uid}` | client (RLS) | ses missions ; `operator` voit **les siennes + la file de revue non‑claimée + ce qu'il a claimé** (jamais le `pending_review` claimé par un autre) ; admin tout |
 | `GET mission_items`, `GET mission_events` | participants | détail & timeline |
 | `GET/POST messages?mission_id=eq.{id}` | participants | chat (insert réservé aux 2) |
 | `GET notifications?user_id=eq.{uid}` | destinataire | liste in‑app |
@@ -242,7 +272,16 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 - Positions **haute fréquence** via **Broadcast** (pas d'écriture DB/tick) ;
   `operator_locations` (dernière position) et `mission_tracks` (échantillon)
   persistés peu fréquemment. Cf. `GPS_TRACKING.md`.
-- RLS garantit que seuls les participants reçoivent les changements pertinents.
+- **Autorisation des canaux (correctif de sécurité — obligatoire) :** les canaux
+  **Broadcast**/**Presence** n'ont **pas** de table sous‑jacente → la RLS des
+  tables **ne les protège pas**. Tous les canaux `mission:{id}:*` sont **privés**
+  et autorisés par **Realtime Authorization** : une policy RLS sur
+  `realtime.messages` n'autorise `read`/`write` sur `topic = 'mission:{id}:*'`
+  **que** si `auth.uid()` est **participant** de la mission `{id}` (client ou
+  intervenant assigné) — vérifié via une fonction `is_mission_participant(id)`.
+  Idem `operator:review-inbox`/`operator:presence` : réservés aux rôles
+  `operator`/`admin`. **Aucun** abonnement inter‑missions possible.
+- Pour Postgres Changes, la RLS des tables sources s'applique **en plus**.
 
 ---
 

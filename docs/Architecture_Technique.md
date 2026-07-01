@@ -356,6 +356,10 @@ transverses : cancelled | failed
 - **Motifs types :** propriétaire (`user_id = auth.uid()`) ; participants de la
   mission (client/operator) ; `admin` via `current_user_role()`. La lecture du
   référentiel est authentifiée ; l'**écriture de configuration est admin**.
+- **Revue avec claim (correctif) :** un opérateur ne voit la file `pending_review`
+  que **non claimée ou claimée par lui** (`review_claimed_by`), jamais une demande
+  prise par un autre → vie privée + anti‑double‑traitement. Claim atomique via
+  `review-claim` ; décision réservée au claimeur (ou admin).
 - Les transitions critiques (revue, paiement, capture) passent par des **Edge
   Functions**/**`SECURITY DEFINER`**, jamais par un `UPDATE` client — garantit
   atomicité et **P1** (un client ne peut pas se mettre `accepted`/`completed`).
@@ -376,6 +380,13 @@ transverses : cancelled | failed
   `mission:{id}:status` (Changes), `mission:{id}:location` (Broadcast),
   `mission:{id}:chat` (Changes), `mission:{id}:typing` (Broadcast),
   `operator:review-inbox` (Changes sur `pending_review`), `operator:presence`.
+- **Autorisation Realtime (correctif de sécurité) :** Broadcast/Presence n'ayant
+  **pas** de table, ils **ne sont pas couverts par la RLS des tables**. Tous les
+  canaux `mission:{id}:*` sont **privés** et autorisés par une policy sur
+  `realtime.messages` (participant de la mission uniquement) ; `operator:*`
+  réservés aux rôles `operator`/`admin`. Cf. `API_SPEC.md` §7.
+- **Versionnement d'API** : en‑tête `X-Api-Version`, changements additifs, canaux
+  Realtime stables, dépréciation gérée. Cf. `API_SPEC.md` §2.1.
 
 ---
 

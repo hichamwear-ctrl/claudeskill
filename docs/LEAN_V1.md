@@ -1,0 +1,157 @@
+# LEAN V1 — Architecture cible vs implémentation V1 — `[NOM_PRODUIT]`
+
+> **Version :** 1.0 · **Statut :** proposition à valider
+> **But :** garder une **architecture cible ambitieuse** (tous les concepts
+> validés) tout en **implémentant en V1 le strict nécessaire**. On **diffère**
+> l'implémentation, on ne **supprime jamais** un concept.
+>
+> **Règle de gouvernance :** un élément « différé » **reste** dans la
+> documentation cible (`DATA_MODEL.md`, `Architecture_Technique.md`…). Il sera
+> activé par une **migration additive** quand son **déclencheur métier** arrive —
+> **sans refonte** (c'est tout l'objet du modèle data‑driven). Ce document est la
+> **feuille de route d'implémentation** ; la doc cible reste la référence.
+
+---
+
+## 0. Correctifs bloquants (intégrés — cible **et** V1)
+
+| Correctif | Statut | Où |
+|---|---|---|
+| **Autorisation des canaux Broadcast/Presence** (canaux privés + policy `realtime.messages` = participant de la mission) | ✅ intégré | `API_SPEC` §7, `Architecture` §10, `GPS_TRACKING` §9, `CHAT` §3 |
+| **Claim de revue opérateur** (`review_claimed_by/at`, RLS file non‑claimée + `review-claim`) | ✅ intégré | `API_SPEC` §4.4b, `DATA_MODEL` missions, `Architecture` §9, `BUSINESS_RULES` BR‑002 |
+| **Versionnement d'API** (`X‑Api‑Version`, additif, canaux stables) | ✅ intégré | `API_SPEC` §2.1, `Architecture` §10 |
+
+> Ces trois points sont **implémentés en V1** (sécurité/robustesse), même si le
+> claim ne devient critique qu'en multi‑opérateur : les **colonnes + la RLS** sont
+> posées dès V1 (coût quasi nul, évite une migration sensible plus tard).
+
+---
+
+## 1. Tables — cible (44) vs V1 vs différé
+
+### 1.1 Créées en V1 (~26 — cœur strictement nécessaire à la démo de bout en bout)
+
+| Domaine | Tables V1 |
+|---|---|
+| Identité | `profiles`, `operator_profiles`, `device_tokens`, `addresses` |
+| Référentiel/zones ✅ *(M1.1/M1.2 déjà livrés)* | `service_categories`, `coverage_zones`, `service_windows`, `waitlist` |
+| Config & contenu | `app_config`, `content_strings` |
+| Workflow | `category_workflow` |
+| Questions (moteur) | `question_sets`, `questions`, `question_options` |
+| Conversation | `conversations`, `conversation_turns` |
+| Cœur | `missions`, `mission_events` |
+| Tarif | `pricing_rules` |
+| Paiement (sim) | `payments` |
+| Temps réel | `operator_locations`, `mission_tracks` |
+| Chat | `messages` |
+| Notifications | `notifications`, `notification_templates`, `notification_triggers` |
+| Avis | `ratings` |
+| Audit | `audit_log` |
+
+> Colonnes **absorbant** des tables différées (pour ne pas perdre la fonction en
+> V1) : `missions` porte `quoted_price`/`quote_expires_at`/`quote_status`
+> (au lieu de `quotes`), `advance_estimate`/`advance_actual` (au lieu d'`advances`),
+> `tip_amount` (au lieu de `tips`), et `details jsonb` (au lieu de `mission_items`).
+
+### 1.2 Différées (concept **conservé** en cible, **non créées** en V1)
+
+| Table(s) | Statut | Justification du report |
+|---|---|---|
+| `capabilities`, `category_capabilities`, `capability_classification` | 🔜 cible | En V1, la classification **texte → catégorie** (6 catégories) + **fallback générique** (`category_id=null`) produit le **même comportement visible**. L'abstraction « capacités » (P7) paie quand les métiers se **multiplient et se recouvrent** : on l'active alors sans refonte (le moteur composera les questions par capacité). |
+| `mission_transitions` | 🔜 cible | Les **effets** de transition restant en **code**, une allow‑list **en code** suffit en V1 (plus simple, plus sûre). On externalise en table quand on voudra **éditer le graphe** sans redéploiement. |
+| `pricing_modifiers` | 🔜 cible | Aucun **supplément** (nuit/week‑end/urgence…) en V1 : `pricing_rules` + `service_categories.base_fee` suffisent. Table activée à l'apparition du 1ᵉʳ supplément. |
+| `quotes` | 🔜 cible | 1 prix proposé/mission en V1 → **colonnes sur `missions`**. Table dédiée quand on voudra **historiser** plusieurs devis/révisions. |
+| `mission_items` | 🔜 cible | La liste d'articles est une **réponse** comme une autre → `missions.details` (jsonb) en V1. Table dédiée si un jour on requête/agrège les articles finement. |
+| `advances` | 🔜 cible | `missions.advance_estimate/advance_actual` + reçu dans `mission-proofs` couvrent la V1. Table dédiée pour un **suivi comptable** détaillé des avances. |
+| `tips` | 🔜 cible | Pourboire **simulé**, 1/mission → colonne. Table dédiée pour l'historique/reversement (Stripe V2). |
+| `disputes` | 🔜 cible | V1 : litige = `admin` + `refund` (sim) + `metadata`. Table dédiée quand un **workflow de litige** (instruction/arbitrage) est nécessaire. |
+| `payment_methods` | 🔜 cible | Paiement **mock** : aucune carte à stocker. Table utile avec **Stripe réel** (V2). |
+| `payouts`, `promo_codes` | 🔜 V2 | Reversements intervenants (Stripe Connect) et promotions : **hors V1** par décision produit. |
+| `notification_preferences` | 🔜 cible | Défauts dans les **templates** suffisent en V1. Table activée pour les **surcharges par utilisateur**. |
+| `config_modules`, `config_versions`, `config_snapshots` | 🔜 cible | V1 a **peu de config** et **un seul admin** ; `audit_log` couvre la traçabilité. Le **versionnement** (Brouillon→Publication→Rollback) s'active quand le **volume de config / la taille d'équipe** le justifient — **sans refonte** (registre générique). |
+
+> **Total :** ~26 créées en V1 · ~18 différées (concept conservé) · **44 cible**.
+
+---
+
+## 2. Edge Functions — cible vs V1
+
+### 2.1 V1 (~7 fonctions robustes + 1 RPC + 1 trigger)
+
+| Fonction V1 | Rôle | Consolidation |
+|---|---|---|
+| `converse` | dialogue (extraction + prochaine question) **incluant la classification du 1ᵉʳ tour** | absorbe `classify-request` |
+| `zone-check` | couverture + horaires | — |
+| `estimate-price` | prix + ETA | — |
+| `submit-request` | validation + création 1..N missions → `pending_review` | — |
+| `review` | **claim + décision** (accept/reject/need_info) | absorbe `review-claim` + `review-request` |
+| `payments` | **authorize / capture / refund / void** (mock, gaté `accepted`) | absorbe `create-authorization`/`capture-payment`/`refund` |
+| `send-push` | notifications (templates data‑driven) | — |
+| `transition_mission` *(RPC DB)* | transitions d'exécution (allow‑list en code V1) | — |
+| `assign-mission` *(trigger DB)* | affectation auto après autorisation | pas une Edge Function en V1 |
+
+### 2.2 Différées
+
+| Fonction | Statut | Justification |
+|---|---|---|
+| `classify-request` (séparée) | 🔜 cible | Séparée seulement si la classification devient un service réutilisé hors dialogue ; sinon interne à `converse`. |
+| `config-create-draft` / `config-validate` / `config-publish` / `config-rollback` | 🔜 cible | Avec le **versionnement de configuration** (différé §1.2). |
+
+> **Note contrats :** `API_SPEC.md` documente les fonctions **par capacité**
+> (create-authorization, capture-payment…). En V1, elles sont **regroupées** en
+> `payments`/`review` via un paramètre `action` — **mêmes contrats logiques**,
+> moins de surface de déploiement. La cible peut les éclater si besoin.
+
+---
+
+## 3. Enums — V1 vs cible
+
+- **V1 :** `user_role`, `mission_family`, `mission_status` (avec `pending_review`/
+  `needs_information`/`rejected`/`shopping` ; `searching` réservé), `payment_status`,
+  `operator_status`, `cancel_actor`, `question_type`, `conversation_status`.
+- **Différés (avec leur table) :** `quote_status` (avec `quotes`), `dispute_status`
+  (avec `disputes`), `config_version_status` (avec le versionnement).
+  → En V1, `missions.quote_status` peut être un **texte contraint** en attendant.
+
+---
+
+## 4. Correspondance avec la roadmap (M‑étapes)
+
+| Étape | Contenu V1 | Tables/fonctions V1 concernées |
+|---|---|---|
+| **M1.1** ✅ | catalogue | `service_categories` |
+| **M1.2** ✅ | zones/horaires | `coverage_zones`, `service_windows`, `waitlist` |
+| **M1.3** | tarif & config | `pricing_rules`, `app_config`, `content_strings` |
+| **M2** | conversation & questions | `conversations`, `conversation_turns`, `question_*`, `converse`, `zone-check` |
+| **M3** | cœur missions | `missions` (+ colonnes absorbées), `mission_events`, `category_workflow`, `transition_mission` (RPC), `submit-request`, `review` (+ claim) |
+| **M4** | tarification serveur | `estimate-price` |
+| **M5** | paiement simulé | `payments` (fonction), colonnes paiement |
+| **M6** | affectation | `assign-mission` (trigger), tableau de bord |
+| **M7** | temps réel | `operator_locations`, `mission_tracks` (+ autorisation Broadcast) |
+| **M8** | chat | `messages` (+ autorisation Broadcast typing) |
+| **M9** | notifications | `notifications`, `notification_templates/triggers`, `send-push` |
+| **M10** | storage métier | policy participant `mission-proofs` |
+| **M11** | avis | `ratings` |
+| **M12** | admin (V1 light) | lecture/édition config existante + `audit_log` |
+| **M13** | durcissement | tests RLS, RGPD |
+
+> Les modules différés (capacités, versionnement, litiges…) s'insèrent après la
+> V1 par **migrations additives**, chacun déclenché par son besoin métier.
+
+---
+
+## 5. Verdict
+
+- **Architecture cible :** inchangée, ambitieuse, **tous les concepts conservés**.
+- **Implémentation V1 :** **~26 tables** et **~7 Edge Functions** — conforme à la
+  philosophie « supprimer/différer plutôt qu'ajouter », sans perdre **aucune**
+  fonction produit visible de la démo.
+- **Correctifs bloquants :** intégrés (Broadcast, claim, versionnement d'API).
+
+**Prête à coder** dès validation de ce périmètre : M1.3 reprend sur `pricing_rules`
++ `app_config` + `content_strings`.
+
+## 6. Références
+Tous les documents `docs/` (la **cible**). Ce document est la **feuille de route
+d'implémentation V1** ; en cas de doute d'implémentation, il prime ; en cas de
+doute sur la **cible**, les documents de domaine priment.

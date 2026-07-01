@@ -86,6 +86,12 @@ L'opérateur voit **l'intégralité** de la demande **et** le contexte d'exploit
 
 - **BR‑001 `[AUTO]`** : à l'ouverture d'OP‑05, le système recharge zone/horaires
   et recalcule l'estimation, pour éviter une décision sur une donnée périmée.
+- **BR‑002 `[OP]` Prise en charge (claim) :** avant de décider, l'opérateur
+  **claime** la demande (`review-claim`, verrou atomique). Tant qu'une demande
+  n'est pas claimée, la file n'expose qu'un **résumé** ; le **détail complet**
+  (texte libre, transcript) n'est visible **qu'après claim** (vie privée). Un
+  autre opérateur ne peut pas la traiter en parallèle. Claim expiré
+  (`app_config.review.claim_ttl_min`) → remis en file. `[ADMIN]` peut réassigner.
 
 ### 2.2 Critères d'ACCEPTATION `[OP]`
 

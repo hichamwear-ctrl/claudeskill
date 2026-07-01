@@ -366,7 +366,8 @@
     `pickup_point? geography`.
   - tarif (snapshots) : `estimated_price?`, `estimated_eta_min?`, `service_fee?`,
     `advance_estimate?`, `advance_actual?`, `final_amount?`, `operator_earning?`.
-  - **revue** : `submitted_at?`, `reviewed_at?`, `reviewed_by?`, `review_reason?`.
+  - **revue** : `submitted_at?`, `review_claimed_by?`, `review_claimed_at?`
+    (verrou de prise en charge), `reviewed_at?`, `reviewed_by?`, `review_reason?`.
   - cycle : `accepted_at?`, `completed_at?`, `cancelled_at?`,
     `cancelled_by cancel_actor?`, `cancel_reason?`, `scheduled_for?`,
     `queue_position?`.
@@ -380,9 +381,12 @@
   GIST `dropoff_point` ; partiel `status='pending_review'` (file de revue) ;
   `conversation_idx`, `group_idx`.
 - **Contraintes :** FK ; `client_id on delete restrict`.
-- **RLS :** client = ses missions ; operator = les siennes **+** la file
-  `pending_review` (revue) ; admin total. Transitions via
-  `transition_mission` (SECURITY DEFINER), **jamais** UPDATE direct du statut.
+- **RLS :** client = ses missions ; operator = les siennes **+** la file de revue
+  `pending_review` **non claimée ou claimée par lui** (`review_claimed_by is null
+  or review_claimed_by = auth.uid()`) — **jamais** une demande claimée par un
+  autre (vie privée / anti‑double‑traitement) ; admin total. Transitions via
+  `transition_mission` (SECURITY DEFINER), **jamais** UPDATE direct du statut ;
+  claim via `review-claim` (verrou atomique).
 - **Edge Functions :** `estimate-price`, `assign-mission`, `transition_mission`,
   paiement (`authorize`/`capture` gated).
 - **Écrans :** C‑13→C‑27, OP‑04→OP‑13, AD‑03/04.

@@ -16,6 +16,7 @@ Sources de vérité du projet, par ordre de priorité selon le sujet.
 | [`API_SPEC.md`](./API_SPEC.md) | Contrats d'API (PostgREST, RPC, Edge Functions, Realtime), autorisations, conventions | les **contrats d'API** |
 | [`ADMIN_PANEL.md`](./ADMIN_PANEL.md) | Centre de pilotage (back‑office) : administrer la plateforme par la donnée (taxonomie, classification, questions, workflows, transitions, tarifs, textes, notifications, revue, audit) | le **back‑office** |
 | [`CONFIG_VERSIONING.md`](./CONFIG_VERSIONING.md) | Versionnement générique de **toute la configuration** (Brouillon → Validation → Publication → Rollback), registre extensible | la **gouvernance de configuration** |
+| [`LEAN_V1.md`](./LEAN_V1.md) | Distinction **architecture cible** vs **implémentation V1** (tables/Edge Functions créées vs différées + justifications) | la **feuille de route d'implémentation** |
 | [`UX_SPEC.md`](./UX_SPEC.md) | Spécification UX / écrans V1 (écrans client/intervenant/admin, parcours, composants, cas d'erreur, états vides, règles UX) | l'**expérience & les écrans** |
 
 ## Principes transverses (V1)

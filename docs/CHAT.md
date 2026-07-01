@@ -57,7 +57,9 @@ mission acceptée → assignée (intervenant affecté)
 
 - Messages **persistés** (contrairement aux positions GPS) → `messages` + Postgres
   Changes. **RLS** garantit que seuls les **2 participants** reçoivent le fil.
-- Typing via **Broadcast** (pas d'écriture DB).
+- Typing via **Broadcast** (pas d'écriture DB) → **canal privé** autorisé par une
+  policy `realtime.messages` (participant de la mission uniquement) — Broadcast
+  n'étant pas couvert par la RLS des tables (cf. `API_SPEC.md` §7).
 
 ---
 

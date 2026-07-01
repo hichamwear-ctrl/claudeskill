@@ -146,6 +146,11 @@ completed / rated / cancelled / failed                    → suivi ARRÊTÉ
 
 ## 9. Sécurité & vie privée
 
+- **Autorisation du canal Broadcast (obligatoire) :** `mission:{id}:location` est
+  un **canal privé** ; Broadcast n'étant **pas** couvert par la RLS des tables,
+  l'abonnement/publication est autorisé par une policy `realtime.messages`
+  **participant de la mission uniquement** (cf. `API_SPEC.md` §7). Sans cela, la
+  position fuiterait à quiconque connaît un `mission_id`.
 - **RLS `operator_locations` :** l'intervenant écrit la sienne ; **seul le client
   d'une mission active** la lit ; admin. **Aucune** lecture hors mission active.
 - **RLS `mission_tracks` :** participants de la mission + admin.
