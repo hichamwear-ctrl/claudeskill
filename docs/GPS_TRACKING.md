@@ -194,6 +194,25 @@ completed / rated / cancelled / failed                    → suivi ARRÊTÉ
 - **Optionnel/futur :** `geofence_rules` (module de configuration versionné) —
   non requis en V1.
 
+> **🔧 Implémentation V1 (M7) — simplifiée & auditée :**
+> - **UNE seule table** : `operator_locations` (dernière position, 1/intervenant,
+>   upsert espacé). **`mission_tracks` DIFFÉRÉE** : un tracé échantillonné persisté
+>   = historique/preuve/analytics (hors périmètre V1 « pas de tracking permanent »)
+>   et des centaines de milliers d'écritures/jour évitées. Ajout ultérieur sans
+>   refonte (consommateur du Broadcast). `gps.track_sample_sec` reviendra avec elle.
+> - **ZÉRO Edge Function** : live = Broadcast ; émission = RPC `update_location`
+>   (garde-fou : refusée hors mission active) ; repli = RPC `get_operator_location`
+>   (participant, rien hors mission active).
+> - **Géofencing V1 = côté app** (seuils `gps.nearby_radius_m`/`arrival_radius_m`) ;
+>   pas de trigger serveur (dropoff non géocodé en V1). L'arrivée reste **confirmée**
+>   par l'intervenant (contrôle humain).
+> - **RGPD** : purge automatique de la position à la clôture de la dernière mission
+>   active (trigger) ; RLS = le client ne lit que l'intervenant de SA mission active.
+> - **Sécurité Realtime durcie** : écriture séparée de la lecture — `can_publish_topic`
+>   n'autorise la **publication** de `mission:{id}:location` qu'à **l'intervenant
+>   affecté** (un client ne peut plus usurper une position). `:status`/`review-inbox`
+>   = serveur seul.
+
 ## 13. Cohérence & références
 
 - Aligné avec l'architecture (§11) : Broadcast éphémère + persistance échantillonnée.

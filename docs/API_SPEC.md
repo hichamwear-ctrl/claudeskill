@@ -362,6 +362,14 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   Edge Function** : envoi = `INSERT` (RLS participant + mission ouverte + trigger de
   modération) ; lecture = PostgREST + Postgres Changes ; frappe = Broadcast ;
   accusés de lecture = RPC `mark_messages_read`.
+- **🔧 V1 (M7) — durcissement écriture :** l'ÉCRITURE (broadcast/presence) est
+  séparée de la lecture via `can_publish_topic(topic)` (policy INSERT de
+  `realtime.messages`). Plus strict : `mission:{id}:location` publiable **seulement
+  par l'intervenant affecté** (un client ne peut pas usurper une position) ;
+  `:typing` par les deux participants ; `:status` et `operator:review-inbox` =
+  **serveur seul** (personne ne publie). **GPS sans Edge Function** : émission =
+  RPC `update_location` (refusée hors mission active) ; repli = RPC
+  `get_operator_location`. `mission_tracks` **différée** (pas d'historique V1).
 
 ---
 

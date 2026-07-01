@@ -42,7 +42,7 @@
 | Cœur | `missions`, `mission_events` |
 | Tarif | `pricing_rules` |
 | Paiement (sim) | `payments` |
-| Temps réel | `operator_locations`, `mission_tracks` |
+| Temps réel | `operator_locations` *(M7 ; `mission_tracks` différée)* |
 | Chat | `messages` |
 | Notifications | `notifications`, `notification_templates`, `notification_triggers` |
 | Avis | `ratings` |
@@ -60,6 +60,7 @@
 | `capabilities`, `category_capabilities`, `capability_classification` | 🔜 cible | En V1, la classification **texte → catégorie** (6 catégories) + **fallback générique** (`category_id=null`) produit le **même comportement visible**. L'abstraction « capacités » (P7) paie quand les métiers se **multiplient et se recouvrent** : on l'active alors sans refonte (le moteur composera les questions par capacité). |
 | `mission_transitions` | 🔜 cible | Les **effets** de transition restant en **code**, une allow‑list **en code** suffit en V1 (plus simple, plus sûre). On externalise en table quand on voudra **éditer le graphe** sans redéploiement. |
 | `pricing_modifiers` | 🔜 cible | Aucun **supplément** (nuit/week‑end/urgence…) en V1 : `pricing_rules` + `service_categories.base_fee` suffisent. Table activée à l'apparition du 1ᵉʳ supplément. |
+| `mission_tracks` | 🔜 cible | **Différée en M7** : un tracé GPS persisté = historique/preuve/analytics (hors périmètre V1 « pas de tracking permanent ») et des centaines de milliers d'écritures/jour. Le live passe par Broadcast, la dernière position par `operator_locations`. Ajoutée sans refonte (consommateur du Broadcast) quand un besoin réel émerge. |
 | `quotes` | 🔜 cible | 1 prix proposé/mission en V1 → **colonnes sur `missions`**. Table dédiée quand on voudra **historiser** plusieurs devis/révisions. |
 | `mission_items` | 🔜 cible | La liste d'articles est une **réponse** comme une autre → `missions.details` (jsonb) en V1. Table dédiée si un jour on requête/agrège les articles finement. |
 | `advances` | 🔜 cible | `missions.advance_estimate/advance_actual` + reçu dans `mission-proofs` couvrent la V1. Table dédiée pour un **suivi comptable** détaillé des avances. |
@@ -70,7 +71,8 @@
 | `notification_preferences` | 🔜 cible | Défauts dans les **templates** suffisent en V1. Table activée pour les **surcharges par utilisateur**. |
 | `config_modules`, `config_versions`, `config_snapshots` | 🔜 cible | V1 a **peu de config** et **un seul admin** ; `audit_log` couvre la traçabilité. Le **versionnement** (Brouillon→Publication→Rollback) s'active quand le **volume de config / la taille d'équipe** le justifient — **sans refonte** (registre générique). |
 
-> **Total :** ~26 créées en V1 · ~18 différées (concept conservé) · **44 cible**.
+> **Total :** ~25 créées en V1 · ~19 différées (concept conservé, dont
+> `mission_tracks` déplacée en M7) · **44 cible**.
 
 ---
 
@@ -131,7 +133,8 @@
 | **M4** ✅ | **missions & revue opérateur** | `missions` (+ colonnes absorbées), `mission_events`, `category_workflow` ; RPC `transition_mission`/`claim_review`/`create_mission_from_conversation`/`estimate_price`/`zone_check` ; Edge `review`/`estimate-price`/`zone-check` ; `submit-request` crée la mission |
 | **M5** ✅ | **paiement simulé (Stripe‑ready)** | table `payments` ; RPC `payment_intent`/`payment_settle`/`assign_mission` ; Edge `payments` ; `_shared/payments/` (interface `PaymentProvider` + `MockPaymentProvider`) |
 | **M6** ✅ | **chat d'exécution** | table `messages` (append-only, modération, RLS participants) ; RPC `mark_messages_read` ; **autorisation Realtime** (`can_access_topic`, `is_mission_participant`, `owns_conversation`, policies `realtime.messages`) ; **0 Edge Function** |
-| **M7+** | temps réel (GPS), notifications, admin… | `operator_locations`, `mission_tracks`, `send-push`, panneau admin |
+| **M7** ✅ | **temps réel (GPS)** | table `operator_locations` ; RPC `update_location`/`get_operator_location` ; purge auto (trigger) ; `can_publish_topic` (durcissement Realtime) ; clés `gps.*` ; **0 Edge Function** ; `mission_tracks` différée |
+| **M8+** | notifications, admin, config versioning… | `notifications`, `notification_templates/triggers`, `send-push`, panneau admin |
 | **M9** | notifications | `notifications`, `notification_templates/triggers`, `send-push` |
 | **M10** | storage métier | policy participant `mission-proofs` |
 | **M11** | avis | `ratings` |

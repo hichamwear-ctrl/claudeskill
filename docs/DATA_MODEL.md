@@ -542,7 +542,11 @@
 
 ## 6. Couche Temps réel
 
-### 6.1 `operator_locations` 🔜
+### 6.1 `operator_locations` ✅ *(M7)*
+> **V1 (M7) :** créée. Écriture via RPC `update_location` (refusée hors mission
+> active — vie privée) ; lecture via RPC `get_operator_location` + RLS (client =
+> son intervenant, mission active seulement). **Purge automatique** à la clôture
+> (trigger). Live = Broadcast (jamais d'écriture par tick). Index GIST (dispatch V2).
 - **Rôle :** dernière position connue (1 ligne/intervenant, upsert peu fréquent).
 - **Colonnes :** `operator_id pk`, `location geography(point)`, `heading?`,
   `speed?`, `updated_at`.
@@ -554,7 +558,13 @@
 - **⚠️ Rappel archi :** le flux **haute fréquence** passe par **Broadcast**, pas
   par cette table (scalabilité).
 
-### 6.2 `mission_tracks` 🔜
+### 6.2 `mission_tracks` 🔜 *(DIFFÉRÉE — M7)*
+> **V1 (M7) :** **non créée**. Un tracé persisté = historique/preuve/analytics,
+> hors périmètre V1 (« la localisation n'est pas un historique GPS ») et coûteux
+> (des centaines de milliers d'écritures/jour). Le suivi live passe **uniquement**
+> par Broadcast ; la dernière position par `operator_locations`. Table ajoutée
+> **sans refonte** le jour d'un besoin réel (preuve de trajet / heatmaps), via un
+> consommateur du Broadcast — le canal `mission:{id}:location` existe déjà.
 - **Rôle :** tracé **échantillonné** (preuve/historique).
 - **Colonnes :** `id`, `mission_id`, `point geography`, `recorded_at`.
 - **Index :** `(mission_id, recorded_at)` ; **partitionnement mensuel** candidat.

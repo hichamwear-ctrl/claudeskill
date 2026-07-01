@@ -40,6 +40,13 @@ functions/
 └── payments/        # adaptateur PSP : authorize/capture/void/refund (auth, M5)
 ```
 
+> **GPS (M7) :** **aucune Edge Function** non plus. Live = Broadcast ; émission de
+> la dernière position = RPC `update_location` (refusée hors mission active) ;
+> repli = RPC `get_operator_location`. `mission_tracks` (tracé persisté) est
+> **différée** (pas d'historique GPS en V1). Sécurité Realtime durcie :
+> `can_publish_topic` réserve la publication de `mission:{id}:location` à
+> l'intervenant affecté.
+
 > **Chat (M6) :** **aucune Edge Function** — le chat d'exécution est 100 % en base
 > (table `messages` append-only, envoi par `INSERT` gardé par la RLS + trigger de
 > modération déterministe, temps réel via Postgres Changes/Broadcast). L'accès aux
