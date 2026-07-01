@@ -411,6 +411,14 @@ deno_version = 2
 [functions.health]
 verify_jwt = false
 
+# Intake conversationnel — authentification requise (défaut). Écriture serveur en
+# service_role ; propriété vérifiée en code. La décision reste humaine (P1).
+[functions.converse]
+verify_jwt = true
+
+[functions.submit-request]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

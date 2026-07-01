@@ -21,3 +21,13 @@ export const Forbidden = (message = 'Accès refusé') => new HttpError(403, mess
 
 export const BadRequest = (message = 'Requête invalide', code = 'bad_request') =>
   new HttpError(400, message, code);
+
+export const NotFound = (message = 'Introuvable', code = 'not_found') =>
+  new HttpError(404, message, code);
+
+export const Conflict = (message = 'Conflit', code = 'conflict') =>
+  new HttpError(409, message, code);
+
+/** 422 — requête bien formée mais sémantiquement incomplète (ex. dossier partiel). */
+export const Unprocessable = (message = 'Traitement impossible', code = 'unprocessable') =>
+  new HttpError(422, message, code);

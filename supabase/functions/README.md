@@ -3,8 +3,9 @@
 Fonctions serveur (Deno) pour toute la **logique sensible** : la clé `service_role` et les secrets
 vivent ici, jamais dans l'app mobile (§4.5).
 
-> État actuel : **squelette uniquement**. Aucune logique métier. Seule la fonction d'exemple
-> `health` est présente.
+> État actuel : socle + **moteur conversationnel opérationnel** (M3 : `converse`,
+> `submit-request`). Le moteur de dialogue est **pur** (`_shared/engine/`) ; l'IA
+> (classification) est un **adaptateur remplaçable** (V1 : mots‑clés déterministe).
 
 ## Organisation
 
@@ -19,10 +20,25 @@ functions/
 │   ├── logger.ts    # journalisation structurée (JSON + requestId)
 │   ├── supabase.ts  # clients Supabase (utilisateur RLS / admin service_role)
 │   ├── auth.ts      # requireUser / requireRole (rôle via claim JWT)
-│   └── handler.ts   # serve() : préflight + requestId + logs + gestion d'erreurs
-└── health/          # fonction d'exemple (sonde runtime, publique)
-    └── index.ts
+│   ├── handler.ts   # serve() : préflight + requestId + logs + gestion d'erreurs
+│   ├── engine/      # MOTEUR PUR (M2.3) : compute() déterministe, évaluateur borné
+│   │   ├── types.ts · conditions.ts · validate.ts · engine.ts · mod.ts
+│   │   └── engine_test.ts
+│   └── intake/      # ORCHESTRATION (M3) : tour de dialogue + clôture
+│       ├── types.ts        # DTOs + interfaces IntakeStore / Classifier (seams)
+│       ├── config.ts       # assemblage config + présentation + classifieur mots-clés
+│       ├── orchestrator.ts # runTurn / finalize (dépend des interfaces → testable)
+│       ├── store.ts        # IntakeStore concret (supabase-js, service_role)
+│       └── *_test.ts        # tests hors-ligne (store en mémoire, fakes)
+├── health/          # sonde runtime (publique)
+├── converse/        # un tour du dialogue d'intake (auth)
+└── submit-request/  # clôture de l'intake → conversation 'submitted' (auth)
 ```
+
+> **Testabilité :** la logique vit derrière l'interface `IntakeStore` ; elle est
+> testée hors‑ligne avec un store en mémoire. Le `SupabaseStore` (glue PostgREST)
+> nécessiterait la stack complète pour un test E2E ; la **forme des requêtes** est
+> validée séparément contre PostgreSQL (données/seed).
 
 ## Conventions
 

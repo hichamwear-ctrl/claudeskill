@@ -110,6 +110,19 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   création de mission définitive (reste `created`).
 - **Règles :** `CONVERSATION_ENGINE.md` (BR‑CE‑*) ; P0/P1 ; l'IA **ne décide
   jamais** — s'arrête à la préparation du récapitulatif.
+- **🔧 Implémentation V1 (M3) :**
+  - **Entrée :** `{ conversation_id?, message?, answer?: {key,value}, locale? }`.
+  - **Sortie :** `{ conversation_id, classification, next, can_summarize, invalid,
+    summary }` — `next` = question présentée `{ key, type, label, help?, required,
+    options }`.
+  - **Classification** = classifieur **mots‑clés déterministe**
+    (`app_config.classification.keywords`, éditable — P0), adaptateur **IA
+    remplaçable** ; `classify-request` (§4.1) **fondu dans `converse`** en V1.
+  - **Extraction** : le client **répond à la question posée** (`answer`) ; le
+    message libre sert à la (re)classification. L'extraction multi‑slots par IA
+    est un **ajout additif** ultérieur (le moteur reste inchangé).
+  - Écrit `conversation_turns` + `conversations.state = {answers, classification}` ;
+    écriture **service_role**, **propriété vérifiée en code**.
 
 ### 4.2 `zone-check` — couverture & horaires
 - `POST /functions/v1/zone-check` · **client**
@@ -141,6 +154,16 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   `new_request_to_review`.
 - **Règles :** P1 (le client ne va pas au‑delà de `pending_review`) ; PRD‑F04/F05/F06 ;
   BR‑CE‑30→33 (découpage validé ensuite par l'opérateur).
+- **🔧 Implémentation V1 (M3) :**
+  - **Entrée :** `{ conversation_id }`. **Sortie :** le **dossier**
+    `{ conversation_id, classification, entries: [{ key, label, value, type }] }`.
+  - **Effets V1 :** revalidation serveur (tout le requis satisfait, sinon `422
+    incomplete`) ; `conversations.status='submitted'` ; tour système `submitted`.
+    **Aucune création de mission ni notification opérateur** — la mise en
+    `pending_review` (création de la/les mission(s), `group_id`, notif opérateur)
+    relève de la **revue opérateur (M4)**. Garde‑fou P1 strictement respecté.
+  - **Erreurs V1 :** `conversation_not_found` (404, propriété), `conversation_closed`
+    (409, déjà soumise), `incomplete` (422).
 
 ### 4.4b `review-claim` — prise en charge d'une demande (OP/ADMIN)
 - `POST /functions/v1/review-claim` · **operator | admin**

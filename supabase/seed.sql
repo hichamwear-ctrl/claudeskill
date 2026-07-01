@@ -60,7 +60,10 @@ insert into public.app_config (key, value, scope, description) values
   ('conversation.ttl_hours',          '24'::jsonb,                          'server', 'Expiration d''une conversation d''intake (h)'),
   ('conversation.max_questions',      '12'::jsonb,                          'server', 'Nb max de questions par dialogue'),
   ('feature.tips_enabled',            'true'::jsonb,                        'public', 'Pourboire (simulé) activé'),
-  ('feature.gps_background',          'false'::jsonb,                       'public', 'Suivi GPS en arrière-plan')
+  ('feature.gps_background',          'false'::jsonb,                       'public', 'Suivi GPS en arrière-plan'),
+  ('classification.keywords',
+   '{"groceries":["course","courses","supermarché","supermarche","lait","pain","aliment","épicerie","epicerie"],"pharmacy":["pharmacie","médicament","medicament","paracétamol","doliprane","sans ordonnance"],"parcel":["colis","paquet","livrer","livraison","déposer","deposer"],"car_assist":["voiture","pneu","batterie","carburant","panne","dépannage","depannage"],"daily_help":["aide","ménage","menage","bricolage","jardin","quotidien"]}'::jsonb,
+   'server', 'Mots-clés de classification par catégorie (moteur V1, éditable — P0)')
 on conflict (key) do nothing;
 
 -- --- Contenus / i18n (échantillon) — content_strings ----------------------------

@@ -83,7 +83,7 @@
 | `converse` | dialogue (extraction + prochaine question) **incluant la classification du 1ᵉʳ tour** | absorbe `classify-request` |
 | `zone-check` | couverture + horaires | — |
 | `estimate-price` | prix + ETA | — |
-| `submit-request` | validation + création 1..N missions → `pending_review` | — |
+| `submit-request` | **V1/M3 :** revalidation serveur + clôture → conversation `submitted` (dossier). **Création des missions `pending_review` déplacée à la revue opérateur (M4)** — la table `missions` n'existe qu'en M4 ; garde‑fou P1 inchangé | création mission → M4 |
 | `review` | **claim + décision** (accept/reject/need_info) | absorbe `review-claim` + `review-request` |
 | `payments` | **authorize / capture / refund / void** (mock, gaté `accepted`) | absorbe `create-authorization`/`capture-payment`/`refund` |
 | `send-push` | notifications (templates data‑driven) | — |
@@ -119,16 +119,19 @@
 
 | Étape | Contenu V1 | Tables/fonctions V1 concernées |
 |---|---|---|
-| **M1.1** ✅ | catalogue | `service_categories` |
-| **M1.2** ✅ | zones/horaires | `coverage_zones`, `service_windows`, `waitlist` |
-| **M1.3** | tarif & config | `pricing_rules`, `app_config`, `content_strings` |
-| **M2** | conversation & questions | `conversations`, `conversation_turns`, `question_*`, `converse`, `zone-check` |
-| **M3** | cœur missions | `missions` (+ colonnes absorbées), `mission_events`, `category_workflow`, `transition_mission` (RPC), `submit-request`, `review` (+ claim) |
-| **M4** | tarification serveur | `estimate-price` |
-| **M5** | paiement simulé | `payments` (fonction), colonnes paiement |
-| **M6** | affectation | `assign-mission` (trigger), tableau de bord |
-| **M7** | temps réel | `operator_locations`, `mission_tracks` (+ autorisation Broadcast) |
-| **M8** | chat | `messages` (+ autorisation Broadcast typing) |
+> **Rythme (mis à jour) :** depuis les fondations verrouillées, on avance par
+> **modules complets** (un rapport de validation par module), et non plus par
+> micro‑étapes. Numérotation consolidée ci‑dessous.
+
+| Étape | Contenu V1 | Tables/fonctions V1 concernées |
+|---|---|---|
+| **M1** ✅ | fondations : catalogue, zones/horaires, tarif & config, i18n | `service_categories`, `coverage_zones`, `service_windows`, `waitlist`, `pricing_rules`, `app_config`, `content_strings` |
+| **M2** ✅ | conversation & questions + **moteur pur** | `conversations`, `conversation_turns`, `question_*` ; `_shared/engine/` (compute déterministe) |
+| **M3** ✅ | **moteur conversationnel opérationnel** | `converse`, `submit-request`, `_shared/intake/` (orchestration + store + classifieur mots‑clés), seed `classification.keywords` |
+| **M4** | **missions & revue opérateur** | `missions` (+ colonnes absorbées), `mission_events`, `category_workflow`, `transition_mission` (RPC), `review` (+ claim), **création mission depuis conversation `submitted`**, `estimate-price`, `zone-check` |
+| **M5** | paiement simulé | `payments` (fonction), colonnes paiement, `assign-mission` (trigger) |
+| **M6** | chat d'exécution | `messages` (+ autorisation Broadcast typing) |
+| **M7+** | temps réel (GPS), notifications, admin… | `operator_locations`, `mission_tracks`, `send-push`, panneau admin |
 | **M9** | notifications | `notifications`, `notification_templates/triggers`, `send-push` |
 | **M10** | storage métier | policy participant `mission-proofs` |
 | **M11** | avis | `ratings` |
