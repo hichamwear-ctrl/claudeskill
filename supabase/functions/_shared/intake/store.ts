@@ -129,9 +129,13 @@ export class SupabaseStore implements IntakeStore {
     if (error) throw new Error(`saveState: ${error.message}`);
   }
 
-  async setStatus(id: string, status: ConversationRow['status']): Promise<void> {
-    const { error } = await this.db.from('conversations').update({ status }).eq('id', id);
-    if (error) throw new Error(`setStatus: ${error.message}`);
+  async submitConversation(id: string): Promise<string> {
+    // RPC SECURITY DEFINER : mission pending_review + conversation 'submitted', atomique.
+    const { data, error } = await this.db.rpc('create_mission_from_conversation', {
+      p_conversation_id: id,
+    });
+    if (error) throw new Error(`submitConversation: ${error.message}`);
+    return data as string;
   }
 
   async appendTurns(turns: NewTurn[]): Promise<void> {

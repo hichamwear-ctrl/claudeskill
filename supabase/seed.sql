@@ -6,17 +6,27 @@
 -- ============================================================================
 
 -- --- Catalogue de services (SPEC_FONCTIONNELLE_V1 §1.1) ----------------------
+-- Étapes d'exécution : désormais en données (category_workflow), plus en colonnes.
 insert into public.service_categories
-  (family, slug, label, icon, base_fee, prep_buffer_min,
-   requires_shopping, requires_preparation, legal_note, sort_order)
+  (family, slug, label, icon, base_fee, prep_buffer_min, legal_note, metadata, sort_order)
 values
-  ('shopping',     'groceries',      'Courses alimentaires',        'cart',     4.90, 20, true,  false, null,                                                              10),
-  ('shopping',     'pharmacy',       'Pharmacie (sans ordonnance)', 'pill',     5.90, 15, true,  false, 'Produits sans ordonnance uniquement.',                            20),
-  ('courier',      'parcel',         'Livraison de colis',          'package',  5.90,  5, false, false, null,                                                              30),
-  ('auto',         'car_assist',     'Dépannage auto simple',       'car',      9.90, 15, false, false, 'Interventions simples (batterie, pneu, carburant). Hors remorquage.', 40),
-  ('home_service', 'daily_help',     'Services du quotidien',       'home',     6.90, 10, false, false, null,                                                              50),
-  ('custom',       'custom_request', 'Demande libre',               'sparkles', 0.00,  0, false, false, 'Tarif fixé par devis.',                                           60)
+  ('shopping',     'groceries',      'Courses alimentaires',        'cart',     4.90, 20, null,                                                                  '{}'::jsonb,                    10),
+  ('shopping',     'pharmacy',       'Pharmacie (sans ordonnance)', 'pill',     5.90, 15, 'Produits sans ordonnance uniquement.',                                '{}'::jsonb,                    20),
+  ('courier',      'parcel',         'Livraison de colis',          'package',  5.90,  5, null,                                                                  '{}'::jsonb,                    30),
+  ('auto',         'car_assist',     'Dépannage auto simple',       'car',      9.90, 15, 'Interventions simples (batterie, pneu, carburant). Hors remorquage.', '{}'::jsonb,                    40),
+  ('home_service', 'daily_help',     'Services du quotidien',       'home',     6.90, 10, null,                                                                  '{}'::jsonb,                    50),
+  ('custom',       'custom_request', 'Demande libre',               'sparkles', 0.00,  0, 'Tarif fixé par devis.',                                               '{"quote_only": true}'::jsonb,  60)
 on conflict (slug) do nothing;
+
+-- Workflow d'exécution par catégorie (généralise requires_shopping/preparation).
+-- Courses & pharmacie passent par l'étape `shopping` (avec preuve = ticket).
+insert into public.category_workflow (category_id, status, sort_order, requires_proof)
+select sc.id, 'shopping', 10, true
+from public.service_categories sc
+where sc.slug in ('groceries', 'pharmacy')
+  and not exists (
+    select 1 from public.category_workflow w where w.category_id = sc.id and w.status = 'shopping'
+  );
 
 -- --- Zone de démonstration : Bruxelles (rectangle approximatif) --------------
 -- Une seule ville pour la V1 ; ajouter une ville = insérer une ligne (aucun code).

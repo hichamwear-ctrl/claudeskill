@@ -149,17 +149,19 @@ export async function finalize(
     );
   }
 
-  await deps.store.setStatus(conv.id, 'submitted');
+  // Clôture atomique : la mission `pending_review` naît ici (décision = opérateur, P1).
+  const missionId = await deps.store.submitConversation(conv.id);
   await deps.store.appendTurns([
     {
       conversationId: conv.id,
       role: 'system',
       content: 'submitted',
-      metadata: { event: 'submit' },
+      metadata: { event: 'submit', mission_id: missionId },
     },
   ]);
 
   const dossier = buildDossier(config, conv.state);
   dossier.conversationId = conv.id;
+  dossier.missionId = missionId;
   return dossier;
 }

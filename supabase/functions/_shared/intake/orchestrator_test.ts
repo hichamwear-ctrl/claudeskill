@@ -103,6 +103,7 @@ function makeConfig(): LoadedConfig {
 class InMemoryStore implements IntakeStore {
   conversations = new Map<string, ConversationRow>();
   turns: NewTurn[] = [];
+  missions: { id: string; conversationId: string }[] = [];
   private seq = 0;
   constructor(private readonly config: LoadedConfig) {}
   loadConfig(): Promise<LoadedConfig> {
@@ -130,10 +131,12 @@ class InMemoryStore implements IntakeStore {
     if (c) c.state = structuredClone(state);
     return Promise.resolve();
   }
-  setStatus(id: string, status: ConversationRow['status']): Promise<void> {
+  submitConversation(id: string): Promise<string> {
     const c = this.conversations.get(id);
-    if (c) c.status = status;
-    return Promise.resolve();
+    if (c) c.status = 'submitted';
+    const missionId = 'mission-' + id;
+    this.missions.push({ id: missionId, conversationId: id });
+    return Promise.resolve(missionId);
   }
   appendTurns(turns: NewTurn[]): Promise<void> {
     this.turns.push(...turns);
@@ -205,7 +208,9 @@ Deno.test('clôture incomplète → 422 ; complète → submitted + dossier ; re
   const dossier = await finalize(d, { clientId: CLIENT }, id);
   assertEq(dossier.classification, 'groceries', 'classification dans le dossier');
   assertEq(dossier.entries.length, 3, '3 réponses présentes');
+  assertEq(dossier.missionId, 'mission-' + id, 'mission créée à la clôture');
   assertEq(d.store.conversations.get(id)!.status, 'submitted', 'statut submitted');
+  assertEq(d.store.missions.length, 1, 'une mission matérialisée');
   assert(
     d.store.turns.some((t) => t.role === 'system' && t.content === 'submitted'),
     'tour système submit',

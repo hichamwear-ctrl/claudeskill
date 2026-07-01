@@ -131,6 +131,9 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 - **Erreurs :** `bad_request`.
 - **Effets :** aucun (sinon proposer `waitlist`).
 - **Règles :** `ST_Covers` (PostGIS) + `service_windows` ; BR‑011/012/022.
+- **🔧 V1 (M4) :** wrapper fin sur la RPC `zone_check(p_lng, p_lat, p_at)`
+  (SECURITY DEFINER, PostGIS). Fenêtres évaluées en **heure locale**
+  (`Europe/Brussels`, mono‑ville V1) ; `next_window` = prochaine ouverture.
 
 ### 4.3 `estimate-price` — prix & ETA
 - `POST /functions/v1/estimate-price` · **client**
@@ -138,6 +141,12 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 - **Sortie :** `{ price?, eta_min, breakdown, currency }` (pour `custom` : `price=null`)
 - **Effets :** aucun (snapshot posé à la soumission).
 - **Règles :** `pricing_rules` + `pricing_modifiers` (§3 SPEC) ; BR‑070/211.
+- **🔧 V1 (M4) :** wrapper fin sur la RPC `estimate_price(p_category_id,
+  p_dropoff_lng/lat, p_pickup_lng/lat?)`. Zone via `ST_Covers` → `pricing_rules`
+  (zone sinon défaut) ; `price = max(minimum_price, base_fare + km·price_per_km)
+  + category.base_fee` ; `eta = ceil(km/avg_speed·60) + prep_buffer_min`.
+  Catégorie **`metadata.quote_only`** → `price=null`. **`pricing_modifiers`
+  différé** (aucun supplément V1 — LEAN_V1 §1.2).
 
 ### 4.4 `submit-request` — soumission (created → pending_review)
 - `POST /functions/v1/submit-request` · **client (propriétaire)**
@@ -154,16 +163,21 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   `new_request_to_review`.
 - **Règles :** P1 (le client ne va pas au‑delà de `pending_review`) ; PRD‑F04/F05/F06 ;
   BR‑CE‑30→33 (découpage validé ensuite par l'opérateur).
-- **🔧 Implémentation V1 (M3) :**
+- **🔧 Implémentation V1 (M3→M4) :**
   - **Entrée :** `{ conversation_id }`. **Sortie :** le **dossier**
-    `{ conversation_id, classification, entries: [{ key, label, value, type }] }`.
+    `{ conversation_id, classification, entries: [{ key, label, value, type }],
+    mission_id }`.
   - **Effets V1 :** revalidation serveur (tout le requis satisfait, sinon `422
-    incomplete`) ; `conversations.status='submitted'` ; tour système `submitted`.
-    **Aucune création de mission ni notification opérateur** — la mise en
-    `pending_review` (création de la/les mission(s), `group_id`, notif opérateur)
-    relève de la **revue opérateur (M4)**. Garde‑fou P1 strictement respecté.
-  - **Erreurs V1 :** `conversation_not_found` (404, propriété), `conversation_closed`
-    (409, déjà soumise), `incomplete` (422).
+    incomplete`) ; **création atomique** (RPC `create_mission_from_conversation`,
+    SECURITY DEFINER) d'**une mission `pending_review`** (`details`=réponses,
+    `category_id` dérivée de la classification, `conversation_id` lié, audit
+    `mission_events`) ; `conversations.status='submitted'` ; tour système
+    `submitted`. **Aucun paiement, aucune décision** — la mission attend la revue
+    opérateur (P1). Multi‑services (`group_id`) **différé** (1 mission/conversation
+    en V1).
+  - **Notification opérateur** (`send-push`) : **différée** (module notifications).
+  - **Erreurs V1 :** `conversation_not_found` (404), `conversation_closed` (409),
+    `incomplete` (422).
 
 ### 4.4b `review-claim` — prise en charge d'une demande (OP/ADMIN)
 - `POST /functions/v1/review-claim` · **operator | admin**
@@ -194,6 +208,15 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   (`request_accepted|request_rejected|request_needs_info`) ; si `accept` →
   **débloque le paiement**.
 - **Règles :** P1 ; BR‑010→035 (critères) ; §2 BUSINESS_RULES.
+- **🔧 V1 (M4) — `review` unique (absorbe claim + décision, LEAN_V1) :**
+  `POST /functions/v1/review` · **operator | admin** ·
+  `{ mission_id, action: 'claim'|'release'|'accept'|'reject'|'need_info',
+  reason?, price?, eta_min? }`. Appelée **avec le JWT opérateur** : les RPC
+  `claim_review` / `transition_mission` (SECURITY DEFINER) appliquent
+  rôle + **claim actif** + allow‑list côté base. `accept` d'une catégorie
+  `quote_only` exige `price` ; `reject`/`need_info` exigent `reason`. Erreurs
+  mappées depuis le SQLSTATE (403 rôle/claim, 409 conflit/transition, 422 champ
+  requis).
 
 ### 4.6 `create-authorization` — paiement simulé (GATED)
 - `POST /functions/v1/create-authorization` · **client (propriétaire)**
@@ -256,6 +279,14 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   transitions de **revue** et de **paiement** passent par leurs Edge Functions
   dédiées (§4.5/§4.6) pour l'atomicité (prix, autorisation).
 - **Règles :** SPEC §2.7 ; P1 (allow‑list, rôles).
+- **🔧 V1 (M4) :** signature `transition_mission(p_mission_id, p_to, p_reason?,
+  p_price?, p_eta_min?, p_metadata?)` (SECURITY DEFINER, **unique écrivain du
+  statut**). La table **`mission_transitions` est différée** (LEAN_V1 §1.2) :
+  l'allow‑list `(from,to)→rôles` vit **en code** dans la fonction ; les **étapes
+  optionnelles** (`shopping`/`preparing`) sont gatées par **`category_workflow`**
+  (donnée). Écrit les colonnes dérivées (`reviewed_*`, `accepted_at`, `quoted_*`,
+  `completed_at`, `cancelled_*`) + `mission_events`. Revue : exige un **claim
+  actif** ; exécution : exige l'**opérateur affecté**.
 
 ---
 

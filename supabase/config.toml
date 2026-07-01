@@ -419,6 +419,16 @@ verify_jwt = true
 [functions.submit-request]
 verify_jwt = true
 
+# Missions (M4) — authentification requise ; autorisation fine côté RPC/RLS.
+[functions.review]
+verify_jwt = true
+
+[functions.estimate-price]
+verify_jwt = true
+
+[functions.zone-check]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

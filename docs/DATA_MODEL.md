@@ -119,9 +119,10 @@
 - **Colonnes :** `id`, `family mission_family`, `slug`, `label`, `icon?`,
   `is_active`, `fulfillment`, `legal_note?`, `base_fee`, `prep_buffer_min`,
   `sort_order`, `metadata jsonb`, timestamps.
-- **⚠️ Évolution :** les booléens `requires_shopping`/`requires_preparation`
-  (livrés en M1.1) sont **remplacés** par `category_workflow` (§3.2). À la reprise
-  du dev, une migration les retire (aucune dépendance encore).
+- **✅ Évolution effectuée (M4) :** les booléens `requires_shopping`/
+  `requires_preparation` (M1.1) ont été **retirés** (migration M4) et **remplacés**
+  par `category_workflow` (§3.2). `metadata.quote_only` marque les catégories « sur
+  devis » (`custom_request`) → `estimate_price` renvoie `price=null`.
 - **Relations :** 1‑N `missions`, `category_workflow`, `question_sets`.
 - **Index :** `family (where is_active)`, `sort_order`, `unique(slug)`.
 - **Contraintes :** `fulfillment in ('self','partner')`, `base_fee >= 0`.
@@ -130,7 +131,10 @@
 - **Écrans :** C‑07, C‑09, AD‑05.
 - **Règles :** §1 SPEC ; BR‑010, BR‑050→053, BR‑182 (`metadata.requires_proof`).
 
-### 3.2 `category_workflow` 🔜 *(nouveau — généralise les étapes)*
+### 3.2 `category_workflow` ✅ *(M4 — généralise les étapes)*
+> **V1 (M4) :** créée ; seedée (`groceries`/`pharmacy` → `shopping`, `requires_proof`).
+> `service_categories.requires_shopping/requires_preparation` **retirés** (migration
+> M4). `transition_mission` consulte cette table pour autoriser les étapes optionnelles.
 - **Rôle :** étapes **optionnelles** d'exécution activées par catégorie, ordonnées.
   Généralise `requires_shopping`/`requires_preparation` → ajouter une étape future
   (ex. `quality_check`) = insérer une ligne, **aucune colonne ni code**.
@@ -287,7 +291,11 @@
 - **Règles :** `NOTIFICATIONS.md` (catalogue), SPEC §6.
 - **💡 Généricité :** ajouter/retirer une notification = donnée, pas de `switch`.
 
-### 3.13 `mission_transitions` 🔜 *(machine à états en donnée)*
+### 3.13 `mission_transitions` 🔜 *(machine à états en donnée — DIFFÉRÉE)*
+> **V1 (M4) :** **non créée** (LEAN_V1 §1.2). L'allow‑list `(from,to)→rôles` vit
+> **en code** dans `transition_mission` (plus simple/sûr tant que le graphe ne
+> s'édite pas sans redéploiement). Externalisée en table le jour où l'on veut
+> éditer le graphe en données — sans refonte (la fonction lira la table).
 - **Rôle :** couples autorisés `(from, to, rôles)` lus par `transition_mission`.
   Les **effets** restent en code (typés/testés).
 - **Colonnes :** `id`, `from_status mission_status`, `to_status mission_status`,
@@ -350,7 +358,12 @@
 
 ## 4. Couche Cœur — Missions & cycle de vie
 
-### 4.1 `missions` 🔜
+### 4.1 `missions` ✅ *(M4)*
+> **V1 (M4) :** créée avec les colonnes larges d'absorption (`quoted_price`/
+> `quote_expires_at`/`quote_status`, `advance_*`, `tip_amount`, `details jsonb`).
+> `operator_id`/`review_claimed_by`/`reviewed_by` référencent **`profiles`**
+> (`operator_profiles` différée). **Statut jamais modifié en direct** (RLS) : via
+> `transition_mission`. Née en `pending_review` depuis la conversation validée.
 - **Rôle :** l'objet central ; machine à états (source de vérité).
 - **Colonnes clés :**
   - identité : `id`, `client_id`, `operator_id?`, `category_id?`, `family`,
@@ -404,7 +417,9 @@
 - **💡 Note :** conservée (liste structurée éditable) distincte de `details jsonb`
   (réponses libres) — les deux ont des usages différents.
 
-### 4.3 `mission_events` 🔜 *(audit du cycle de vie mission)*
+### 4.3 `mission_events` ✅ *(M4 — audit du cycle de vie mission)*
+> **V1 (M4) :** créée ; écrite uniquement par `transition_mission` /
+> `create_mission_from_conversation` (SECURITY DEFINER) ; lecture participants + admin.
 - **Rôle :** journal immuable des transitions.
 - **Colonnes :** `id`, `mission_id`, `from_status?`, `to_status`, `actor_id?`,
   `actor_role?`, `metadata jsonb` (motif, `review_reason`, `cancel_reason`…),

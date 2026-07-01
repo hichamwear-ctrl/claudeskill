@@ -91,6 +91,8 @@ export interface Dossier {
   conversationId: string;
   classification: string | null;
   entries: DossierEntry[];
+  /** Mission créée à la clôture (statut `pending_review`) — décision = opérateur (M4). */
+  missionId?: string;
 }
 
 /** Entrée d'un tour de dialogue (API converse). */
@@ -132,8 +134,12 @@ export interface IntakeStore {
   createConversation(clientId: string, locale: string): Promise<ConversationRow>;
   getConversation(id: string, clientId: string): Promise<ConversationRow | null>;
   saveState(id: string, state: ConversationState): Promise<void>;
-  setStatus(id: string, status: ConversationRow['status']): Promise<void>;
   appendTurns(turns: NewTurn[]): Promise<void>;
+  /**
+   * Clôture ATOMIQUE : matérialise la mission `pending_review` depuis la
+   * conversation et passe celle-ci à `submitted`. Retourne l'id de mission (M4).
+   */
+  submitConversation(id: string): Promise<string>;
 }
 
 /** Adaptateur de classification (IA remplaçable). V1 : mots-clés déterministe. */

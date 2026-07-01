@@ -30,10 +30,22 @@ functions/
 │       ├── orchestrator.ts # runTurn / finalize (dépend des interfaces → testable)
 │       ├── store.ts        # IntakeStore concret (supabase-js, service_role)
 │       └── *_test.ts        # tests hors-ligne (store en mémoire, fakes)
+├── rpc.ts           # (dans _shared) mappe les erreurs SQLSTATE des RPC → HttpError
 ├── health/          # sonde runtime (publique)
 ├── converse/        # un tour du dialogue d'intake (auth)
-└── submit-request/  # clôture de l'intake → conversation 'submitted' (auth)
+├── submit-request/  # clôture de l'intake → mission pending_review (auth, M4)
+├── review/          # revue opérateur : claim + décision (operator/admin, M4)
+├── estimate-price/  # prix + ETA (auth, M4)
+└── zone-check/      # couverture + horaires (auth, M4)
 ```
+
+> **Missions (M4) :** la logique sensible (machine à états, claim, prix, zone) vit
+> dans des **RPC SQL SECURITY DEFINER** (`transition_mission`, `claim_review`,
+> `create_mission_from_conversation`, `estimate_price`, `zone_check`) — testées
+> directement contre PostgreSQL. Les Edge Functions `review`/`estimate-price`/
+> `zone-check` sont de **fins wrappers** (auth + validation d'entrée + appel RPC +
+> mapping d'erreurs). L'allow‑list de la machine à états est **en code** (table
+> `mission_transitions` différée, LEAN_V1 §1.2).
 
 > **Testabilité :** la logique vit derrière l'interface `IntakeStore` ; elle est
 > testée hors‑ligne avec un store en mémoire. Le `SupabaseStore` (glue PostgREST)
