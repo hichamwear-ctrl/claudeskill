@@ -3,6 +3,10 @@
 Backend de l'application de services & livraisons à la demande, conforme au
 document d'architecture technique v1.0.
 
+> Sources de vérité : [`../docs/Architecture_Technique.md`](../docs/Architecture_Technique.md)
+> (technique) et [`../docs/SPEC_FONCTIONNELLE_V1.md`](../docs/SPEC_FONCTIONNELLE_V1.md)
+> (règles métier V1).
+
 > **Principe directeur :** la base de données est la source de vérité. Le schéma
 > est versionné en migrations SQL (jamais de modification manuelle en prod, §18).
 
