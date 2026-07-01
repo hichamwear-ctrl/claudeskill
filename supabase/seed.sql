@@ -17,3 +17,20 @@ values
   ('home_service', 'daily_help',     'Services du quotidien',       'home',     6.90, 10, false, false, null,                                                              50),
   ('custom',       'custom_request', 'Demande libre',               'sparkles', 0.00,  0, false, false, 'Tarif fixé par devis.',                                           60)
 on conflict (slug) do nothing;
+
+-- --- Zone de démonstration : Bruxelles (rectangle approximatif) --------------
+-- Une seule ville pour la V1 ; ajouter une ville = insérer une ligne (aucun code).
+insert into public.coverage_zones (slug, name, area)
+values (
+  'brussels', 'Bruxelles',
+  ST_MakeEnvelope(4.28, 50.78, 4.48, 50.91, 4326)::geography  -- bbox approx.
+)
+on conflict (slug) do nothing;
+
+-- Horaires : 7j/7, 08:00–22:00 (idempotent : seedé seulement si la zone n'en a pas).
+insert into public.service_windows (zone_id, weekday, opens_at, closes_at)
+select z.id, wd, time '08:00', time '22:00'
+from public.coverage_zones z
+cross join generate_series(0, 6) as wd
+where z.slug = 'brussels'
+  and not exists (select 1 from public.service_windows sw where sw.zone_id = z.id);
