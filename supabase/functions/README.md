@@ -36,8 +36,17 @@ functions/
 ├── submit-request/  # clôture de l'intake → mission pending_review (auth, M4)
 ├── review/          # revue opérateur : claim + décision (operator/admin, M4)
 ├── estimate-price/  # prix + ETA (auth, M4)
-└── zone-check/      # couverture + horaires (auth, M4)
+├── zone-check/      # couverture + horaires (auth, M4)
+└── payments/        # adaptateur PSP : authorize/capture/void/refund (auth, M5)
 ```
+
+> **Paiement (M5) :** l'interface métier `PaymentProvider` (mock→Stripe) vit dans
+> `_shared/payments/` — le domaine ne dépend d'AUCUN PSP. Le paiement suit
+> **intent → PSP → settle** : `payment_intent` (gate P1 en base), l'appel provider,
+> puis `payment_settle` (service_role) qui enregistre + affecte la mission. Tous
+> les invariants (jamais d'autorisation hors `accepted`, capture ≤ autorisé,
+> preuve) sont **en SQL** ; l'Edge `payments` est un simple adaptateur. Provider
+> choisi par `PAYMENT_PROVIDER=mock|stripe`.
 
 > **Missions (M4) :** la logique sensible (machine à états, claim, prix, zone) vit
 > dans des **RPC SQL SECURITY DEFINER** (`transition_mission`, `claim_review`,

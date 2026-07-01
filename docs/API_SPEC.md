@@ -228,6 +228,16 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   `assign-mission` (accepted → assigned).
 - **Règles :** **garde‑fou fondamental** — aucun paiement avant acceptation
   (P1, BR‑210/211) ; interface remplaçable par Stripe sans changer ce contrat.
+- **🔧 V1 (M5) — Edge unique `payments`** (`action: authorize|capture|void|refund`,
+  absorbe §4.6/§4.7/§4.8). Orchestration **intent → PSP → settle** :
+  1. `payment_intent` (JWT appelant) applique le **gate P1 en base** (statut
+     `accepted`, propriété client, prix validé, idempotence 1/mission) et calcule
+     `amount = prix × (1+marge%) + advance_estimate` ;
+  2. `PaymentProvider` (mock ; `PAYMENT_PROVIDER=mock|stripe`) ;
+  3. `payment_settle` (service_role) enregistre + **affecte la mission**
+     (`accepted→assigned`, `assign_mission`). Erreurs mappées SQLSTATE
+     (`payment_locked`/`price_expired`→409, propriété→403, prix manquant→422,
+     déjà initié→409). **Aucun garde‑fou dans l'Edge** (tout en SQL).
 
 ### 4.7 `capture-payment` — clôture
 - `POST /functions/v1/capture-payment` · **operator (assigné) | admin**
@@ -239,6 +249,11 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   `transition_mission(in_progress→completed)` ; notif `mission_completed` +
   `receipt_available`.
 - **Règles :** BR‑140→145, BR‑190→192 ; capture ≤ autorisation.
+- **🔧 V1 (M5) :** via `payments` (`action:'capture'`). `payment_settle`
+  **revérifie en base** `amount_captured ≤ amount_authorized` (BR‑212) et la
+  **preuve** (`proof_path`, BR‑190) ; `partially_captured` si < autorisé, sinon
+  `succeeded` ; pose `missions.final_amount`/`advance_actual` et transite
+  `in_progress→completed` (atomique). Notification différée (module notifications).
 
 ### 4.8 `refund` — remboursement / annulation (sim)
 - `POST /functions/v1/refund` · **operator (limité) | admin**
@@ -261,6 +276,9 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 - **Effets :** `operator_id` posé ; `transition_mission(accepted→assigned)` ;
   notif `mission_new` (intervenant). En multi‑op (V2) : dispatch « plus proche ».
 - **Règles :** BR‑040→045 ; PRD‑F12.
+- **🔧 V1 (M5) :** **pas une Edge Function ni un trigger** — RPC `assign_mission`
+  **appelée dans `payment_settle`** (atomique avec l'autorisation). `operator_id =
+  reviewed_by` (mono‑opérateur V1) ; dispatch « plus proche » → V2.
 
 ---
 

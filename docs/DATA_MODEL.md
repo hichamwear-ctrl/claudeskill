@@ -507,7 +507,13 @@
   `exp_month?`, `exp_year?`, `is_default`, timestamps.
 - **RLS :** propriétaire. **Écrans :** C‑17, C‑29. **Règles :** §5 SPEC.
 
-### 5.2 `payments` 🔜
+### 5.2 `payments` ✅ *(M5)*
+> **V1 (M5) :** créée (1/mission, `unique(mission_id)`). Écrite **uniquement** par
+> les RPC `payment_intent`/`payment_settle` (SECURITY DEFINER) — aucune écriture
+> directe. Statuts miroir Stripe : `pending → requires_capture →
+> succeeded|partially_captured → refunded` ; `canceled` (void) ; `failed`. Le
+> domaine ignore tout PSP (`provider_pi_ref` opaque) ; `PaymentProvider`
+> (mock→Stripe) vit dans `_shared/payments/`. RLS : client lit le sien, admin total.
 - **Rôle :** 1 paiement par mission ; miroir fidèle du cycle Stripe (simulé).
 - **Colonnes :** `id`, `mission_id`, `client_id`, `provider ('mock'|'stripe')`,
   `provider_pi_ref?`, `provider_customer_ref?`, `amount_authorized?`,

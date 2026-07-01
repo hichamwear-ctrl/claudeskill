@@ -85,10 +85,10 @@
 | `estimate-price` ✅ | prix + ETA (RPC `estimate_price`, PostGIS + `pricing_rules`) | — |
 | `submit-request` ✅ | **V1 :** revalidation serveur + **création atomique d'1 mission `pending_review`** (RPC `create_mission_from_conversation`) + conversation `submitted`. Garde‑fou P1 (aucun paiement/décision). Multi‑services `group_id` différé | 1 mission/conversation en V1 |
 | `review` ✅ | **claim + décision** (`claim_review` / `transition_mission`) | absorbe `review-claim` + `review-request` |
-| `payments` | **authorize / capture / refund / void** (mock, gaté `accepted`) | absorbe `create-authorization`/`capture-payment`/`refund` |
+| `payments` ✅ | **authorize / capture / refund / void** (mock, gaté `accepted`) via `payment_intent`/`payment_settle` | absorbe `create-authorization`/`capture-payment`/`refund` |
 | `send-push` | notifications (templates data‑driven) | — |
 | `transition_mission` *(RPC DB)* ✅ | machine à états (allow‑list **en code** V1 ; `mission_transitions` différée) + `claim_review` + `create_mission_from_conversation` | — |
-| `assign-mission` *(trigger DB)* | affectation auto après autorisation | pas une Edge Function en V1 |
+| `assign_mission` *(RPC DB)* ✅ | affectation auto après autorisation | **fondue dans `payment_settle`** (ni Edge ni trigger) |
 
 ### 2.2 Différées
 
@@ -129,7 +129,7 @@
 | **M2** ✅ | conversation & questions + **moteur pur** | `conversations`, `conversation_turns`, `question_*` ; `_shared/engine/` (compute déterministe) |
 | **M3** ✅ | **moteur conversationnel opérationnel** | `converse`, `submit-request`, `_shared/intake/` (orchestration + store + classifieur mots‑clés), seed `classification.keywords` |
 | **M4** ✅ | **missions & revue opérateur** | `missions` (+ colonnes absorbées), `mission_events`, `category_workflow` ; RPC `transition_mission`/`claim_review`/`create_mission_from_conversation`/`estimate_price`/`zone_check` ; Edge `review`/`estimate-price`/`zone-check` ; `submit-request` crée la mission |
-| **M5** | paiement simulé | `payments` (fonction), colonnes paiement, `assign-mission` (trigger) |
+| **M5** ✅ | **paiement simulé (Stripe‑ready)** | table `payments` ; RPC `payment_intent`/`payment_settle`/`assign_mission` ; Edge `payments` ; `_shared/payments/` (interface `PaymentProvider` + `MockPaymentProvider`) |
 | **M6** | chat d'exécution | `messages` (+ autorisation Broadcast typing) |
 | **M7+** | temps réel (GPS), notifications, admin… | `operator_locations`, `mission_tracks`, `send-push`, panneau admin |
 | **M9** | notifications | `notifications`, `notification_templates/triggers`, `send-push` |

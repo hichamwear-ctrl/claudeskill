@@ -429,6 +429,10 @@ verify_jwt = true
 [functions.zone-check]
 verify_jwt = true
 
+# Paiement (M5) — authentification requise ; gate P1 + invariants côté RPC.
+[functions.payments]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327
