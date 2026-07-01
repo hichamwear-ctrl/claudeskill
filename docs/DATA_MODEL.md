@@ -433,14 +433,20 @@
 #### `conversations`
 - **Rôle :** session de dialogue de constitution d'une demande ; **porte l'état**
   (reprise + contexte).
-- **Colonnes :** `id`, `client_id`, `status conversation_status`, `state jsonb`
-  (slots remplis, position, intentions retenues), `plan jsonb` (mission(s)
-  proposée(s), ordre/dépendances), `detected_intents jsonb`, `locale`,
-  `metadata jsonb`, `created_at`, `updated_at`, `expires_at`.
+- **Colonnes (V1) :** `id`, `client_id`, `status conversation_status`, `locale`,
+  **`state jsonb`** = **mémoire de travail unique**
+  (`{answers, active_sets, position, classification, plan}`), `metadata jsonb`,
+  `created_at`, `updated_at`, `expires_at`.
+  - **Simplification V1 (P10) :** `plan` et `classification`/`detected_intents`
+    vivent **dans `state`** (sous‑clés) ; s'ils doivent être requêtés/indexés, on
+    les **promeut en colonnes** par migration **additive**. Évite 2 colonnes jsonb
+    spéculatives.
 - **Relations :** N‑1 `profiles` ; 1‑N `conversation_turns` ; 1‑N `missions`
   (une conversation → 1..N missions via `conversation_id`/`group_id`).
-- **Index :** `(client_id)`, `(status)`, `(expires_at)`.
-- **RLS :** propriétaire (client) ; opérateur/admin **lecture** pour la revue.
+- **Index :** `(client_id, created_at)`, `(status) where active`, `(expires_at) where active`.
+- **RLS :** propriétaire (client) en **lecture** ; **écriture serveur** (`converse`
+  en `service_role`) ; admin lecture ; **accès opérateur (revue) ajouté en M3**
+  (policy additive) via `missions.conversation_id`.
 - **Edge Functions :** `classify-request`, `converse`, `submit-request`.
 - **Écrans :** C‑07→C‑13 (dialogue), C‑15 (reprise sur `needs_information`),
   OP‑05 (transcript en revue).
