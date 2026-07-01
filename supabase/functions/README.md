@@ -37,8 +37,16 @@ functions/
 ├── review/          # revue opérateur : claim + décision (operator/admin, M4)
 ├── estimate-price/  # prix + ETA (auth, M4)
 ├── zone-check/      # couverture + horaires (auth, M4)
-└── payments/        # adaptateur PSP : authorize/capture/void/refund (auth, M5)
+├── payments/        # adaptateur PSP : authorize/capture/void/refund (auth, M5)
+└── send-push/       # transport des notifications (interne/webhook, M8)
 ```
+
+> **Notifications (M8) :** `send-push` est un **transport pur** (mock Expo → FCM/
+> APNS/email/SMS via `NOTIFY_TRANSPORT`). Toute la résolution data-driven
+> (triggers → templates → `content_strings` → `notifications`, idempotence,
+> silence nocturne, `min_interval`) est faite par la RPC `dispatch_notifications`
+> — l'Edge ne contient **aucune logique métier**. Interface transport dans
+> `_shared/notifications/`.
 
 > **GPS (M7) :** **aucune Edge Function** non plus. Live = Broadcast ; émission de
 > la dernière position = RPC `update_location` (refusée hors mission active) ;

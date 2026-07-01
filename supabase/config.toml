@@ -433,6 +433,11 @@ verify_jwt = true
 [functions.payments]
 verify_jwt = true
 
+# Notifications (M8) — interne (Database Webhook, service_role). Pas de JWT
+# utilisateur ; secret partagé optionnel (NOTIFY_WEBHOOK_SECRET).
+[functions.send-push]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

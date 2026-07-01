@@ -77,7 +77,11 @@
 - **💡 Généricité :** `documents jsonb` évite une table `operator_documents`
   tant que le volume/queries restent simples.
 
-### 2.3 `device_tokens` 🔜
+### 2.3 `device_tokens` ✅ *(M8)*
+> **V1 (M8) :** créée. Colonnes `id, user_id, platform ('ios'|'android'|'web'),
+> token, active, last_seen, created_at` ; `unique(user_id, token)`. RLS
+> propriétaire (l'app enregistre/retire ses jetons). `token` générique
+> (Expo/FCM/APNS/web) — transport-agnostique.
 - **Rôle :** jetons push par appareil (multi‑appareils).
 - **Colonnes :** `id`, `user_id`, `expo_token`, `platform`, `last_seen`.
 - **Relations :** N‑1 `profiles`.
@@ -271,7 +275,12 @@
   `is_active`.
 - **Relations :** N‑1 `questions`. **RLS :** lecture authentifiée ; écriture admin.
 
-### 3.12 Moteur de notifications 🔜
+### 3.12 Moteur de notifications ✅ *(M8)*
+> **V1 (M8) :** `notification_templates` et `notification_triggers` créées et
+> **seedées** (catalogue). Résolution `événement → triggers → templates →
+> content_strings → notifications` par la RPC `dispatch_notifications` (idempotente,
+> silence nocturne + `min_interval` via `app_config.notifications.*`). Aucun texte
+> en dur (uniquement des clés). Écriture admin ; lecture serveur/admin.
 #### `notification_templates`
 - **Rôle :** modèle éditable d'une notification (par type & audience).
 - **Colonnes :** `key`, `audience ('client'|'operator'|'admin')`,
@@ -592,7 +601,13 @@
 - **Edge Functions / RT :** Postgres Changes ; modération (`CHAT.md`).
 - **Écrans :** C‑15, C‑20, OP‑10. **Règles :** BR‑222 (modération).
 
-### 7.2 `notifications` 🔜
+### 7.2 `notifications` ✅ *(M8)*
+> **V1 (M8) :** créée. Colonnes : `id`, `user_id`, `template` (= `templates.key`),
+> `channel`, `title`, `body?`, `deep_link?`, `payload jsonb`, `mission_id?`,
+> **`dedup_key` (unique = idempotence)**, `pushed`, `read_at?`, `created_at`.
+> Écrite **uniquement** par `dispatch_notifications` ; `read_at` via RPC
+> `mark_notification_read`/`mark_all_notifications_read`. `notification_preferences`
+> **différée** (surcharge par utilisateur — optionnelle).
 - **Rôle :** notifications in‑app (miroir des push).
 - **Colonnes :** `id`, `user_id`, `type` (= `notification_templates.key`),
   `title`, `body?`, `mission_id?`, `read_at?`, `metadata jsonb`, `created_at`.

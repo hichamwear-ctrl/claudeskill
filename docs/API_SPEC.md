@@ -270,6 +270,16 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   `content_strings` (locale) ; écrit `notifications` ; envoie Expo Push
   (`device_tokens`) ; **idempotence** par clé d'événement.
 - **Règles :** `NOTIFICATIONS.md`, SPEC §6. **Data‑driven** (aucun texte en dur).
+- **🔧 V1 (M8) :** Edge **= transport pur** (aucune logique métier). Entrée
+  `{ event_key, context }`. Toute la résolution (triggers → templates →
+  content_strings → écriture `notifications`) est faite par la RPC
+  `dispatch_notifications` : **idempotence** par `notifications.dedup_key` UNIQUE ;
+  **silence nocturne** + **min_interval** via `app_config.notifications.*`
+  (bypass par `template.metadata.bypass_quiet_hours`) ; destinataires résolus par
+  audience (client/operator/admin ou `context.user_id`), l'émetteur (`sender_id`)
+  n'est jamais auto‑notifié. La RPC renvoie la liste à pousser (jetons
+  `device_tokens`) que l'Edge envoie via un **transport** enfichable
+  (`NOTIFY_TRANSPORT=mock|expo|fcm|…`). Verrou d'appel : `NOTIFY_WEBHOOK_SECRET`.
 
 ### 4.10 `assign-mission` — affectation (interne/auto)
 - Déclenchée après autorisation (V1 **auto**, mono‑intervenant).

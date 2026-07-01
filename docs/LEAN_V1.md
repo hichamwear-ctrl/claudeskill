@@ -88,7 +88,7 @@
 | `submit-request` ✅ | **V1 :** revalidation serveur + **création atomique d'1 mission `pending_review`** (RPC `create_mission_from_conversation`) + conversation `submitted`. Garde‑fou P1 (aucun paiement/décision). Multi‑services `group_id` différé | 1 mission/conversation en V1 |
 | `review` ✅ | **claim + décision** (`claim_review` / `transition_mission`) | absorbe `review-claim` + `review-request` |
 | `payments` ✅ | **authorize / capture / refund / void** (mock, gaté `accepted`) via `payment_intent`/`payment_settle` | absorbe `create-authorization`/`capture-payment`/`refund` |
-| `send-push` | notifications (templates data‑driven) | — |
+| `send-push` ✅ | **transport pur** ; résolution data-driven via RPC `dispatch_notifications` (idempotence `dedup_key`) | — |
 | `transition_mission` *(RPC DB)* ✅ | machine à états (allow‑list **en code** V1 ; `mission_transitions` différée) + `claim_review` + `create_mission_from_conversation` | — |
 | `assign_mission` *(RPC DB)* ✅ | affectation auto après autorisation | **fondue dans `payment_settle`** (ni Edge ni trigger) |
 
@@ -134,7 +134,8 @@
 | **M5** ✅ | **paiement simulé (Stripe‑ready)** | table `payments` ; RPC `payment_intent`/`payment_settle`/`assign_mission` ; Edge `payments` ; `_shared/payments/` (interface `PaymentProvider` + `MockPaymentProvider`) |
 | **M6** ✅ | **chat d'exécution** | table `messages` (append-only, modération, RLS participants) ; RPC `mark_messages_read` ; **autorisation Realtime** (`can_access_topic`, `is_mission_participant`, `owns_conversation`, policies `realtime.messages`) ; **0 Edge Function** |
 | **M7** ✅ | **temps réel (GPS)** | table `operator_locations` ; RPC `update_location`/`get_operator_location` ; purge auto (trigger) ; `can_publish_topic` (durcissement Realtime) ; clés `gps.*` ; **0 Edge Function** ; `mission_tracks` différée |
-| **M8+** | notifications, admin, config versioning… | `notifications`, `notification_templates/triggers`, `send-push`, panneau admin |
+| **M8** ✅ | **notifications** | `notifications`, `notification_templates`, `notification_triggers`, `device_tokens` ; RPC `dispatch_notifications`/`render_template`/`mark_*_read` ; Edge `send-push` (transport enfichable) ; catalogue seedé |
+| **M9+** | admin, config versioning, litiges… | panneau admin, `config_*`, `disputes` |
 | **M9** | notifications | `notifications`, `notification_templates/triggers`, `send-push` |
 | **M10** | storage métier | policy participant `mission-proofs` |
 | **M11** | avis | `ratings` |

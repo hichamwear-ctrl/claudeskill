@@ -84,6 +84,9 @@ insert into public.app_config (key, value, scope, description) values
   ('gps.arrival_radius_m',            '80'::jsonb,                          'public', 'Seuil de détection d''arrivée (m)'),
   ('gps.stale_after_sec',             '30'::jsonb,                          'public', 'Position considérée périmée (repli UI, s)'),
   ('gps.retention_days',              '30'::jsonb,                          'server', 'Rétention (purge) de la dernière position (j)'),
+  ('notifications.quiet_hours',       '{"from":"22:00","to":"07:00"}'::jsonb,'server','Silence nocturne (heure locale)'),
+  ('notifications.min_interval_sec',  '60'::jsonb,                          'server', 'Intervalle mini entre 2 push d''un même type (anti-spam)'),
+  ('notifications.retention_days',    '90'::jsonb,                          'server', 'Rétention des notifications (purge)'),
   ('classification.keywords',
    '{"groceries":["course","courses","supermarché","supermarche","lait","pain","aliment","épicerie","epicerie"],"pharmacy":["pharmacie","médicament","medicament","paracétamol","doliprane","sans ordonnance"],"parcel":["colis","paquet","livrer","livraison","déposer","deposer"],"car_assist":["voiture","pneu","batterie","carburant","panne","dépannage","depannage"],"daily_help":["aide","ménage","menage","bricolage","jardin","quotidien"]}'::jsonb,
    'server', 'Mots-clés de classification par catégorie (moteur V1, éditable — P0)')
@@ -160,3 +163,54 @@ cross join (values
 ) as o(value, label_key, ord)
 where qq.key = 'store'
   and not exists (select 1 from public.question_options x where x.question_id = qq.id and x.value = o.value);
+
+-- --- Notifications (M8) : catalogue data-driven ---------------------------------
+-- Textes (content_strings) — AUCUN texte en dur ailleurs. (request_accepted déjà seedé.)
+insert into public.content_strings (key, locale, value) values
+  ('notif.request_rejected.title',      'fr', 'Demande refusée'),
+  ('notif.request_rejected.body',       'fr', 'Votre demande n''a pas pu être acceptée. {reason}'),
+  ('notif.request_needs_info.title',    'fr', 'Informations demandées'),
+  ('notif.request_needs_info.body',     'fr', 'Nous avons besoin de précisions pour votre demande.'),
+  ('notif.mission_completed.title',     'fr', 'Mission terminée'),
+  ('notif.mission_completed.body',      'fr', 'Votre mission est terminée. Votre reçu est disponible.'),
+  ('notif.mission_cancelled.title',     'fr', 'Mission annulée'),
+  ('notif.mission_cancelled.body',      'fr', 'Votre mission a été annulée.'),
+  ('notif.refund_simulated.title',      'fr', 'Remboursement'),
+  ('notif.refund_simulated.body',       'fr', 'Un remboursement a été effectué pour votre mission.'),
+  ('notif.chat_message.title',          'fr', 'Nouveau message'),
+  ('notif.chat_message.body',           'fr', 'Vous avez reçu un nouveau message.'),
+  ('notif.new_request_to_review.title', 'fr', 'Nouvelle demande'),
+  ('notif.new_request_to_review.body',  'fr', 'Une nouvelle demande attend votre revue.'),
+  ('notif.mission_new.title',           'fr', 'Nouvelle mission'),
+  ('notif.mission_new.body',            'fr', 'Une mission vous a été affectée.')
+on conflict (key, locale) do nothing;
+
+-- Templates (par type & audience) — que des clés, aucun texte.
+insert into public.notification_templates
+  (key, audience, channel, title_key, body_key, deep_link_template, metadata)
+values
+  ('request_accepted',      'client',   'both', 'notif.request_accepted.title',      'notif.request_accepted.body',      'app://payment/{mission_id}',           '{"bypass_quiet_hours":true}'::jsonb),
+  ('request_rejected',      'client',   'both', 'notif.request_rejected.title',      'notif.request_rejected.body',      'app://mission/{mission_id}',           '{}'::jsonb),
+  ('request_needs_info',    'client',   'both', 'notif.request_needs_info.title',    'notif.request_needs_info.body',    'app://conversation/{conversation_id}', '{"bypass_quiet_hours":true}'::jsonb),
+  ('mission_completed',     'client',   'both', 'notif.mission_completed.title',     'notif.mission_completed.body',     'app://mission/{mission_id}',           '{"bypass_quiet_hours":true}'::jsonb),
+  ('mission_cancelled',     'client',   'both', 'notif.mission_cancelled.title',     'notif.mission_cancelled.body',     'app://mission/{mission_id}',           '{"bypass_quiet_hours":true}'::jsonb),
+  ('refund_simulated',      'client',   'both', 'notif.refund_simulated.title',      'notif.refund_simulated.body',      'app://payment/{mission_id}',           '{}'::jsonb),
+  ('chat_message',          'client',   'push', 'notif.chat_message.title',          'notif.chat_message.body',          'app://chat/{mission_id}',              '{"bypass_quiet_hours":true,"group_key":"{mission_id}"}'::jsonb),
+  ('chat_message',          'operator', 'push', 'notif.chat_message.title',          'notif.chat_message.body',          'app://chat/{mission_id}',              '{"bypass_quiet_hours":true}'::jsonb),
+  ('new_request_to_review', 'operator', 'both', 'notif.new_request_to_review.title', 'notif.new_request_to_review.body', 'app://review/{mission_id}',            '{}'::jsonb),
+  ('mission_new',           'operator', 'push', 'notif.mission_new.title',           'notif.mission_new.body',           'app://mission/{mission_id}',           '{}'::jsonb)
+on conflict (key, audience) do nothing;
+
+-- Déclencheurs (événement → template). Ajouter une notif = insérer une ligne.
+insert into public.notification_triggers (event_key, template_key, audience) values
+  ('mission.status.accepted',          'request_accepted',      'client'),
+  ('mission.status.rejected',          'request_rejected',      'client'),
+  ('mission.status.needs_information', 'request_needs_info',    'client'),
+  ('mission.status.completed',         'mission_completed',     'client'),
+  ('mission.status.cancelled',         'mission_cancelled',     'client'),
+  ('mission.event.refund',             'refund_simulated',      'client'),
+  ('chat.message',                     'chat_message',          'client'),
+  ('chat.message',                     'chat_message',          'operator'),
+  ('mission.status.pending_review',    'new_request_to_review', 'operator'),
+  ('mission.status.assigned',          'mission_new',           'operator')
+on conflict (event_key, template_key, audience) do nothing;

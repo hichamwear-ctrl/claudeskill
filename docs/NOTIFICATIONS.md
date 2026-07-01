@@ -182,6 +182,25 @@ active** (`metadata.bypass_quiet_hours`).
 - **Versionnement :** `notification_templates`/`_triggers` sont des **modules de
   configuration** (registre `config_modules`).
 
+## 13bis. Implémentation V1 (M8)
+
+> **🔧 4 tables** (`notification_templates`, `notification_triggers`,
+> `notifications`, `device_tokens`) — `notification_preferences` **différée**
+> (optionnelle). **1 Edge Function** `send-push` = **transport pur** (mock Expo →
+> Expo/FCM/APNS/email/SMS via `NOTIFY_TRANSPORT`).
+>
+> Toute la résolution data-driven vit dans la RPC **`dispatch_notifications`**
+> (`event_key`, `context`) : triggers → templates → `content_strings` (locale) →
+> rendu (`{variables}`) → écriture idempotente de `notifications`, puis renvoi de
+> la liste à pousser (jetons `device_tokens`). **Idempotence** = `notifications.
+> dedup_key` UNIQUE = `source_ref:template:audience:user`. **Silence nocturne** &
+> **`min_interval`** appliqués en base (`app_config.notifications.*`), **bypass**
+> par `template.metadata.bypass_quiet_hours`. Absences (trigger/template/
+> `content_strings`) → **skip gracieux** (aucun crash). L'émetteur n'est jamais
+> auto-notifié. Deep-links : `mission`/`chat`/`conversation`/`payment`/`review`.
+> Les **Database Webhooks** (branchés ultérieurement) appellent `send-push` sur
+> `mission_events`/`messages`/`payments`/review — sources déjà en place (M4–M7).
+
 ## 14. Cohérence & références
 
 - Types alignés avec `SPEC_FONCTIONNELLE_V1.md` §6 ; déclencheurs sur transitions
