@@ -19,6 +19,10 @@ export const routes = {
   clientNotifications: '/notifications',
   clientProfile: '/profile',
 
+  // Intake (création de demande)
+  requestConversation: (id: string) => `/request/${id}`,
+  requestSummary: (id: string) => `/request/${id}/summary`,
+
   // Opérateur
   operatorCockpit: '/cockpit',
   operatorReview: '/review',

@@ -1,7 +1,8 @@
 import { Redirect, Tabs } from 'expo-router';
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 import { guardClientGroup } from '@/features/auth';
+import { ConfigBootstrap } from '@/features/config';
 import { useRole, useSessionStatus } from '@/hooks/useSession';
 import { Loader, Screen, useTheme } from '@/ui';
 
@@ -22,17 +23,20 @@ export default function ClientLayout(): ReactNode {
   if (redirect) return <Redirect href={redirect} />;
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: true,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-      }}
-    >
-      <Tabs.Screen name="home" options={{ title: 'Accueil' }} />
-      <Tabs.Screen name="missions" options={{ title: 'Missions' }} />
-      <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profil' }} />
-    </Tabs>
+    <Fragment>
+      <ConfigBootstrap />
+      <Tabs
+        screenOptions={{
+          headerShown: true,
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.textMuted,
+        }}
+      >
+        <Tabs.Screen name="home" options={{ title: 'Accueil' }} />
+        <Tabs.Screen name="missions" options={{ title: 'Missions' }} />
+        <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
+        <Tabs.Screen name="profile" options={{ title: 'Profil' }} />
+      </Tabs>
+    </Fragment>
   );
 }
