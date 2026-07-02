@@ -23,6 +23,11 @@ export const routes = {
   requestConversation: (id: string) => `/request/${id}`,
   requestSummary: (id: string) => `/request/${id}/summary`,
 
+  // Mission (suivi / exécution)
+  missionDetail: (id: string) => `/mission/${id}`,
+  missionChat: (id: string) => `/mission/${id}/chat`,
+  missionMap: (id: string) => `/mission/${id}/map`,
+
   // Opérateur
   operatorCockpit: '/cockpit',
   operatorReview: '/review',

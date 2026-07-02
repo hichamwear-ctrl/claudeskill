@@ -371,6 +371,14 @@ export type Database = {
         Args: { p_mission_id: string };
         Returns: number;
       };
+      mark_notification_read: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
+      mark_all_notifications_read: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
       update_location: {
         Args: {
           p_lat: number;
