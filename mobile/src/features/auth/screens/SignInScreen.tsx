@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { routes } from '@/constants/routes';
 import { toUxError } from '@/lib/errorCatalog';
+import { supabase } from '@/services/supabase/client';
 import { useUiStore } from '@/stores/uiStore';
 import { Button, Card, Input, Screen, Text, useTheme } from '@/ui';
 
@@ -17,7 +18,7 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-/** C-03 — Connexion. V1 démo : OTP e-mail (Apple/Téléphone = à venir). */
+/** C-03 — Connexion. Démo : OTP e-mail + entrée « mode démo » (anonyme, sans e-mail). */
 export function SignInScreen(): ReactNode {
   const theme = useTheme();
   const router = useRouter();
@@ -37,6 +38,12 @@ export function SignInScreen(): ReactNode {
       showToast('error', toUxError(error).message);
     }
   });
+
+  const onDemo = async () => {
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) showToast('error', `Mode démo indisponible : ${error.message}`);
+    // Succès : la garde redirige automatiquement vers l'accueil client.
+  };
 
   return (
     <Screen>
@@ -67,9 +74,9 @@ export function SignInScreen(): ReactNode {
           <Button label="Recevoir le code" onPress={onSubmit} loading={requestOtp.isPending} />
         </Card>
 
-        <Button label="Continuer avec Apple (à venir)" variant="secondary" disabled />
+        <Button label="Entrer en mode démo (sans e-mail)" variant="secondary" onPress={onDemo} />
         <Text variant="caption" color="textMuted" style={{ textAlign: 'center' }}>
-          En démo, la connexion se fait par code e-mail (comptes de démo : voir la mise en service).
+          Le mode démo vous connecte en tant que client pour tester l’application.
         </Text>
       </View>
     </Screen>
