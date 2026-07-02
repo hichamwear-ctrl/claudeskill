@@ -41,6 +41,12 @@ functions/
 └── send-push/       # transport des notifications (interne/webhook, M8)
 ```
 
+> **Automatisation (M9) :** aucune Edge, aucune table. L'écriture des notifications
+> est déclenchée par des **triggers SQL** (`mission_events`/`messages`/`payments` →
+> `dispatch_notifications`, idempotents). Les tâches planifiées (expirations +
+> purges RGPD) sont des **RPC SQL idempotentes** appelées par **pg_cron** ; leur
+> logique est testée directement en base.
+
 > **Notifications (M8) :** `send-push` est un **transport pur** (mock Expo → FCM/
 > APNS/email/SMS via `NOTIFY_TRANSPORT`). Toute la résolution data-driven
 > (triggers → templates → `content_strings` → `notifications`, idempotence,

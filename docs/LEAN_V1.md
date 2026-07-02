@@ -109,7 +109,8 @@
 ## 3. Enums — V1 vs cible
 
 - **V1 :** `user_role`, `mission_family`, `mission_status` (avec `pending_review`/
-  `needs_information`/`rejected`/`shopping` ; `searching` réservé), `payment_status`,
+  `needs_information`/`rejected`/`shopping` ; `searching` réservé), `payment_status`
+  (avec `expired` — M9),
   `operator_status`, `cancel_actor`, `question_type`, `conversation_status`.
 - **Différés (avec leur table) :** `quote_status` (avec `quotes`), `dispute_status`
   (avec `disputes`), `config_version_status` (avec le versionnement).
@@ -135,7 +136,8 @@
 | **M6** ✅ | **chat d'exécution** | table `messages` (append-only, modération, RLS participants) ; RPC `mark_messages_read` ; **autorisation Realtime** (`can_access_topic`, `is_mission_participant`, `owns_conversation`, policies `realtime.messages`) ; **0 Edge Function** |
 | **M7** ✅ | **temps réel (GPS)** | table `operator_locations` ; RPC `update_location`/`get_operator_location` ; purge auto (trigger) ; `can_publish_topic` (durcissement Realtime) ; clés `gps.*` ; **0 Edge Function** ; `mission_tracks` différée |
 | **M8** ✅ | **notifications** | `notifications`, `notification_templates`, `notification_triggers`, `device_tokens` ; RPC `dispatch_notifications`/`render_template`/`mark_*_read` ; Edge `send-push` (transport enfichable) ; catalogue seedé |
-| **M9+** | admin, config versioning, litiges… | panneau admin, `config_*`, `disputes` |
+| **M9** ✅ | **automatisation transverse** | triggers `mission_events`/`messages`/`payments` → `dispatch_notifications` (idempotents) ; RPC pg_cron `expire_conversations`/`expire_payment_authorizations`/`purge_notifications`/`purge_operator_locations`/`purge_messages`/`cleanup_device_tokens` ; `payment_status='expired'` + garde « non démarrable » ; **0 nouvelle table, 0 nouvelle Edge** |
+| **M10+** | admin, config versioning, litiges… | panneau admin, `config_*`, `disputes` |
 | **M9** | notifications | `notifications`, `notification_templates/triggers`, `send-push` |
 | **M10** | storage métier | policy participant `mission-proofs` |
 | **M11** | avis | `ratings` |

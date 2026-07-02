@@ -281,6 +281,16 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
   `device_tokens`) que l'Edge envoie via un **transport** enfichable
   (`NOTIFY_TRANSPORT=mock|expo|fcm|…`). Verrou d'appel : `NOTIFY_WEBHOOK_SECRET`.
 
+> **🔧 V1 (M9) — automatisation :** l'écriture des notifications est **déclenchée
+> automatiquement** par des **triggers SQL** (`mission_events`, `messages`,
+> `payments` → `dispatch_notifications`), idempotents (`dedup_key`), sans pg_net ni
+> nouvelle Edge. `send-push` reste le **transport** (câblable via Database Webhook
+> sur `notifications` quand un transport réel est configuré). **Tâches planifiées**
+> (pg_cron → RPC SQL idempotentes) : `expire_conversations`,
+> `expire_payment_authorizations`, `purge_notifications`, `purge_operator_locations`,
+> `purge_messages`, `cleanup_device_tokens`. Une autorisation `expired` bloque la
+> **capture** et le **démarrage** de la mission (BR-214).
+
 ### 4.10 `assign-mission` — affectation (interne/auto)
 - Déclenchée après autorisation (V1 **auto**, mono‑intervenant).
 - **Effets :** `operator_id` posé ; `transition_mission(accepted→assigned)` ;

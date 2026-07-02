@@ -520,7 +520,8 @@
 > **V1 (M5) :** créée (1/mission, `unique(mission_id)`). Écrite **uniquement** par
 > les RPC `payment_intent`/`payment_settle` (SECURITY DEFINER) — aucune écriture
 > directe. Statuts miroir Stripe : `pending → requires_capture →
-> succeeded|partially_captured → refunded` ; `canceled` (void) ; `failed`. Le
+> succeeded|partially_captured → refunded` ; `canceled` (void) ; `failed` ;
+> **`expired`** (M9 : autorisation périmée → capture bloquée + mission non démarrable). Le
 > domaine ignore tout PSP (`provider_pi_ref` opaque) ; `PaymentProvider`
 > (mock→Stripe) vit dans `_shared/payments/`. RLS : client lit le sien, admin total.
 - **Rôle :** 1 paiement par mission ; miroir fidèle du cycle Stripe (simulé).
@@ -608,6 +609,8 @@
 > Écrite **uniquement** par `dispatch_notifications` ; `read_at` via RPC
 > `mark_notification_read`/`mark_all_notifications_read`. `notification_preferences`
 > **différée** (surcharge par utilisateur — optionnelle).
+> **M9 :** l'écriture est **déclenchée automatiquement** par des triggers SQL sur
+> `mission_events`/`messages`/`payments` ; purge par `purge_notifications` (pg_cron).
 - **Rôle :** notifications in‑app (miroir des push).
 - **Colonnes :** `id`, `user_id`, `type` (= `notification_templates.key`),
   `title`, `body?`, `mission_id?`, `read_at?`, `metadata jsonb`, `created_at`.
