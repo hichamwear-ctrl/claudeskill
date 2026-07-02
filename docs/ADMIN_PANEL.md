@@ -27,6 +27,22 @@
 
 ---
 
+## 1bis. Socle back-office V1 (M10)
+
+> **🔧 Implémenté (M10)** — socle SQL (aucune Edge Function, aucune RPC CRUD par table) :
+> - **Édition du référentiel** : écriture **directe** (PostgREST) sur les tables de
+>   config, déjà protégées par **RLS admin** (`service_categories`, `question_sets`,
+>   `questions`, `question_options`, `pricing_rules`, `category_workflow`,
+>   `coverage_zones`, `service_windows`, `content_strings`, `notification_templates`,
+>   `notification_triggers`, `app_config`). Aucun non-admin ne peut écrire.
+> - **Traçabilité** : `audit_log` (append-only) alimenté **automatiquement** par un
+>   trigger générique (`audit_config_change`) — acteur, table, clé, action, old/new.
+> - **Validation** : RPC `validate_config()` (références, clés i18n, orphelins,
+>   tarifs) + garde d'intégrité (option ⊂ select/multiselect).
+> - **Cockpit** : RPC `operator_queue()` (AD-15), `mission_overview()` (AD-04),
+>   `admin_stats()` (AD-02) — lectures consolidées, autorisation interne.
+> - **Publication/rollback & versionnement** (AD-26) : **différés** (`config_*`).
+
 ## 2. Navigation (modules) — écrans `AD‑xx`
 
 | Module | Écran | Pilote |

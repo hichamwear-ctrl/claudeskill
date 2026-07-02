@@ -302,6 +302,30 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 
 ---
 
+## 4bis. RPC — Cockpit & administration (M10)
+
+> Toutes **SECURITY DEFINER**, autorisation vérifiée en interne (consolident les
+> lectures pour éviter le N+1 côté front ; aucune Edge Function).
+
+- `rpc/operator_queue()` · **operator | admin** → file `pending_review` **enrichie**
+  (client, catégorie, résumé), filtrée par la **visibilité de claim** (non claimée
+  ou claimée par soi ; admin voit tout).
+- `rpc/mission_overview(mission_id)` · **participant | admin | opérateur (file)** →
+  détail **consolidé** en 1 appel : mission + `payment` + `mission_events` +
+  conversation + `unread_messages`. Autorisation = miroir null-safe de la RLS missions.
+- `rpc/admin_stats()` · **admin** → indicateurs : `missions_by_status`,
+  `review_queue`, `review_claimed`, `active_conversations`, `payments_by_status`,
+  `unread_notifications`.
+- `rpc/validate_config()` · **admin** → **rapport de cohérence** de la configuration
+  (libellés i18n manquants, options orphelines, `select` sans option, template sans
+  texte, **trigger sans template**, tarif par défaut absent). Lecture seule.
+- **Édition du référentiel :** écriture **directe** sur les tables de config
+  (RLS **admin** déjà en place — aucune RPC CRUD par table) ; **journalisée
+  automatiquement** dans `audit_log` (trigger générique). Garde d'intégrité :
+  une option ne peut exister que sur une question `select`/`multiselect`.
+
+---
+
 ## 5. RPC — transitions d'état
 
 ### `rpc/transition_mission`

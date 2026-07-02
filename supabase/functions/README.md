@@ -41,6 +41,11 @@ functions/
 └── send-push/       # transport des notifications (interne/webhook, M8)
 ```
 
+> **Administration (M10) :** aucune Edge, aucune RPC CRUD par table. L'édition du
+> référentiel se fait en **écriture directe** (RLS admin déjà en place), journalisée
+> par un **trigger d'audit générique** (`audit_log`). Cohérence via `validate_config()` ;
+> cockpit via `operator_queue()`/`mission_overview()`/`admin_stats()`.
+
 > **Automatisation (M9) :** aucune Edge, aucune table. L'écriture des notifications
 > est déclenchée par des **triggers SQL** (`mission_events`/`messages`/`payments` →
 > `dispatch_notifications`, idempotents). Les tâches planifiées (expirations +

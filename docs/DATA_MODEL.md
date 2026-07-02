@@ -638,7 +638,13 @@
 - **Trigger :** recalcul `operator_profiles.rating_avg/count`.
 - **Écrans :** C‑23, OP‑12. **Règles :** avis **facultatif** (SPEC).
 
-### 8.2 `audit_log` 🔜 *(nouveau — traçabilité admin générique)*
+### 8.2 `audit_log` ✅ *(M10 — traçabilité admin générique)*
+> **V1 (M10) :** créée. Colonnes `id, actor_id?, actor_role?, table_name,
+> record_key (clé naturelle), action (insert|update|delete), old_value jsonb,
+> new_value jsonb, metadata jsonb, created_at`. **Append-only** (aucun grant
+> écriture ; écrite par le trigger générique `audit_config_change` attaché aux 12
+> tables de configuration). RLS **admin** en lecture. Cohérence de la config
+> vérifiée par la RPC `validate_config` (références/i18n/orphelins/tarifs).
 - **Rôle :** journal **générique** de tous les changements sensibles (catalogue,
   tarifs, config, rôles, remboursements exceptionnels).
 - **Colonnes :** `id`, `actor_id?`, `actor_role?`, `table_name`, `row_id?`,

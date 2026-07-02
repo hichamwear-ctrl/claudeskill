@@ -137,7 +137,8 @@
 | **M7** ✅ | **temps réel (GPS)** | table `operator_locations` ; RPC `update_location`/`get_operator_location` ; purge auto (trigger) ; `can_publish_topic` (durcissement Realtime) ; clés `gps.*` ; **0 Edge Function** ; `mission_tracks` différée |
 | **M8** ✅ | **notifications** | `notifications`, `notification_templates`, `notification_triggers`, `device_tokens` ; RPC `dispatch_notifications`/`render_template`/`mark_*_read` ; Edge `send-push` (transport enfichable) ; catalogue seedé |
 | **M9** ✅ | **automatisation transverse** | triggers `mission_events`/`messages`/`payments` → `dispatch_notifications` (idempotents) ; RPC pg_cron `expire_conversations`/`expire_payment_authorizations`/`purge_notifications`/`purge_operator_locations`/`purge_messages`/`cleanup_device_tokens` ; `payment_status='expired'` + garde « non démarrable » ; **0 nouvelle table, 0 nouvelle Edge** |
-| **M10+** | admin, config versioning, litiges… | panneau admin, `config_*`, `disputes` |
+| **M10** ✅ | **administration & référentiel éditable** | table `audit_log` (append-only) + trigger générique `audit_config_change` ; RPC `validate_config`/`operator_queue`/`mission_overview`/`admin_stats` ; garde option⊂select ; **0 table métier nouvelle, 0 Edge** |
+| **M11+** | config versioning, litiges, ratings… | `config_*`, `disputes`, `ratings` |
 | **M9** | notifications | `notifications`, `notification_templates/triggers`, `send-push` |
 | **M10** | storage métier | policy participant `mission-proofs` |
 | **M11** | avis | `ratings` |
