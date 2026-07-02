@@ -290,6 +290,11 @@ OP-07 POST /functions/v1/capture-payment         (in_progress → completed)
 > `expire_payment_authorizations`, `purge_notifications`, `purge_operator_locations`,
 > `purge_messages`, `cleanup_device_tokens`. Une autorisation `expired` bloque la
 > **capture** et le **démarrage** de la mission (BR-214).
+>
+> **🔧 V1 (M11) — durcissement QA :** quitter `assigned` vers une étape d'exécution
+> exige une **autorisation active** (`payments.status='requires_capture'`) — absente,
+> expirée, annulée ou remboursée ⇒ mission **non démarrable** (garde
+> `guard_payment_authorization`).
 
 ### 4.10 `assign-mission` — affectation (interne/auto)
 - Déclenchée après autorisation (V1 **auto**, mono‑intervenant).
