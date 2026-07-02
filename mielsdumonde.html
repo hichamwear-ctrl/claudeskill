@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Miels du Monde — Une maison de miels rares, importés en direct et analysés en laboratoire français. Découvrez des crus d'exception du Maroc, du Kirghizistan, de Nouvelle-Zélande et d'ailleurs.">
+<meta name="theme-color" content="#0b0a08">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://mielsdumonde.fr/">
+<!-- Open Graph / social -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Miels du Monde">
+<meta property="og:title" content="Miels du Monde — La rareté à l'état pur">
+<meta property="og:description" content="Des miels rares du monde entier, importés en direct et analysés en laboratoire français.">
+<meta property="og:locale" content="fr_FR">
+<title>Miels du Monde — La rareté à l'état pur</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Three.js + GSAP as native ES modules (CDN, runtime only) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.161.0",
+    "three/addons/": "https://esm.sh/three@0.161.0/examples/jsm/",
+    "gsap": "https://esm.sh/gsap@3.12.5",
+    "gsap/ScrollTrigger": "https://esm.sh/gsap@3.12.5/ScrollTrigger"
+  }
+}
+</script>
+
+<!-- Structured data for SEO -->
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org","@type":"Store","name":"Miels du Monde",
+  "url":"https://mielsdumonde.fr/","image":"https://mielsdumonde.fr/og.jpg",
+  "description":"Maison de miels rares importés en direct et analysés en laboratoire français.",
+  "priceRange":"€€€","areaServed":["FR","BE","LU","NL","ES","PT","IT"]
+}
+</script>
+
+<style>
+/* ════════════════════════════════════════════════════════════════════
+   MIELS DU MONDE · Design System
+   Palette : noir profond · blanc cassé · doré · ambre · miel · bois
+   Type    : Fraunces (display, éditorial) + Inter (interface)
+   ════════════════════════════════════════════════════════════════════ */
+:root{
+  /* --- couleurs --- */
+  --noir:#0b0a08; --noir-2:#131009; --noir-3:#1c1810;
+  --cream:#f7f1e6; --cream-2:#efe6d5; --paper:#fbf7ef;
+  --ink:#1b1710; --ink-soft:#5c5344; --ink-mut:#8b8170;
+  --gold:#c8a04c; --gold-2:#e2c073; --gold-3:#f2dca0;
+  --amber:#cf8324; --amber-2:#e79a2e; --honey:#e0a83c; --honey-glow:rgba(224,168,60,.45);
+  --wood:#79542e; --wood-2:#a4703c;
+  --line:rgba(27,23,16,.12); --line-2:rgba(27,23,16,.2);
+  --line-d:rgba(247,241,230,.12); --line-d2:rgba(247,241,230,.22);
+  --glass:rgba(247,241,230,.05); --glass-2:rgba(247,241,230,.09);
+  /* --- système --- */
+  --r:14px; --r-lg:22px; --r-xl:30px; --pill:999px;
+  --ease:cubic-bezier(.22,1,.36,1); --ease-2:cubic-bezier(.65,.05,.36,1);
+  --shell:1280px;
+}
+@property --deg{syntax:'<angle>';inherits:false;initial-value:0deg}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--paper);color:var(--ink);
+  line-height:1.65;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body.lock{overflow:hidden}
+h1,h2,h3,h4{font-family:'Fraunces',Georgia,serif;font-weight:400;line-height:1.03;letter-spacing:-.015em}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+img{max-width:100%;display:block}
+::selection{background:var(--honey);color:var(--noir)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:6px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.shell{max-width:var(--shell);margin-inline:auto;padding-inline:clamp(1.2rem,5vw,3rem)}
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}
+.eyebrow{font-size:.72rem;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--amber);
+  display:inline-flex;align-items:center;gap:.7rem}
+.eyebrow::before{content:"";width:26px;height:1px;background:var(--gold);display:inline-block}
+.serif-it{font-style:italic;font-family:'Fraunces',serif}
+
+/* ── boutons ── */
+.btn{display:inline-flex;align-items:center;gap:.6rem;font-weight:500;font-size:.92rem;letter-spacing:.01em;
+  border-radius:var(--pill);padding:.85rem 1.7rem;transition:transform .4s var(--ease),background .35s,color .35s,box-shadow .4s;
+  position:relative;overflow:hidden;white-space:nowrap}
+.btn .ico{width:17px;height:17px}
+.btn-dark{background:var(--noir);color:var(--cream)}
+.btn-dark:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(11,10,8,.28)}
+.btn-gold{background:linear-gradient(135deg,var(--gold-2),var(--gold));color:var(--noir);font-weight:600;
+  box-shadow:0 10px 30px rgba(200,160,76,.35)}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(200,160,76,.5)}
+.btn-ghost{border:1px solid var(--line-2);color:var(--ink)}
+.btn-ghost:hover{background:var(--ink);color:var(--cream);transform:translateY(-2px)}
+.btn-ghost-d{border:1px solid var(--line-d2);color:var(--cream)}
+.btn-ghost-d:hover{background:var(--cream);color:var(--noir);transform:translateY(-2px)}
+.btn-lg{padding:1.05rem 2.1rem;font-size:1rem}
+.link-u{position:relative;font-weight:500}
+.link-u::after{content:"";position:absolute;left:0;bottom:-3px;width:100%;height:1px;background:currentColor;
+  transform:scaleX(0);transform-origin:right;transition:transform .5s var(--ease)}
+.link-u:hover::after{transform:scaleX(1);transform-origin:left}
+
+/* ════════ PRELOADER ════════ */
+#pre{position:fixed;inset:0;z-index:1000;background:var(--noir);display:grid;place-items:center;
+  transition:opacity .8s var(--ease),visibility .8s}
+#pre.done{opacity:0;visibility:hidden}
+.pre-mark{text-align:center;color:var(--cream)}
+.pre-mark .drop{width:44px;height:56px;margin:0 auto 1.4rem;position:relative}
+.pre-mark svg{width:100%;height:100%;overflow:visible}
+.pre-hexy{stroke:var(--gold-2);stroke-width:1.4;fill:none;stroke-dasharray:220;stroke-dashoffset:220;
+  animation:draw 1.6s var(--ease) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.pre-fill{fill:var(--honey);opacity:0;transform-origin:center bottom;animation:rise 1.3s var(--ease) .7s forwards}
+@keyframes rise{from{opacity:0;clip-path:inset(100% 0 0 0)}to{opacity:.85;clip-path:inset(18% 0 0 0)}}
+.pre-mark .wm{font-family:'Fraunces';font-size:1.15rem;letter-spacing:.42em;text-transform:uppercase;
+  opacity:0;animation:fadein .8s ease 1s forwards;padding-left:.42em}
+.pre-bar{width:120px;height:1px;background:var(--line-d);margin:1.2rem auto 0;overflow:hidden}
+.pre-bar i{display:block;height:100%;width:100%;background:var(--gold-2);transform:translateX(-100%);
+  animation:load 1.8s var(--ease) .3s forwards}
+@keyframes load{to{transform:translateX(0)}}
+@keyframes fadein{to{opacity:1}}
+
+/* ════════ HEADER ════════ */
+header{position:fixed;top:0;inset-inline:0;z-index:90;display:flex;align-items:center;justify-content:space-between;
+  padding:1.15rem clamp(1.2rem,5vw,3rem);color:var(--cream);
+  transition:background .5s var(--ease),backdrop-filter .5s,color .5s,border-color .5s,padding .5s;
+  border-bottom:1px solid transparent}
+header.solid{background:rgba(251,247,239,.82);backdrop-filter:blur(18px) saturate(140%);
+  -webkit-backdrop-filter:blur(18px) saturate(140%);color:var(--ink);border-color:var(--line);padding-block:.85rem}
+.brand{display:flex;align-items:center;gap:.65rem;font-family:'Fraunces';font-size:1.28rem;letter-spacing:.02em;z-index:2}
+.brand .hx{width:30px;height:30px;flex:none;position:relative}
+.brand .hx svg{width:100%;height:100%}
+.brand b{font-weight:500}
+.brand small{font-weight:400;opacity:.62;font-size:.62em;letter-spacing:.34em;text-transform:uppercase;
+  font-family:'Inter';margin-left:.1rem}
+.top-nav{display:flex;gap:.2rem;align-items:center}
+.top-nav a{font-size:.9rem;font-weight:500;padding:.55rem 1rem;border-radius:var(--pill);
+  transition:opacity .3s,background .3s;opacity:.82}
+.top-nav a:hover{opacity:1;background:rgba(127,127,127,.1)}
+.head-act{display:flex;align-items:center;gap:.35rem;z-index:2}
+.iconbtn{width:44px;height:44px;border-radius:var(--pill);display:grid;place-items:center;position:relative;
+  transition:background .3s,transform .3s}
+.iconbtn .ico{width:21px;height:21px}
+.iconbtn:hover{background:rgba(127,127,127,.12);transform:translateY(-1px)}
+.cart-count{position:absolute;top:5px;right:5px;min-width:18px;height:18px;padding:0 5px;border-radius:var(--pill);
+  background:var(--amber);color:#fff;font-size:.66rem;font-weight:700;display:grid;place-items:center;
+  transform:scale(0);transition:transform .4s var(--ease)}
+.cart-count.on{transform:scale(1)}
+.burger{display:none}
+
+/* ════════ MEGA MENU ════════ */
+#menu{position:fixed;inset:0;z-index:95;background:var(--noir);color:var(--cream);
+  clip-path:inset(0 0 100% 0);transition:clip-path .8s var(--ease-2);display:flex;flex-direction:column;
+  padding:clamp(5.5rem,10vh,8rem) clamp(1.2rem,5vw,4rem) 3rem}
+#menu.open{clip-path:inset(0 0 0 0)}
+.menu-grid{flex:1;display:grid;grid-template-columns:1.4fr 1fr;gap:3rem;align-items:center;max-width:var(--shell);
+  margin-inline:auto;width:100%}
+.menu-links{display:flex;flex-direction:column;gap:.2rem}
+.menu-links a{font-family:'Fraunces';font-size:clamp(2.4rem,6vw,4.6rem);font-weight:300;line-height:1.05;
+  color:var(--cream);opacity:0;transform:translateY(40px);transition:opacity .6s var(--ease),transform .6s var(--ease),color .3s;
+  display:inline-flex;align-items:baseline;gap:1rem;width:fit-content}
+#menu.open .menu-links a{opacity:1;transform:none}
+.menu-links a span{font-family:'Inter';font-size:.8rem;opacity:.4;letter-spacing:.1em}
+.menu-links a:hover{color:var(--gold-2)}
+.menu-side{border-left:1px solid var(--line-d);padding-left:2.5rem;opacity:0;transition:opacity .8s ease .4s}
+#menu.open .menu-side{opacity:1}
+.menu-side h4{font-family:'Inter';font-size:.72rem;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-2);margin-bottom:1.2rem}
+.menu-side p{color:var(--cream);opacity:.7;font-size:.95rem;margin-bottom:1.6rem;max-width:34ch}
+.menu-orig{display:flex;flex-wrap:wrap;gap:.5rem}
+.menu-orig span{font-size:.8rem;padding:.35rem .8rem;border:1px solid var(--line-d2);border-radius:var(--pill);opacity:.8}
+.menu-close{position:absolute;top:1.4rem;right:clamp(1.2rem,5vw,4rem);width:48px;height:48px;border-radius:var(--pill);
+  border:1px solid var(--line-d2);display:grid;place-items:center;color:var(--cream);transition:transform .5s var(--ease),background .3s}
+.menu-close:hover{transform:rotate(90deg);background:var(--glass)}
+
+/* ════════ HERO ════════ */
+.hero{position:relative;min-height:100svh;background:radial-gradient(120% 90% at 50% -10%,#1c160c 0%,var(--noir) 55%);
+  color:var(--cream);overflow:hidden;display:grid;place-items:center}
+#scene{position:absolute;inset:0;z-index:1;touch-action:pan-y}
+.hero .grain{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:.5;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}
+.hero .vign{position:absolute;inset:0;z-index:3;pointer-events:none;
+  background:radial-gradient(75% 65% at 50% 42%,transparent 42%,rgba(6,5,3,.78) 100%)}
+.kinetic{position:absolute;z-index:2;left:50%;top:47%;transform:translate(-50%,-50%);white-space:nowrap;
+  font-family:'Fraunces';font-weight:300;font-size:clamp(5rem,24vw,22rem);letter-spacing:-.04em;
+  color:transparent;-webkit-text-stroke:1px rgba(226,192,115,.13);pointer-events:none;user-select:none}
+.hero-copy{position:relative;z-index:5;text-align:center;padding-top:3rem;pointer-events:none}
+.hero-copy>*{pointer-events:auto}
+.hero-copy .eyebrow{color:var(--gold-2);margin-bottom:1.6rem;justify-content:center}
+.hero-copy .eyebrow::before{background:var(--gold-2)}
+.hero-copy h1{font-size:clamp(2.9rem,7vw,6.2rem);font-weight:300;max-width:15ch;margin-inline:auto}
+.hero-copy h1 em{font-style:italic;color:var(--gold-2)}
+.hero-copy .lede{margin:1.5rem auto 2.3rem;max-width:46ch;color:rgba(247,241,230,.72);font-size:1.05rem}
+.hero-cta{display:flex;gap:.9rem;justify-content:center;flex-wrap:wrap}
+.scrollcue{position:absolute;left:50%;bottom:1.8rem;transform:translateX(-50%);z-index:5;
+  font-size:.68rem;letter-spacing:.24em;text-transform:uppercase;color:rgba(247,241,230,.5);
+  display:flex;flex-direction:column;align-items:center;gap:.7rem}
+.scrollcue i{width:1px;height:38px;background:linear-gradient(var(--gold-2),transparent);animation:cue 2s infinite}
+@keyframes cue{0%{transform:scaleY(0);transform-origin:top}45%{transform:scaleY(1);transform-origin:top}
+  55%{transform:scaleY(1);transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+.webgl-fallback{position:absolute;inset:0;z-index:1;display:none;place-items:center}
+body.no-webgl .webgl-fallback{display:grid}
+body.no-webgl #scene{display:none}
+.webgl-fallback .jarfb{width:min(46vw,340px);aspect-ratio:3/4;border-radius:44% 44% 46% 46%/8% 8% 52% 52%;
+  background:radial-gradient(60% 45% at 40% 32%,var(--gold-3),var(--honey) 45%,var(--amber) 78%,#7a3d0c);
+  box-shadow:inset 0 -30px 60px rgba(0,0,0,.4),inset 14px 0 40px rgba(255,255,255,.25),0 40px 80px rgba(0,0,0,.5);
+  filter:drop-shadow(0 0 60px var(--honey-glow))}
+
+/* ════════ MARQUEE (partners / trust) ════════ */
+.marquee{background:var(--noir);color:var(--cream);border-top:1px solid var(--line-d);padding:1.3rem 0;overflow:hidden}
+.marquee .track{display:flex;gap:3.5rem;width:max-content;animation:scrollx 34s linear infinite;white-space:nowrap}
+.marquee:hover .track{animation-play-state:paused}
+.marquee span{font-family:'Fraunces';font-size:1.05rem;opacity:.62;display:inline-flex;align-items:center;gap:1rem;font-style:italic}
+.marquee span::after{content:"✦";font-size:.6rem;color:var(--gold-2);font-style:normal;opacity:.7}
+@keyframes scrollx{to{transform:translateX(-50%)}}
+
+/* ════════ PILLARS ════════ */
+.pillars{background:var(--paper);padding:clamp(4.5rem,9vw,7.5rem) 0}
+.sec-head{max-width:640px;margin-bottom:clamp(2.5rem,5vw,4rem)}
+.sec-head h2{font-size:clamp(2.1rem,4.6vw,3.4rem);font-weight:300;margin:1.1rem 0 1rem}
+.sec-head p{color:var(--ink-soft);font-size:1.05rem;max-width:52ch}
+.sec-head.center{margin-inline:auto;text-align:center}
+.sec-head.center .eyebrow{justify-content:center}
+.pillar-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.pillar{background:var(--paper);padding:clamp(1.8rem,3vw,2.6rem);transition:background .5s var(--ease)}
+.pillar:hover{background:var(--cream)}
+.pillar .pn{font-family:'Fraunces';font-size:.85rem;color:var(--amber);letter-spacing:.1em}
+.pillar .pic{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--cream-2),#fff);
+  border:1px solid var(--line);display:grid;place-items:center;margin:1.2rem 0 1.3rem;color:var(--amber);
+  transition:transform .5s var(--ease),color .4s,background .4s}
+.pillar .pic .ico{width:24px;height:24px}
+.pillar:hover .pic{transform:translateY(-4px) rotate(-4deg);background:var(--noir);color:var(--gold-2)}
+.pillar h3{font-size:1.35rem;font-weight:400;margin-bottom:.5rem}
+.pillar p{color:var(--ink-soft);font-size:.94rem}
+
+/* ════════ MANIFESTO ════════ */
+.manifesto{background:var(--noir);color:var(--cream);padding:clamp(6rem,14vw,11rem) 0;position:relative;overflow:hidden}
+.manifesto .glow{position:absolute;width:60vw;height:60vw;left:-10vw;top:20%;border-radius:50%;
+  background:radial-gradient(circle,var(--honey-glow),transparent 65%);filter:blur(40px);opacity:.5;pointer-events:none}
+.manifesto .big{font-family:'Fraunces';font-weight:300;font-size:clamp(1.9rem,4.6vw,3.6rem);line-height:1.22;
+  max-width:22ch;position:relative;z-index:2}
+.manifesto .big .word{display:inline-block;opacity:.16;transition:opacity .5s ease}
+.manifesto .big .word.lit{opacity:1}
+.manifesto .big em{font-style:italic;color:var(--gold-2)}
+.manifesto .sign{margin-top:2.5rem;display:flex;gap:1rem;align-items:center;position:relative;z-index:2;color:rgba(247,241,230,.6);font-size:.9rem}
+.manifesto .sign b{font-family:'Fraunces';font-weight:400;color:var(--cream)}
+
+/* ════════ ORIGINS MAP ════════ */
+.origins{background:var(--noir-2);color:var(--cream);padding:clamp(4.5rem,9vw,7.5rem) 0;position:relative}
+.origins .sec-head p{color:rgba(247,241,230,.6)}
+.map-wrap{position:relative;margin-top:2rem;border:1px solid var(--line-d);border-radius:var(--r-xl);overflow:hidden;
+  background:linear-gradient(180deg,#0f0c07,#08070500)}
+.map-svg{width:100%;height:auto;display:block}
+.graticule{stroke:rgba(226,192,115,.1);stroke-width:.5;fill:none}
+.landmass{fill:rgba(226,192,115,.05);stroke:rgba(226,192,115,.16);stroke-width:.6}
+.pin{cursor:pointer}
+.pin .dot{fill:var(--honey);transition:r .3s var(--ease)}
+.pin .ring{fill:none;stroke:var(--gold-2);stroke-width:1;transform-origin:center;transform-box:fill-box}
+.pin .pulse{fill:none;stroke:var(--honey);stroke-width:1;opacity:0;transform-origin:center;transform-box:fill-box;
+  animation:pulse 3s ease-out infinite}
+@keyframes pulse{0%{r:4;opacity:.7}100%{r:26;opacity:0}}
+.pin:hover .dot,.pin.sel .dot{r:6.5}
+.arc{fill:none;stroke:url(#arcgrad);stroke-width:1.4;stroke-linecap:round;stroke-dasharray:var(--l);stroke-dashoffset:var(--l);
+  transition:stroke-dashoffset 1.1s var(--ease);opacity:.9}
+.arc.on{stroke-dashoffset:0}
+.map-legend{position:absolute;left:clamp(1rem,3vw,2rem);bottom:clamp(1rem,3vw,2rem);max-width:290px;
+  background:rgba(11,10,8,.55);backdrop-filter:blur(10px);border:1px solid var(--line-d);border-radius:var(--r);padding:1.3rem 1.5rem}
+.map-legend .flag{font-size:1.4rem}
+.map-legend h4{font-family:'Fraunces';font-size:1.5rem;font-weight:400;margin:.4rem 0 .3rem}
+.map-legend p{font-size:.86rem;color:rgba(247,241,230,.65)}
+.origin-tabs{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.8rem}
+.origin-tabs button{font-size:.85rem;padding:.5rem 1rem;border-radius:var(--pill);border:1px solid var(--line-d2);
+  color:rgba(247,241,230,.75);transition:all .3s;display:flex;align-items:center;gap:.5rem}
+.origin-tabs button:hover{border-color:var(--gold-2);color:var(--cream)}
+.origin-tabs button.sel{background:var(--gold-2);color:var(--noir);border-color:var(--gold-2);font-weight:600}
+
+/* ════════ COLLECTION ════════ */
+.collection{background:var(--paper);padding:clamp(4.5rem,9vw,7.5rem) 0}
+.coll-head{display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;flex-wrap:wrap}
+.card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(1.2rem,2.4vw,2rem);margin-top:clamp(2.5rem,5vw,3.5rem)}
+.card{position:relative;border-radius:var(--r-lg);overflow:hidden;background:var(--cream);border:1px solid var(--line);
+  cursor:pointer;transition:transform .55s var(--ease),box-shadow .55s var(--ease);display:flex;flex-direction:column}
+.card:hover{transform:translateY(-8px);box-shadow:0 30px 60px rgba(27,23,16,.14)}
+.card-vis{position:relative;aspect-ratio:4/5;overflow:hidden;display:grid;place-items:center;
+  background:radial-gradient(120% 90% at 50% 0%,#fff,var(--cream-2))}
+.card-vis .halo{position:absolute;width:78%;aspect-ratio:1;border-radius:50%;filter:blur(30px);opacity:.55;
+  transition:transform .7s var(--ease),opacity .5s}
+.card:hover .card-vis .halo{transform:scale(1.15);opacity:.8}
+.card-vis .jar{position:relative;z-index:2;width:52%;filter:drop-shadow(0 24px 30px rgba(0,0,0,.22));
+  transition:transform .7s var(--ease)}
+.card:hover .card-vis .jar{transform:translateY(-6px) rotate(-2deg) scale(1.04)}
+.card-tag{position:absolute;top:1rem;left:1rem;z-index:3;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:600;padding:.4rem .8rem;border-radius:var(--pill);background:var(--noir);color:var(--gold-2)}
+.card-fav{position:absolute;top:.85rem;right:.85rem;z-index:3;width:38px;height:38px;border-radius:var(--pill);
+  background:rgba(251,247,239,.7);backdrop-filter:blur(6px);display:grid;place-items:center;color:var(--ink-soft);
+  opacity:0;transform:translateY(-6px);transition:all .4s var(--ease)}
+.card:hover .card-fav{opacity:1;transform:none}
+.card-fav:hover{color:var(--amber)}
+.card-quick{position:absolute;left:1rem;right:1rem;bottom:1rem;z-index:3;padding:.85rem;border-radius:var(--pill);
+  background:var(--noir);color:var(--cream);text-align:center;font-size:.88rem;font-weight:500;
+  opacity:0;transform:translateY(14px);transition:all .45s var(--ease)}
+.card:hover .card-quick{opacity:1;transform:none}
+.card-body{padding:1.3rem 1.4rem 1.5rem;flex:1;display:flex;flex-direction:column;gap:.35rem}
+.card-body .org{font-size:.76rem;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);display:flex;align-items:center;gap:.4rem}
+.card-body h3{font-size:1.4rem;font-weight:400}
+.card-body .desc{font-size:.9rem;color:var(--ink-soft);flex:1}
+.card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:.6rem}
+.price{font-family:'Fraunces';font-size:1.3rem}
+.price s{color:var(--ink-mut);font-size:.85rem;margin-right:.4rem;font-family:'Inter'}
+.stars{display:inline-flex;gap:1px;color:var(--gold)}.stars .ico{width:14px;height:14px;fill:currentColor;stroke:none}
+
+/* ════════ LAB / TRUST ════════ */
+.lab{background:var(--noir);color:var(--cream);padding:clamp(5rem,10vw,8rem) 0;position:relative;overflow:hidden}
+.lab-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(2.5rem,5vw,5rem);align-items:center}
+.lab .sec-head p{color:rgba(247,241,230,.62)}
+.lab-list{margin-top:2rem;display:flex;flex-direction:column;gap:.2rem}
+.lab-list .row{display:flex;gap:1.1rem;padding:1.2rem 0;border-bottom:1px solid var(--line-d)}
+.lab-list .row .n{font-family:'Fraunces';color:var(--gold-2);font-size:1.1rem;flex:none;width:2rem}
+.lab-list .row h4{font-weight:400;font-family:'Inter';font-size:1.02rem;margin-bottom:.2rem}
+.lab-list .row p{color:rgba(247,241,230,.6);font-size:.9rem}
+.cert{position:relative;border:1px solid var(--line-d2);border-radius:var(--r-xl);padding:clamp(1.8rem,3vw,2.6rem);
+  background:linear-gradient(160deg,rgba(226,192,115,.08),transparent);backdrop-filter:blur(4px)}
+.cert::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+  background:linear-gradient(160deg,var(--gold-2),transparent 60%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.cert .seal{width:74px;height:74px;border-radius:50%;border:1px solid var(--gold-2);display:grid;place-items:center;
+  color:var(--gold-2);margin-bottom:1.5rem;position:relative}
+.cert .seal .ico{width:32px;height:32px}
+.cert h3{font-size:1.7rem;font-weight:400;margin-bottom:.6rem}
+.cert p{color:rgba(247,241,230,.66);font-size:.94rem;margin-bottom:1.5rem}
+.cert .meta{display:grid;grid-template-columns:1fr 1fr;gap:1rem;border-top:1px solid var(--line-d);padding-top:1.4rem}
+.cert .meta dt{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(247,241,230,.45);margin-bottom:.2rem}
+.cert .meta dd{font-family:'Fraunces';font-size:1.1rem}
+
+/* ════════ REVIEWS ════════ */
+.reviews{background:var(--cream);padding:clamp(4.5rem,9vw,7.5rem) 0}
+.rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;margin-top:3rem}
+.rev{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:1.8rem;
+  display:flex;flex-direction:column;gap:1rem;transition:transform .5s var(--ease),box-shadow .5s}
+.rev:hover{transform:translateY(-5px);box-shadow:0 20px 44px rgba(27,23,16,.1)}
+.rev p{font-family:'Fraunces';font-size:1.12rem;font-weight:300;line-height:1.5;flex:1}
+.rev .by{display:flex;align-items:center;gap:.8rem}
+.rev .av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold-2),var(--amber));
+  display:grid;place-items:center;color:var(--noir);font-weight:700;font-size:.95rem}
+.rev .by b{font-weight:600;font-size:.9rem}.rev .by span{font-size:.78rem;color:var(--ink-mut)}
+.rev-stats{display:flex;gap:clamp(2rem,6vw,5rem);flex-wrap:wrap;margin-top:3rem;padding-top:2.5rem;border-top:1px solid var(--line)}
+.rev-stat .num{font-family:'Fraunces';font-size:clamp(2.4rem,5vw,3.6rem);font-weight:300;color:var(--ink);line-height:1}
+.rev-stat .lb{font-size:.86rem;color:var(--ink-soft);margin-top:.4rem}
+
+/* ════════ NEWSLETTER ════════ */
+.news{background:var(--noir);color:var(--cream);padding:clamp(4.5rem,9vw,7rem) 0;text-align:center;position:relative;overflow:hidden}
+.news .glow{position:absolute;left:50%;top:-30%;width:70vw;height:70vw;transform:translateX(-50%);border-radius:50%;
+  background:radial-gradient(circle,var(--honey-glow),transparent 60%);opacity:.4;filter:blur(30px)}
+.news h2{font-size:clamp(2.2rem,5vw,3.6rem);font-weight:300;max-width:18ch;margin:1rem auto 1rem;position:relative}
+.news p{color:rgba(247,241,230,.65);max-width:44ch;margin:0 auto 2rem;position:relative}
+.news form{display:flex;gap:.6rem;max-width:440px;margin:0 auto;position:relative;flex-wrap:wrap;justify-content:center}
+.news input{flex:1;min-width:220px;padding:1rem 1.4rem;border-radius:var(--pill);border:1px solid var(--line-d2);
+  background:var(--glass);color:var(--cream);font-size:.95rem}
+.news input::placeholder{color:rgba(247,241,230,.4)}
+.news input:focus{outline:none;border-color:var(--gold-2)}
+
+/* ════════ FOOTER ════════ */
+footer{background:var(--noir-2);color:var(--cream);padding:clamp(4rem,7vw,6rem) 0 2rem}
+.foot-top{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:2.5rem}
+.foot-brand .brand{margin-bottom:1.2rem}
+.foot-brand p{color:rgba(247,241,230,.55);font-size:.9rem;max-width:34ch}
+.foot-brand .socials{display:flex;gap:.5rem;margin-top:1.5rem}
+.foot-brand .socials a{width:40px;height:40px;border-radius:var(--pill);border:1px solid var(--line-d2);
+  display:grid;place-items:center;transition:all .3s}
+.foot-brand .socials a:hover{background:var(--gold-2);color:var(--noir);border-color:var(--gold-2)}
+.foot-col h5{font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-2);margin-bottom:1.2rem}
+.foot-col a{display:block;color:rgba(247,241,230,.6);font-size:.9rem;padding:.35rem 0;transition:color .3s}
+.foot-col a:hover{color:var(--cream)}
+.foot-bar{margin-top:3.5rem;padding-top:1.8rem;border-top:1px solid var(--line-d);display:flex;
+  justify-content:space-between;flex-wrap:wrap;gap:1rem;font-size:.82rem;color:rgba(247,241,230,.45)}
+.foot-bar .pay{display:flex;gap:.6rem}
+.foot-bar .pay span{padding:.25rem .6rem;border:1px solid var(--line-d);border-radius:6px;font-size:.7rem;letter-spacing:.05em}
+
+/* ════════ CART DRAWER ════════ */
+#scrim{position:fixed;inset:0;z-index:96;background:rgba(11,10,8,.5);backdrop-filter:blur(3px);
+  opacity:0;visibility:hidden;transition:opacity .5s,visibility .5s}
+#scrim.on{opacity:1;visibility:visible}
+#cart{position:fixed;top:0;right:0;bottom:0;z-index:97;width:min(430px,92vw);background:var(--paper);color:var(--ink);
+  transform:translateX(100%);transition:transform .6s var(--ease-2);display:flex;flex-direction:column;box-shadow:-30px 0 80px rgba(0,0,0,.2)}
+#cart.on{transform:none}
+.cart-h{display:flex;align-items:center;justify-content:space-between;padding:1.5rem;border-bottom:1px solid var(--line)}
+.cart-h h3{font-size:1.4rem;font-weight:400}
+.cart-ship{padding:1rem 1.5rem;background:var(--cream);border-bottom:1px solid var(--line);font-size:.84rem}
+.cart-ship .bar{height:5px;border-radius:var(--pill);background:var(--cream-2);margin-top:.6rem;overflow:hidden}
+.cart-ship .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--amber));width:0;transition:width .6s var(--ease)}
+.cart-items{flex:1;overflow-y:auto;padding:.5rem 1.5rem}
+.cart-empty{text-align:center;color:var(--ink-mut);padding:4rem 1rem;display:flex;flex-direction:column;align-items:center;gap:1rem}
+.cart-empty .ico{width:40px;height:40px;opacity:.4}
+.ci{display:flex;gap:1rem;padding:1.1rem 0;border-bottom:1px solid var(--line)}
+.ci .thumb{width:62px;height:74px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--cream)}
+.ci .thumb svg{width:60%}
+.ci .info{flex:1;min-width:0}
+.ci .info h4{font-family:'Inter';font-weight:600;font-size:.92rem;margin-bottom:.15rem}
+.ci .info .o{font-size:.76rem;color:var(--amber);text-transform:uppercase;letter-spacing:.08em}
+.ci .qty{display:inline-flex;align-items:center;gap:.7rem;margin-top:.5rem;border:1px solid var(--line);border-radius:var(--pill);padding:.2rem .5rem}
+.ci .qty button{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;transition:background .25s;font-size:1rem}
+.ci .qty button:hover{background:var(--cream-2)}
+.ci .right{text-align:right;display:flex;flex-direction:column;justify-content:space-between}
+.ci .right .rm{font-size:.74rem;color:var(--ink-mut);transition:color .25s}.ci .right .rm:hover{color:var(--amber)}
+.ci .right b{font-family:'Fraunces';font-size:1.05rem}
+.cart-f{padding:1.4rem 1.5rem;border-top:1px solid var(--line);background:var(--cream)}
+.cart-f .line{display:flex;justify-content:space-between;margin-bottom:.5rem;font-size:.9rem;color:var(--ink-soft)}
+.cart-f .tot{font-family:'Fraunces';font-size:1.5rem;color:var(--ink);margin-bottom:1rem}
+.cart-f .btn{width:100%;justify-content:center}
+.cart-f .re{text-align:center;font-size:.78rem;color:var(--ink-mut);margin-top:.8rem}
+.fly{position:fixed;z-index:200;width:46px;height:56px;pointer-events:none;border-radius:8px;display:grid;place-items:center}
+.fly svg{width:70%}
+
+/* ════════ PRODUCT DETAIL (overlay) ════════ */
+#pdp{position:fixed;inset:0;z-index:98;background:var(--paper);color:var(--ink);overflow-y:auto;
+  opacity:0;visibility:hidden;transition:opacity .5s var(--ease),visibility .5s}
+#pdp.on{opacity:1;visibility:visible}
+.pdp-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
+  padding:1rem clamp(1.2rem,4vw,2.5rem);background:rgba(251,247,239,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.pdp-bar .back{display:flex;align-items:center;gap:.6rem;font-weight:500;font-size:.92rem}
+.pdp-bar .back .ico{width:18px;height:18px}
+.pdp-hero{display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:calc(100svh - 60px)}
+.pdp-gal{position:relative;background:radial-gradient(120% 80% at 50% 20%,#fff,var(--cream-2));display:flex;
+  flex-direction:column;align-items:center;justify-content:center;padding:clamp(2rem,5vw,4rem);gap:1.5rem;overflow:hidden}
+.pdp-gal .halo{position:absolute;width:60%;aspect-ratio:1;border-radius:50%;filter:blur(50px);opacity:.5}
+.pdp-stage{position:relative;z-index:2;width:min(58%,340px);cursor:zoom-in;transition:transform .6s var(--ease)}
+.pdp-stage:hover{transform:scale(1.03)}
+.pdp-stage svg{width:100%;filter:drop-shadow(0 30px 40px rgba(0,0,0,.25))}
+.pdp-thumbs{display:flex;gap:.6rem;z-index:2}
+.pdp-thumbs button{width:56px;height:66px;border-radius:10px;border:1px solid var(--line);background:#fff;
+  display:grid;place-items:center;transition:border-color .3s,transform .3s}
+.pdp-thumbs button svg{width:60%}
+.pdp-thumbs button.sel,.pdp-thumbs button:hover{border-color:var(--amber);transform:translateY(-3px)}
+.pdp-info{padding:clamp(2rem,5vw,4.5rem);display:flex;flex-direction:column;justify-content:center;max-width:620px}
+.pdp-info .org{font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);display:flex;align-items:center;gap:.5rem;margin-bottom:1rem}
+.pdp-info h1{font-size:clamp(2.4rem,5vw,3.8rem);font-weight:300;line-height:1.02;margin-bottom:1rem}
+.pdp-info .rr{display:flex;align-items:center;gap:.8rem;margin-bottom:1.4rem;font-size:.88rem;color:var(--ink-soft)}
+.pdp-info .lede{color:var(--ink-soft);font-size:1.05rem;margin-bottom:1.8rem;max-width:46ch}
+.pdp-price{display:flex;align-items:baseline;gap:.8rem;margin-bottom:.4rem}
+.pdp-price .p{font-family:'Fraunces';font-size:2.2rem}.pdp-price s{color:var(--ink-mut)}
+.pdp-price .save{font-size:.78rem;font-weight:600;color:var(--amber);background:rgba(207,131,36,.12);padding:.3rem .7rem;border-radius:var(--pill)}
+.pdp-note{font-size:.82rem;color:var(--ink-mut);margin-bottom:1.8rem}
+.pdp-buy{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
+.pdp-qty{display:inline-flex;align-items:center;gap:1rem;border:1px solid var(--line-2);border-radius:var(--pill);padding:.55rem 1rem}
+.pdp-qty button{width:26px;height:26px;display:grid;place-items:center;border-radius:50%;font-size:1.1rem;transition:background .25s}
+.pdp-qty button:hover{background:var(--cream-2)}
+.pdp-buy .btn{flex:1;justify-content:center;min-width:200px}
+.pdp-assure{display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1.8rem;font-size:.82rem;color:var(--ink-soft)}
+.pdp-assure div{display:flex;align-items:center;gap:.5rem}.pdp-assure .ico{width:16px;height:16px;color:var(--amber)}
+/* pdp sections */
+.pdp-sec{padding:clamp(3.5rem,7vw,6rem) 0;border-top:1px solid var(--line)}
+.pdp-sec.dark{background:var(--noir);color:var(--cream)}
+.pdp-sec.dark .sec-head p,.pdp-sec.dark .tnote p{color:rgba(247,241,230,.62)}
+.story-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(2rem,5vw,4rem);align-items:center}
+.story-grid .txt p{color:var(--ink-soft);margin-bottom:1rem;font-size:1.02rem}
+.story-map{border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;background:var(--noir);aspect-ratio:4/3}
+.story-map svg{width:100%;height:100%}
+.tnotes{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:2.5rem}
+.tnote{border:1px solid var(--line);border-radius:var(--r-lg);padding:1.6rem;text-align:center;background:var(--paper);transition:transform .4s var(--ease)}
+.tnote:hover{transform:translateY(-5px)}
+.tnote .ic{font-size:1.8rem;margin-bottom:.6rem}
+.tnote h4{font-weight:400;font-size:1.2rem;margin-bottom:.3rem}
+.tnote p{font-size:.86rem;color:var(--ink-soft)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(2rem,5vw,4rem)}
+.nut-table{width:100%;border-collapse:collapse}
+.nut-table caption{text-align:left;font-family:'Fraunces';font-size:1.5rem;margin-bottom:1rem;font-weight:400}
+.nut-table td{padding:.75rem 0;border-bottom:1px solid var(--line);font-size:.94rem}
+.nut-table td:last-child{text-align:right;font-weight:600}
+.pdp-sec.dark .nut-table td{border-color:var(--line-d)}
+.lab-badge{display:flex;flex-direction:column;gap:1rem}
+.lab-badge .item{display:flex;gap:1rem;align-items:flex-start;padding:1rem;border:1px solid var(--line-d);border-radius:var(--r);background:var(--glass)}
+.lab-badge .item .ico{width:22px;height:22px;color:var(--gold-2);flex:none;margin-top:2px}
+.lab-badge .item b{font-family:'Inter';font-weight:600;display:block;margin-bottom:.15rem}
+.lab-badge .item p{font-size:.86rem;color:rgba(247,241,230,.6)}
+.faq-item{border-bottom:1px solid var(--line)}
+.faq-q{width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:1rem;
+  padding:1.4rem 0;font-family:'Fraunces';font-size:1.2rem;font-weight:400}
+.faq-q .ico{width:20px;height:20px;flex:none;transition:transform .4s var(--ease);color:var(--amber)}
+.faq-item.open .faq-q .ico{transform:rotate(45deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .5s var(--ease)}
+.faq-a p{padding-bottom:1.4rem;color:var(--ink-soft);max-width:60ch}
+.cross{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;margin-top:2.5rem}
+
+/* ════════ TOAST ════════ */
+#toast{position:fixed;bottom:2rem;left:50%;transform:translate(-50%,140%);z-index:210;
+  background:var(--noir);color:var(--cream);padding:.9rem 1.4rem;border-radius:var(--pill);
+  display:flex;align-items:center;gap:.7rem;font-size:.9rem;box-shadow:0 20px 50px rgba(0,0,0,.35);transition:transform .5s var(--ease-2)}
+#toast.on{transform:translate(-50%,0)}
+#toast .ico{width:18px;height:18px;color:var(--gold-2)}
+
+/* ════════ REVEAL ════════ */
+.reveal{opacity:0;transform:translateY(38px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+.st-1{transition-delay:.08s}.st-2{transition-delay:.16s}.st-3{transition-delay:.24s}.st-4{transition-delay:.32s}.st-5{transition-delay:.4s}.st-6{transition-delay:.48s}
+
+/* ════════ RESPONSIVE ════════ */
+@media(max-width:960px){
+  .top-nav{display:none}.burger{display:grid}
+  .pillar-grid,.card-grid,.rev-grid,.cross{grid-template-columns:1fr 1fr}
+  .lab-grid,.story-grid,.split,.pdp-hero{grid-template-columns:1fr}
+  .menu-grid{grid-template-columns:1fr}.menu-side{border:none;padding:0;border-top:1px solid var(--line-d);padding-top:2rem}
+  .foot-top{grid-template-columns:1fr 1fr}.tnotes{grid-template-columns:1fr 1fr}
+  .pdp-hero{min-height:auto}.pdp-gal{min-height:70vh}
+}
+@media(max-width:560px){
+  .pillar-grid,.card-grid,.rev-grid,.cross,.tnotes,.foot-top{grid-template-columns:1fr}
+  .hero-copy h1{font-size:2.6rem}.rev-stats{gap:1.5rem}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════ PRELOADER ════════ -->
+<div id="pre" aria-hidden="true">
+  <div class="pre-mark">
+    <div class="drop">
+      <svg viewBox="0 0 44 56">
+        <path class="pre-hexy" d="M22 2 L40 13 V37 L22 54 L4 37 V13 Z"/>
+        <path class="pre-fill" d="M22 2 L40 13 V37 L22 54 L4 37 V13 Z"/>
+      </svg>
+    </div>
+    <div class="wm">Miels du Monde</div>
+    <div class="pre-bar"><i></i></div>
+  </div>
+</div>
+
+<!-- ════════ HEADER ════════ -->
+<header id="head">
+  <a class="brand" href="#top" aria-label="Miels du Monde — accueil">
+    <span class="hx" aria-hidden="true">
+      <svg viewBox="0 0 30 30"><path d="M15 1 L27 8 V22 L15 29 L3 22 V8 Z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M15 8 L21 11.5 V18.5 L15 22 L9 18.5 V11.5 Z" fill="currentColor" opacity=".8"/></svg>
+    </span>
+    <span><b>Miels</b> du Monde<small>rare</small></span>
+  </a>
+  <nav class="top-nav" aria-label="Principale">
+    <a href="#collection" data-nav>Collection</a>
+    <a href="#origines" data-nav>Origines</a>
+    <a href="#laboratoire" data-nav>Analyses</a>
+    <a href="#avis" data-nav>Avis</a>
+  </nav>
+  <div class="head-act">
+    <button class="iconbtn" id="openSearch" aria-label="Rechercher"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
+    <button class="iconbtn" id="openCart" aria-label="Panier">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+      <span class="cart-count" id="cartCount">0</span>
+    </button>
+    <button class="iconbtn burger" id="openMenu" aria-label="Menu"><svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<!-- ════════ MEGA MENU ════════ -->
+<nav id="menu" aria-label="Menu complet">
+  <button class="menu-close" id="closeMenu" aria-label="Fermer"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <div class="menu-grid">
+    <div class="menu-links">
+      <a href="#collection" data-nav>La Collection <span>01</span></a>
+      <a href="#origines" data-nav>Nos Origines <span>02</span></a>
+      <a href="#laboratoire" data-nav>Le Laboratoire <span>03</span></a>
+      <a href="#manifeste" data-nav>La Maison <span>04</span></a>
+      <a href="#avis" data-nav>Témoignages <span>05</span></a>
+    </div>
+    <aside class="menu-side">
+      <h4>Des origines rares</h4>
+      <p>Chaque cru est importé en direct puis analysé dans un laboratoire français. Huit terroirs, une seule exigence.</p>
+      <div class="menu-orig">
+        <span>🇲🇦 Maroc</span><span>🇰🇬 Kirghizistan</span><span>🇳🇿 Nouvelle-Zélande</span>
+        <span>🇹🇷 Turquie</span><span>🇲🇽 Mexique</span><span>🇷🇺 Russie</span><span>🇦🇷 Argentine</span><span>🇵🇰 Pakistan</span>
+      </div>
+    </aside>
+  </div>
+</nav>
+
+<!-- ════════ HERO ════════ -->
+<section class="hero" id="top">
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="webgl-fallback" aria-hidden="true"><div class="jarfb"></div></div>
+  <div class="kinetic" aria-hidden="true">RARE</div>
+  <div class="vign"></div><div class="grain"></div>
+  <div class="hero-copy shell">
+    <span class="eyebrow">Maison de miels d'exception · depuis 2020</span>
+    <h1>La rareté<br>à l'état <em>pur</em></h1>
+    <p class="lede">Des miels importés en direct des terroirs les plus rares du monde, puis analysés dans un laboratoire français. L'authenticité, prouvée.</p>
+    <div class="hero-cta">
+      <a href="#collection" class="btn btn-gold btn-lg" data-nav>Explorer la collection</a>
+      <a href="#laboratoire" class="btn btn-ghost-d btn-lg" data-nav>Nos analyses</a>
+    </div>
+  </div>
+  <div class="scrollcue" aria-hidden="true"><span>Défiler</span><i></i></div>
+</section>
+
+<!-- ════════ MARQUEE ════════ -->
+<div class="marquee" aria-hidden="true"><div class="track" id="mq">
+  <span>Analysé en laboratoire français</span><span>Importation directe</span><span>Aucun mélange</span>
+  <span>Récolte limitée</span><span>Expédition sous 48h</span><span>Livraison offerte dès 79€</span>
+  <span>Service client 7j/7</span><span>Traçabilité totale</span>
+</div></div>
+
+<!-- ════════ PILLARS ════════ -->
+<section class="pillars">
+  <div class="shell">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Pourquoi la maison</span>
+      <h2>Le prestige n'a de valeur<br>que s'il est prouvé.</h2>
+      <p>Nous n'importons que ce que nous pouvons garantir. Six engagements, chacun vérifiable.</p>
+    </div>
+    <div class="pillar-grid" id="pillars"></div>
+  </div>
+</section>
+
+<!-- ════════ MANIFESTO ════════ -->
+<section class="manifesto" id="manifeste">
+  <div class="glow"></div>
+  <div class="shell">
+    <span class="eyebrow reveal">Le manifeste</span>
+    <p class="big" id="manifestoText" style="margin-top:1.5rem"></p>
+    <div class="sign reveal">
+      <span>—</span> <b>Miels du Monde</b>, maison indépendante · Récoltes 2023 — 2024
+    </div>
+  </div>
+</section>
+
+<!-- ════════ ORIGINS MAP ════════ -->
+<section class="origins" id="origines">
+  <div class="shell">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Nos origines</span>
+      <h2>Huit terroirs.<br>Une exigence commune.</h2>
+      <p>De la fleur de Sidr aux steppes du Kirghizistan, nous remontons chaque miel jusqu'à sa ruche. Sélectionnez une origine.</p>
+    </div>
+    <div class="map-wrap reveal">
+      <svg class="map-svg" id="worldMap" viewBox="0 0 1000 500" role="img" aria-label="Carte des origines"></svg>
+      <div class="map-legend" id="mapLegend"></div>
+    </div>
+    <div class="origin-tabs" id="originTabs"></div>
+  </div>
+</section>
+
+<!-- ════════ COLLECTION ════════ -->
+<section class="collection" id="collection">
+  <div class="shell">
+    <div class="coll-head reveal">
+      <div class="sec-head" style="margin:0">
+        <span class="eyebrow">La collection</span>
+        <h2>Crus d'exception</h2>
+      </div>
+      <p style="color:var(--ink-soft);max-width:38ch">Des éditions limitées, embouteillées à la main. Cliquez un pot pour découvrir son histoire.</p>
+    </div>
+    <div class="card-grid" id="cards"></div>
+  </div>
+</section>
+
+<!-- ════════ LAB / TRUST ════════ -->
+<section class="lab" id="laboratoire">
+  <div class="shell">
+    <div class="lab-grid">
+      <div class="reveal">
+        <div class="sec-head" style="margin:0">
+          <span class="eyebrow">Le laboratoire</span>
+          <h2>Chaque lot,<br>passé au crible.</h2>
+          <p>La fraude au miel est le troisième aliment le plus falsifié au monde. Notre réponse : une analyse systématique en laboratoire français avant chaque mise en vente.</p>
+        </div>
+        <div class="lab-list">
+          <div class="row"><span class="n">01</span><div><h4>Analyse pollinique</h4><p>Identification de l'origine florale et géographique réelle du miel.</p></div></div>
+          <div class="row"><span class="n">02</span><div><h4>Détection de sirops ajoutés</h4><p>Recherche de sucres exogènes (C4, riz, betterave) par spectrométrie.</p></div></div>
+          <div class="row"><span class="n">03</span><div><h4>Taux d'HMF & fraîcheur</h4><p>Garantie d'un miel non surchauffé, aux enzymes préservées.</p></div></div>
+        </div>
+      </div>
+      <div class="cert reveal st-2">
+        <div class="seal"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z"/></svg></div>
+        <h3>Certificat d'authenticité</h3>
+        <p>Un rapport d'analyse est associé à chaque récolte et consultable sur simple demande. La confiance ne se déclare pas, elle se documente.</p>
+        <dl class="meta">
+          <div><dt>Laboratoire</dt><dd>France</dd></div>
+          <div><dt>Lots analysés</dt><dd>100%</dd></div>
+          <div><dt>Origines</dt><dd>8 pays</dd></div>
+          <div><dt>Mélanges</dt><dd>Zéro</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ REVIEWS ════════ -->
+<section class="reviews" id="avis">
+  <div class="shell">
+    <div class="sec-head center reveal">
+      <span class="eyebrow">Témoignages</span>
+      <h2>Ils ont goûté la rareté</h2>
+    </div>
+    <div class="rev-grid" id="reviews"></div>
+    <div class="rev-stats reveal">
+      <div class="rev-stat"><div class="num" data-count="4.8">0</div><div class="lb">Note moyenne / 5</div></div>
+      <div class="rev-stat"><div class="num" data-count="100" data-suffix="%">0</div><div class="lb">Lots analysés en labo</div></div>
+      <div class="rev-stat"><div class="num" data-count="8">0</div><div class="lb">Origines rares</div></div>
+      <div class="rev-stat"><div class="num" data-count="48" data-suffix="h">0</div><div class="lb">Expédition</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ NEWSLETTER ════════ -->
+<section class="news">
+  <div class="glow"></div>
+  <div class="shell">
+    <span class="eyebrow reveal" style="justify-content:center">Le cercle</span>
+    <h2 class="reveal st-1">Recevez nos récoltes<br>avant tout le monde</h2>
+    <p class="reveal st-2">Éditions limitées, nouvelles origines et un code privilège de bienvenue. Rien d'autre.</p>
+    <form class="reveal st-3" id="newsForm">
+      <input type="email" placeholder="Votre adresse e-mail" required aria-label="E-mail">
+      <button class="btn btn-gold" type="submit">Rejoindre&nbsp;<svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+  </div>
+</section>
+
+<!-- ════════ FOOTER ════════ -->
+<footer>
+  <div class="shell">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="#top"><span class="hx"><svg viewBox="0 0 30 30"><path d="M15 1 L27 8 V22 L15 29 L3 22 V8 Z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M15 8 L21 11.5 V18.5 L15 22 L9 18.5 V11.5 Z" fill="currentColor" opacity=".8"/></svg></span><span><b>Miels</b> du Monde</span></a>
+        <p>Maison indépendante de miels rares, importés en direct et analysés en laboratoire français. La rareté, prouvée.</p>
+        <div class="socials">
+          <a href="#" aria-label="Instagram"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a>
+          <a href="#" aria-label="TikTok"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M15 4v8.5a4 4 0 1 1-4-4"/><path d="M15 4a4.5 4.5 0 0 0 4.5 4.5"/></svg></a>
+          <a href="#" aria-label="Email"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></a>
+        </div>
+      </div>
+      <div class="foot-col"><h5>Explorer</h5>
+        <a href="#collection" data-nav>La collection</a><a href="#origines" data-nav>Nos origines</a>
+        <a href="#laboratoire" data-nav>Les analyses</a><a href="#avis" data-nav>Témoignages</a>
+      </div>
+      <div class="foot-col"><h5>Maison</h5>
+        <a href="#manifeste" data-nav>Le manifeste</a><a href="#">Notre histoire</a><a href="#">Journal</a><a href="#">Contact</a>
+      </div>
+      <div class="foot-col"><h5>Service</h5>
+        <a href="#">Livraison &amp; retours</a><a href="#">Suivi de commande</a><a href="#">FAQ</a><a href="#">CGV &amp; mentions légales</a>
+      </div>
+    </div>
+    <div class="foot-bar">
+      <span>© 2024 Miels du Monde — Tous droits réservés.</span>
+      <div class="pay"><span>VISA</span><span>MASTERCARD</span><span>PAYPAL</span><span>APPLE PAY</span></div>
+    </div>
+  </div>
+</footer>
+
+<!-- ════════ CART DRAWER ════════ -->
+<div id="scrim"></div>
+<aside id="cart" aria-label="Panier">
+  <div class="cart-h"><h3>Votre panier</h3>
+    <button class="iconbtn" id="closeCart" aria-label="Fermer"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="cart-ship" id="cartShip"></div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="cart-f" id="cartFoot" hidden>
+    <div class="line"><span>Sous-total</span><span id="cartSub">0€</span></div>
+    <div class="line"><span>Livraison</span><span id="cartShipCost">—</span></div>
+    <div class="tot" id="cartTot">0€</div>
+    <button class="btn btn-gold" id="checkout">Passer commande</button>
+    <div class="re">Paiement sécurisé · Satisfait ou remboursé 14 jours</div>
+  </div>
+</aside>
+
+<!-- ════════ PRODUCT DETAIL OVERLAY ════════ -->
+<div id="pdp" aria-label="Fiche produit"></div>
+
+<!-- ════════ TOAST ════════ -->
+<div id="toast" role="status"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><span id="toastMsg">Ajouté</span></div>
+
+<!-- ════════ APP · JS INJECTED BELOW ════════ -->
+<script type="module">
+/* ════════════════════════════════════════════════════════════════════
+   MIELS DU MONDE · Application
+   Aucun import statique : Three.js & GSAP sont chargés dynamiquement et
+   échouent gracieusement — l'UI (panier, menu, fiches) fonctionne toujours.
+   ════════════════════════════════════════════════════════════════════ */
+"use strict";
+const $  = (s, r=document)=>r.querySelector(s);
+const $$ = (s, r=document)=>[...r.querySelectorAll(s)];
+const RM = matchMedia('(prefers-reduced-motion:reduce)').matches;
+const euro = n => (Number.isInteger(n)? n : n.toFixed(2)) + '€';
+
+/* ─────────────── DONNÉES ─────────────── */
+const PILLARS = [
+  {ic:'M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z', t:'Analysé en laboratoire', d:"Chaque lot est passé au crible d'un laboratoire français avant la vente. La preuve, pas la promesse."},
+  {ic:'M12 21s-7-4.3-7-10a7 7 0 0 1 14 0c0 5.7-7 10-7 10z|M12 11a2 2 0 100-4 2 2 0 000 4z', t:'Miels rares', d:'Des crus confidentiels — Sidr, Sainfoin, Manuka — introuvables en grande surface.'},
+  {ic:'M20 6L9 17l-5-5', t:'Authenticité prouvée', d:'Origine florale et géographique vérifiées. Aucun mélange, aucun sirop ajouté.'},
+  {ic:'M3 12h4l3-9 4 18 3-9h4', t:'Importation directe', d:'Nous remontons chaque miel jusqu\'à sa ruche, sans intermédiaire opaque.'},
+  {ic:'M3 7h13v10H3zM16 10h3l2 3v4h-5zM7 20a2 2 0 100-4 2 2 0 000 4zM18 20a2 2 0 100-4 2 2 0 000 4z', t:'Livraison rapide', d:'Expédition sous 48 à 72h, offerte dès 79€. France, Belgique, UE.'},
+  {ic:'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z', t:'Service client 7j/7', d:'Une maison à taille humaine, joignable chaque jour. On vous répond, vraiment.'}
+];
+
+const ORIGINS = [
+  {c:'Maroc',        f:'🇲🇦', city:'Atlas',       lon:-7,   lat:31.7, blurb:'Miels de montagne récoltés sur les contreforts de l\'Atlas.'},
+  {c:'Kirghizistan', f:'🇰🇬', city:'Tian Shan',   lon:74.6, lat:42.8, blurb:'Le rare miel blanc de sainfoin, crémeux et floral, des hauts plateaux.'},
+  {c:'Nouvelle-Zélande',f:'🇳🇿',city:'Northland',lon:174,  lat:-38,  blurb:'Le Manuka, récolté sur une flore endémique protégée.'},
+  {c:'Turquie',      f:'🇹🇷', city:'Muğla',       lon:35,   lat:39,   blurb:'Miels de pin et de forêt, denses et boisés.'},
+  {c:'Mexique',      f:'🇲🇽', city:'Yucatán',     lon:-90,  lat:20,   blurb:'Miels de fleurs sauvages du plateau tropical.'},
+  {c:'Russie',       f:'🇷🇺', city:'Altaï',       lon:86,   lat:52,   blurb:'Miels de taïga récoltés dans des vallées reculées.'},
+  {c:'Argentine',    f:'🇦🇷', city:'Patagonie',   lon:-64,  lat:-40,  blurb:'Miels de bruyère et de trèfle des grands espaces.'},
+  {c:'Pakistan',     f:'🇵🇰', city:'Vallées Sidr',lon:69,   lat:30,   blurb:'Le prestigieux miel de Sidr, ambré et résineux.'}
+];
+const HOME = {lon:2.3, lat:48.8}; // France
+
+const PRODUCTS = [
+  { id:'sidr', name:'Miel de Sidr', flower:'Fleur de jujubier', origin:ORIGINS[7], price:58, old:68, tag:'Le plus rare',
+    hue:['#e8b45c','#c47a1e','#7a3d0c'], rating:5, count:214,
+    lede:"Le joyau de la maison. Un miel dense et résineux, récolté sur l'arbre de Sidr dans les vallées reculées du Pakistan.",
+    story:["Récolté deux fois par an seulement, le miel de Sidr est l'un des plus recherchés au monde. L'arbre de jujubier (Ziziphus) pousse dans des vallées arides où les abeilles butinent une flore d'une richesse rare.",
+      "Sa production limitée et sa récolte entièrement manuelle en font un miel d'exception. Chaque lot est tracé jusqu'à son apiculteur, puis analysé en France avant de rejoindre notre collection."],
+    tasting:[{ic:'🌰',t:'Résineux',d:'Notes de caramel brun et de datte.'},{ic:'🍯',t:'Dense',d:'Texture épaisse, presque sirupeuse.'},{ic:'🔥',t:'Chaleureux',d:'Une longueur en bouche boisée.'},{ic:'☕',t:'Nature ou café',d:'Sublime en fin de repas.'}],
+    texture:'Onctueux, non cristallisé', crystal:'Lente',
+    nutrition:{'Valeur énergétique':'1 380 kJ / 325 kcal','Glucides':'80 g','— dont sucres':'79 g','Protéines':'0,4 g','Matières grasses':'0 g','Portion':'pour 100 g'},
+    lab:[{t:'Origine florale confirmée',d:'Analyse pollinique : dominance Ziziphus.'},{t:'Sans sucre ajouté',d:'Aucun sirop C4 détecté.'},{t:'HMF conforme',d:'Miel non surchauffé, enzymes préservées.'}] },
+  { id:'sainfoin', name:'Miel de Sainfoin', flower:'Fleur de sainfoin', origin:ORIGINS[1], price:32, old:38, tag:'Miel blanc',
+    hue:['#f6ead0','#e8d29a','#c9a24a'], rating:5, count:167,
+    lede:"Le célèbre miel blanc du Kirghizistan. Crémeux, floral et d'une douceur délicate, cristallisé naturellement.",
+    story:["Sur les hauts plateaux du Tian Shan, le sainfoin fleurit un court instant chaque été. Les abeilles en tirent un miel d'une pâleur remarquable, qui cristallise en une texture crémeuse et fondante.",
+      "Un miel doux, subtil, que l'on savoure à la petite cuillère. Sa blancheur naturelle n'est pas un défaut : c'est sa signature."],
+    tasting:[{ic:'🌸',t:'Floral',d:'Délicat, légèrement lacté.'},{ic:'🍦',t:'Crémeux',d:'Fond en bouche comme une crème.'},{ic:'🤍',t:'Doux',d:'Faible amertume, tout en rondeur.'},{ic:'🥐',t:'Tartine',d:'Idéal au petit-déjeuner.'}],
+    texture:'Crémeux, cristallisé fin', crystal:'Naturelle',
+    nutrition:{'Valeur énergétique':'1 360 kJ / 320 kcal','Glucides':'79 g','— dont sucres':'78 g','Protéines':'0,3 g','Matières grasses':'0 g','Portion':'pour 100 g'},
+    lab:[{t:'Origine confirmée',d:'Dominance pollinique Onobrychis.'},{t:'Pur & non chauffé',d:'Cristallisation 100% naturelle.'},{t:'Sans additif',d:'Aucun sucre exogène.'}] },
+  { id:'manuka', name:'Miel de Manuka', flower:'Arbre de Manuka', origin:ORIGINS[2], price:64, old:74, tag:'Emblématique',
+    hue:['#dca24e','#a5691f','#5e3410'], rating:5, count:198,
+    lede:"L'icône néo-zélandaise. Un miel puissant et bronzé, issu d'une flore endémique et strictement contrôlée.",
+    story:["Le Manuka pousse à l'état sauvage en Nouvelle-Zélande. Sa floraison brève et sa récolte réglementée en font un miel aussi rare que réputé, au caractère minéral affirmé.",
+      "Nous sélectionnons des lots tracés et analysés, pour vous garantir un Manuka authentique — un marché où la contrefaçon est fréquente."],
+    tasting:[{ic:'🪵',t:'Boisé',d:'Notes terreuses et minérales.'},{ic:'💪',t:'Puissant',d:'Un miel de caractère.'},{ic:'🌿',t:'Herbacé',d:'Une amertume noble.'},{ic:'🥄',t:'Cure',d:'Une cuillère chaque matin.'}],
+    texture:'Épais, légèrement thixotrope', crystal:'Lente',
+    nutrition:{'Valeur énergétique':'1 370 kJ / 323 kcal','Glucides':'80 g','— dont sucres':'78 g','Protéines':'0,4 g','Matières grasses':'0 g','Portion':'pour 100 g'},
+    lab:[{t:'Authenticité Manuka',d:'Marqueurs floraux vérifiés.'},{t:'Traçabilité totale',d:'Lot tracé jusqu\'au rucher.'},{t:'Non falsifié',d:'Contrôle anti-contrefaçon.'}] },
+  { id:'oranger', name:"Miel d'Oranger", flower:"Fleur d'oranger", origin:ORIGINS[0], price:26, old:30, tag:'Best-seller',
+    hue:['#f4d06a','#e0a63a','#b3701c'], rating:5, count:301,
+    lede:"Un miel doré et solaire du Maroc, gorgé du parfum enivrant des vergers d'agrumes en fleurs.",
+    story:["Au printemps, les vergers d'orangers du Maroc embaument l'air. Les abeilles y récoltent un miel clair et parfumé, à la fragrance de fleur d'oranger inimitable.",
+      "Un miel lumineux et accessible, qui met tout le monde d'accord. Notre porte d'entrée idéale dans le monde des grands crus."],
+    tasting:[{ic:'🍊',t:'Agrumes',d:'Parfum de fleur d\'oranger.'},{ic:'☀️',t:'Solaire',d:'Clair et lumineux.'},{ic:'🌼',t:'Floral',d:'Doux et parfumé.'},{ic:'🍵',t:'Infusion',d:'Sublime dans un thé.'}],
+    texture:'Liquide, fluide', crystal:'Lente',
+    nutrition:{'Valeur énergétique':'1 350 kJ / 318 kcal','Glucides':'79 g','— dont sucres':'78 g','Protéines':'0,3 g','Matières grasses':'0 g','Portion':'pour 100 g'},
+    lab:[{t:'Origine Citrus',d:'Analyse pollinique confirmée.'},{t:'Pur',d:'Sans sirop ajouté.'},{t:'Fraîcheur',d:'HMF faible, récolte récente.'}] },
+  { id:'pin', name:'Miel de Pin', flower:'Forêt de pins', origin:ORIGINS[3], price:34, old:40, tag:'Boisé',
+    hue:['#c9a24a','#8a6a1e','#40340f'], rating:4, count:142,
+    lede:"Un miel de miellat sombre et forestier de Turquie, faible en sucre et d'une profondeur boisée rare.",
+    story:["Récolté dans les forêts de pins de Muğla, ce miel de miellat n'est pas issu de fleurs mais de la sève. Résultat : un miel sombre, moins sucré, d'une richesse minérale singulière.",
+      "Prisé des amateurs pour son caractère et sa faible teneur en glucose, il ne cristallise presque jamais."],
+    tasting:[{ic:'🌲',t:'Résineux',d:'Notes de sous-bois.'},{ic:'🖤',t:'Sombre',d:'Presque malté.'},{ic:'🧂',t:'Minéral',d:'Peu sucré, complexe.'},{ic:'🧀',t:'Fromage',d:'Superbe sur un fromage affiné.'}],
+    texture:'Liquide, dense', crystal:'Très lente',
+    nutrition:{'Valeur énergétique':'1 320 kJ / 312 kcal','Glucides':'76 g','— dont sucres':'72 g','Protéines':'0,5 g','Matières grasses':'0 g','Portion':'pour 100 g'},
+    lab:[{t:'Miellat confirmé',d:'Profil conductivité élevé.'},{t:'Non coupé',d:'Sans mélange de miels de fleurs.'},{t:'Pur',d:'Aucun sucre ajouté.'}] },
+  { id:'bruyere', name:'Miel de Bruyère', flower:'Bruyère sauvage', origin:ORIGINS[6], price:30, old:35, tag:'Corsé',
+    hue:['#e6a25a','#c46a24','#7a2f10'], rating:5, count:119,
+    lede:"Un miel ambré et corsé de Patagonie, à la texture gélifiée caractéristique et au goût puissant.",
+    story:["Dans les grands espaces de Patagonie, la bruyère sauvage donne un miel ambré au caractère intense. Sa texture particulière, presque gélatineuse, est la marque des grands miels de bruyère.",
+      "Un miel de dégustation pour les palais avertis, à la longueur remarquable."],
+    tasting:[{ic:'🍷',t:'Corsé',d:'Puissant et persistant.'},{ic:'🍮',t:'Gélifié',d:'Texture unique, thixotrope.'},{ic:'🌾',t:'Terreux',d:'Notes de caramel et de malt.'},{ic:'🍞',t:'Pain grillé',d:'Parfait sur du pain de campagne.'}],
+    texture:'Gélifié, épais', crystal:'Lente',
+    nutrition:{'Valeur énergétique':'1 360 kJ / 320 kcal','Glucides':'79 g','— dont sucres':'77 g','Protéines':'0,5 g','Matières grasses':'0 g','Portion':'pour 100 g'},
+    lab:[{t:'Origine bruyère',d:'Dominance Calluna/Erica.'},{t:'Pur',d:'Sans sirop.'},{t:'Fraîcheur',d:'Enzymes préservées.'}] }
+];
+const PROD_FAQ = [
+  {q:'Vos miels sont-ils vraiment analysés ?',a:"Oui. Chaque lot est envoyé dans un laboratoire français qui vérifie l'origine florale, l'absence de sirops ajoutés et le taux d'HMF. Le rapport est disponible sur demande."},
+  {q:'Comment conserver mon miel ?',a:"À l'abri de la lumière et de la chaleur, dans un placard. Un miel qui cristallise est un bon signe de pureté : réchauffez-le doucement au bain-marie (jamais au micro-ondes) pour le refluidifier."},
+  {q:'Sous combien de temps suis-je livré ?',a:"Nous expédions sous 48 à 72h après confirmation. La livraison est offerte dès 79€ d'achat en point relais, en France comme dans l'Union européenne."},
+  {q:'Le miel est-il pasteurisé ?',a:"Non. Nos miels ne sont ni pasteurisés ni surchauffés, afin de préserver leurs enzymes et arômes naturels."}
+];
+
+const REVIEWS = [
+  {n:'Camille D.',city:'Lyon',t:"Le miel de Sidr est une révélation. On sent immédiatement qu'on est loin des miels de supermarché. Le packaging est sublime.",r:5},
+  {n:'Karim B.',city:'Bruxelles',t:"J'ai été bluffé par la transparence : ils envoient vraiment le rapport d'analyse. Le sainfoin blanc est incroyablement crémeux.",r:5},
+  {n:'Élodie M.',city:'Bordeaux',t:"Livraison ultra rapide, emballage soigné, et surtout des goûts que je n'avais jamais rencontrés. Le coffret fait un cadeau parfait.",r:5},
+  {n:'Thomas R.',city:'Genève',t:"Enfin un Manuka en qui j'ai confiance. La démarche labo change tout. Service client réactif et humain.",r:5},
+  {n:'Sarah L.',city:'Paris',t:"Chaque miel a une vraie personnalité. On voyage. La qualité justifie complètement le prix.",r:5},
+  {n:'Marc V.',city:'Nantes',t:"Le miel de pin est bluffant sur un vieux comté. On sent le sérieux de la sélection.",r:4}
+];
+
+/* ─────────────── VISUEL POT (SVG génératif) ─────────────── */
+function jar(p, {mini=false}={}){
+  const [l,m,d] = p.hue, id = p.id + (mini?'m':'');
+  return `<svg viewBox="0 0 100 134" class="jar" role="img" aria-label="Pot de ${p.name}">
+    <defs>
+      <linearGradient id="h${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${l}"/><stop offset=".5" stop-color="${m}"/><stop offset="1" stop-color="${d}"/>
+      </linearGradient>
+      <linearGradient id="g${id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="rgba(255,255,255,.55)"/><stop offset=".25" stop-color="rgba(255,255,255,.05)"/>
+        <stop offset=".8" stop-color="rgba(0,0,0,.06)"/><stop offset="1" stop-color="rgba(0,0,0,.14)"/>
+      </linearGradient>
+      <clipPath id="c${id}"><path d="M28 46 C28 40 33 37 40 37 H60 C67 37 72 40 72 46 V112 C72 122 65 126 56 126 H44 C35 126 28 122 28 112 Z"/></clipPath>
+    </defs>
+    <ellipse cx="50" cy="128" rx="26" ry="4" fill="rgba(0,0,0,.12)"/>
+    <g clip-path="url(#c${id})">
+      <rect x="24" y="60" width="52" height="70" fill="url(#h${id})"/>
+      <ellipse cx="50" cy="60" rx="24" ry="6" fill="${l}" opacity=".9"/>
+      <rect x="24" y="34" width="52" height="94" fill="url(#g${id})"/>
+    </g>
+    <path d="M28 46 C28 40 33 37 40 37 H60 C67 37 72 40 72 46 V112 C72 122 65 126 56 126 H44 C35 126 28 122 28 112 Z"
+      fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.2"/>
+    <path d="M33 52 C31 60 31 96 33 110" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
+    <rect x="40" y="30" width="20" height="9" rx="2" fill="#d9cbb0"/>
+    <rect x="35" y="16" width="30" height="16" rx="4" fill="#b9852f"/>
+    <rect x="35" y="16" width="30" height="16" rx="4" fill="url(#g${id})"/>
+    <rect x="33" y="26" width="34" height="5" rx="2.5" fill="#caa24a"/>
+    ${mini?'':`<rect x="36" y="72" width="28" height="26" rx="3" fill="rgba(255,255,255,.82)"/>
+      <text x="50" y="83" text-anchor="middle" font-family="Fraunces,serif" font-size="6" fill="#1b1710">${p.origin.f}</text>
+      <text x="50" y="92" text-anchor="middle" font-family="Inter,sans-serif" font-size="3.4" letter-spacing=".5" fill="#79542e">${p.origin.c.toUpperCase()}</text>`}
+  </svg>`;
+}
+const starsHTML = n => Array.from({length:5},(_,i)=>`<svg class="ico" viewBox="0 0 24 24" ${i<n?'':'opacity=".25"'}><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z"/></svg>`).join('');
+
+/* ─────────────── PROJECTION CARTE ─────────────── */
+const projX = lon => (lon+180)/360*1000;
+const projY = lat => (90-lat)/180*500;
+function arcPath(a,b){ // grand-arc esthétique
+  const x1=projX(a.lon),y1=projY(a.lat),x2=projX(b.lon),y2=projY(b.lat);
+  const mx=(x1+x2)/2, my=(y1+y2)/2 - Math.hypot(x2-x1,y2-y1)*0.28;
+  return {d:`M${x1} ${y1} Q${mx} ${my} ${x2} ${y2}`, len:Math.hypot(x2-x1,y2-y1)*1.25};
+}
+
+/* ═══════════════ RENDU DES SECTIONS ═══════════════ */
+function renderPillars(){
+  $('#pillars').innerHTML = PILLARS.map((p,i)=>{
+    const icons = p.ic.split('|').map(d=>`<path d="${d}"/>`).join('');
+    return `<article class="pillar reveal st-${i%3+1}">
+      <div class="pn">0${i+1}</div>
+      <div class="pic"><svg class="ico" viewBox="0 0 24 24">${icons}</svg></div>
+      <h3>${p.t}</h3><p>${p.d}</p></article>`;
+  }).join('');
+}
+function renderCards(){
+  $('#cards').innerHTML = PRODUCTS.map((p,i)=>`
+    <article class="card reveal st-${i%3+1}" data-id="${p.id}" role="button" tabindex="0" aria-label="${p.name}">
+      <div class="card-vis">
+        <div class="halo" style="background:${p.hue[1]}"></div>
+        ${jar(p)}
+        <span class="card-tag">${p.tag}</span>
+        <button class="card-fav" aria-label="Favori"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 21s-7-4.3-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.7-7 10-7 10z"/></svg></button>
+        <div class="card-quick">Découvrir le cru</div>
+      </div>
+      <div class="card-body">
+        <div class="org">${p.origin.f} ${p.origin.c}</div>
+        <h3>${p.name}</h3>
+        <p class="desc">${p.flower} · ${p.texture.split(',')[0]}</p>
+        <div class="card-foot">
+          <div class="price"><s>${euro(p.old)}</s>${euro(p.price)}</div>
+          <div class="stars">${starsHTML(p.rating)}</div>
+        </div>
+      </div>
+    </article>`).join('');
+}
+function renderReviews(){
+  $('#reviews').innerHTML = REVIEWS.map((r,i)=>`
+    <article class="rev reveal st-${i%3+1}">
+      <div class="stars">${starsHTML(r.r)}</div>
+      <p>“${r.t}”</p>
+      <div class="by"><div class="av">${r.n[0]}</div><div><b>${r.n}</b><br><span>${r.city} · Achat vérifié</span></div></div>
+    </article>`).join('');
+}
+function renderManifesto(){
+  const txt = "Nous croyons qu'un miel rare ne vaut que par sa vérité. Alors nous les remontons jusqu'à leur ruche, et nous les analysons. Parce que le prestige, cela se prouve.";
+  $('#manifestoText').innerHTML = txt.split(' ').map(w=> w==='vérité.'||w==='analysons.'||w==='prouve.' ? `<span class="word"><em>${w}</em></span> ` : `<span class="word">${w}</span> `).join('');
+}
+
+/* ─────────────── CARTE MONDE ─────────────── */
+function renderMap(){
+  const svg = $('#worldMap'); let g='';
+  // graticule
+  for(let lon=-150;lon<=150;lon+=30){ g+=`<line class="graticule" x1="${projX(lon)}" y1="0" x2="${projX(lon)}" y2="500"/>`; }
+  for(let lat=-60;lat<=60;lat+=30){ g+=`<line class="graticule" x1="0" y1="${projY(lat)}" x2="1000" y2="${projY(lat)}"/>`; }
+  // masses stylisées (abstraites, légères)
+  const blobs=['M120 140 q40 -30 110 -20 q60 8 70 60 q-10 70 -80 90 q-90 20 -120 -40 q-20 -60 20 -90 Z',
+    'M470 120 q60 -20 120 10 q40 40 10 90 q-40 50 -120 40 q-60 -20 -50 -80 q0 -40 40 -60 Z',
+    'M540 250 q40 0 60 40 q10 60 -30 110 q-30 30 -50 -10 q-20 -80 0 -120 q5 -20 20 -20 Z',
+    'M260 300 q40 -10 50 30 q10 60 -20 110 q-25 30 -40 -10 q-15 -80 -5 -110 q5 -40 15 -20 Z',
+    'M760 320 q30 -6 40 20 q6 30 -16 44 q-30 12 -40 -14 q-6 -34 16 -50 Z'];
+  const land = blobs.map(d=>`<path class="landmass" d="${d}"/>`).join('');
+  // arcs depuis la France
+  const arcs = ORIGINS.map((o,i)=>{const a=arcPath(HOME,o);return `<path class="arc" id="arc${i}" d="${a.d}" style="--l:${a.len}"/>`;}).join('');
+  // pins
+  const pins = ORIGINS.map((o,i)=>`<g class="pin" data-i="${i}" transform="translate(${projX(o.lon)} ${projY(o.lat)})">
+      <circle class="pulse" r="4"/><circle class="ring" r="9" opacity=".5"/><circle class="dot" r="4"/></g>`).join('')
+    + `<g transform="translate(${projX(HOME.lon)} ${projY(HOME.lat)})"><circle r="3" fill="#f7f1e6"/><circle r="7" fill="none" stroke="#f7f1e6" stroke-width=".8" opacity=".5"/></g>`;
+  const defs = `<defs><linearGradient id="arcgrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f7f1e6" stop-opacity=".2"/><stop offset="1" stop-color="#e2c073"/></linearGradient></defs>`;
+  svg.innerHTML = defs+g+land+arcs+pins;
+  const tabs = $('#originTabs');
+  tabs.innerHTML = ORIGINS.map((o,i)=>`<button data-i="${i}"><span>${o.f}</span>${o.c}</button>`).join('');
+  const select = i=>{
+    ORIGINS.forEach((_,j)=>{ $(`#arc${j}`).classList.toggle('on', j===i); });
+    $$('.pin', svg).forEach(p=>p.classList.toggle('sel', +p.dataset.i===i));
+    $$('#originTabs button').forEach(b=>b.classList.toggle('sel', +b.dataset.i===i));
+    const o=ORIGINS[i];
+    $('#mapLegend').innerHTML = `<div class="flag">${o.f}</div><h4>${o.c}</h4><p>${o.blurb}</p>`;
+  };
+  $$('.pin', svg).forEach(p=>p.addEventListener('click',()=>select(+p.dataset.i)));
+  tabs.addEventListener('click',e=>{const b=e.target.closest('button'); if(b) select(+b.dataset.i);});
+  select(7); // Sidr / Pakistan par défaut
+}
+function miniMap(o){
+  const a=arcPath(HOME,o);
+  return `<svg viewBox="150 40 700 420" preserveAspectRatio="xMidYMid slice">
+    <defs><linearGradient id="mg" x1="0" y1="0" x2="1"><stop offset="0" stop-color="#f7f1e6" stop-opacity=".15"/><stop offset="1" stop-color="#e2c073"/></linearGradient></defs>
+    ${[...Array(11)].map((_,k)=>`<line x1="${k*100}" y1="0" x2="${k*100}" y2="500" stroke="rgba(226,192,115,.08)"/>`).join('')}
+    ${[...Array(6)].map((_,k)=>`<line x1="0" y1="${k*100}" x2="1000" y2="${k*100}" stroke="rgba(226,192,115,.08)"/>`).join('')}
+    <path d="${a.d}" fill="none" stroke="url(#mg)" stroke-width="1.6" stroke-dasharray="4 5"/>
+    <g transform="translate(${projX(HOME.lon)} ${projY(HOME.lat)})"><circle r="4" fill="#f7f1e6"/></g>
+    <g transform="translate(${projX(o.lon)} ${projY(o.lat)})"><circle r="14" fill="none" stroke="#e2c073" opacity=".4"/><circle r="6" fill="#e0a83c"/></g>
+    <text x="${projX(o.lon)}" y="${projY(o.lat)-22}" text-anchor="middle" fill="#f7f1e6" font-family="Fraunces,serif" font-size="22">${o.f} ${o.c}</text>
+  </svg>`;
+}
+
+/* ═══════════════ PANIER ═══════════════ */
+const cart = new Map(); // id -> qty
+const FREE = 79;
+function addToCart(id, qty=1, fromEl){
+  cart.set(id,(cart.get(id)||0)+qty); renderCart(); pulseCart();
+  if(fromEl) flyToCart(fromEl, id);
+  toast(`${PRODUCTS.find(p=>p.id===id).name} ajouté`);
+}
+function setQty(id,q){ q<=0?cart.delete(id):cart.set(id,q); renderCart(); }
+function cartTotal(){ let n=0; cart.forEach((q,id)=>n+=PRODUCTS.find(p=>p.id===id).price*q); return n; }
+function cartCount(){ let n=0; cart.forEach(q=>n+=q); return n; }
+function pulseCart(){ const c=$('#cartCount'),n=cartCount(); c.textContent=n; c.classList.toggle('on',n>0); c.animate([{transform:'scale(1.5)'},{transform:'scale(1)'}],{duration:400,easing:'cubic-bezier(.22,1,.36,1)'}); }
+function renderCart(){
+  const wrap=$('#cartItems'), foot=$('#cartFoot');
+  if(cart.size===0){
+    wrap.innerHTML=`<div class="cart-empty"><svg class="ico" viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><p>Votre panier est vide.</p><button class="btn btn-ghost" onclick="document.getElementById('closeCart').click()">Explorer la collection</button></div>`;
+    foot.hidden=true; $('#cartShip').innerHTML=`<span>Plus que <b>${euro(FREE)}</b> pour la livraison offerte 🎁</span><div class="bar"><i></i></div>`;
+    return;
+  }
+  wrap.innerHTML=[...cart].map(([id,q])=>{const p=PRODUCTS.find(x=>x.id===id);return `
+    <div class="ci"><div class="thumb">${jar(p,{mini:true})}</div>
+      <div class="info"><div class="o">${p.origin.f} ${p.origin.c}</div><h4>${p.name}</h4>
+        <div class="qty"><button data-act="dec" data-id="${id}" aria-label="Moins">−</button><span>${q}</span><button data-act="inc" data-id="${id}" aria-label="Plus">+</button></div>
+      </div>
+      <div class="right"><button class="rm" data-act="rm" data-id="${id}">Retirer</button><b>${euro(p.price*q)}</b></div>
+    </div>`;}).join('');
+  const sub=cartTotal(), ship=sub>=FREE?0:5.9;
+  foot.hidden=false; $('#cartSub').textContent=euro(sub);
+  $('#cartShipCost').textContent = ship===0?'Offerte':euro(ship);
+  $('#cartTot').textContent=euro(sub+ship);
+  const pct=Math.min(100,sub/FREE*100);
+  $('#cartShip').innerHTML = sub>=FREE
+    ? `<span>🎁 Livraison <b>offerte</b> débloquée !</span><div class="bar"><i style="width:100%"></i></div>`
+    : `<span>Plus que <b>${euro(FREE-sub)}</b> pour la livraison offerte</span><div class="bar"><i style="width:${pct}%"></i></div>`;
+}
+$('#cartItems').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return; const id=b.dataset.id,q=cart.get(id)||0;
+  if(b.dataset.act==='inc') setQty(id,q+1);
+  if(b.dataset.act==='dec') setQty(id,q-1);
+  if(b.dataset.act==='rm') setQty(id,0);
+});
+function flyToCart(from,id){
+  const p=PRODUCTS.find(x=>x.id===id); const r=from.getBoundingClientRect();
+  const t=$('#openCart').getBoundingClientRect();
+  const f=document.createElement('div'); f.className='fly'; f.style.background=p.hue[1];
+  f.innerHTML=jar(p,{mini:true}); f.style.left=r.left+r.width/2-23+'px'; f.style.top=r.top+r.height/2-28+'px';
+  document.body.appendChild(f);
+  f.animate([{transform:'translate(0,0) scale(1)',opacity:1},
+    {transform:`translate(${t.left-r.left-r.width/2+23}px,${t.top-r.top-r.height/2+28}px) scale(.25)`,opacity:.4}],
+    {duration:750,easing:'cubic-bezier(.5,.05,.4,1)'}).onfinish=()=>f.remove();
+}
+const openCart =()=>{ $('#cart').classList.add('on'); $('#scrim').classList.add('on'); document.body.classList.add('lock'); };
+const closeCart=()=>{ $('#cart').classList.remove('on'); $('#scrim').classList.remove('on'); document.body.classList.remove('lock'); };
+$('#openCart').onclick=openCart; $('#closeCart').onclick=closeCart;
+$('#checkout').onclick=()=>toast('Redirection vers le paiement sécurisé…');
+
+/* ═══════════════ FICHE PRODUIT (overlay) ═══════════════ */
+function openPDP(id){
+  const p=PRODUCTS.find(x=>x.id===id); if(!p) return;
+  const cross=PRODUCTS.filter(x=>x.id!==id).slice(0,3);
+  const nut=Object.entries(p.nutrition).map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  $('#pdp').innerHTML = `
+  <div class="pdp-bar">
+    <button class="back" id="pdpBack"><svg class="ico" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Retour à la collection</button>
+    <div class="brand" style="font-size:1.1rem;color:var(--ink)"><b>Miels</b> du Monde</div>
+    <button class="iconbtn" id="pdpCart" aria-label="Panier"><svg class="ico" viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></button>
+  </div>
+  <div class="pdp-hero">
+    <div class="pdp-gal">
+      <div class="halo" style="background:${p.hue[1]}"></div>
+      <div class="pdp-stage" id="pdpStage">${jar(p)}</div>
+      <div class="pdp-thumbs">
+        <button class="sel">${jar(p,{mini:true})}</button>
+        <button>${jar({...p,hue:[p.hue[1],p.hue[2],'#3a1e08']},{mini:true})}</button>
+        <button>${jar({...p,hue:[p.hue[0],p.hue[0],p.hue[1]]},{mini:true})}</button>
+      </div>
+    </div>
+    <div class="pdp-info">
+      <div class="org">${p.origin.f} ${p.origin.c} · ${p.origin.city}</div>
+      <h1>${p.name}</h1>
+      <div class="rr"><div class="stars">${starsHTML(p.rating)}</div> ${p.rating}.0 · ${p.count} avis · <b>${p.flower}</b></div>
+      <p class="lede">${p.lede}</p>
+      <div class="pdp-price"><span class="p">${euro(p.price)}</span><s>${euro(p.old)}</s><span class="save">−${Math.round((1-p.price/p.old)*100)}%</span></div>
+      <div class="pdp-note">Pot de 250g · Édition limitée · ${p.texture}</div>
+      <div class="pdp-buy">
+        <div class="pdp-qty"><button data-q="-1" aria-label="Moins">−</button><span id="pdpQ">1</span><button data-q="1" aria-label="Plus">+</button></div>
+        <button class="btn btn-gold btn-lg" id="pdpAdd">Ajouter au panier · <span id="pdpTotal">${euro(p.price)}</span></button>
+      </div>
+      <div class="pdp-assure">
+        <div><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Analysé en labo</div>
+        <div><svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Expédié sous 48h</div>
+        <div><svg class="ico" viewBox="0 0 24 24"><path d="M12 21s-7-4.3-7-10a7 7 0 0114 0c0 5.7-7 10-7 10z"/></svg>Traçabilité totale</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pdp-sec"><div class="shell story-grid">
+    <div class="txt"><span class="eyebrow">L'histoire</span><h2 style="font-size:clamp(2rem,4vw,3rem);font-weight:300;margin:1rem 0 1.4rem">De la ruche<br>à votre table</h2>
+      ${p.story.map(s=>`<p>${s}</p>`).join('')}
+      <div class="pdp-assure" style="margin-top:1.5rem"><div><b style="font-family:Fraunces;font-size:1.1rem">${p.origin.city}</b></div><div>${p.origin.f} ${p.origin.c}</div></div></div>
+    <div class="story-map">${miniMap(p.origin)}</div>
+  </div></div>
+
+  <div class="pdp-sec"><div class="shell">
+    <div class="sec-head center"><span class="eyebrow">La dégustation</span><h2 style="font-size:clamp(2rem,4vw,3rem);font-weight:300;margin-top:1rem">Notes & accords</h2></div>
+    <div class="tnotes">${p.tasting.map(t=>`<div class="tnote"><div class="ic">${t.ic}</div><h4>${t.t}</h4><p>${t.d}</p></div>`).join('')}</div>
+  </div></div>
+
+  <div class="pdp-sec"><div class="shell split">
+    <div><table class="nut-table"><caption>Valeurs nutritionnelles</caption>${nut}</table>
+      <p style="color:var(--ink-soft);font-size:.86rem;margin-top:1rem">Texture : <b>${p.texture}</b> · Cristallisation : ${p.crystal}. Un miel 100% pur, sans additif.</p></div>
+    <div><h2 style="font-family:Fraunces;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:400;margin-bottom:1.4rem">Conseils de dégustation</h2>
+      <p style="color:var(--ink-soft);margin-bottom:1rem">Savourez ce miel à température ambiante, à la petite cuillère, pour en révéler tous les arômes.</p>
+      <p style="color:var(--ink-soft)">Évitez de le chauffer au-delà de 40°C afin de préserver ses enzymes. S'il cristallise, c'est un gage de pureté.</p></div>
+  </div></div>
+
+  <div class="pdp-sec dark"><div class="shell split">
+    <div><span class="eyebrow">Le contrôle</span><h2 style="font-size:clamp(2rem,4vw,3rem);font-weight:300;margin:1rem 0 1.2rem">Analysé,<br>pas seulement promis</h2>
+      <p style="color:rgba(247,241,230,.62);max-width:44ch">Ce lot a été soumis à notre protocole d'analyse en laboratoire français avant sa mise en vente.</p></div>
+    <div class="lab-badge">${p.lab.map(x=>`<div class="item"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><div><b>${x.t}</b><p>${x.d}</p></div></div>`).join('')}</div>
+  </div></div>
+
+  <div class="pdp-sec"><div class="shell" style="max-width:820px">
+    <div class="sec-head center"><span class="eyebrow">Questions fréquentes</span><h2 style="font-size:clamp(2rem,4vw,3rem);font-weight:300;margin-top:1rem">Bon à savoir</h2></div>
+    <div id="pdpFaq" style="margin-top:2rem">${PROD_FAQ.map(f=>`
+      <div class="faq-item"><button class="faq-q">${f.q}<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="faq-a"><p>${f.a}</p></div></div>`).join('')}</div>
+  </div></div>
+
+  <div class="pdp-sec"><div class="shell">
+    <div class="sec-head"><span class="eyebrow">À découvrir aussi</span><h2 style="font-size:clamp(2rem,4vw,3rem);font-weight:300;margin-top:1rem">Complétez la dégustation</h2></div>
+    <div class="cross">${cross.map(c=>`
+      <article class="card" data-id="${c.id}" role="button" tabindex="0">
+        <div class="card-vis"><div class="halo" style="background:${c.hue[1]}"></div>${jar(c)}<div class="card-quick">Découvrir</div></div>
+        <div class="card-body"><div class="org">${c.origin.f} ${c.origin.c}</div><h3>${c.name}</h3>
+          <div class="card-foot"><div class="price">${euro(c.price)}</div><div class="stars">${starsHTML(c.rating)}</div></div></div>
+      </article>`).join('')}</div>
+  </div></div>`;
+
+  // interactions PDP
+  let q=1; const price=p.price;
+  const upd=()=>{ $('#pdpQ').textContent=q; $('#pdpTotal').textContent=euro(price*q); };
+  $('.pdp-qty').addEventListener('click',e=>{const b=e.target.closest('[data-q]'); if(!b)return; q=Math.max(1,q+ +b.dataset.q); upd();});
+  $('#pdpAdd').onclick=e=>{ addToCart(p.id,q,$('#pdpStage')); };
+  $('#pdpBack').onclick=closePDP; $('#pdpCart').onclick=()=>{ openCart(); };
+  $('#pdpStage').onclick=()=>$('#pdpStage').classList.toggle('zoom'); // hook zoom (scale via css hover déjà)
+  $$('.pdp-thumbs button').forEach(b=>b.onclick=()=>{ $$('.pdp-thumbs button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+  $('#pdpFaq').addEventListener('click',e=>{const btn=e.target.closest('.faq-q'); if(!btn)return; const it=btn.parentElement; const a=it.querySelector('.faq-a');
+    const open=it.classList.toggle('open'); a.style.maxHeight=open?a.scrollHeight+'px':0;});
+  $$('#pdp .cross .card').forEach(c=>c.onclick=()=>{ closePDP(); setTimeout(()=>openPDP(c.dataset.id),260); });
+  observeReveals($('#pdp'));
+
+  $('#pdp').classList.add('on'); document.body.classList.add('lock'); $('#pdp').scrollTop=0;
+}
+function closePDP(){ $('#pdp').classList.remove('on'); if(!$('#cart').classList.contains('on')) document.body.classList.remove('lock'); }
+
+/* ═══════════════ MENU / HEADER / DIVERS ═══════════════ */
+$('#openMenu').onclick=()=>{ $('#menu').classList.add('open'); document.body.classList.add('lock'); };
+$('#closeMenu').onclick=()=>{ $('#menu').classList.remove('open'); document.body.classList.remove('lock'); };
+$('#openSearch').onclick=()=>{ location.hash='#collection'; toast('Explorez notre collection'); };
+$$('[data-nav]').forEach(a=>a.addEventListener('click',()=>{ $('#menu').classList.remove('open'); document.body.classList.remove('lock'); }));
+addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeCart(); closePDP(); $('#menu').classList.remove('open'); document.body.classList.remove('lock'); }});
+$('#scrim').onclick=closeCart;
+$('#newsForm').addEventListener('submit',e=>{ e.preventDefault(); e.target.reset(); toast('Bienvenue dans le cercle 🐝'); });
+
+// header solid
+const onScroll=()=>$('#head').classList.toggle('solid', scrollY>60);
+addEventListener('scroll',onScroll,{passive:true}); onScroll();
+
+// délégation clic cartes
+$('#cards').addEventListener('click',e=>{const c=e.target.closest('.card'); if(!c)return;
+  if(e.target.closest('.card-fav')){ toast('Ajouté aux favoris ♥'); return; } openPDP(c.dataset.id);});
+$('#cards').addEventListener('keydown',e=>{if(e.key==='Enter'){const c=e.target.closest('.card'); if(c)openPDP(c.dataset.id);}});
+
+// toast
+let toastT; function toast(msg){ $('#toastMsg').textContent=msg; $('#toast').classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>$('#toast').classList.remove('on'),2600); }
+
+/* ═══════════════ REVEAL + COMPTEURS (IntersectionObserver) ═══════════════ */
+const io = new IntersectionObserver((es)=>{ es.forEach(en=>{ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target);} }); },{threshold:.14, rootMargin:'0px 0px -8% 0px'});
+function observeReveals(root=document){ $$('.reveal', root).forEach(el=>{ if(RM){el.classList.add('in');} else io.observe(el); }); }
+function animateCounters(){
+  $$('[data-count]').forEach(el=>{
+    const io2=new IntersectionObserver((es,ob)=>{ es.forEach(en=>{ if(!en.isIntersecting)return; ob.disconnect();
+      const end=parseFloat(el.dataset.count), suf=el.dataset.suffix||'', dec=end%1!==0; let s=null;
+      const step=t=>{ s=s||t; const k=Math.min(1,(t-s)/1100); const v=end*(1-Math.pow(1-k,3));
+        el.textContent=(dec?v.toFixed(1):Math.round(v))+suf; if(k<1)requestAnimationFrame(step); };
+      RM?el.textContent=(dec?end.toFixed(1):end)+suf:requestAnimationFrame(step);
+    });},{threshold:.5}); io2.observe(el);
+  });
+}
+// manifeste : mots illuminés au scroll
+function manifestoScroll(){
+  const sec=$('#manifeste'), words=$$('#manifestoText .word'); if(!words.length)return;
+  const on=()=>{ const r=sec.getBoundingClientRect(), vh=innerHeight;
+    const prog=Math.min(1,Math.max(0,(vh*0.85 - r.top)/(r.height*0.65)));
+    const lit=Math.floor(prog*words.length); words.forEach((w,i)=>w.classList.toggle('lit',i<lit)); };
+  addEventListener('scroll',on,{passive:true}); on();
+}
+
+/* ═══════════════ MOTION (GSAP, dynamique & optionnel) ═══════════════ */
+async function initMotion(){
+  if(RM) return;
+  try{
+    const {gsap}=await import('gsap');
+    const {ScrollTrigger}=await import('gsap/ScrollTrigger');
+    gsap.registerPlugin(ScrollTrigger);
+    // parallax du canvas + fondu en quittant le hero
+    gsap.to('#scene',{yPercent:14,opacity:.35,ease:'none',
+      scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:true}});
+    gsap.to('.kinetic',{yPercent:-30,letterSpacing:'.06em',ease:'none',
+      scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:true}});
+    gsap.to('.hero-copy',{yPercent:-18,opacity:.2,ease:'none',
+      scrollTrigger:{trigger:'.hero',start:'top top',end:'70% top',scrub:true}});
+  }catch(err){ /* CDN indisponible : les reveals IO suffisent */ }
+}
+
+/* ═══════════════ SCÈNE 3D (Three.js, dynamique & optionnel) ═══════════════ */
+async function initHero(){
+  const canvas=$('#scene');
+  if(!window.WebGLRenderingContext){ document.body.classList.add('no-webgl'); return; }
+  let THREE, RoomEnvironment;
+  try{
+    THREE=await import('three');
+    ({RoomEnvironment}=await import('three/addons/environments/RoomEnvironment.js'));
+  }catch(err){ document.body.classList.add('no-webgl'); return; }
+
+  let renderer;
+  try{
+    renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
+  }catch(err){ document.body.classList.add('no-webgl'); return; }
+
+  const isMobile=matchMedia('(max-width:760px)').matches;
+  const DPR=Math.min(devicePixelRatio||1, isMobile?1.6:2);
+  renderer.setPixelRatio(DPR);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15;
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(32,1,.1,100); camera.position.set(0,.15,5.4);
+
+  // environnement studio (sans fichier HDRI externe)
+  const pmrem=new THREE.PMREMGenerator(renderer);
+  scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+
+  const group=new THREE.Group(); scene.add(group);
+
+  // profil du pot (LatheGeometry)
+  const V=THREE.Vector2, jarPts=[
+    new V(0.001,-1.06),new V(0.5,-1.06),new V(0.62,-0.98),new V(0.64,-0.5),
+    new V(0.64,0.42),new V(0.6,0.6),new V(0.44,0.78),new V(0.42,0.92),new V(0.42,1.0)];
+  const glassGeo=new THREE.LatheGeometry(jarPts,96);
+  const glassMat=new THREE.MeshPhysicalMaterial({
+    color:0xffffff,transmission:1,thickness:1.1,roughness:0.06,metalness:0,ior:1.5,
+    clearcoat:1,clearcoatRoughness:0.08,envMapIntensity:1.5,
+    attenuationColor:new THREE.Color(0xffe7b0),attenuationDistance:3.2});
+  const glass=new THREE.Mesh(glassGeo,glassMat); glass.castShadow=true; group.add(glass);
+
+  // miel (liquide ambré dense)
+  const honeyPts=[new V(0.001,-1.0),new V(0.5,-1.0),new V(0.57,-0.9),new V(0.58,0.34),new V(0.5,0.48),new V(0.001,0.48)];
+  const honeyMat=new THREE.MeshPhysicalMaterial({
+    color:new THREE.Color(0xd98a1f),transmission:0.82,thickness:5.5,roughness:0.14,ior:1.46,
+    attenuationColor:new THREE.Color(0x7a3a08),attenuationDistance:0.45,
+    clearcoat:0.5,clearcoatRoughness:0.2,envMapIntensity:1.1,emissive:new THREE.Color(0x8a4a10),emissiveIntensity:0.12});
+  const honey=new THREE.Mesh(new THREE.LatheGeometry(honeyPts,96),honeyMat); honey.castShadow=true; group.add(honey);
+
+  // couvercle bois + anneau doré
+  const woodMat=new THREE.MeshStandardMaterial({color:0x7a5230,roughness:0.55,metalness:0.1,envMapIntensity:.8});
+  const lid=new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.44,0.26,64),woodMat);
+  lid.position.y=1.12; lid.castShadow=true; group.add(lid);
+  const goldMat=new THREE.MeshStandardMaterial({color:0xd8b35a,roughness:0.28,metalness:1,envMapIntensity:1.4});
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.44,0.028,16,80),goldMat);
+  ring.rotation.x=Math.PI/2; ring.position.y=0.99; group.add(ring);
+
+  // sol + ombre portée
+  const shadowMat=new THREE.ShadowMaterial({opacity:0.32});
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(14,14),shadowMat);
+  floor.rotation.x=-Math.PI/2; floor.position.y=-1.07; floor.receiveShadow=true; scene.add(floor);
+
+  // lumières
+  const key=new THREE.DirectionalLight(0xfff2d8,2.6); key.position.set(3,5,3); key.castShadow=true;
+  key.shadow.mapSize.set(isMobile?1024:2048,isMobile?1024:2048);
+  key.shadow.camera.near=1; key.shadow.camera.far=16; key.shadow.bias=-0.0004;
+  key.shadow.camera.left=key.shadow.camera.bottom=-3; key.shadow.camera.right=key.shadow.camera.top=3; scene.add(key);
+  const rim=new THREE.DirectionalLight(0xffb347,2.2); rim.position.set(-4,1.5,-3); scene.add(rim);
+  scene.add(new THREE.HemisphereLight(0xfff0d0,0x1a1206,0.5));
+
+  // particules de pollen
+  let points=null;
+  if(!isMobile){
+    const N=180, pos=new Float32Array(N*3);
+    for(let i=0;i<N;i++){ const a=Math.random()*Math.PI*2, r=0.7+Math.random()*2.4;
+      pos[i*3]=Math.cos(a)*r; pos[i*3+1]=(Math.random()-0.5)*3.2; pos[i*3+2]=Math.sin(a)*r-0.4; }
+    const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    // sprite doux
+    const cv=document.createElement('canvas'); cv.width=cv.height=64; const cx=cv.getContext('2d');
+    const gr=cx.createRadialGradient(32,32,0,32,32,32); gr.addColorStop(0,'rgba(255,224,150,.9)'); gr.addColorStop(1,'rgba(255,224,150,0)');
+    cx.fillStyle=gr; cx.fillRect(0,0,64,64);
+    const spr=new THREE.CanvasTexture(cv);
+    points=new THREE.Points(pg,new THREE.PointsMaterial({size:0.055,map:spr,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.7}));
+    scene.add(points);
+  }
+
+  // interaction souris
+  const target={x:0,y:0}; const cur={x:0,y:0};
+  addEventListener('pointermove',e=>{ const nx=(e.clientX/innerWidth)*2-1, ny=(e.clientY/innerHeight)*2-1;
+    target.x=nx*0.5; target.y=Math.max(-0.35,Math.min(0.35,-ny*0.28)); },{passive:true});
+
+  function resize(){ const w=canvas.clientWidth||innerWidth, h=canvas.clientHeight||innerHeight;
+    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(canvas); resize();
+
+  // ne tourner que si le hero est visible (perf & batterie)
+  let visible=true;
+  new IntersectionObserver(es=>{ visible=es[0].isIntersecting; if(visible)loop(); },{threshold:0.02}).observe(canvas);
+
+  const clock=new THREE.Clock(); let raf=0;
+  function frame(){
+    const t=clock.getElapsedTime();
+    cur.x+=(target.x-cur.x)*0.05; cur.y+=(target.y-cur.y)*0.05;
+    group.rotation.y=cur.x + (RM?0:t*0.12);
+    group.rotation.x=cur.y*0.6;
+    group.position.y=RM?0:Math.sin(t*0.9)*0.04;
+    if(points&&!RM){ points.rotation.y=t*0.03; points.material.opacity=0.5+Math.sin(t*1.5)*0.2; }
+    renderer.render(scene,camera);
+  }
+  function loop(){ if(!visible){ cancelAnimationFrame(raf); return; }
+    frame(); if(!RM){ raf=requestAnimationFrame(loop); } }
+  if(RM){ // static : quelques frames pour laisser l'env se charger
+    let n=0; const warm=()=>{ frame(); if(n++<8) requestAnimationFrame(warm); }; warm();
+  } else loop();
+
+  // perte de contexte → fallback élégant
+  canvas.addEventListener('webglcontextlost',e=>{ e.preventDefault(); document.body.classList.add('no-webgl'); });
+}
+
+/* ═══════════════ AMORÇAGE ═══════════════ */
+function boot(){
+  renderPillars(); renderCards(); renderReviews(); renderManifesto(); renderMap();
+  renderCart(); observeReveals(); animateCounters(); manifestoScroll();
+  // duplique le marquee pour une boucle continue
+  const mq=$('#mq'); mq.innerHTML+=mq.innerHTML;
+  initHero(); initMotion();
+}
+document.readyState==='loading' ? addEventListener('DOMContentLoaded',boot) : boot();
+
+// preloader
+addEventListener('load',()=>setTimeout(()=>$('#pre').classList.add('done'),500));
+setTimeout(()=>$('#pre')&&$('#pre').classList.add('done'),2600); // filet de sécurité
+</script>
+</body>
+</html>
