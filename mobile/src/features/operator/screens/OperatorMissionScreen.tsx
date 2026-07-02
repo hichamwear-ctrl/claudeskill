@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -31,7 +32,7 @@ export function OperatorMissionScreen(): ReactNode {
   const [sharing, setSharing] = useState(false);
 
   const status = overview.data?.mission.status;
-  useLocationBroadcaster(sharing && status !== undefined && isTrackingStatus(status));
+  useLocationBroadcaster(id, sharing && status !== undefined && isTrackingStatus(status));
 
   if (overview.isLoading) return <Screen><Loader fill label="Chargement…" /></Screen>;
   if (overview.isError) return <Screen><ErrorState error={overview.error} onRetry={() => overview.refetch()} /></Screen>;
@@ -53,6 +54,7 @@ export function OperatorMissionScreen(): ReactNode {
       const proofPath = await pickAndUploadImage({ bucket: 'mission-proofs', pathPrefix: `${userId}/${id}` });
       if (!proofPath) return; // annulé
       await capture.mutateAsync({ proofPath });
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('success', 'Mission clôturée (capture simulée).');
     } catch (error) {
       showToast('error', toUxError(error).message);

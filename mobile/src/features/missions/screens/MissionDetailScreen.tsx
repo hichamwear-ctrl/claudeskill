@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -38,6 +39,7 @@ export function MissionDetailScreen(): ReactNode {
   const onPay = async () => {
     try {
       await authorize.mutateAsync();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showToast('success', 'Paiement autorisé (simulé). Mission attribuée.');
     } catch (error) {
       showToast('error', toUxError(error).message);

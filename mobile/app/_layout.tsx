@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import type { ReactNode } from 'react';
 
 import { AppProviders } from '@/providers/AppProviders';
-import { ToastHost } from '@/ui';
+import { OfflineBanner, ToastHost } from '@/ui';
 
 /**
  * Layout racine : providers + pile de navigation + hôte de toasts.
@@ -14,6 +14,7 @@ export default function RootLayout(): ReactNode {
     <AppProviders>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }} />
+      <OfflineBanner />
       <ToastHost />
     </AppProviders>
   );

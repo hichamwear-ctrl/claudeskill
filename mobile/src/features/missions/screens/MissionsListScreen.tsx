@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, RefreshControl, View } from 'react-native';
 
 import { routes } from '@/constants/routes';
 import { useCatalogue } from '@/features/config';
@@ -27,6 +27,7 @@ export function MissionsListScreen(): ReactNode {
       <FlatList
         data={missions.data ?? []}
         keyExtractor={(m) => m.id}
+        refreshControl={<RefreshControl refreshing={missions.isRefetching} onRefresh={() => missions.refetch()} />}
         contentContainerStyle={{ padding: theme.spacing.lg, gap: theme.spacing.md, flexGrow: 1 }}
         ListEmptyComponent={
           <EmptyState

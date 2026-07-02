@@ -4,8 +4,34 @@ App React Native / Expo (Client + Intervenant, une base de code). Consomme le
 **backend gelé** (Supabase) décrit dans `../docs/`. Architecture de référence :
 `../docs/MOBILE_ARCHITECTURE.md`.
 
-> **État : MOBILE 1 — Socle technique.** Aucun écran métier. Le socle est
-> compilable (`tsc`), testé (`jest`) et prêt à accueillir les futurs modules.
+> **État : MOBILE 1→6 livrés — application démontrable en mode mock.**
+> Socle + Design System + navigation/rôles + auth + intake + parcours client +
+> parcours opérateur + finalisation (offline, Realtime live, UX). Compilable
+> (`tsc`), testé (`jest`), bundle Metro OK.
+
+## Parcours démontrables (mode mock)
+
+- **Client** : connexion (OTP e-mail) → saisie libre → dialogue guidé →
+  récapitulatif (zone/prix) → envoi → suivi (statut temps réel, timeline) →
+  paiement simulé → chat temps réel → carte live → notifications in-app.
+- **Intervenant** : cockpit (disponibilité Presence) → file de revue (temps
+  réel) → accepter/refuser/demander des infos → missions assignées →
+  transitions d'étape → partage GPS → capture (preuve) → chat.
+
+## Tests E2E (Maestro)
+
+Flows dans `.maestro/` (`client-happy-path.yaml`, `operator-happy-path.yaml`).
+Nécessitent l'app lancée + backend de démo. `maestro test .maestro/`.
+
+## Build de démonstration
+
+```bash
+# Bundle JS de prod (vérifie le graphe complet) :
+npx expo export --platform ios --output-dir dist
+
+# Build installable (nécessite un compte Expo + réseau EAS) :
+npx eas build --profile preview --platform ios   # ou android
+```
 
 ## Prérequis & démarrage
 

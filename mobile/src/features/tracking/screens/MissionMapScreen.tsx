@@ -5,11 +5,12 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 
 import { EmptyState, Loader, Screen } from '@/ui';
 
-import { useOperatorLocation } from '../hooks/useTracking';
+import { useOperatorLocation, useOperatorLocationLive } from '../hooks/useTracking';
 
-/** C-19 — Suivi carte : position de l'intervenant (repli sondage). */
+/** C-19 — Suivi carte : position live (Broadcast) + repli sondage RPC. */
 export function MissionMapScreen(): ReactNode {
   const { id } = useLocalSearchParams<{ id: string }>();
+  useOperatorLocationLive(id);
   const location = useOperatorLocation(id);
 
   if (location.isLoading) return <Screen><Loader fill label="Localisation…" /></Screen>;

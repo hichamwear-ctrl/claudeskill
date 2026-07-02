@@ -1,8 +1,13 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { useEffect } from 'react';
 
-import { getOperatorLocation, updateLocation } from '../api/tracking';
+import { channels } from '@/constants/channels';
+import { acquireChannel, releaseChannel, useRealtimeChannel } from '@/services/realtime';
+
+import { getOperatorLocation, updateLocation, type OperatorLocation } from '../api/tracking';
+
+const LOCATION_EVENT = 'location';
 
 /**
  * Position de l'intervenant (repli par sondage RPC ; le live via Broadcast est
@@ -27,31 +32,64 @@ export function useUpdateLocation() {
 }
 
 /**
- * Diffuse la position de l'intervenant tant que `active` (mission en cours).
- * Foreground uniquement, s'arrête au démontage / à la désactivation (vie privée).
+ * Diffuse la position de l'intervenant tant que `active` (mission en cours) :
+ * persiste (RPC `update_location`) ET émet en Broadcast sur
+ * `mission:{id}:location` pour le suivi live du client. Foreground uniquement,
+ * arrêt au démontage / à la désactivation (vie privée).
  */
-export function useLocationBroadcaster(active: boolean): void {
+export function useLocationBroadcaster(missionId: string, active: boolean): void {
   const update = useUpdateLocation();
   useEffect(() => {
     if (!active) return;
+    const topic = channels.missionLocation(missionId);
+    const channel = acquireChannel(topic, () => {});
     let sub: Location.LocationSubscription | undefined;
+
     void (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
       sub = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 20 },
         (pos) => {
-          update.mutate({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            heading: pos.coords.heading ?? undefined,
-            speed: pos.coords.speed ?? undefined,
-            accuracy: pos.coords.accuracy ?? undefined,
-          });
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const heading = pos.coords.heading ?? undefined;
+          const speed = pos.coords.speed ?? undefined;
+          const accuracy = pos.coords.accuracy ?? undefined;
+          update.mutate({ lat, lng, heading, speed, accuracy });
+          const payload: OperatorLocation = {
+            lat,
+            lng,
+            heading: heading ?? null,
+            speed: speed ?? null,
+            accuracy: accuracy ?? null,
+          };
+          void channel.send({ type: 'broadcast', event: LOCATION_EVENT, payload });
         },
       );
     })();
-    return () => sub?.remove();
+
+    return () => {
+      sub?.remove();
+      releaseChannel(topic);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  }, [missionId, active]);
+}
+
+/**
+ * Réception live de la position (Broadcast) côté client : met à jour le cache
+ * de `useOperatorLocation` (le sondage RPC sert de repli).
+ */
+export function useOperatorLocationLive(missionId: string): void {
+  const queryClient = useQueryClient();
+  useRealtimeChannel(
+    channels.missionLocation(missionId),
+    (channel) => {
+      channel.on('broadcast', { event: LOCATION_EVENT }, (message) => {
+        queryClient.setQueryData(['operator-location', missionId], message.payload as OperatorLocation);
+      });
+    },
+    [missionId],
+  );
 }

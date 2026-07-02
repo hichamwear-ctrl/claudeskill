@@ -1,0 +1,34 @@
+# E2E Maestro — parcours client (mode mock).
+# Pré-requis : app lancée + backend de démo (docs/EXPO_DEMO_SETUP.md), compte
+# client@demo.test. Exécuter : maestro test .maestro/client-happy-path.yaml
+appId: com.example.mobile
+---
+- launchApp
+# Connexion (OTP e-mail)
+- assertVisible: 'Bienvenue'
+- tapOn: 'Adresse e-mail'
+- inputText: 'client@demo.test'
+- tapOn: 'Recevoir le code'
+- assertVisible: 'Vérification'
+- tapOn: 'Code de vérification'
+- inputText: '${OTP_CODE}' # code reçu (ou test OTP configuré)
+- tapOn: 'Valider'
+# Intake
+- assertVisible: 'De quoi avez-vous besoin aujourd’hui ?'
+- tapOn: { placeholder: 'Ex. : j’ai oublié du lait, mon pneu est crevé…' }
+- inputText: "J'ai oublié du lait"
+- tapOn: 'Continuer'
+# Dialogue (répond aux questions dynamiques jusqu'au récapitulatif)
+- assertVisible: 'Continuer'
+# Récapitulatif + envoi
+- runFlow:
+    when:
+      visible: 'Voir le récapitulatif'
+    commands:
+      - tapOn: 'Voir le récapitulatif'
+- assertVisible: 'Récapitulatif'
+- tapOn: 'Envoyer la demande'
+# Suivi
+- assertVisible: 'Missions'
+- tapOn: 'Missions'
+- assertVisible: 'En validation'

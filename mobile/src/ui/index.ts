@@ -16,6 +16,7 @@ export { Banner, type BannerTone } from './components/Banner';
 export { Modal } from './components/Modal';
 export { Divider } from './components/Divider';
 export { ToastHost } from './components/ToastHost';
+export { OfflineBanner } from './components/OfflineBanner';
 
 // Thème
 export { ThemeProvider, useTheme } from './theme';

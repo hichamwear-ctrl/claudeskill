@@ -1,0 +1,27 @@
+# E2E Maestro — parcours opérateur (mode mock).
+# Pré-requis : app lancée + backend de démo, compte operator@demo.test (rôle
+# promu), au moins une demande en pending_review. maestro test .maestro/operator-happy-path.yaml
+appId: com.example.mobile
+---
+- launchApp
+- assertVisible: 'Bienvenue'
+- tapOn: 'Adresse e-mail'
+- inputText: 'operator@demo.test'
+- tapOn: 'Recevoir le code'
+- tapOn: 'Code de vérification'
+- inputText: '${OTP_CODE}'
+- tapOn: 'Valider'
+# Cockpit
+- assertVisible: 'Cockpit'
+- tapOn: 'Se rendre disponible'
+- tapOn: 'Demandes à valider'
+# Revue : ouvrir la première demande et accepter
+- tapOn:
+    index: 0
+    text: '.*'
+- assertVisible: 'Accepter'
+- tapOn: 'Accepter'
+- assertVisible: 'Décision enregistrée'
+# Missions assignées (après paiement client -> assigned) : exécution
+- back
+- tapOn: 'Missions assignées'
