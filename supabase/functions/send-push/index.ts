@@ -23,6 +23,7 @@ import { getTransport, type PushMessage } from '../_shared/notifications/transpo
 interface Body {
   event_key?: string;
   context?: Record<string, unknown>;
+  notification_id?: string; // mode LIVRAISON (staging) : pousse une notif déjà écrite
 }
 
 interface DispatchRow {
@@ -33,6 +34,34 @@ interface DispatchRow {
   deep_link: string | null;
   payload: Record<string, unknown>;
   tokens: string[];
+}
+
+/** Mode livraison : pousse UNE notification déjà écrite (déclenché par trigger). */
+async function deliverOne(
+  db: ReturnType<typeof createAdminClient>,
+  notificationId: string,
+): Promise<Response> {
+  const { data: n, error } = await db.from('notifications')
+    .select('id,user_id,title,body,deep_link,payload,pushed,delivered_at')
+    .eq('id', notificationId).maybeSingle();
+  if (error) throw rpcError(error);
+  if (!n || !n.pushed || n.delivered_at) return ok({ delivered: 0 }); // idempotent
+
+  const { data: toks } = await db.from('device_tokens')
+    .select('token').eq('user_id', n.user_id).eq('active', true);
+  const tokens = (toks ?? []).map((t) => t.token as string);
+
+  const [res] = await getTransport().send([{
+    notificationId: n.id,
+    userId: n.user_id,
+    title: n.title,
+    body: n.body,
+    deepLink: n.deep_link,
+    payload: n.payload ?? {},
+    tokens,
+  }]);
+  await db.from('notifications').update({ delivered_at: new Date().toISOString() }).eq('id', n.id);
+  return ok({ delivered: res?.delivered ?? 0 });
 }
 
 serve('send-push', async (req, _ctx) => {
@@ -49,10 +78,16 @@ serve('send-push', async (req, _ctx) => {
   } catch {
     throw BadRequest('Corps JSON invalide', 'invalid_json');
   }
-  if (!body.event_key) throw BadRequest('event_key requis', 'missing_event_key');
+
+  const db = createAdminClient();
+
+  // Mode LIVRAISON : pousse une notification déjà écrite (trigger notifications).
+  if (body.notification_id) return await deliverOne(db, body.notification_id);
+
+  // Mode RÉSOLUTION : event_key → dispatch_notifications (écriture + liste à pousser).
+  if (!body.event_key) throw BadRequest('event_key ou notification_id requis', 'missing_event_key');
 
   // 1) Résolution + écriture idempotente (toute la logique est en base).
-  const db = createAdminClient();
   const { data, error } = await db.rpc('dispatch_notifications', {
     p_event_key: body.event_key,
     p_context: body.context ?? {},

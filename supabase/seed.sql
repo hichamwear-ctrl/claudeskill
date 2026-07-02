@@ -88,6 +88,8 @@ insert into public.app_config (key, value, scope, description) values
   ('notifications.min_interval_sec',  '60'::jsonb,                          'server', 'Intervalle mini entre 2 push d''un même type (anti-spam)'),
   ('notifications.retention_days',    '90'::jsonb,                          'server', 'Rétention des notifications (purge)'),
   ('notifications.token_stale_days',  '60'::jsonb,                          'server', 'Jeton d''appareil périmé après N jours sans activité'),
+  ('notifications.push_enabled',      'false'::jsonb,                       'server', 'Livraison push réelle (staging : true + send_push_url + secret)'),
+  ('notifications.send_push_url',     '""'::jsonb,                          'server', 'URL de la fonction send-push (staging)'),
   ('classification.keywords',
    '{"groceries":["course","courses","supermarché","supermarche","lait","pain","aliment","épicerie","epicerie"],"pharmacy":["pharmacie","médicament","medicament","paracétamol","doliprane","sans ordonnance"],"parcel":["colis","paquet","livrer","livraison","déposer","deposer"],"car_assist":["voiture","pneu","batterie","carburant","panne","dépannage","depannage"],"daily_help":["aide","ménage","menage","bricolage","jardin","quotidien"]}'::jsonb,
    'server', 'Mots-clés de classification par catégorie (moteur V1, éditable — P0)')

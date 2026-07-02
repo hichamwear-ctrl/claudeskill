@@ -41,6 +41,13 @@ functions/
 └── send-push/       # transport des notifications (interne/webhook, M8)
 ```
 
+> **Staging (M12) :** `send-push` gagne un **mode livraison** (`{notification_id}`) :
+> déclenché par un trigger `notifications` (via `pg_net`, gardé par
+> `app_config.notifications.push_enabled`), il pousse une notif déjà écrite et pose
+> `delivered_at` (idempotent). Realtime Postgres Changes (publication) + policy
+> storage `mission-proofs` (participants) sont câblés (gardés). Déploiement : voir
+> `docs/DEPLOYMENT.md` (secrets + checklist prod).
+
 > **Administration (M10) :** aucune Edge, aucune RPC CRUD par table. L'édition du
 > référentiel se fait en **écriture directe** (RLS admin déjà en place), journalisée
 > par un **trigger d'audit générique** (`audit_log`). Cohérence via `validate_config()` ;
