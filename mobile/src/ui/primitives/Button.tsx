@@ -1,17 +1,39 @@
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, type PressableProps, View } from 'react-native';
+import { ActivityIndicator, Pressable, type PressableProps } from 'react-native';
 
-import { useTheme } from '@/ui/theme';
+import { useTheme, type Theme } from '@/ui/theme';
 
 import { Text } from './Text';
 
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+
 export interface ButtonProps extends Omit<PressableProps, 'style' | 'children'> {
   label: string;
-  variant?: 'primary' | 'secondary';
+  variant?: ButtonVariant;
   loading?: boolean;
 }
 
-/** Bouton d'action (cible tactile ≥ 44 px, état de chargement, désactivé). */
+interface VariantStyle {
+  background: string;
+  border: string;
+  text: string;
+}
+
+function variantStyle(theme: Theme, variant: ButtonVariant): VariantStyle {
+  switch (variant) {
+    case 'secondary':
+      return { background: theme.colors.surfaceMuted, border: theme.colors.border, text: theme.colors.text };
+    case 'ghost':
+      return { background: 'transparent', border: 'transparent', text: theme.colors.primary };
+    case 'destructive':
+      return { background: theme.colors.danger, border: theme.colors.danger, text: theme.colors.primaryText };
+    case 'primary':
+    default:
+      return { background: theme.colors.primary, border: theme.colors.primary, text: theme.colors.primaryText };
+  }
+}
+
+/** Bouton d'action (cible ≥ 48 px, état chargement/désactivé, 4 variantes). */
 export function Button({
   label,
   variant = 'primary',
@@ -20,7 +42,7 @@ export function Button({
   ...rest
 }: ButtonProps): ReactNode {
   const theme = useTheme();
-  const isPrimary = variant === 'primary';
+  const v = variantStyle(theme, variant);
   const isDisabled = disabled || loading;
 
   return (
@@ -35,20 +57,18 @@ export function Button({
         alignItems: 'center',
         justifyContent: 'center',
         opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
-        backgroundColor: isPrimary ? theme.colors.primary : theme.colors.surfaceMuted,
-        borderWidth: isPrimary ? 0 : 1,
-        borderColor: theme.colors.border,
+        backgroundColor: v.background,
+        borderWidth: 1,
+        borderColor: v.border,
       })}
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary ? theme.colors.primaryText : theme.colors.text} />
+        <ActivityIndicator color={v.text} />
       ) : (
-        <View>
-          <Text variant="button" color={isPrimary ? 'text' : 'text'} style={{ color: isPrimary ? theme.colors.primaryText : theme.colors.text }}>
-            {label}
-          </Text>
-        </View>
+        <Text variant="button" style={{ color: v.text }}>
+          {label}
+        </Text>
       )}
     </Pressable>
   );

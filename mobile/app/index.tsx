@@ -1,11 +1,27 @@
 import { Redirect } from 'expo-router';
 import type { ReactNode } from 'react';
 
+import { resolveLanding } from '@/features/auth';
+import { useRole, useSessionStatus } from '@/hooks/useSession';
+import { Loader, Screen } from '@/ui';
+
 /**
- * Point d'entrée (bootstrap). En MOBILE 1, redirige vers l'écran de diagnostic
- * `health`. Au module M3, cette route décidera de la destination selon la
- * session et le rôle (auth / client / operator).
+ * Bootstrap : redirige selon la session et le rôle (`user_role`).
+ * - loading → splash
+ * - non authentifié → /sign-in
+ * - client → /home · operator|admin → /cockpit
  */
 export default function Index(): ReactNode {
-  return <Redirect href="/health" />;
+  const status = useSessionStatus();
+  const role = useRole();
+  const target = resolveLanding(status, role);
+
+  if (!target) {
+    return (
+      <Screen>
+        <Loader fill label="Démarrage…" />
+      </Screen>
+    );
+  }
+  return <Redirect href={target} />;
 }
