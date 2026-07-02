@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "[NOM_PRODUIT]"
+  },
+  "common": {
+    "retry": "Réessayer",
+    "loading": "Chargement…",
+    "offline": "Hors connexion",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "continue": "Continuer"
+  },
+  "health": {
+    "title": "État du backend",
+    "subtitle": "Vérifie la communication de l’app avec le backend (Edge Function health).",
+    "checking": "Vérification en cours…",
+    "ok": "Backend joignable",
+    "error": "Backend injoignable",
+    "notConfigured": "Configuration manquante",
+    "notConfiguredHelp": "Renseignez EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY dans .env (voir .env.example).",
+    "service": "Service",
+    "time": "Horodatage serveur",
+    "recheck": "Revérifier"
+  },
+  "errors": {
+    "ERR_NETWORK": "Connexion perdue.",
+    "ERR_SESSION": "Reconnectez-vous.",
+    "ERR_SERVER": "Une erreur est survenue.",
+    "ERR_VALIDATION": "Certaines informations sont incomplètes."
+  }
+}
