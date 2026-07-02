@@ -35,9 +35,10 @@ export default function Cockpit(): ReactNode {
           {profile.data?.role ? <Badge label={profile.data.role} tone="primary" /> : null}
         </View>
         <Card>
-          <Text color="textMuted">En attente de demandes. La file de revue en temps réel arrivera au module Cockpit.</Text>
+          <Text color="textMuted">Gérez les demandes à valider et vos missions en cours.</Text>
         </Card>
         <Button label="Demandes à valider" onPress={() => router.push(routes.operatorReview)} />
+        <Button label="Missions assignées" variant="secondary" onPress={() => router.push(routes.operatorWork)} />
         <Button label="Se déconnecter" variant="destructive" onPress={onSignOut} loading={signOut.isPending} />
       </View>
     </Screen>

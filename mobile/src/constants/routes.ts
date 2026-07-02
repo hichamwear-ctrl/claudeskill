@@ -31,6 +31,9 @@ export const routes = {
   // Opérateur
   operatorCockpit: '/cockpit',
   operatorReview: '/review',
+  operatorReviewDetail: (id: string) => `/review/${id}`,
+  operatorWork: '/work',
+  operatorWorkDetail: (id: string) => `/work/${id}`,
 } as const;
 
 export type AppRoute = (typeof routes)[keyof typeof routes];
