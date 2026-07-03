@@ -1,0 +1,106 @@
+/* ════════════════════════════════════════════════════════════════════
+   MIELS DU MONDE · Admin (SaaS dashboard)
+   ════════════════════════════════════════════════════════════════════ */
+body.admin{background:#f4f1ea;animation:none}
+.adm-layout{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+
+/* sidebar */
+.adm-side{background:var(--noir);color:var(--cream);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.adm-side .brand{display:flex;align-items:center;gap:.7rem;padding:1.3rem 1.4rem;border-bottom:1px solid var(--line-d)}
+.adm-side .brand img{height:42px}
+.adm-side nav{padding:1rem .8rem;flex:1;display:flex;flex-direction:column;gap:.2rem}
+.adm-side nav button{display:flex;align-items:center;gap:.8rem;width:100%;text-align:left;padding:.75rem .9rem;border-radius:11px;
+  color:rgba(247,241,230,.7);font-size:.92rem;font-weight:500;transition:background .25s,color .25s}
+.adm-side nav button .ico{width:19px;height:19px}
+.adm-side nav button:hover{background:var(--glass);color:var(--cream)}
+.adm-side nav button.sel{background:linear-gradient(135deg,var(--gold-2),var(--gold));color:var(--noir);font-weight:600}
+.adm-side .foot{padding:1rem 1.4rem;border-top:1px solid var(--line-d);font-size:.8rem;color:rgba(247,241,230,.5)}
+.adm-side .foot button{color:var(--gold-2);font-weight:600;margin-top:.4rem}
+.adm-live{display:inline-flex;align-items:center;gap:.4rem}
+.adm-live i{width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 0 0 rgba(61,220,132,.6);animation:pulse2 2s infinite}
+@keyframes pulse2{0%{box-shadow:0 0 0 0 rgba(61,220,132,.5)}70%{box-shadow:0 0 0 8px rgba(61,220,132,0)}100%{box-shadow:0 0 0 0 rgba(61,220,132,0)}}
+
+/* main */
+.adm-main{padding:0 clamp(1rem,3vw,2.2rem) 3rem;min-width:0}
+.adm-top{position:sticky;top:0;z-index:5;background:#f4f1ea;padding:1.3rem 0 1rem;display:flex;align-items:center;gap:1.2rem;justify-content:space-between;flex-wrap:wrap}
+.adm-top h1{font-size:1.8rem;font-weight:500}
+.adm-search{position:relative;flex:1;max-width:420px;min-width:200px}
+.adm-search .ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ink-mut)}
+.adm-search input{width:100%;padding:.8rem 1rem .8rem 2.6rem;border:1px solid var(--line-2);border-radius:var(--pill);background:#fff;font-size:.92rem}
+.adm-search input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(207,131,36,.14)}
+
+/* KPI cards */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.6rem}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:18px;padding:1.3rem}
+.kpi .lb{font-size:.8rem;color:var(--ink-mut);display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem}
+.kpi .lb .ico{width:16px;height:16px;color:var(--amber)}
+.kpi .v{font-family:'Cormorant Garamond',serif;font-size:2.1rem;font-weight:600;line-height:1}
+.kpi .d{font-size:.78rem;color:#3a9d5d;margin-top:.4rem}
+
+.adm-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:1.4rem;margin-bottom:1.4rem}
+.adm-card h3{font-size:1.15rem;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between}
+.adm-grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:1.4rem}
+
+/* chart */
+.chart{display:flex;align-items:flex-end;gap:.5rem;height:170px;padding-top:1rem}
+.chart .bar{flex:1;background:linear-gradient(180deg,var(--gold-2),var(--amber));border-radius:6px 6px 0 0;min-height:4px;position:relative;transition:height .6s var(--ease)}
+.chart .bar span{position:absolute;top:-1.3rem;left:0;right:0;text-align:center;font-size:.7rem;color:var(--ink-soft)}
+.chart .bar small{position:absolute;bottom:-1.4rem;left:0;right:0;text-align:center;font-size:.68rem;color:var(--ink-mut)}
+
+/* table */
+.adm-table{width:100%;border-collapse:collapse}
+.adm-table th{text-align:left;font-size:.74rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-mut);padding:.7rem .8rem;border-bottom:1px solid var(--line)}
+.adm-table td{padding:.85rem .8rem;border-bottom:1px solid var(--line);font-size:.9rem;vertical-align:middle}
+.adm-table tbody tr{cursor:pointer;transition:background .2s}
+.adm-table tbody tr:hover{background:#faf7f0}
+.adm-table .mono{font-family:ui-monospace,Menlo,monospace;font-size:.82rem;font-weight:600}
+.cell-cust{display:flex;align-items:center;gap:.6rem}
+.av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold-2),var(--amber));display:grid;place-items:center;color:var(--noir);font-weight:700;font-size:.85rem;flex:none}
+.badge{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:var(--pill);font-size:.76rem;font-weight:600}
+.b-paid{background:#e8f6ee;color:#1f8a4c}
+.b-prep{background:#fff3e0;color:#b3701c}
+.b-ship{background:#e8f0fb;color:#2f6fd0}
+.b-done{background:#eee9f7;color:#6b4a9e}
+.b-refund{background:#fdeaea;color:#c8324b}
+.adm-empty{text-align:center;padding:4rem 1rem;color:var(--ink-mut)}
+.adm-empty h3{color:var(--ink);font-size:1.6rem;font-weight:500;margin-bottom:.5rem;justify-content:center}
+.thumb-mini{width:40px;height:40px;border-radius:8px;overflow:hidden;flex:none}
+.thumb-mini img{width:100%;height:100%;object-fit:cover}
+
+/* drawer */
+#admScrim{position:fixed;inset:0;background:rgba(11,10,8,.45);z-index:40;opacity:0;visibility:hidden;transition:.4s}
+#admScrim.on{opacity:1;visibility:visible}
+#admDrawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,94vw);background:#fff;z-index:41;transform:translateX(100%);
+  transition:transform .5s var(--ease);overflow-y:auto;box-shadow:-30px 0 80px rgba(0,0,0,.2)}
+#admDrawer.on{transform:none}
+.dr-h{position:sticky;top:0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:1.3rem 1.5rem;border-bottom:1px solid var(--line)}
+.dr-h h3{font-size:1.3rem;font-weight:600}
+.dr-b{padding:1.5rem}
+.dr-row{display:flex;justify-content:space-between;padding:.5rem 0;font-size:.9rem;border-bottom:1px solid var(--line)}
+.dr-row .k{color:var(--ink-mut)}
+.dr-sec-t{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mut);margin:1.4rem 0 .7rem}
+.dr-item{display:flex;gap:.8rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--line)}
+.dr-item b{font-family:'Cormorant Garamond',serif;margin-left:auto;font-size:1rem}
+.status-sel{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
+.status-sel button{padding:.4rem .8rem;border-radius:var(--pill);border:1px solid var(--line-2);font-size:.8rem;transition:.2s}
+.status-sel button.on{background:var(--noir);color:#fff;border-color:var(--noir)}
+
+/* login */
+.adm-login{min-height:100vh;display:grid;place-items:center;background:radial-gradient(120% 80% at 50% 0,#1c160c,var(--noir));animation:none}
+.login-card{background:#fff;border-radius:22px;padding:2.4rem;width:min(400px,92vw);box-shadow:0 40px 100px rgba(0,0,0,.4)}
+.login-card img{height:70px;margin:0 auto 1.4rem;display:block}
+.login-card h2{text-align:center;font-size:1.5rem;font-weight:500;margin-bottom:.3rem}
+.login-card p{text-align:center;color:var(--ink-mut);font-size:.86rem;margin-bottom:1.6rem}
+.login-card .field{margin-bottom:.9rem}
+.login-card .btn{width:100%;justify-content:center;margin-top:.4rem}
+.login-note{margin-top:1rem;font-size:.78rem;color:var(--ink-mut);text-align:center;background:var(--cream);border-radius:10px;padding:.7rem}
+
+@media(max-width:860px){
+  .adm-layout{grid-template-columns:1fr}
+  .adm-side{position:fixed;bottom:0;top:auto;height:auto;width:100%;flex-direction:row;z-index:30;border-top:1px solid var(--line-d)}
+  .adm-side .brand,.adm-side .foot{display:none}
+  .adm-side nav{flex-direction:row;padding:.5rem;justify-content:space-around}
+  .adm-side nav button{flex-direction:column;gap:.2rem;font-size:.68rem;padding:.5rem}
+  .adm-main{padding-bottom:5rem}
+  .kpis{grid-template-columns:1fr 1fr}.adm-grid2{grid-template-columns:1fr}
+}

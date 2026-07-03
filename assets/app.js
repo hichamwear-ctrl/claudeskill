@@ -83,11 +83,15 @@ const CATALOG = [
 const byslug = s => CATALOG.find(p => p.slug === s);
 const FREE = 79;
 
+/* fichiers photos réels (fournis par la maison) */
+const IMG = { litchi:'litchi.webp', jujubier:'jujubier.webp', curcuma:'curcuma.png',
+  'gelee-royale':'gelee-royale.webp', 'citron-gingembre':'citron-gingembre.webp',
+  nigelle:'nigelle.webp', hibiscus:'hibiscus.webp' };
 /* image produit avec repli gracieux (dégradé + nom si le fichier manque) */
 function pimg(p, cls = '') {
   const bg = `linear-gradient(150deg,${p.hue[0]},${p.hue[1]} 55%,${p.hue[2]})`;
   return `<div class="pvis ${cls}" style="--fb:${bg}">
-    <img src="assets/products/${p.slug}.jpg" alt="${p.name}" loading="lazy"
+    <img src="assets/products/${IMG[p.slug] || p.slug + '.jpg'}" alt="${p.name}" loading="lazy"
       onerror="this.parentNode.classList.add('noimg');this.remove()">
     <span class="ph">${p.name}</span></div>`;
 }
@@ -147,6 +151,8 @@ function flyToCart(from, slug) {
 }
 const openCart = () => { $('#cart').classList.add('on'); $('#scrim').classList.add('on'); document.body.classList.add('lock'); };
 const closeCart = () => { $('#cart').classList.remove('on'); $('#scrim').classList.remove('on'); document.body.classList.remove('lock'); };
+// navigation avec voile "miel"
+function goTo(href) { const v = $('#veil'); if (RM || !v) { location.href = href; return; } v.classList.add('on'); setTimeout(() => { location.href = href; }, 460); }
 
 /* ─────────────── TOAST ─────────────── */
 let toastT; function toast(msg) { const el = $('#toast'); if (!el) return; $('#toastMsg').textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600); }
@@ -225,11 +231,24 @@ function injectChrome() {
   $('#openCart').onclick = openCart; $('#closeCart').onclick = closeCart; $('#scrim').onclick = closeCart;
   $('#openMenu').onclick = () => { menu.classList.add('open'); document.body.classList.add('lock'); };
   $('#closeMenu').onclick = () => { menu.classList.remove('open'); document.body.classList.remove('lock'); };
-  $('#cartCheckout').onclick = () => { location.href = 'checkout.html'; };
   $('#cartItems').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (!b) return; const s = b.dataset.slug, n = cart.get(s) || 0; if (b.dataset.act === 'inc') setQty(s, n + 1); else if (b.dataset.act === 'dec') setQty(s, n - 1); else if (b.dataset.act === 'rm') setQty(s, 0); });
   addEventListener('keydown', e => { if (e.key === 'Escape') { closeCart(); menu.classList.remove('open'); document.body.classList.remove('lock'); } });
   // header solid on scroll (uniquement pour header transparent sur hero)
   if (!header.classList.contains('light')) { const on = () => header.classList.toggle('solid', scrollY > 40); addEventListener('scroll', on, { passive: true }); on(); }
+
+  // voile de transition entre les pages
+  const veil = document.createElement('div'); veil.id = 'veil';
+  veil.innerHTML = `<img src="assets/logo.png" alt="" onerror="this.onerror=null;this.src='assets/logo.svg'">`;
+  document.body.append(veil);
+  if (!RM) {
+    document.addEventListener('click', e => {
+      const a = e.target.closest('a'); if (!a) return;
+      const href = a.getAttribute('href');
+      if (!href || href[0] === '#' || /^(https?:|mailto:|tel:)/.test(href) || a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault(); goTo(href);
+    });
+  }
+  $('#cartCheckout').onclick = () => goTo('checkout.html');
 }
 
 /* ─────────────── REVEAL ─────────────── */
@@ -354,18 +373,7 @@ function renderCheckout() {
       <h1 style="font-size:clamp(2rem,4.5vw,3rem);font-weight:500;margin-bottom:2rem">Paiement sécurisé</h1>
 
       <div class="co-sec">
-        <h3><span class="step">1</span> Paiement express</h3>
-        <div class="pay-express">
-          <button class="pm-btn pm-apple" data-express="Apple Pay">${PAY.apple}</button>
-          <button class="pm-btn pm-google" data-express="Google Pay">${PAY.google}</button>
-          <button class="pm-btn pm-paypal" data-express="PayPal">${PAY.paypal}</button>
-          <button class="pm-btn pm-bc" data-express="Bancontact">${PAY.bc}</button>
-        </div>
-        <div class="co-divider">ou payer par carte</div>
-      </div>
-
-      <div class="co-sec">
-        <h3><span class="step">2</span> Contact & livraison</h3>
+        <h3><span class="step">1</span> Contact & livraison</h3>
         <div class="field"><label>E-mail</label><input type="email" id="fEmail" placeholder="vous@email.com" autocomplete="email"></div>
         <div class="field-row">
           <div class="field"><label>Prénom</label><input id="fFirst" autocomplete="given-name"></div>
@@ -380,15 +388,33 @@ function renderCheckout() {
       </div>
 
       <div class="co-sec">
-        <h3><span class="step">3</span> Mode de livraison</h3>
+        <h3><span class="step">2</span> Mode de livraison</h3>
         <div class="ship-opts" id="shipOpts">
           <div class="ship-opt sel" data-ship="relais"><span class="radio"></span><div class="t"><b>Point Relais</b><span>Livraison sous 48–72h</span></div><span class="pr" id="prRelais"></span></div>
           <div class="ship-opt" data-ship="domicile"><span class="radio"></span><div class="t"><b>À domicile</b><span>Livraison sous 48–72h</span></div><span class="pr">5,90€</span></div>
         </div>
       </div>
+    </div>
 
-      <div class="co-sec">
-        <h3><span class="step">4</span> Règlement</h3>
+    <aside class="co-summary">
+      <h3>Votre commande</h3>
+      <div id="coItems"></div>
+      <div class="promo"><input id="promoInput" placeholder="Code promo" value=""><button id="promoBtn">Appliquer</button></div>
+      <div class="sum-lines">
+        <div class="sum-line"><span>Sous-total</span><span id="sSub"></span></div>
+        <div class="sum-line disc" id="sDiscLine" hidden><span>Réduction (BIENVENUE15)</span><span id="sDisc"></span></div>
+        <div class="sum-line"><span>Livraison</span><span id="sShip"></span></div>
+        <div class="sum-tot"><span class="l">Total</span><span class="v" id="sTot"></span></div>
+      </div>
+
+      <div class="co-pay-block">
+        <div class="pay-express">
+          <button class="pm-btn pm-apple" data-express="Apple Pay">${PAY.apple}</button>
+          <button class="pm-btn pm-google" data-express="Google Pay">${PAY.google}</button>
+          <button class="pm-btn pm-paypal" data-express="PayPal">${PAY.paypal}</button>
+          <button class="pm-btn pm-bc" data-express="Bancontact">${PAY.bc}</button>
+        </div>
+        <div class="co-divider">ou payer par carte</div>
         <div class="pm-list" id="pmList">
           <div class="pm-opt sel" data-method="card">
             <div class="pm-head"><span class="radio"></span><span class="lbl">Carte bancaire</span><span class="brands">${CARD_BRANDS}</span></div>
@@ -403,34 +429,21 @@ function renderCheckout() {
           </div>
           <div class="pm-opt" data-method="paypal">
             <div class="pm-head"><span class="radio"></span><span class="lbl">PayPal</span><span class="brands">${PAY.paypal}</span></div>
-            <div class="pm-body"><div class="in"><p class="muted" style="font-size:.86rem">Vous serez redirigé vers PayPal pour finaliser le paiement en toute sécurité.</p></div></div>
+            <div class="pm-body"><div class="in"><p class="muted" style="font-size:.86rem">Vous serez redirigé vers PayPal pour finaliser le paiement.</p></div></div>
           </div>
           <div class="pm-opt" data-method="bancontact">
             <div class="pm-head"><span class="radio"></span><span class="lbl">Bancontact</span><span class="brands">${PAY.bc}</span></div>
-            <div class="pm-body"><div class="in"><p class="muted" style="font-size:.86rem">Payez via l'application Bancontact. Redirection sécurisée à la validation.</p></div></div>
+            <div class="pm-body"><div class="in"><p class="muted" style="font-size:.86rem">Redirection sécurisée vers Bancontact à la validation.</p></div></div>
           </div>
         </div>
         <button class="btn btn-gold btn-lg co-pay" id="coPay">Payer <span id="payTot"></span></button>
-        <div class="co-legal"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg> Paiement chiffré SSL · Vos données ne sont jamais stockées</div>
+        <div class="co-legal"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg> Paiement chiffré SSL · Données jamais stockées</div>
       </div>
-    </div>
 
-    <aside class="co-summary">
-      <h3>Votre commande</h3>
-      <div id="coItems"></div>
-      <div class="promo"><input id="promoInput" placeholder="Code promo" value=""><button id="promoBtn">Appliquer</button></div>
-      <div class="sum-lines">
-        <div class="sum-line"><span>Sous-total</span><span id="sSub"></span></div>
-        <div class="sum-line disc" id="sDiscLine" hidden><span>Réduction (BIENVENUE15)</span><span id="sDisc"></span></div>
-        <div class="sum-line"><span>Livraison</span><span id="sShip"></span></div>
-        <div class="sum-tot"><span class="l">Total</span><span class="v" id="sTot"></span></div>
-      </div>
       <div class="co-badges">
         <div><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Miel analysé en laboratoire français</div>
         <div><svg class="ico" viewBox="0 0 24 24"><path d="M12 21s-7-4.3-7-10a7 7 0 0114 0c0 5.7-7 10-7 10z"/></svg> Satisfait ou remboursé 14 jours</div>
-        <div><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg> Transaction 100% sécurisée</div>
       </div>
-      <div class="co-accepted">${CARD_BRANDS}<span class="pm-btn pm-paypal" style="height:24px;padding:0 6px;border-radius:5px">${PAY.paypal}</span><span class="pm-btn pm-apple" style="height:24px;padding:0 6px;border-radius:5px">${PAY.apple}</span></div>
     </aside>
   </div>
 
@@ -472,21 +485,36 @@ function renderCheckout() {
   $('#cCvc').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, ''); });
 
   const need = (id, cond) => { const el = $(id); const ok = !!cond(el.value.trim()); el.classList.toggle('err', !ok); return ok; };
-  const pay = express => {
+  const recordOrder = (methodLabel) => {
+    const no = 'MDM-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    const email = $('#fEmail').value.trim();
+    const first = $('#fFirst').value.trim() || (email.split('@')[0] || 'Client');
+    const order = { no, date: new Date().toISOString(),
+      customer: { email, first, last: $('#fLast').value.trim(), addr: $('#fAddr').value.trim(),
+        city: $('#fCity').value.trim(), zip: $('#fZip').value.trim(), country: $('#fCountry').value },
+      items: [...cart].map(([s, q]) => { const p = byslug(s); return { slug: s, name: p.name, qty: q, price: p.price, origin: p.origin.c }; }),
+      subtotal: sub(), discount: disc(), shipping: shipCost(), total: total(),
+      payment: methodLabel || 'Carte bancaire', delivery: state.ship === 'domicile' ? 'À domicile' : 'Point Relais', status: 'Payée' };
+    const all = JSON.parse(localStorage.getItem('mdm_orders') || '[]'); all.unshift(order);
+    localStorage.setItem('mdm_orders', JSON.stringify(all)); return no;
+  };
+  const pay = (express, methodLabel) => {
     let ok = need('#fEmail', v => /.+@.+\..+/.test(v));
     if (!express) { ok = need('#fFirst', v => v) & ok; ok = need('#fLast', v => v) & ok; ok = need('#fAddr', v => v) & ok; ok = need('#fCity', v => v) & ok; ok = need('#fZip', v => v.length >= 4) & ok;
       if (state.method === 'card') { ok = need('#cNum', v => v.replace(/\s/g, '').length >= 13) & ok; ok = need('#cExp', v => v.length === 5) & ok; ok = need('#cCvc', v => v.length >= 3) & ok; ok = need('#cName', v => v) & ok; } }
     if (!ok) { toast('Veuillez compléter les champs surlignés'); const first = $('.err'); first && first.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     $('#coProcessing').classList.add('on');
     setTimeout(() => {
+      const no = recordOrder(methodLabel);
       $('#coProcessing').classList.remove('on');
-      $('#ordNo').textContent = 'MDM-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+      $('#ordNo').textContent = no;
       cart.clear(); saveCart(); pulseCart();
       $('#coSuccess').classList.add('on'); document.body.classList.add('lock');
     }, 1700);
   };
-  $('#coPay').onclick = () => pay(false);
-  $$('[data-express]').forEach(b => b.onclick = () => { toast('Paiement ' + b.dataset.express + '…'); pay(true); });
+  const METHOD_LABEL = { card: 'Carte bancaire', paypal: 'PayPal', bancontact: 'Bancontact' };
+  $('#coPay').onclick = () => pay(false, METHOD_LABEL[state.method]);
+  $$('[data-express]').forEach(b => b.onclick = () => { toast('Paiement ' + b.dataset.express + '…'); pay(true, b.dataset.express); });
 }
 
 /* ─────────────── AMORÇAGE ─────────────── */
