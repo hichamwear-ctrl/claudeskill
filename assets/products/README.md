@@ -10,6 +10,8 @@ elles s'afficheront automatiquement sur la boutique et les fiches produit :
 | Miel & Curcuma                            | `curcuma.jpg`                     |
 | Miel, Gelée Royale, Pollen & Propolis     | `gelee-royale.jpg`                |
 | Miel, Citron Vert & Gingembre             | `citron-gingembre.jpg`            |
+| Miel & Nigelle                            | `nigelle.jpg`                     |
+| Miel & Hibiscus                           | `hibiscus.jpg`                    |
 
 Photos d'ambiance optionnelles (page d'accueil et « À propos ») :
 
@@ -17,6 +19,11 @@ Photos d'ambiance optionnelles (page d'accueil et « À propos ») :
 |------------------------|------------------------|
 | Grande image du hero   | `../hero.jpg`          |
 | Photo « La maison »    | `../about.jpg`         |
+
+## Logo
+Votre logo est reproduit en SVG (`../logo.svg` sombre + `../logo-light.svg` clair).
+Pour utiliser vos **fichiers exacts**, déposez `../logo.png` (texte sombre, fond clair)
+et `../logo-light.png` (texte crème, fond sombre) : ils seront utilisés automatiquement.
 
 ## Notes
 - Format conseillé : **JPG ou WebP**, carré (1:1) pour les produits, ~1000×1000 px.

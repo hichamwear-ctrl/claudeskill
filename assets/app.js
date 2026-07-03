@@ -9,7 +9,10 @@ const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const euro = n => (Number.isInteger(n) ? n : n.toFixed(2).replace('.', ',')) + '€';
 const RM = matchMedia('(prefers-reduced-motion:reduce)').matches;
-const LOGO = 'assets/logo.svg';
+// Logo : votre vrai fichier assets/logo(.png) est utilisé s'il existe, sinon la recréation SVG.
+// variant 'dark' = wordmark sombre (fond clair) · 'light' = wordmark crème (fond sombre)
+const logoImg = (variant = 'dark', cls = '') => { const base = variant === 'light' ? 'logo-light' : 'logo';
+  return `<img class="${cls}" src="assets/${base}.png" alt="Miels du Monde" onerror="this.onerror=null;this.src='assets/${base}.svg'">`; };
 
 /* ─────────────── CATALOGUE (produits réels) ───────────────
    img : déposez le fichier dans assets/products/<slug>.jpg
@@ -57,6 +60,24 @@ const CATALOG = [
       "Préparée en France, à savourer en infusion ou à la cuillère."],
     tasting:[{ic:'🍋',t:'Vif',d:'Fraîcheur du citron vert.'},{ic:'🫚',t:'Piquant',d:'Chaleur du gingembre.'},{ic:'🍵',t:'Infusion',d:'Idéal en boisson chaude.'},{ic:'❄️',t:'Hiver',d:'Le réconfort des saisons froides.'}],
     texture:'Crémeux', ingredients:'Miel (94%), gingembre (4%), citron vert (2%)',
+    nutrition:{'Énergie':'1 350 kJ / 318 kcal','Glucides':'78 g','— dont sucres':'76 g','Protéines':'0,4 g','Matières grasses':'0 g'} },
+  { slug:'nigelle', name:'Miel & Nigelle', origin:{c:'France',f:'🇫🇷',city:'Préparé en France'},
+    cat:'prep', price:21, old:25, tag:'Habba Sawda', hue:['#9a9384','#55524a','#26241f'], rating:5, count:88,
+    desc:'Miel et graine de nigelle, la précieuse « graine bénie ».',
+    lede:"Une préparation au miel et à la nigelle (habba sawda), la fameuse « graine bénie », au caractère puissant et poivré.",
+    story:["La nigelle, ou « graine bénie », est réputée depuis des millénaires. Nous l'associons à un miel soigneusement sélectionné pour une préparation au caractère affirmé.",
+      "Préparée en France, à savourer en cure, à la petite cuillère."],
+    tasting:[{ic:'⚫',t:'Poivré',d:'Caractère de la nigelle.'},{ic:'🍯',t:'Doux',d:'Adouci par le miel.'},{ic:'💪',t:'Tonique',d:'Une cure de vitalité.'},{ic:'🥄',t:'Cuillère',d:'Une cuillère à jeun.'}],
+    texture:'Crémeux, grainé', ingredients:'Miel (94%), graines de nigelle (6%)',
+    nutrition:{'Énergie':'1 350 kJ / 318 kcal','Glucides':'77 g','— dont sucres':'75 g','Protéines':'0,6 g','Matières grasses':'0,5 g'} },
+  { slug:'hibiscus', name:'Miel & Hibiscus', origin:{c:'France',f:'🇫🇷',city:'Préparé en France'},
+    cat:'prep', price:21, old:25, tag:'Floral & acidulé', hue:['#d06b82','#9c2846','#5a1022'], rating:5, count:71,
+    desc:'Miel et fleur d\'hibiscus, rubis et délicatement acidulé.',
+    lede:"Une préparation au miel et à la fleur d'hibiscus, d'une couleur rubis intense et d'une acidité délicate.",
+    story:["La fleur d'hibiscus offre sa robe rubis et ses notes acidulées à cette préparation au miel, aussi belle que gourmande.",
+      "Préparée en France, sublime en infusion, sur un fromage frais ou à la cuillère."],
+    tasting:[{ic:'🌺',t:'Floral',d:'Parfum d\'hibiscus.'},{ic:'🍒',t:'Acidulé',d:'Fraîcheur fruitée.'},{ic:'💗',t:'Rubis',d:'Couleur intense.'},{ic:'🧀',t:'Accord',d:'Superbe sur un fromage frais.'}],
+    texture:'Crémeux', ingredients:'Miel (91%), hibiscus (9%)',
     nutrition:{'Énergie':'1 350 kJ / 318 kcal','Glucides':'78 g','— dont sucres':'76 g','Protéines':'0,4 g','Matières grasses':'0 g'} }
 ];
 const byslug = s => CATALOG.find(p => p.slug === s);
@@ -138,7 +159,7 @@ function injectChrome() {
   const header = document.createElement('header'); header.className = 'hd'; header.id = 'hd';
   if (document.body.dataset.head === 'light') header.classList.add('light');
   header.innerHTML = `
-    <a class="logo" href="index.html" aria-label="Miels du Monde — accueil"><img src="${LOGO}" alt="Miels du Monde"></a>
+    <a class="logo" href="index.html" aria-label="Miels du Monde — accueil">${logoImg('dark', 'lg-dark')}${logoImg('light', 'lg-light')}</a>
     <nav class="top-nav" aria-label="Principale">${navLinks}</nav>
     <div class="hd-act">
       <a class="iconbtn" href="boutique.html" aria-label="Rechercher"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></a>
@@ -174,7 +195,7 @@ function injectChrome() {
         <div class="line"><span>Sous-total</span><span id="cartSub">0€</span></div>
         <div class="line"><span>Livraison</span><span id="cartShipCost">—</span></div>
         <div class="tot" id="cartTot">0€</div>
-        <button class="btn btn-gold" id="checkout">Passer commande</button>
+        <button class="btn btn-gold" id="cartCheckout">Passer commande</button>
         <div class="re">Paiement sécurisé · Satisfait ou remboursé 14 jours</div>
       </div>
     </aside>
@@ -185,7 +206,7 @@ function injectChrome() {
   if (foot) foot.outerHTML = `
     <footer class="ft"><div class="shell">
       <div class="ft-top">
-        <div class="ft-brand"><a class="logo" href="index.html"><img src="${LOGO}" alt="Miels du Monde"></a>
+        <div class="ft-brand"><a class="logo" href="index.html">${logoImg('light')}</a>
           <p>Maison de miels rares, importés en direct et analysés en laboratoire français. La rareté, prouvée.</p>
           <div class="socials">
             <a href="https://www.tiktok.com/@mielsdumonde" aria-label="TikTok"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M15 4v8.5a4 4 0 1 1-4-4"/><path d="M15 4a4.5 4.5 0 0 0 4.5 4.5"/></svg></a>
@@ -204,7 +225,7 @@ function injectChrome() {
   $('#openCart').onclick = openCart; $('#closeCart').onclick = closeCart; $('#scrim').onclick = closeCart;
   $('#openMenu').onclick = () => { menu.classList.add('open'); document.body.classList.add('lock'); };
   $('#closeMenu').onclick = () => { menu.classList.remove('open'); document.body.classList.remove('lock'); };
-  $('#checkout').onclick = () => toast('Redirection vers le paiement sécurisé…');
+  $('#cartCheckout').onclick = () => { location.href = 'checkout.html'; };
   $('#cartItems').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (!b) return; const s = b.dataset.slug, n = cart.get(s) || 0; if (b.dataset.act === 'inc') setQty(s, n + 1); else if (b.dataset.act === 'dec') setQty(s, n - 1); else if (b.dataset.act === 'rm') setQty(s, 0); });
   addEventListener('keydown', e => { if (e.key === 'Escape') { closeCart(); menu.classList.remove('open'); document.body.classList.remove('lock'); } });
   // header solid on scroll (uniquement pour header transparent sur hero)
@@ -306,10 +327,172 @@ function renderProduct() {
   observeReveals(host); bindCards(host);
 }
 
+/* ─────────────── PAIEMENT (checkout) ─────────────── */
+const PAY = {
+  apple: `<svg viewBox="0 0 34 20" aria-hidden="true"><path fill="currentColor" d="M8.2 6.1c-.4.5-1 .8-1.6.75-.08-.62.22-1.28.58-1.68.4-.48 1.06-.82 1.62-.84.06.64-.2 1.28-.6 1.77zm.58.92c-.9-.05-1.66.5-2.09.5-.44 0-1.1-.48-1.8-.47-.93.01-1.78.54-2.26 1.37-.96 1.66-.25 4.12.69 5.47.46.66 1 1.4 1.72 1.37.68-.03.94-.44 1.77-.44.83 0 1.06.44 1.78.43.74-.01 1.2-.67 1.65-1.33.52-.76.74-1.5.75-1.53-.02-.01-1.44-.55-1.45-2.17-.01-1.36 1.1-2.01 1.16-2.05-.63-.94-1.62-1.04-1.97-1.06z"/><text x="14" y="14.5" font-family="-apple-system,Helvetica,Arial" font-size="12" font-weight="600" fill="currentColor">Pay</text></svg>`,
+  google: `<span style="font-size:1rem"><b style="color:#4285f4">G</b> Pay</span>`,
+  paypal: `<b style="font-style:italic;font-size:1rem"><span style="color:#003087">Pay</span><span style="color:#0070e0">Pal</span></b>`,
+  bc: `<span style="display:inline-flex;align-items:center;gap:.35rem"><span style="display:inline-flex"><span style="width:13px;height:13px;border-radius:50%;background:#0057a3"></span><span style="width:13px;height:13px;border-radius:50%;background:#ffd800;margin-left:-6px"></span></span><b style="color:#004e91;font-size:.9rem">Bancontact</b></span>`
+};
+const CARD_BRANDS = `<svg viewBox="0 0 34 22" aria-label="Visa"><rect width="34" height="22" rx="4" fill="#1a1f71"/><text x="17" y="15" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="700" font-style="italic" font-size="10">VISA</text></svg>
+  <svg viewBox="0 0 34 22" aria-label="Mastercard"><rect width="34" height="22" rx="4" fill="#232323"/><circle cx="14" cy="11" r="6" fill="#eb001b"/><circle cx="20" cy="11" r="6" fill="#f79e1b" opacity=".9"/></svg>`;
+
+function renderCheckout() {
+  const host = $('#checkout'); if (!host) return;
+  if (cart.size === 0) { host.innerHTML = `<div class="co-empty shell"><h2>Votre panier est vide</h2><p class="muted" style="margin-bottom:1.5rem">Ajoutez un miel d'exception pour passer commande.</p><a href="boutique.html" class="btn btn-gold btn-lg">Voir la boutique</a></div>`; return; }
+
+  const state = { promo: false, ship: 'relais', method: 'card' };
+  const sub = () => cartTotal();
+  const disc = () => state.promo ? sub() * 0.15 : 0;
+  const shipCost = () => { const s = sub() - disc(); if (state.ship === 'domicile') return 5.9; return s >= FREE ? 0 : 3.9; };
+  const total = () => sub() - disc() + shipCost();
+
+  host.innerHTML = `
+  <div class="co-wrap shell">
+    <div class="co-main">
+      <div class="crumb" style="color:var(--ink-mut);margin-bottom:.4rem"><a href="index.html">Accueil</a> · Paiement</div>
+      <h1 style="font-size:clamp(2rem,4.5vw,3rem);font-weight:500;margin-bottom:2rem">Paiement sécurisé</h1>
+
+      <div class="co-sec">
+        <h3><span class="step">1</span> Paiement express</h3>
+        <div class="pay-express">
+          <button class="pm-btn pm-apple" data-express="Apple Pay">${PAY.apple}</button>
+          <button class="pm-btn pm-google" data-express="Google Pay">${PAY.google}</button>
+          <button class="pm-btn pm-paypal" data-express="PayPal">${PAY.paypal}</button>
+          <button class="pm-btn pm-bc" data-express="Bancontact">${PAY.bc}</button>
+        </div>
+        <div class="co-divider">ou payer par carte</div>
+      </div>
+
+      <div class="co-sec">
+        <h3><span class="step">2</span> Contact & livraison</h3>
+        <div class="field"><label>E-mail</label><input type="email" id="fEmail" placeholder="vous@email.com" autocomplete="email"></div>
+        <div class="field-row">
+          <div class="field"><label>Prénom</label><input id="fFirst" autocomplete="given-name"></div>
+          <div class="field"><label>Nom</label><input id="fLast" autocomplete="family-name"></div>
+        </div>
+        <div class="field"><label>Adresse</label><input id="fAddr" autocomplete="address-line1"></div>
+        <div class="field-row-3">
+          <div class="field"><label>Ville</label><input id="fCity" autocomplete="address-level2"></div>
+          <div class="field"><label>Code postal</label><input id="fZip" inputmode="numeric" autocomplete="postal-code"></div>
+          <div class="field"><label>Pays</label><select id="fCountry"><option>France</option><option>Belgique</option><option>Luxembourg</option><option>Pays-Bas</option><option>Espagne</option><option>Portugal</option><option>Italie</option></select></div>
+        </div>
+      </div>
+
+      <div class="co-sec">
+        <h3><span class="step">3</span> Mode de livraison</h3>
+        <div class="ship-opts" id="shipOpts">
+          <div class="ship-opt sel" data-ship="relais"><span class="radio"></span><div class="t"><b>Point Relais</b><span>Livraison sous 48–72h</span></div><span class="pr" id="prRelais"></span></div>
+          <div class="ship-opt" data-ship="domicile"><span class="radio"></span><div class="t"><b>À domicile</b><span>Livraison sous 48–72h</span></div><span class="pr">5,90€</span></div>
+        </div>
+      </div>
+
+      <div class="co-sec">
+        <h3><span class="step">4</span> Règlement</h3>
+        <div class="pm-list" id="pmList">
+          <div class="pm-opt sel" data-method="card">
+            <div class="pm-head"><span class="radio"></span><span class="lbl">Carte bancaire</span><span class="brands">${CARD_BRANDS}</span></div>
+            <div class="pm-body"><div class="in">
+              <div class="field"><label>Numéro de carte</label><input id="cNum" inputmode="numeric" placeholder="1234 5678 9012 3456" maxlength="19"></div>
+              <div class="field-row">
+                <div class="field"><label>Expiration</label><input id="cExp" inputmode="numeric" placeholder="MM/AA" maxlength="5"></div>
+                <div class="field"><label>CVC</label><input id="cCvc" inputmode="numeric" placeholder="123" maxlength="4"></div>
+              </div>
+              <div class="field"><label>Nom sur la carte</label><input id="cName" autocomplete="cc-name"></div>
+            </div></div>
+          </div>
+          <div class="pm-opt" data-method="paypal">
+            <div class="pm-head"><span class="radio"></span><span class="lbl">PayPal</span><span class="brands">${PAY.paypal}</span></div>
+            <div class="pm-body"><div class="in"><p class="muted" style="font-size:.86rem">Vous serez redirigé vers PayPal pour finaliser le paiement en toute sécurité.</p></div></div>
+          </div>
+          <div class="pm-opt" data-method="bancontact">
+            <div class="pm-head"><span class="radio"></span><span class="lbl">Bancontact</span><span class="brands">${PAY.bc}</span></div>
+            <div class="pm-body"><div class="in"><p class="muted" style="font-size:.86rem">Payez via l'application Bancontact. Redirection sécurisée à la validation.</p></div></div>
+          </div>
+        </div>
+        <button class="btn btn-gold btn-lg co-pay" id="coPay">Payer <span id="payTot"></span></button>
+        <div class="co-legal"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg> Paiement chiffré SSL · Vos données ne sont jamais stockées</div>
+      </div>
+    </div>
+
+    <aside class="co-summary">
+      <h3>Votre commande</h3>
+      <div id="coItems"></div>
+      <div class="promo"><input id="promoInput" placeholder="Code promo" value=""><button id="promoBtn">Appliquer</button></div>
+      <div class="sum-lines">
+        <div class="sum-line"><span>Sous-total</span><span id="sSub"></span></div>
+        <div class="sum-line disc" id="sDiscLine" hidden><span>Réduction (BIENVENUE15)</span><span id="sDisc"></span></div>
+        <div class="sum-line"><span>Livraison</span><span id="sShip"></span></div>
+        <div class="sum-tot"><span class="l">Total</span><span class="v" id="sTot"></span></div>
+      </div>
+      <div class="co-badges">
+        <div><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Miel analysé en laboratoire français</div>
+        <div><svg class="ico" viewBox="0 0 24 24"><path d="M12 21s-7-4.3-7-10a7 7 0 0114 0c0 5.7-7 10-7 10z"/></svg> Satisfait ou remboursé 14 jours</div>
+        <div><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg> Transaction 100% sécurisée</div>
+      </div>
+      <div class="co-accepted">${CARD_BRANDS}<span class="pm-btn pm-paypal" style="height:24px;padding:0 6px;border-radius:5px">${PAY.paypal}</span><span class="pm-btn pm-apple" style="height:24px;padding:0 6px;border-radius:5px">${PAY.apple}</span></div>
+    </aside>
+  </div>
+
+  <div id="coProcessing"><div><div class="spin"></div><p>Paiement en cours…</p></div></div>
+  <div id="coSuccess"><div class="suc-in">
+    <div class="suc-check"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <h1>Merci pour votre commande</h1>
+    <p>Un e-mail de confirmation vous a été envoyé. Vos miels, analysés en laboratoire, sont préparés avec soin et expédiés sous 48 à 72h.</p>
+    <div class="suc-order"><span class="lb">Numéro de commande</span><span class="no" id="ordNo"></span></div>
+    <div><a href="index.html" class="btn btn-gold btn-lg">Retour à l'accueil</a></div>
+  </div></div>`;
+
+  const drawSummary = () => {
+    $('#coItems').innerHTML = [...cart].map(([s, q]) => { const p = byslug(s); return `
+      <div class="co-item"><div class="thumb">${pimg(p)}<span class="qb">${q}</span></div>
+        <div class="info"><div class="o">${p.origin.f} ${p.origin.c}</div><h4>${p.name}</h4>
+          <div class="q"><button data-cq="dec" data-slug="${s}">−</button>${q}<button data-cq="inc" data-slug="${s}">+</button></div></div>
+        <b>${euro(p.price * q)}</b></div>`; }).join('');
+    $('#prRelais').textContent = (sub() - disc()) >= FREE ? 'Offerte' : '3,90€';
+    $('#sSub').textContent = euro(sub());
+    $('#sDiscLine').hidden = !state.promo; $('#sDisc').textContent = '−' + euro(disc());
+    $('#sShip').textContent = shipCost() === 0 ? 'Offerte' : euro(shipCost());
+    $('#sTot').innerHTML = euro(total()) + ' <small>TTC</small>';
+    $('#payTot').textContent = euro(total());
+  };
+  drawSummary();
+
+  // quantités dans le résumé
+  $('#coItems').addEventListener('click', e => { const b = e.target.closest('[data-cq]'); if (!b) return; const s = b.dataset.slug, n = cart.get(s) || 0; setQty(s, b.dataset.cq === 'inc' ? n + 1 : n - 1); if (cart.size === 0) return renderCheckout(); drawSummary(); });
+  // promo
+  $('#promoBtn').onclick = () => { const v = $('#promoInput').value.trim().toUpperCase(); if (v === 'BIENVENUE15') { state.promo = true; toast('Code BIENVENUE15 appliqué · −15%'); } else { toast('Code promo invalide'); } drawSummary(); };
+  // livraison
+  $('#shipOpts').addEventListener('click', e => { const o = e.target.closest('.ship-opt'); if (!o) return; state.ship = o.dataset.ship; $$('#shipOpts .ship-opt').forEach(x => x.classList.toggle('sel', x === o)); drawSummary(); });
+  // méthode
+  $('#pmList').addEventListener('click', e => { const o = e.target.closest('.pm-opt'); if (!o) return; state.method = o.dataset.method; $$('#pmList .pm-opt').forEach(x => x.classList.toggle('sel', x === o)); });
+  // formatage carte
+  $('#cNum').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim(); });
+  $('#cExp').addEventListener('input', e => { let v = e.target.value.replace(/\D/g, '').slice(0, 4); if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2); e.target.value = v; });
+  $('#cCvc').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, ''); });
+
+  const need = (id, cond) => { const el = $(id); const ok = !!cond(el.value.trim()); el.classList.toggle('err', !ok); return ok; };
+  const pay = express => {
+    let ok = need('#fEmail', v => /.+@.+\..+/.test(v));
+    if (!express) { ok = need('#fFirst', v => v) & ok; ok = need('#fLast', v => v) & ok; ok = need('#fAddr', v => v) & ok; ok = need('#fCity', v => v) & ok; ok = need('#fZip', v => v.length >= 4) & ok;
+      if (state.method === 'card') { ok = need('#cNum', v => v.replace(/\s/g, '').length >= 13) & ok; ok = need('#cExp', v => v.length === 5) & ok; ok = need('#cCvc', v => v.length >= 3) & ok; ok = need('#cName', v => v) & ok; } }
+    if (!ok) { toast('Veuillez compléter les champs surlignés'); const first = $('.err'); first && first.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    $('#coProcessing').classList.add('on');
+    setTimeout(() => {
+      $('#coProcessing').classList.remove('on');
+      $('#ordNo').textContent = 'MDM-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+      cart.clear(); saveCart(); pulseCart();
+      $('#coSuccess').classList.add('on'); document.body.classList.add('lock');
+    }, 1700);
+  };
+  $('#coPay').onclick = () => pay(false);
+  $$('[data-express]').forEach(b => b.onclick = () => { toast('Paiement ' + b.dataset.express + '…'); pay(true); });
+}
+
 /* ─────────────── AMORÇAGE ─────────────── */
 function boot() {
   injectChrome(); renderCart(); pulseCart();
-  renderFeatured(); renderShop(); renderProduct();
+  renderFeatured(); renderShop(); renderProduct(); renderCheckout();
   observeReveals(); animateCounters();
   const mq = $('#mq'); if (mq) mq.innerHTML += mq.innerHTML;
   $('#newsForm')?.addEventListener('submit', e => { e.preventDefault(); e.target.reset(); toast('Bienvenue dans le cercle 🐝'); });

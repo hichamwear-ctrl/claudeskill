@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 246" role="img" aria-label="Miels du Monde">
+  <defs>
+    <linearGradient id="goldL" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0d98f"/><stop offset=".45" stop-color="#c9a24a"/><stop offset="1" stop-color="#9c6f22"/>
+    </linearGradient>
+    <linearGradient id="goldTL" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9c877"/><stop offset="1" stop-color="#b3801f"/>
+    </linearGradient>
+    <pattern id="hcL" width="10.4" height="18" patternUnits="userSpaceOnUse" patternTransform="scale(.62)">
+      <g fill="url(#goldTL)">
+        <polygon points="5.2,0.7 9.9,3.4 9.9,8.6 5.2,11.3 0.5,8.6 0.5,3.4"/>
+        <polygon points="0,9.7 4.7,12.4 4.7,17.6 0,20.3 -4.7,17.6 -4.7,12.4"/>
+        <polygon points="10.4,9.7 15.1,12.4 15.1,17.6 10.4,20.3 5.7,17.6 5.7,12.4"/>
+      </g>
+    </pattern>
+    <clipPath id="continentsL">
+      <path d="M120 58 q15 -6 25 0 q6 4 2 10 q7 3 3 11 q-6 7 -16 4 q-3 6 -9 3 q-5 -4 -3 -11 q-8 -7 -3 -16 q1 -5 4 -5 Z"/>
+      <path d="M149 96 q10 -3 13 5 q4 12 -3 25 q-4 8 -10 3 q-5 -8 -4 -19 q-2 -12 4 -14 Z"/>
+      <path d="M166 57 q11 -3 16 2 q3 5 -3 8 q-8 2 -14 -3 q-3 -4 1 -7 Z"/>
+      <path d="M169 73 q13 -3 18 6 q4 13 -4 27 q-5 9 -11 3 q-5 -7 -4 -19 q-3 -14 1 -17 Z"/>
+      <path d="M187 53 q24 -4 36 6 q9 8 -1 16 q-11 8 -27 4 q-12 -3 -14 -13 q-3 -11 6 -14 Z"/>
+      <path d="M197 82 q6 0 7 6 q0 7 -6 10 q-5 2 -6 -4 q-1 -9 5 -12 Z"/>
+      <path d="M207 112 q11 -3 14 4 q2 7 -6 9 q-9 1 -10 -6 q0 -5 2 -7 Z"/>
+    </clipPath>
+  </defs>
+  <path d="M170 16 L234 53 V127 L170 164 L106 127 V53 Z" fill="none" stroke="url(#goldL)" stroke-width="3.4"/>
+  <path d="M170 24 L227 57 V123 L170 156 L113 123 V57 Z" fill="none" stroke="url(#goldL)" stroke-width="1" opacity=".5"/>
+  <g clip-path="url(#continentsL)"><rect x="100" y="40" width="140" height="100" fill="url(#hcL)"/></g>
+  <text x="170" y="200" text-anchor="middle" font-family="'Cormorant Garamond','Fraunces',Georgia,serif" font-weight="500" font-size="27" letter-spacing="3.4" fill="#f7f1e6">MIELS DU MONDE</text>
+  <text x="170" y="217" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-weight="600" font-size="11" letter-spacing="5" fill="url(#goldL)">SINCE 2020</text>
+  <line x1="118" y1="230" x2="150" y2="230" stroke="url(#goldL)" stroke-width="1"/>
+  <line x1="190" y1="230" x2="222" y2="230" stroke="url(#goldL)" stroke-width="1"/>
+  <g fill="url(#goldL)" transform="translate(154,226)">
+    <path d="M0 0l1.3 2.7 3 .3-2.2 2 .6 3L0 6.5-2.7 8l.6-3-2.2-2 3-.3z"/>
+    <path d="M16 0l1.3 2.7 3 .3-2.2 2 .6 3L16 6.5 13.3 8l.6-3-2.2-2 3-.3z"/>
+    <path d="M32 0l1.3 2.7 3 .3-2.2 2 .6 3L32 6.5 29.3 8l.6-3-2.2-2 3-.3z"/>
+  </g>
+</svg>
