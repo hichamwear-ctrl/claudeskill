@@ -469,8 +469,9 @@ section.blk{padding:clamp(4.5rem,9vw,7.5rem) 0}
 .lab::before{opacity:.35}
 
 /* ════════ ORIGINS · GLOBE 3D ════════ */
-.origins-sec{background:radial-gradient(120% 95% at 50% -5%,#4a2f0c 0%,#2e1d0a 55%,#241708 100%);color:var(--cream);overflow:hidden;position:relative}
-.origins-sec::before{content:"";position:absolute;inset:0;background-image:var(--hex);background-size:50px;opacity:.4;pointer-events:none}
+.origins-sec{background:radial-gradient(130% 100% at 50% 30%,#17293f 0%,#0c1524 46%,#070b13 100%);color:var(--cream);overflow:hidden;position:relative}
+.origins-sec::before{content:"";position:absolute;inset:0;background-image:var(--hex);background-size:56px;opacity:.12;pointer-events:none}
+.origins-sec .globe-hint,.origins-sec .sec-head p{color:rgba(233,238,247,.62)}
 .origins-sec .sec-head p{color:rgba(244,232,206,.7)}
 .globe-stage{position:relative;width:min(580px,88vw);aspect-ratio:1;margin:.5rem auto 0;z-index:1;touch-action:none}
 .globe-stage::before{content:"";position:absolute;inset:8%;border-radius:50%;
