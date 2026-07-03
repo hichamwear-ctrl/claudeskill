@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="FAQ Miels du Monde : analyses laboratoire, conservation du miel, livraison, retours.">
+<meta name="theme-color" content="#0b0a08">
+<link rel="canonical" href="https://mielsdumonde.fr/faq/">
+<title>FAQ — Miels du Monde</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/app.js"></script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Vos miels sont-ils vraiment analysés ?","acceptedAnswer":{"@type":"Answer","text":"Oui, chaque lot est analysé dans un laboratoire français avant la vente."}},
+{"@type":"Question","name":"Sous combien de temps suis-je livré ?","acceptedAnswer":{"@type":"Answer","text":"Expédition sous 48 à 72h. Livraison offerte dès 79€ en point relais."}}]}
+</script>
+</head>
+<body>
+
+<header class="pagehead"><div class="glow"></div><div class="shell">
+  <div class="crumb"><a href="index.html">Accueil</a> · FAQ</div>
+  <h1>Questions fréquentes</h1>
+  <p>Tout ce qu'il faut savoir sur nos miels, nos analyses et votre commande.</p>
+</div></header>
+
+<section class="blk"><div class="shell">
+  <div class="faq-list acc" id="faqAcc">
+    <div class="acc-item"><button class="acc-q">Vos miels sont-ils vraiment analysés en laboratoire ?<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="acc-a"><div class="in">Oui. Chaque lot est envoyé dans un laboratoire français qui vérifie l'origine florale, l'absence de sirops ajoutés et le taux d'HMF. Le rapport d'analyse est disponible sur simple demande.</div></div></div>
+    <div class="acc-item"><button class="acc-q">Comment conserver mon miel ?<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="acc-a"><div class="in">À l'abri de la lumière et de la chaleur, dans un placard. Un miel qui cristallise est un bon signe de pureté : réchauffez-le doucement au bain-marie (jamais au micro-ondes) pour le refluidifier.</div></div></div>
+    <div class="acc-item"><button class="acc-q">Sous combien de temps suis-je livré ?<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="acc-a"><div class="in">Nous expédions sous 48 à 72h après confirmation de commande. La livraison est offerte dès 79€ d'achat en point relais, en France comme dans l'Union européenne (Belgique, Luxembourg, Pays-Bas, Espagne, Portugal, Italie).</div></div></div>
+    <div class="acc-item"><button class="acc-q">Le miel est-il pasteurisé ?<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="acc-a"><div class="in">Non. Nos miels ne sont ni pasteurisés ni surchauffés, afin de préserver leurs enzymes, arômes et bienfaits naturels.</div></div></div>
+    <div class="acc-item"><button class="acc-q">Quelle est votre politique de retour ?<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="acc-a"><div class="in">Vous disposez de 14 jours pour changer d'avis. Contactez notre service client, disponible 7j/7, et nous vous accompagnons dans votre retour ou remboursement.</div></div></div>
+    <div class="acc-item"><button class="acc-q">D'où viennent vos miels ?<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="acc-a"><div class="in">Nos miels d'origine sont importés en direct (Litchi de Madagascar, Jujubier…) et nos préparations sont élaborées en France à partir de miels sélectionnés. Chaque produit est tracé et analysé.</div></div></div>
+  </div>
+  <div style="text-align:center;margin-top:3rem" class="reveal"><p class="muted" style="margin-bottom:1.2rem">Une autre question ? Notre service client vous répond 7j/7.</p><a href="boutique.html" class="btn btn-dark btn-lg">Explorer la boutique</a></div>
+</div></section>
+
+<div id="site-footer"></div>
+<script>
+  // accordéon FAQ (page statique)
+  document.addEventListener('click',e=>{const b=e.target.closest('#faqAcc .acc-q');if(!b)return;const it=b.parentElement,a=it.querySelector('.acc-a');const open=it.classList.toggle('open');a.style.maxHeight=open?a.scrollHeight+'px':0;});
+</script>
+</body>
+</html>
