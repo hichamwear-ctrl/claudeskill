@@ -84,7 +84,7 @@ const byslug = s => CATALOG.find(p => p.slug === s);
 const FREE = 79;
 
 /* fichiers photos réels (fournis par la maison) */
-const IMG = { litchi:'litchi.webp', jujubier:'jujubier.webp', curcuma:'curcuma.png',
+const IMG = { litchi:'litchi.webp', jujubier:'jujubier.webp', curcuma:'curcuma.webp',
   'gelee-royale':'gelee-royale.webp', 'citron-gingembre':'citron-gingembre.webp',
   nigelle:'nigelle.webp', hibiscus:'hibiscus.webp' };
 /* image produit avec repli gracieux (dégradé + nom si le fichier manque) */

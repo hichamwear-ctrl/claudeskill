@@ -19,7 +19,7 @@
       honey: 'Miel de Jujubier', href: 'produit.html?p=jujubier',
       desc: "Le cousin du célèbre Sidr : dense, ambré et résineux, récolté sur l'arbre de jujubier des vallées arides.",
       benefits: ['Immunité', 'Reminéralisant', 'Rare & précieux'] },
-    { code: 'FR', flag: '🇫🇷', name: 'France', lat: 46.6, lon: 2.3, img: 'curcuma.png',
+    { code: 'FR', flag: '🇫🇷', name: 'France', lat: 46.6, lon: 2.3, img: 'curcuma.webp',
       honey: 'Nos préparations au miel', href: 'boutique.html?f=prep',
       desc: "Curcuma, Nigelle, Hibiscus, Gelée royale… nos préparations bien-être élaborées et conditionnées en France.",
       benefits: ['Bien-être', 'Anti-inflammatoire', 'Élaboré en France'] }
@@ -91,7 +91,7 @@
 
   async function init() {
     if (!window.WebGLRenderingContext) return fallback();
-    try { THREE = await import('https://esm.sh/three@0.161.0'); } catch (e) { return fallback(); }
+    try { THREE = await import('./vendor/three.module.min.js'); } catch (e) { return fallback(); }
     try { renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' }); } catch (e) { return fallback(); }
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.06;
@@ -130,13 +130,22 @@
         if (hit) { const i = pins.findIndex(p => p.userData.head === hit.object); if (i >= 0) select(i, true); } } };
     canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
 
-    new ResizeObserver(resize).observe(canvas); resize(); loop();
+    resize(); render();
+    new ResizeObserver(() => { resize(); render(); }).observe(wrap || canvas);
+    loop();
   }
   function faceOrigin(i) { const o = ORIGINS[i]; faceTarget = { y: -((o.lon + 180) * Math.PI / 180) + Math.PI * 1.5, x: o.lat * Math.PI / 180 * 0.75 }; }
-  function resize() { const w = canvas.clientWidth || 600, h = canvas.clientHeight || 600; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  let lastW = 0;
+  function resize() {
+    const box = (wrap || canvas).getBoundingClientRect();
+    const w = Math.round(box.width) || 480, h = Math.round(box.height) || 480;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); lastW = w;
+  }
+  function render() { globe.rotation.y = rot.y; globe.rotation.x = rot.x; renderer.render(scene, camera); }
   let t = 0;
   function loop() {
     requestAnimationFrame(loop); t += 0.016;
+    if (canvas.clientWidth && canvas.clientWidth !== lastW) resize();
     if (!drag.on) { if (faceTarget) { rot.y += (faceTarget.y - rot.y) * 0.07; rot.x += (faceTarget.x - rot.x) * 0.07; if (Math.abs(faceTarget.y - rot.y) < 0.003) faceTarget = null; }
       else { rot.y += (RM ? 0 : 0.0015) + vel.y; rot.x += vel.x; vel.y *= 0.94; vel.x *= 0.94; } }
     globe.rotation.y = rot.y; globe.rotation.x = rot.x;

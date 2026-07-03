@@ -6,7 +6,7 @@ Les **vraies photos** de la maison sont déjà intégrées ici (fournies par le 
 |-------------------------------------------|----------------------------|
 | Miel de Litchi (Madagascar)               | `litchi.webp`              |
 | Miel de Jujubier (Algérie)                | `jujubier.webp`            |
-| Miel & Curcuma                            | `curcuma.png`              |
+| Miel & Curcuma                            | `curcuma.webp`              |
 | Miel, Gelée Royale, Pollen & Propolis     | `gelee-royale.webp`        |
 | Miel, Citron Vert & Gingembre             | `citron-gingembre.webp`    |
 | Miel & Nigelle                            | `nigelle.webp`             |

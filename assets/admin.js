@@ -13,7 +13,7 @@ const KEY = 'mdm_orders';
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const save = o => localStorage.setItem(KEY, JSON.stringify(o));
 
-const IMG = { litchi:'litchi.webp', jujubier:'jujubier.webp', curcuma:'curcuma.png',
+const IMG = { litchi:'litchi.webp', jujubier:'jujubier.webp', curcuma:'curcuma.webp',
   'gelee-royale':'gelee-royale.webp', 'citron-gingembre':'citron-gingembre.webp',
   nigelle:'nigelle.webp', hibiscus:'hibiscus.webp' };
 const CATALOG = [
