@@ -190,8 +190,8 @@ function injectChrome() {
     </div>`;
   document.body.append(menu);
 
-  const cart = document.createElement('div');
-  cart.innerHTML = `
+  const cartWrap = document.createElement('div');
+  cartWrap.innerHTML = `
     <div id="scrim"></div>
     <aside id="cart" aria-label="Panier">
       <div class="cart-h"><h3>Votre panier</h3><button class="iconbtn" id="closeCart" aria-label="Fermer"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -206,7 +206,7 @@ function injectChrome() {
       </div>
     </aside>
     <div id="toast" role="status"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><span id="toastMsg">Ajouté</span></div>`;
-  document.body.append(cart);
+  document.body.append(cartWrap);
 
   const foot = $('#site-footer');
   if (foot) foot.outerHTML = `

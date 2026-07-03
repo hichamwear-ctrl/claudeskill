@@ -302,7 +302,7 @@ section.blk{padding:clamp(4.5rem,9vw,7.5rem) 0}
 .cart-empty{text-align:center;color:var(--ink-mut);padding:4rem 1rem;display:flex;flex-direction:column;align-items:center;gap:1rem}
 .cart-empty .ico{width:40px;height:40px;opacity:.4}
 .ci{display:flex;gap:1rem;padding:1.1rem 0;border-bottom:1px solid var(--line)}
-.ci .thumb{width:60px;height:60px;border-radius:10px;flex:none;overflow:hidden;background:var(--cream-2)}
+.ci .thumb{width:60px;height:60px;border-radius:10px;flex:none;overflow:hidden;position:relative;background:var(--cream-2)}
 .ci .thumb img{width:100%;height:100%;object-fit:cover}
 .ci .info{flex:1;min-width:0}.ci .info .o{font-size:.74rem;color:var(--amber);text-transform:uppercase;letter-spacing:.06em}
 .ci .info h4{font-family:Inter;font-weight:600;font-size:.9rem;margin:.1rem 0}
