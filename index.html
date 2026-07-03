@@ -3,19 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Miels du Monde — Maison de miels rares importés en direct et analysés en laboratoire français. Miel de Litchi, Jujubier, préparations au miel.">
-<meta name="theme-color" content="#0b0a08">
+<meta name="description" content="Miels du Monde — Maison française de miels rares : Miel de Litchi (Madagascar), Jujubier (Algérie) et préparations au miel, importés en direct et analysés en laboratoire français. Livraison offerte dès 79€.">
+<meta name="keywords" content="miel rare, miel de litchi, miel de jujubier, miel analysé laboratoire, miels du monde, préparation au miel, curcuma, nigelle, hibiscus">
+<meta name="theme-color" content="#3e2809">
+<meta name="robots" content="index,follow,max-image-preview:large">
 <link rel="canonical" href="https://mielsdumonde.fr/">
+<!-- Favicon = logo -->
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="apple-touch-icon" href="assets/logo.png">
+<link rel="mask-icon" href="assets/logo.svg" color="#c69a44">
+<!-- Open Graph (Facebook, WhatsApp, Instagram, LinkedIn) -->
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Miels du Monde">
 <meta property="og:title" content="Miels du Monde — La rareté, prouvée">
-<meta property="og:description" content="Des miels rares importés en direct et analysés en laboratoire français.">
-<title>Miels du Monde — Miels rares & préparations, analysés en laboratoire</title>
+<meta property="og:description" content="Un voyage à travers les origines : des miels rares importés en direct et analysés en laboratoire français.">
+<meta property="og:url" content="https://mielsdumonde.fr/">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:image" content="https://mielsdumonde.fr/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Miels du Monde — miels rares du monde entier">
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Miels du Monde — La rareté, prouvée">
+<meta name="twitter:description" content="Des miels rares importés en direct et analysés en laboratoire français.">
+<meta name="twitter:image" content="https://mielsdumonde.fr/assets/og.jpg">
+<title>Miels du Monde — Miels rares du monde, analysés en laboratoire français</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/app.js"></script>
+<script defer src="assets/globe.js"></script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Store","name":"Miels du Monde","url":"https://mielsdumonde.fr/","priceRange":"€€","areaServed":["FR","BE","LU","NL","ES","PT","IT"],"description":"Maison de miels rares importés en direct et analysés en laboratoire français."}
+{"@context":"https://schema.org","@type":"Store","name":"Miels du Monde","url":"https://mielsdumonde.fr/","image":"https://mielsdumonde.fr/assets/og.jpg","logo":"https://mielsdumonde.fr/assets/logo.png","priceRange":"€€","areaServed":["FR","BE","LU","NL","ES","PT","IT"],"description":"Maison française de miels rares importés en direct et analysés en laboratoire.","sameAs":["https://www.tiktok.com/@mielsdumonde"]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"Miels du Monde","url":"https://mielsdumonde.fr/","inLanguage":"fr-FR"}
 </script>
 </head>
 <body>
@@ -41,6 +64,18 @@
   <span>Analysé en laboratoire français</span><span>Importation directe</span><span>Aucun mélange</span>
   <span>Récolte limitée</span><span>Expédition sous 48h</span><span>Livraison offerte dès 79€</span><span>Service client 7j/7</span>
 </div></div>
+
+<!-- ORIGINES · GLOBE 3D (cœur du site) -->
+<section class="blk origins-sec" id="origines"><div class="shell">
+  <div class="sec-head center reveal"><span class="eyebrow center">Le voyage des origines</span>
+    <h2>Un monde de miels,<br>au bout des doigts.</h2>
+    <p>Faites tourner la planète, explorez chaque terroir et découvrez le miel qui en est né. Cliquez un pays pour révéler son trésor.</p></div>
+  <div class="globe-stage reveal">
+    <canvas id="globe" aria-label="Globe interactif des origines"></canvas>
+  </div>
+  <div class="globe-hint"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2c3 3 3 17 0 20M12 2c-3 3-3 17 0 20"/></svg> Faites glisser pour tourner · cliquez un pays</div>
+  <div class="origin-tabs" id="originTabs"></div>
+</div></section>
 
 <!-- PILIERS -->
 <section class="blk"><div class="shell">
@@ -111,5 +146,6 @@
 </div></section>
 
 <div id="site-footer"></div>
+<div id="originModal" aria-hidden="true"></div>
 </body>
 </html>

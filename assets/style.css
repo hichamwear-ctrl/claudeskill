@@ -4,10 +4,13 @@
    Type : Cormorant Garamond (display) + Inter (interface)
    ════════════════════════════════════════════════════════════════════ */
 :root{
-  --noir:#0b0a08; --noir-2:#141009; --cream:#f7f1e6; --cream-2:#efe6d5; --paper:#fbf7ef;
-  --ink:#1b1710; --ink-soft:#5c5344; --ink-mut:#8b8170;
+  /* univers miel & ruche — plus de noir : bois/cire foncés + crème/ambre/or */
+  --noir:#25190a; --noir-2:#2f2110; --noir-3:#3c2b16; --cream:#f4e8ce; --cream-2:#ecdcbc; --paper:#faf3e2;
+  --wax:#f2e6c8; --hive:#241708;
+  --ink:#2a1c0a; --ink-soft:#6b5836; --ink-mut:#9a8663;
   --gold:#c69a44; --gold-2:#e2c073; --gold-3:#f2dca0; --amber:#cf8324; --honey:#e0a83c;
   --wood:#79542e; --red:#c8324b;
+  --hex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='none' stroke='%23e2c073' stroke-opacity='.12' stroke-width='1.2'%3E%3Cpath d='M13.99 0l13.99 8.08v16.16L13.99 32.32 0 24.24V8.08z'/%3E%3Cpath d='M13.99 32.32l13.99 8.08v16.16'/%3E%3Cpath d='M13.99 32.32L0 40.4v16.16'/%3E%3C/g%3E%3C/svg%3E");
   --line:rgba(27,23,16,.12); --line-2:rgba(27,23,16,.2);
   --line-d:rgba(247,241,230,.14); --line-d2:rgba(247,241,230,.24);
   --glass:rgba(247,241,230,.06);
@@ -94,7 +97,10 @@ img{max-width:100%;display:block}
 .hero .bg{position:absolute;inset:0;z-index:0}
 .hero .bg img{width:100%;height:100%;object-fit:cover;opacity:.62}
 .hero .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,5,3,.82),rgba(6,5,3,.35) 60%,transparent),linear-gradient(0deg,rgba(6,5,3,.6),transparent 50%)}
-.hero .fallbk{position:absolute;inset:0;z-index:0;background:radial-gradient(120% 90% at 20% 30%,#221808,var(--noir) 70%)}
+.hero .fallbk{position:absolute;inset:0;z-index:0;
+  background:radial-gradient(120% 100% at 25% 15%,#6b4212 0%,#3e2809 42%,#25190a 78%)}
+.hero .fallbk::after{content:"";position:absolute;inset:0;background-image:var(--hex);background-size:46px;opacity:.6;
+  -webkit-mask:radial-gradient(120% 90% at 50% 40%,#000,transparent 75%);mask:radial-gradient(120% 90% at 50% 40%,#000,transparent 75%)}
 .hero-in{position:relative;z-index:2;padding-block:8rem 4rem}
 .hero .eyebrow{color:var(--gold-2);margin-bottom:1.4rem}
 .hero .eyebrow::before{background:var(--gold-2)}
@@ -319,9 +325,11 @@ section.blk{padding:clamp(4.5rem,9vw,7.5rem) 0}
 
 /* ════════ TRANSITIONS DE PAGE (voile miel) ════════ */
 @media (prefers-reduced-motion:no-preference){
+  /* n.b. : on n'anime QUE l'opacité — animer transform sur body casserait
+     position:fixed (body deviendrait le bloc englobant des overlays) */
   body{animation:pageFade .6s var(--ease) both}
 }
-@keyframes pageFade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes pageFade{from{opacity:0}to{opacity:1}}
 #veil{position:fixed;inset:0;z-index:400;pointer-events:none;transform:translateY(101%);
   background:linear-gradient(180deg,#f2dfa0,#dca63a 45%,#a9741f);
   display:grid;place-items:center;transition:transform .55s cubic-bezier(.76,0,.24,1)}
@@ -453,6 +461,52 @@ section.blk{padding:clamp(4.5rem,9vw,7.5rem) 0}
 .co-empty{text-align:center;padding:5rem 1rem;color:var(--ink-mut)}
 .co-empty h2{font-size:2rem;font-weight:500;color:var(--ink);margin-bottom:.6rem}
 
+/* ════════ AMBIANCE NID D'ABEILLE (sections chaudes) ════════ */
+.dark,.pagehead,.news{position:relative}
+.dark>.shell,.pagehead>.shell,.news>.shell{position:relative;z-index:1}
+.dark::before,.pagehead::before,.news::before{content:"";position:absolute;inset:0;background-image:var(--hex);background-size:44px;opacity:.5;pointer-events:none}
+.ft{background-image:var(--hex);background-size:44px}
+.lab::before{opacity:.35}
+
+/* ════════ ORIGINS · GLOBE 3D ════════ */
+.origins-sec{background:radial-gradient(120% 95% at 50% -5%,#4a2f0c 0%,#2e1d0a 55%,#241708 100%);color:var(--cream);overflow:hidden;position:relative}
+.origins-sec::before{content:"";position:absolute;inset:0;background-image:var(--hex);background-size:50px;opacity:.4;pointer-events:none}
+.origins-sec .sec-head p{color:rgba(244,232,206,.7)}
+.globe-stage{position:relative;width:min(580px,88vw);aspect-ratio:1;margin:.5rem auto 0;z-index:1;touch-action:none}
+.globe-stage::before{content:"";position:absolute;inset:8%;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,rgba(240,200,110,.25),transparent 65%);filter:blur(20px);pointer-events:none}
+#globe{width:100%;height:100%;display:block;position:relative;z-index:1}
+.globe-stage.nofx::after{content:"";position:absolute;inset:8%;border-radius:50%;
+  background:radial-gradient(circle at 36% 30%,#ffe08a 0%,#f0b64a 28%,#d9862b 60%,#9a5416 100%);
+  box-shadow:inset -24px -32px 70px rgba(80,40,6,.55),inset 20px 24px 50px rgba(255,236,180,.35),0 0 90px rgba(224,168,60,.45)}
+.globe-stage.nofx::before{opacity:.9}
+.globe-hint{text-align:center;color:rgba(244,232,206,.6);font-size:.82rem;letter-spacing:.04em;margin-top:1rem;display:flex;align-items:center;justify-content:center;gap:.5rem;position:relative;z-index:1}
+.globe-hint .ico{width:16px;height:16px}
+.origin-tabs{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:1.4rem;position:relative;z-index:1}
+.origin-tabs button{display:inline-flex;align-items:center;gap:.5rem;font-size:.88rem;padding:.55rem 1.1rem;border-radius:var(--pill);
+  border:1px solid var(--line-d2);color:rgba(244,232,206,.8);transition:all .3s}
+.origin-tabs button:hover{border-color:var(--gold-2);color:var(--cream);transform:translateY(-2px)}
+.origin-tabs button.sel{background:linear-gradient(135deg,var(--gold-2),var(--gold));color:var(--noir);border-color:transparent;font-weight:600}
+
+/* fiche modale origine */
+#originModal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:1.2rem;opacity:0;visibility:hidden;transition:opacity .4s,visibility .4s}
+#originModal.on{opacity:1;visibility:visible}
+.om-scrim{position:absolute;inset:0;background:rgba(20,12,3,.62);backdrop-filter:blur(5px)}
+.om-card{position:relative;z-index:1;width:min(760px,100%);background:var(--paper);border-radius:var(--r-xl);overflow:hidden;
+  display:grid;grid-template-columns:1fr 1fr;box-shadow:0 50px 120px rgba(0,0,0,.5);transform:translateY(24px) scale(.97);opacity:0;transition:transform .55s var(--ease),opacity .5s}
+#originModal.on .om-card{transform:none;opacity:1}
+.om-close{position:absolute;top:1rem;right:1rem;z-index:3;width:42px;height:42px;border-radius:var(--pill);background:rgba(250,243,226,.85);backdrop-filter:blur(6px);display:grid;place-items:center;transition:transform .4s var(--ease)}
+.om-close:hover{transform:rotate(90deg)}
+.om-photo{position:relative;min-height:280px}
+.om-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.om-flag{position:absolute;left:1rem;bottom:1rem;z-index:2;font-size:.82rem;font-weight:600;color:#fff;background:rgba(20,12,3,.5);backdrop-filter:blur(6px);padding:.4rem .9rem;border-radius:var(--pill)}
+.om-body{padding:clamp(1.6rem,3vw,2.4rem);display:flex;flex-direction:column;justify-content:center}
+.om-body h3{font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:500;margin:.6rem 0 .8rem}
+.om-body p{color:var(--ink-soft);font-size:.98rem;margin-bottom:1.2rem}
+.om-benes{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.6rem}
+.om-benes span{font-size:.8rem;font-weight:500;color:var(--amber);background:rgba(207,131,36,.1);border:1px solid rgba(207,131,36,.2);padding:.35rem .8rem;border-radius:var(--pill)}
+.om-body .btn{align-self:flex-start}
+
 /* ════════ RESPONSIVE ════════ */
 @media(max-width:960px){
   .top-nav{display:none}.burger{display:grid}
@@ -462,9 +516,14 @@ section.blk{padding:clamp(4.5rem,9vw,7.5rem) 0}
   .menu-side{border:none;padding:0;border-top:1px solid var(--line-d);padding-top:1.5rem}
   .ft-top{grid-template-columns:1fr 1fr}
 }
+@media(max-width:680px){
+  .om-card{grid-template-columns:1fr;max-height:88vh;overflow-y:auto}
+  .om-photo{min-height:auto;aspect-ratio:16/10}
+}
 @media(max-width:560px){
   .card-grid,.rev-grid,.tnotes,.pillar-grid,.ft-top{grid-template-columns:1fr}
   .hero h1{font-size:2.6rem}
+  .origin-tabs button{font-size:.82rem;padding:.5rem .9rem}
 }
 @media(prefers-reduced-motion:reduce){
   *{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
