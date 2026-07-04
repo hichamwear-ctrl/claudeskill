@@ -41,3 +41,11 @@ export function formatDuration(minutes: number) {
 export function getInitials(firstName?: string | null, lastName?: string | null) {
   return `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "?";
 }
+
+/** Time-of-day greeting (server-rendered, Brussels business hours feel). */
+export function greeting(date = new Date()): string {
+  const h = date.getHours();
+  if (h < 6) return "Bonsoir";
+  if (h < 18) return "Bonjour";
+  return "Bonsoir";
+}

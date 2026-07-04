@@ -40,19 +40,27 @@ export function StatCard({
   accent?: boolean;
 }) {
   return (
-    <Card className="p-5">
+    <Card
+      className={cn(
+        "group relative overflow-hidden p-5 transition-colors hover:border-gold/30",
+        accent && "border-gold/25",
+      )}
+    >
+      {accent && (
+        <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gold-gradient" />
+      )}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{label}</p>
         <span
           className={cn(
-            "flex size-9 items-center justify-center rounded-lg",
+            "flex size-9 items-center justify-center rounded-lg transition-transform group-hover:scale-105",
             accent ? "bg-gold-gradient text-black" : "bg-secondary text-gold",
           )}
         >
           <Icon className="size-4.5" />
         </span>
       </div>
-      <p className="mt-3 font-display text-3xl font-bold">{value}</p>
+      <p className="mt-3 font-display text-3xl font-bold tabular-nums">{value}</p>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </Card>
   );

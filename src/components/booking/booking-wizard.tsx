@@ -7,8 +7,8 @@ import { ArrowLeft, ArrowRight, Loader2, Check } from "lucide-react";
 import { useBookingStore } from "@/stores/booking";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
-import { PriceSummary } from "@/components/booking/price-summary";
+import { cn, formatCurrency, formatDuration } from "@/lib/utils";
+import { PriceSummary, usePriceBreakdown } from "@/components/booking/price-summary";
 import {
   StepAddress,
   StepDateTime,
@@ -157,8 +157,11 @@ export function BookingWizard({ addresses }: { addresses: Address[] }) {
           {store.step === 5 && <StepSummary />}
         </div>
 
+        {/* Mobile total (the full summary is desktop-only) */}
+        <MobileTotal />
+
         {/* Navigation */}
-        <div className="mt-8 flex items-center justify-between">
+        <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"
             onClick={store.prev}
@@ -185,6 +188,25 @@ export function BookingWizard({ addresses }: { addresses: Address[] }) {
       <aside className="hidden lg:block">
         <PriceSummary />
       </aside>
+    </div>
+  );
+}
+
+/** Compact total shown only on mobile, where the full PriceSummary is hidden. */
+function MobileTotal() {
+  const breakdown = usePriceBreakdown();
+  if (breakdown.durationMinutes === 0) return null;
+  return (
+    <div className="mt-6 flex items-center justify-between rounded-xl border border-border bg-secondary/40 px-4 py-3 lg:hidden">
+      <span className="text-sm text-muted-foreground">
+        {formatDuration(breakdown.durationMinutes)}
+      </span>
+      <span className="text-sm">
+        Total{" "}
+        <span className="font-display text-lg font-bold text-gold">
+          {formatCurrency(breakdown.total)}
+        </span>
+      </span>
     </div>
   );
 }

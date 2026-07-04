@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" fill="none" role="img" aria-label="Barber professionnel">
+  <defs>
+    <linearGradient id="pbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1a1a"/><stop offset="1" stop-color="#0a0a0a"/>
+    </linearGradient>
+    <linearGradient id="pgold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E8CE7B"/><stop offset="1" stop-color="#B8942A"/>
+    </linearGradient>
+    <radialGradient id="pglow" cx="0.5" cy="0.35" r="0.6">
+      <stop offset="0" stop-color="#D4AF37" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#D4AF37" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#pbg)"/>
+  <rect width="600" height="800" fill="url(#pglow)"/>
+  <!-- silhouette -->
+  <g fill="#242424">
+    <path d="M300 250 c70 0 110 50 110 120 0 60 -30 110 -110 110 s-110 -50 -110 -110 c0 -70 40 -120 110 -120Z"/>
+    <path d="M120 800 c0 -160 80 -250 180 -250 s180 90 180 250Z"/>
+  </g>
+  <!-- beard -->
+  <path d="M212 430 c20 70 55 110 88 110 s68 -40 88 -110 c-30 34 -55 46 -88 46 s-58 -12 -88 -46Z" fill="#1a1a1a"/>
+  <!-- hair line -->
+  <path d="M205 330 c15 -55 55 -85 95 -85 s80 30 95 85 c-30 -28 -60 -40 -95 -40 s-65 12 -95 40Z" fill="#141414"/>
+  <!-- collar / suspenders -->
+  <path d="M240 560 l24 200 M360 560 l-24 200" stroke="#3a2f18" stroke-width="16" stroke-linecap="round"/>
+  <!-- accent -->
+  <rect x="250" y="600" width="100" height="8" rx="4" fill="url(#pgold)" opacity="0.6"/>
+  <circle cx="300" cy="360" r="150" fill="none" stroke="url(#pgold)" stroke-width="2" opacity="0.25"/>
+</svg>

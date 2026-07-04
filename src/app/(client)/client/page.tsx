@@ -15,7 +15,7 @@ import { StatusTracker } from "@/components/dashboard/status-tracker";
 import { CancelReservationButton } from "@/components/dashboard/reservation-actions";
 import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { StatusBadge } from "@/components/status-badge";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDateTime, greeting } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export default async function ClientDashboardPage() {
     <div className="space-y-8 p-5 sm:p-8">
       <AutoRefresh />
       <PageHeader
-        title={`Bonjour ${session.user.firstName} 👋`}
+        title={`${greeting()} ${session.user.firstName} 👋`}
         subtitle="Voici un aperçu de vos réservations."
         action={
           <Button asChild>

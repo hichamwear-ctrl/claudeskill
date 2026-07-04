@@ -5,7 +5,7 @@ import { PageHeader, StatCard, EmptyState } from "@/components/dashboard/common"
 import { BarberReservationItem } from "@/components/dashboard/barber-reservation-item";
 import { AvailabilityToggle } from "@/components/dashboard/availability-toggle";
 import { AutoRefresh } from "@/components/dashboard/auto-refresh";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, greeting } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default async function BarberDashboardPage() {
     <div className="space-y-8 p-5 sm:p-8">
       <AutoRefresh />
       <PageHeader
-        title={`Bonjour ${session.user.firstName}`}
+        title={`${greeting()} ${session.user.firstName}`}
         subtitle="Gérez vos courses et vos prestations."
         action={<AvailabilityToggle initial={barber.isAvailable} />}
       />
