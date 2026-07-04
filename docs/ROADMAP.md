@@ -1,65 +1,91 @@
-# Roadmap & Backlog — Barber Home
+# Roadmap — Barber Home
 
-Séparation stricte des périmètres. Ce document fige la frontière entre la PR de
-stabilisation (PR #1) et la couche d'expérience temps réel (PR #2).
+## Convention de numérotation (source de vérité)
 
-> **Principe architectural**
-> PR #1 = *core business engine* stable · PR #2 = *experience layer* temps réel.
-> « Stabiliser, pas étendre. »
+Le projet est organisé en **4 grandes phases produit**. C'est la seule
+numérotation utilisée dans les échanges. Les découpages techniques (transport
+temps réel, hooks, providers, migrations, etc.) sont des **sous-tâches
+internes** — ils n'apparaissent jamais comme des « phases » côté produit.
+
+Règle de livraison : **un prompt = une phase produit complète**, menée jusqu'à
+son terme (fonctionnalités, composants, services, intégrations, tests, docs,
+gates verts, zéro régression) avant tout arrêt. Aucune phase suivante n'est
+entamée sans feu vert explicite.
+
+| Phase produit | État |
+|---|---|
+| **Phase 1 — Core Platform** | ✅ Terminée (figée) |
+| **Phase 2 — Expérience Premium** | ⏳ À développer |
+| **Phase 3 — Fonctionnalités Premium** | ⏳ À développer |
+| **Phase 4 — Production & Scalabilité** | ⏳ À développer |
 
 ---
 
-## ✅ PR #1 — Stabilisation production (scope-locked, merge-ready)
+## ✅ Phase 1 — Core Platform (terminée, figée)
 
-Contenu **et limite** de la PR courante :
+Socle stable. Aucune modification hormis bug critique.
 
 - Auth (CLIENT / BARBER / ADMIN), sessions JWT, middleware RBAC
 - Booking multi-personnes + moteur prix / durée (calcul **côté serveur**)
 - Statuts de réservation (`DEMANDE_ENVOYEE → … → TERMINEE`, `ANNULEE`)
 - Dashboards Client / Barber / Admin
 - Prisma + PostgreSQL, seed, architecture `server/` vs `lib/`
-- CI : lint · typecheck · build
+- CI (lint · typecheck · test · build), stabilisation
 
-**Hors périmètre PR #1 (interdit) :** GPS, carte, ETA dynamique,
-websocket/realtime, refresh live, nouvelles pages, redesign UI, Stripe / SMS /
-email. Les mises à jour de statut utilisent la **revalidation** (`AutoRefresh`),
-pas de temps réel.
+Livrée par la branche `claude/barber-home-saas-g2588t`.
 
 ---
 
-## 🚀 PR #2 — Couche temps réel & tracking (post-merge)
+## 🚀 Phase 2 — Expérience Premium
 
-À développer dans une **branche / PR séparée**, jamais dans PR #1.
+Tout ce qui améliore l'**expérience utilisateur** (aucune logique métier
+nouvelle). Sous-tâches internes indicatives :
 
-### 1. GPS Live Tracking (barber en temps réel)
-- Position GPS du barber mise à jour en direct
-- Affichage sur carte (Leaflet ou Google Maps)
-- Suivi du trajet barber → client, mise à jour dynamique
-- *Socle déjà présent* : `Barber.currentLat/Lng`, statut `EN_ROUTE`.
+- Refonte visuelle premium & cohérence design system
+- Landing page complète, animations (Framer Motion), micro-interactions
+- Responsive mobile-first affiné sur tous les breakpoints
+- UX du flow de réservation (fluidité, états, feedback)
+- Dashboards améliorés (hiérarchie visuelle, états vides, skeletons)
+- Imagerie professionnelle (barbershop), optimisation `next/image`
+- SEO (metadata, OG, sitemap, JSON-LD) approfondi
+- Performances front (code-splitting, lazy, LCP/CLS)
+- Accessibilité (WCAG : contraste, clavier, ARIA, focus)
 
-### 2. ETA dynamique
-- Calcul basé sur la distance réelle, recalcul en déplacement
-- Affichage temps réel côté client, synchronisé avec `EN_ROUTE`
-- *Socle déjà présent* : `distanceKm()`, `estimateEtaMinutes()` (`src/lib/zones.ts`).
+---
 
-### 3. Carte interactive client
-- Positions client + barber, animation du déplacement, zoom auto sur le trajet
-- Interface mobile-first
-- *Socle déjà présent* : `NEXT_PUBLIC_MAPS_PROVIDER` (`.env.example`).
+## 📍 Phase 3 — Fonctionnalités Premium
 
-### 4. Realtime updates (WebSocket / Supabase Realtime)
-- Mise à jour live des statuts (tous les statuts du cycle)
-- Notifications instantanées client & barber
-- *Point d'insertion* : remplacer `AutoRefresh` + brancher `server/notifications.ts`
-  sur un canal live.
+Ensemble des **fonctionnalités avancées**. Sous-tâches internes indicatives :
 
-### 5. Infrastructure temps réel
-- Socket.io ou Supabase Realtime, updates event-driven
-- Un canal par réservation, gestion déconnexion / reconnexion
+- Temps réel (Supabase Realtime — **infra transport déjà amorcée en interne** :
+  `src/lib/realtime.ts`, `src/server/realtime/*`, `RealtimeProvider`, tests)
+- GPS live & tracking barber ; carte interactive (Leaflet derrière `MapProvider`)
+- ETA dynamique (`distanceKm` / `estimateEtaMinutes` → `RoutingProvider`)
+- Notifications temps réel (client & barber) — brancher `server/notifications.ts`,
+  retirer `AutoRefresh`
+- Paiement Stripe (architecture `Payment` prête) ; SMS ; emails
+- Planning barber, disponibilités, avis clients, fidélité, promotions, factures
+- Tableau de bord avancé
+
+> Socles déjà présents : statut `EN_ROUTE`, `Barber.currentLat/Lng`,
+> helpers ETA, `NEXT_PUBLIC_MAPS_PROVIDER`, transport temps réel (inerte tant
+> que Supabase n'est pas configuré).
+
+---
+
+## 🏁 Phase 4 — Production & Scalabilité
+
+Durcissement final. Sous-tâches internes indicatives :
+
+- Sécurité (durcissement, secrets, rate limiting distribué)
+- Optimisation & cache, performances production
+- Monitoring / observabilité, alerting
+- Tests (couverture élargie, e2e), CI/CD & DevOps
+- Documentation, préparation à la montée en charge
 
 ---
 
 ## Politique de backlog
 
-Toute idée de feature émergeant pendant PR #1 est **consignée ici** et **jamais
-implémentée** dans la PR courante — elle est déplacée en PR séparée après merge.
+Toute idée hors de la phase en cours est **consignée ici** et **jamais
+implémentée** avant la phase produit correspondante. La Phase 1 reste figée.
