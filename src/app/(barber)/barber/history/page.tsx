@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { History } from "lucide-react";
-import { requireRole } from "@/lib/session";
-import { ensureBarberProfile } from "@/lib/barber";
-import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/server/session";
+import { ensureBarberProfile } from "@/server/barber";
+import { prisma } from "@/server/prisma";
 import { PageHeader, EmptyState } from "@/components/dashboard/common";
 import { StatusBadge } from "@/components/status-badge";
-import { Card } from "@/components/ui/card";
 import { SERVICES } from "@/lib/pricing";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 

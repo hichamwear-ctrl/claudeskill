@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Wallet, TrendingUp, Scissors, Star } from "lucide-react";
-import { requireRole } from "@/lib/session";
-import { ensureBarberProfile } from "@/lib/barber";
-import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/server/session";
+import { ensureBarberProfile } from "@/server/barber";
+import { prisma } from "@/server/prisma";
 import { PageHeader, StatCard } from "@/components/dashboard/common";
 import { Card } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/utils";

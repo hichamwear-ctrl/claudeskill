@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { CalendarClock } from "lucide-react";
-import { requireRole } from "@/lib/session";
-import { ensureBarberProfile } from "@/lib/barber";
-import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/server/session";
+import { ensureBarberProfile } from "@/server/barber";
+import { prisma } from "@/server/prisma";
 import { PageHeader, EmptyState } from "@/components/dashboard/common";
 import { BarberReservationItem } from "@/components/dashboard/barber-reservation-item";
 

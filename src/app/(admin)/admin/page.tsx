@@ -7,8 +7,8 @@ import {
   Zap,
   Clock,
 } from "lucide-react";
-import { requireRole } from "@/lib/session";
-import { getAdminStats } from "@/lib/admin";
+import { requireRole } from "@/server/session";
+import { getAdminStats } from "@/server/admin";
 import { PageHeader, StatCard } from "@/components/dashboard/common";
 import { WeeklyChart } from "@/components/dashboard/bar-chart";
 import { AutoRefresh } from "@/components/dashboard/auto-refresh";

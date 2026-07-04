@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { ok, fail, handleError } from "@/lib/api";
+import { auth } from "@/server/auth";
+import { prisma } from "@/server/prisma";
+import { ok, fail, handleError } from "@/server/api";
 
 const profileSchema = z.object({
   firstName: z.string().min(2),

@@ -1,6 +1,6 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { fail } from "@/lib/api";
+import { auth } from "@/server/auth";
+import { prisma } from "@/server/prisma";
+import { fail } from "@/server/api";
 import { SERVICES } from "@/lib/pricing";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 

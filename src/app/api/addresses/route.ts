@@ -1,8 +1,8 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { auth } from "@/server/auth";
+import { prisma } from "@/server/prisma";
 import { addressSchema } from "@/lib/validations";
 import { resolveZone } from "@/lib/zones";
-import { ok, fail, handleError } from "@/lib/api";
+import { ok, fail, handleError } from "@/server/api";
 
 export async function GET() {
   const session = await auth();

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/lib/auth";
-import { dashboardPath } from "@/lib/session";
+import { auth } from "@/server/auth";
+import { dashboardPath } from "@/server/session";
 
 export async function SiteHeader() {
   const session = await auth();

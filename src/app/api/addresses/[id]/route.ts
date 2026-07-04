@@ -1,6 +1,6 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { ok, fail, handleError } from "@/lib/api";
+import { auth } from "@/server/auth";
+import { prisma } from "@/server/prisma";
+import { ok, fail, handleError } from "@/server/api";
 
 export async function DELETE(
   _req: Request,

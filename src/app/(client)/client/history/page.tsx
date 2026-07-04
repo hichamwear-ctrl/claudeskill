@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ReceiptText, Download, RotateCcw } from "lucide-react";
-import { requireRole } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/server/session";
+import { prisma } from "@/server/prisma";
 import { PageHeader, EmptyState } from "@/components/dashboard/common";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";

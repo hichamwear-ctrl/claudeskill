@@ -1,8 +1,8 @@
 import { prisma } from "./prisma";
-import { computePrice, SERVICES, type BookingPerson } from "./pricing";
-import { resolveZone } from "./zones";
+import { computePrice, SERVICES, type BookingPerson } from "@/lib/pricing";
+import { resolveZone } from "@/lib/zones";
 import { notifyStatusChange } from "./notifications";
-import type { CreateReservationInput } from "./validations";
+import type { CreateReservationInput } from "@/lib/validations";
 
 /**
  * Creates a reservation for a client, resolving the address (existing or new),

@@ -1,6 +1,6 @@
 import { CalendarCheck, Wallet, Star, Scissors, Inbox } from "lucide-react";
-import { requireRole } from "@/lib/session";
-import { getBarberDashboard } from "@/lib/barber";
+import { requireRole } from "@/server/session";
+import { getBarberDashboard } from "@/server/barber";
 import { PageHeader, StatCard, EmptyState } from "@/components/dashboard/common";
 import { BarberReservationItem } from "@/components/dashboard/barber-reservation-item";
 import { AvailabilityToggle } from "@/components/dashboard/availability-toggle";

@@ -60,9 +60,11 @@ npm run dev          # http://localhost:3000
 
 ## Structure
 
+Séparation nette **client / serveur / logique pure** :
+
 ```
 src/
-├── app/
+├── app/                     # App Router
 │   ├── (auth)/              # login, register, forgot-password
 │   ├── (client)/client/     # dashboard client + booking + historique + adresses + profil
 │   ├── (barber)/barber/     # dashboard barber + planning + revenus + historique
@@ -73,10 +75,35 @@ src/
 │   ├── ui/                  # primitives (button, card, input, tabs, toast…)
 │   ├── marketing/           # header, hero, sections, footer
 │   ├── auth/ · booking/ · dashboard/
-├── lib/                     # prisma, auth, pricing, zones, status, validations, notifications, api…
+├── server/                  # code SERVEUR uniquement (accès DB, auth)
+│   │                        #   prisma · auth · auth.config · session · api
+│   └                        #   notifications · reservations · barber · admin
+├── lib/                     # logique PURE et partagée (client + serveur)
+│   │                        #   pricing · zones · status · slots
+│   └                        #   validations (Zod) · utils
 ├── stores/                  # Zustand (booking wizard)
 └── types/                   # augmentation des types NextAuth
+
+prisma/                      # schema.prisma + seed.ts
+archive/                     # anciens fichiers HTML sans lien avec le projet
 ```
+
+> `src/server/*` ne doit jamais être importé par un composant client — c'est la
+> frontière serveur (Prisma, secrets, sessions). `src/lib/*` est pur et
+> partageable des deux côtés.
+
+## Scripts
+
+| Commande            | Rôle                                        |
+| ------------------- | ------------------------------------------- |
+| `npm run dev`       | Serveur de développement                    |
+| `npm run build`     | `prisma generate` + build de production     |
+| `npm run start`     | Serveur de production                       |
+| `npm run lint`      | ESLint (`eslint src`)                        |
+| `npm run typecheck` | Vérification TypeScript stricte (`tsc`)     |
+| `npm run db:push`   | Applique le schéma Prisma                    |
+| `npm run db:seed`   | Données de démo                              |
+| `npm run db:studio` | Prisma Studio                                |
 
 ## Sécurité
 

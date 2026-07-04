@@ -1,9 +1,9 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { auth } from "@/server/auth";
+import { prisma } from "@/server/prisma";
 import { updateStatusSchema } from "@/lib/validations";
 import { BARBER_NEXT_STATUS } from "@/lib/status";
-import { notifyStatusChange } from "@/lib/notifications";
-import { ok, fail, handleError } from "@/lib/api";
+import { notifyStatusChange } from "@/server/notifications";
+import { ok, fail, handleError } from "@/server/api";
 
 export async function PATCH(
   req: Request,

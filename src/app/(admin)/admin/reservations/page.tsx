@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { requireRole } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/server/session";
+import { prisma } from "@/server/prisma";
 import { PageHeader } from "@/components/dashboard/common";
 import { AdminStatusSelect } from "@/components/dashboard/admin-status-select";
 import { Card } from "@/components/ui/card";

@@ -5,16 +5,57 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Menu, X, type LucideIcon } from "lucide-react";
+import {
+  LogOut,
+  Menu,
+  X,
+  LayoutDashboard,
+  CalendarPlus,
+  CalendarClock,
+  CalendarRange,
+  ReceiptText,
+  MapPin,
+  User,
+  Users,
+  History,
+  Wallet,
+  Scissors,
+  Star,
+  Tag,
+  type LucideIcon,
+} from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
 
+/**
+ * Icon registry keyed by name. Nav items reference icons by string so the
+ * (server) dashboard layouts never pass function/component values across the
+ * server → client boundary (which React cannot serialize).
+ */
+const NAV_ICONS = {
+  LayoutDashboard,
+  CalendarPlus,
+  CalendarClock,
+  CalendarRange,
+  ReceiptText,
+  MapPin,
+  User,
+  Users,
+  History,
+  Wallet,
+  Scissors,
+  Star,
+  Tag,
+} satisfies Record<string, LucideIcon>;
+
+export type NavIconName = keyof typeof NAV_ICONS;
+
 export interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: NavIconName;
 }
 
 interface ShellProps {
@@ -44,6 +85,7 @@ export function DashboardShell({ nav, user, roleLabel, children }: ShellProps) {
           const active =
             pathname === item.href ||
             (item.href !== nav[0].href && pathname.startsWith(item.href));
+          const Icon = NAV_ICONS[item.icon];
           return (
             <Link
               key={item.href}
@@ -56,7 +98,7 @@ export function DashboardShell({ nav, user, roleLabel, children }: ShellProps) {
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
-              <item.icon className="size-5" />
+              <Icon className="size-5" />
               {item.label}
             </Link>
           );

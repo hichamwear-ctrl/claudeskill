@@ -1,7 +1,7 @@
-import { auth } from "@/lib/auth";
-import { createReservation, getClientDashboard } from "@/lib/reservations";
+import { auth } from "@/server/auth";
+import { createReservation, getClientDashboard } from "@/server/reservations";
 import { createReservationSchema } from "@/lib/validations";
-import { ok, fail, handleError, rateLimit } from "@/lib/api";
+import { ok, fail, handleError, rateLimit } from "@/server/api";
 
 export async function POST(req: Request) {
   try {

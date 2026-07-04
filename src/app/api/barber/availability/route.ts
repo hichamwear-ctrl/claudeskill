@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { ensureBarberProfile } from "@/lib/barber";
-import { ok, fail, handleError } from "@/lib/api";
+import { auth } from "@/server/auth";
+import { prisma } from "@/server/prisma";
+import { ensureBarberProfile } from "@/server/barber";
+import { ok, fail, handleError } from "@/server/api";
 
 const schema = z.object({ isAvailable: z.boolean() });
 

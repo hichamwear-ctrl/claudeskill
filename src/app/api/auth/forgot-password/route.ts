@@ -1,7 +1,7 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/prisma";
 import { forgotPasswordSchema } from "@/lib/validations";
-import { ok, handleError, rateLimit, clientKey } from "@/lib/api";
-import { notify } from "@/lib/notifications";
+import { ok, handleError, rateLimit, clientKey } from "@/server/api";
+import { notify } from "@/server/notifications";
 
 export async function POST(req: Request) {
   try {

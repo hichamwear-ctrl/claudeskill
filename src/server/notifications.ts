@@ -1,6 +1,6 @@
 import type { NotificationChannel, ReservationStatus } from "@prisma/client";
 import { prisma } from "./prisma";
-import { STATUS_META } from "./status";
+import { STATUS_META } from "@/lib/status";
 
 interface NotifyInput {
   channel?: NotificationChannel;

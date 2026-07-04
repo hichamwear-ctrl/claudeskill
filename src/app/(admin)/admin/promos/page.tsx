@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Tag } from "lucide-react";
-import { requireRole } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/server/session";
+import { prisma } from "@/server/prisma";
 import { PageHeader, EmptyState } from "@/components/dashboard/common";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

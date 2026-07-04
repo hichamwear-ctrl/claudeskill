@@ -6,8 +6,8 @@ import {
   Sparkles,
   CalendarClock,
 } from "lucide-react";
-import { requireRole } from "@/lib/session";
-import { getClientDashboard } from "@/lib/reservations";
+import { requireRole } from "@/server/session";
+import { getClientDashboard } from "@/server/reservations";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatCard, EmptyState } from "@/components/dashboard/common";
 import { ReservationCard } from "@/components/dashboard/reservation-card";

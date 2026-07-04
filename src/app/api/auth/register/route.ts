@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/prisma";
 import { registerSchema } from "@/lib/validations";
-import { ok, fail, handleError, rateLimit, clientKey } from "@/lib/api";
+import { ok, fail, handleError, rateLimit, clientKey } from "@/server/api";
 
 export async function POST(req: Request) {
   try {
