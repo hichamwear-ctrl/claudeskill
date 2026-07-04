@@ -119,7 +119,10 @@ export async function createReservation(
     });
   }
 
-  await notifyStatusChange(clientId, reservation.reference, "DEMANDE_ENVOYEE");
+  await notifyStatusChange(
+    { id: reservation.id, clientId, reference: reservation.reference },
+    "DEMANDE_ENVOYEE",
+  );
 
   return reservation;
 }

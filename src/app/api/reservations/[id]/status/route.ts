@@ -49,7 +49,10 @@ export async function PATCH(
         where: { id },
         data: { status, ...assignBarber },
       });
-      await notifyStatusChange(reservation.clientId, reservation.reference, status);
+      await notifyStatusChange(
+        { id: reservation.id, clientId: reservation.clientId, reference: reservation.reference },
+        status,
+      );
 
       if (status === "TERMINEE" && barber) {
         await prisma.barber.update({
@@ -65,7 +68,10 @@ export async function PATCH(
       where: { id },
       data: { status },
     });
-    await notifyStatusChange(reservation.clientId, reservation.reference, status);
+    await notifyStatusChange(
+      { id: reservation.id, clientId: reservation.clientId, reference: reservation.reference },
+      status,
+    );
     return ok({ reservation: updated });
   } catch (error) {
     return handleError(error);

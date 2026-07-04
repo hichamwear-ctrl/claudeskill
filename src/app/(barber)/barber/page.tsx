@@ -4,7 +4,7 @@ import { getBarberDashboard } from "@/server/barber";
 import { PageHeader, StatCard, EmptyState } from "@/components/dashboard/common";
 import { BarberReservationItem } from "@/components/dashboard/barber-reservation-item";
 import { AvailabilityToggle } from "@/components/dashboard/availability-toggle";
-import { AutoRefresh } from "@/components/dashboard/auto-refresh";
+import { ReservationRefresher } from "@/components/realtime/reservation-refresher";
 import { formatCurrency, greeting } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,9 @@ export default async function BarberDashboardPage() {
 
   return (
     <div className="space-y-8 p-5 sm:p-8">
-      <AutoRefresh />
+      <ReservationRefresher
+        ids={[...openRequests, ...assigned].map((r) => r.id)}
+      />
       <PageHeader
         title={`${greeting()} ${session.user.firstName}`}
         subtitle="Gérez vos courses et vos prestations."

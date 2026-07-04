@@ -11,7 +11,6 @@ import { requireRole } from "@/server/session";
 import { getAdminStats } from "@/server/admin";
 import { PageHeader, StatCard } from "@/components/dashboard/common";
 import { WeeklyChart } from "@/components/dashboard/bar-chart";
-import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 
@@ -23,7 +22,6 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-8 p-5 sm:p-8">
-      <AutoRefresh intervalMs={20_000} />
       <PageHeader
         title="Vue d'ensemble"
         subtitle="Pilotez toute la plateforme Barber Home."

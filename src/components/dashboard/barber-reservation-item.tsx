@@ -8,6 +8,7 @@ import { MapPin, Clock, User as UserIcon, KeyRound } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { BarberStatusActions } from "@/components/dashboard/barber-status-actions";
+import { BarberTracker } from "@/components/tracking/barber-tracker";
 import { SERVICES } from "@/lib/pricing";
 import { formatCurrency, formatDateTime, formatDuration } from "@/lib/utils";
 
@@ -64,6 +65,15 @@ export function BarberReservationItem({ reservation }: { reservation: Item }) {
         <p className="mt-3 rounded-lg bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">
           {reservation.notes}
         </p>
+      )}
+
+      {(reservation.status === "EN_ROUTE" || reservation.status === "ARRIVE") && (
+        <div className="mt-4">
+          <BarberTracker
+            reservationId={reservation.id}
+            active={reservation.status === "EN_ROUTE" || reservation.status === "ARRIVE"}
+          />
+        </div>
       )}
 
       <div className="mt-4 border-t border-border pt-4">

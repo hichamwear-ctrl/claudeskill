@@ -25,7 +25,10 @@ export async function PATCH(
       where: { id },
       data: { status: "ANNULEE" },
     });
-    await notifyStatusChange(reservation.clientId, reservation.reference, "ANNULEE");
+    await notifyStatusChange(
+      { id: reservation.id, clientId: reservation.clientId, reference: reservation.reference },
+      "ANNULEE",
+    );
     return ok({ reservation: updated });
   } catch (error) {
     return handleError(error);

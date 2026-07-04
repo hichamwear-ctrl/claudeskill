@@ -13,7 +13,8 @@ import { PageHeader, StatCard, EmptyState } from "@/components/dashboard/common"
 import { ReservationCard } from "@/components/dashboard/reservation-card";
 import { StatusTracker } from "@/components/dashboard/status-tracker";
 import { CancelReservationButton } from "@/components/dashboard/reservation-actions";
-import { AutoRefresh } from "@/components/dashboard/auto-refresh";
+import { ReservationRefresher } from "@/components/realtime/reservation-refresher";
+import { ClientTracking } from "@/components/tracking/client-tracking";
 import { StatusBadge } from "@/components/status-badge";
 import { formatCurrency, formatDateTime, greeting } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ export default async function ClientDashboardPage() {
 
   return (
     <div className="space-y-8 p-5 sm:p-8">
-      <AutoRefresh />
+      <ReservationRefresher ids={active.map((r) => r.id)} />
       <PageHeader
         title={`${greeting()} ${session.user.firstName} 👋`}
         subtitle="Voici un aperçu de vos réservations."
@@ -78,11 +79,26 @@ export default async function ClientDashboardPage() {
             {active.map((r) => (
               <ReservationCard key={r.id} reservation={r}>
                 <StatusTracker status={r.status} />
+                {(r.status === "EN_ROUTE" || r.status === "ARRIVE") &&
+                  r.address.latitude != null &&
+                  r.address.longitude != null && (
+                    <div className="mt-4">
+                      <ClientTracking
+                        reservationId={r.id}
+                        clientPoint={{
+                          lat: r.address.latitude,
+                          lng: r.address.longitude,
+                        }}
+                        initialBarberPoint={
+                          r.barber?.currentLat != null && r.barber?.currentLng != null
+                            ? { lat: r.barber.currentLat, lng: r.barber.currentLng }
+                            : null
+                        }
+                      />
+                    </div>
+                  )}
                 <div className="mt-4 flex justify-end">
-                  <CancelReservationButton
-                    id={r.id}
-                    status={r.status}
-                  />
+                  <CancelReservationButton id={r.id} status={r.status} />
                 </div>
               </ReservationCard>
             ))}
