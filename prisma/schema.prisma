@@ -1,0 +1,289 @@
+// Barber Home — Prisma schema
+// The "Uber for at-home barbers"
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  CLIENT
+  BARBER
+  ADMIN
+}
+
+enum ReservationStatus {
+  DEMANDE_ENVOYEE
+  ACCEPTEE
+  BARBER_ATTRIBUE
+  EN_ROUTE
+  ARRIVE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+enum PaymentMethod {
+  ONLINE
+  ON_SITE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PersonType {
+  ADULTE
+  ENFANT
+}
+
+// Service keys map to the fixed catalogue (see lib/pricing.ts)
+enum ServiceKey {
+  ADULTE_COUPE
+  ADULTE_COUPE_BARBE
+  ENFANT_COUPE
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  REALTIME
+}
+
+// ---------------------------------------------------------------------------
+// Core models
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  phone        String?
+  username     String?  @unique
+  firstName    String
+  lastName     String
+  passwordHash String
+  image        String?
+  role         Role     @default(CLIENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  addresses     Address[]
+  reservations  Reservation[]  @relation("ClientReservations")
+  barberProfile Barber?
+  reviews       Review[]       @relation("AuthorReviews")
+  notifications Notification[]
+  invoices      Invoice[]
+}
+
+model Address {
+  id           String   @id @default(cuid())
+  userId       String
+  label        String   @default("Domicile")
+  street       String
+  number       String?
+  city         String
+  postalCode   String
+  country      String   @default("Belgique")
+  latitude     Float?
+  longitude    Float?
+  insideZone   Boolean  @default(true)
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+
+  @@index([userId])
+}
+
+model Barber {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  bio           String?
+  rating        Float    @default(5)
+  totalJobs     Int      @default(0)
+  isAvailable   Boolean  @default(true)
+  currentLat    Float?
+  currentLng    Float?
+  serviceRadius Int      @default(15) // km
+  createdAt     DateTime @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservations  Reservation[]
+  availabilities Availability[]
+  workingHours  WorkingHours[]
+  reviews       Review[]
+
+  @@index([isAvailable])
+}
+
+model Reservation {
+  id              String            @id @default(cuid())
+  reference       String            @unique @default(cuid())
+  clientId        String
+  barberId        String?
+  addressId       String
+  status          ReservationStatus @default(DEMANDE_ENVOYEE)
+  scheduledAt     DateTime
+  durationMinutes Int
+  subtotal        Float
+  travelFee       Float             @default(0)
+  discount        Float             @default(0)
+  total           Float
+  // Access details
+  notes           String?
+  digicode        String?
+  floor           String?
+  parking         String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  client   User                @relation("ClientReservations", fields: [clientId], references: [id], onDelete: Cascade)
+  barber   Barber?             @relation(fields: [barberId], references: [id])
+  address  Address             @relation(fields: [addressId], references: [id])
+  persons  ReservationPerson[]
+  payment  Payment?
+  invoice  Invoice?
+  review   Review?
+  promoCode   PromoCode?       @relation(fields: [promoCodeId], references: [id])
+  promoCodeId String?
+
+  @@index([clientId])
+  @@index([barberId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model ReservationPerson {
+  id            String     @id @default(cuid())
+  reservationId String
+  type          PersonType
+  service       ServiceKey
+  price         Float
+  duration      Int
+  label         String?
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+}
+
+// Catalogue reference (also encoded in lib/pricing.ts for pure calculations)
+model Service {
+  id       String     @id @default(cuid())
+  key      ServiceKey @unique
+  name     String
+  type     PersonType
+  price    Float
+  duration Int
+  active   Boolean    @default(true)
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  reservationId  String        @unique
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  amount         Float
+  stripeIntentId String?
+  createdAt      DateTime      @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  number        String   @unique
+  reservationId String   @unique
+  userId        String
+  amount        Float
+  pdfUrl        String?
+  issuedAt      DateTime @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  reservationId String   @unique
+  authorId      String
+  barberId      String
+  rating        Int
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  author      User        @relation("AuthorReviews", fields: [authorId], references: [id])
+  barber      Barber      @relation(fields: [barberId], references: [id])
+
+  @@index([barberId])
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  channel   NotificationChannel @default(REALTIME)
+  title     String
+  body      String
+  read      Boolean             @default(false)
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model PromoCode {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  description  String?
+  percentOff   Int?
+  amountOff    Float?
+  active       Boolean  @default(true)
+  expiresAt    DateTime?
+  maxUses      Int?
+  usedCount    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  reservations Reservation[]
+}
+
+model Availability {
+  id        String   @id @default(cuid())
+  barberId  String
+  date      DateTime
+  startTime String // "09:00"
+  endTime   String // "18:00"
+  isBooked  Boolean  @default(false)
+
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barberId, date])
+}
+
+model WorkingHours {
+  id        String @id @default(cuid())
+  barberId  String
+  weekday   Int // 0 = Sunday .. 6 = Saturday
+  startTime String
+  endTime   String
+  enabled   Boolean @default(true)
+
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, weekday])
+}
