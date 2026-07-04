@@ -116,6 +116,9 @@ archive/                     # anciens fichiers HTML sans lien avec le projet
 
 ## Prochaines étapes (extensible)
 
+> Le découpage des périmètres (PR #1 stabilisation vs **PR #2** GPS / temps réel)
+> est figé dans [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
 - Intégration **Stripe** (architecture Payment déjà en place)
 - Notifications **email/SMS** réelles (Resend, Twilio) via `lib/notifications.ts`
 - **Temps réel** Socket.io / Supabase (remplacer `AutoRefresh`)
