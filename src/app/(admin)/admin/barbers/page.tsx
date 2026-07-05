@@ -4,7 +4,8 @@ import { prisma } from "@/server/prisma";
 import { PageHeader } from "@/components/dashboard/common";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatCurrency, getInitials } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Barbers" };
 export const dynamic = "force-dynamic";
@@ -30,10 +31,12 @@ export default async function AdminBarbersPage() {
             <Card key={b.id} className="p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex size-11 items-center justify-center rounded-xl bg-gold-gradient font-semibold text-black">
-                    {b.user.firstName[0]}
-                    {b.user.lastName[0]}
-                  </span>
+                  <Avatar className="size-11 rounded-xl">
+                    <AvatarImage src="/images/barber-avatar.svg" alt="" />
+                    <AvatarFallback className="rounded-xl">
+                      {getInitials(b.user.firstName, b.user.lastName)}
+                    </AvatarFallback>
+                  </Avatar>
                   <div>
                     <p className="font-medium">
                       {b.user.firstName} {b.user.lastName}

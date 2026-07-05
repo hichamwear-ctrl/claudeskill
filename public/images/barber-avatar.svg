@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" role="img" aria-label="Barber">
+  <defs>
+    <linearGradient id="ab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c1c1c"/><stop offset="1" stop-color="#0d0d0d"/>
+    </linearGradient>
+    <linearGradient id="ag" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E8CE7B"/><stop offset="1" stop-color="#B8942A"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#ab)"/>
+  <!-- shoulders -->
+  <path d="M40 200 c0 -46 27 -70 60 -70 s60 24 60 70Z" fill="#242424"/>
+  <!-- suspenders -->
+  <path d="M78 138 l10 62 M122 138 l-10 62" stroke="#3a2f18" stroke-width="7" stroke-linecap="round"/>
+  <!-- head -->
+  <circle cx="100" cy="92" r="34" fill="#2a2a2a"/>
+  <!-- hair -->
+  <path d="M66 86 c4 -24 18 -38 34 -38 s30 14 34 38 c-10 -12 -21 -18 -34 -18 s-24 6 -34 18Z" fill="#141414"/>
+  <!-- beard -->
+  <path d="M72 96 c4 26 16 40 28 40 s24 -14 28 -40 c-9 10 -17 14 -28 14 s-19 -4 -28 -14Z" fill="#161616"/>
+  <!-- gold ring -->
+  <circle cx="100" cy="100" r="92" fill="none" stroke="url(#ag)" stroke-width="3" opacity="0.5"/>
+  <!-- little scissors badge -->
+  <g transform="translate(150 150)" stroke="url(#ag)" stroke-width="3" fill="none" stroke-linecap="round">
+    <circle cx="0" cy="0" r="18" fill="#0d0d0d" stroke="url(#ag)"/>
+    <circle cx="-5" cy="-4" r="3"/><circle cx="-5" cy="4" r="3"/>
+    <path d="M-2 -3 L9 3 M-2 3 L9 -3"/>
+  </g>
+</svg>

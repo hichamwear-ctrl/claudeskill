@@ -1,22 +1,17 @@
 import Link from "next/link";
-import {
-  CalendarPlus,
-  CalendarCheck,
-  Wallet,
-  Sparkles,
-  CalendarClock,
-} from "lucide-react";
+import { CalendarCheck, Wallet, Sparkles, CalendarClock } from "lucide-react";
 import { requireRole } from "@/server/session";
 import { getClientDashboard } from "@/server/reservations";
 import { Button } from "@/components/ui/button";
-import { PageHeader, StatCard, EmptyState } from "@/components/dashboard/common";
+import { StatCard, EmptyState } from "@/components/dashboard/common";
+import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import { ReservationCard } from "@/components/dashboard/reservation-card";
 import { StatusTracker } from "@/components/dashboard/status-tracker";
 import { CancelReservationButton } from "@/components/dashboard/reservation-actions";
 import { ReservationRefresher } from "@/components/realtime/reservation-refresher";
 import { ClientTracking } from "@/components/tracking/client-tracking";
 import { StatusBadge } from "@/components/status-badge";
-import { formatCurrency, formatDateTime, greeting } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +22,7 @@ export default async function ClientDashboardPage() {
   return (
     <div className="space-y-8 p-5 sm:p-8">
       <ReservationRefresher ids={active.map((r) => r.id)} />
-      <PageHeader
-        title={`${greeting()} ${session.user.firstName} 👋`}
-        subtitle="Voici un aperçu de vos réservations."
-        action={
-          <Button asChild>
-            <Link href="/client/book">
-              <CalendarPlus className="size-4" />
-              Nouvelle réservation
-            </Link>
-          </Button>
-        }
-      />
+      <WelcomeBanner firstName={session.user.firstName} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard

@@ -7,6 +7,7 @@ import { PageHeader, EmptyState } from "@/components/dashboard/common";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/dashboard/favorite-button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Mes barbers favoris" };
@@ -42,9 +43,12 @@ export default async function FavoritesPage() {
           {favorites.map((f) => (
             <Card key={f.id} className="p-5">
               <div className="flex items-center gap-3">
-                <span className="flex size-12 items-center justify-center rounded-xl bg-gold-gradient font-semibold text-black">
-                  {getInitials(f.barber.user.firstName, f.barber.user.lastName)}
-                </span>
+                <Avatar className="size-12 rounded-xl">
+                  <AvatarImage src="/images/barber-avatar.svg" alt="" />
+                  <AvatarFallback className="rounded-xl">
+                    {getInitials(f.barber.user.firstName, f.barber.user.lastName)}
+                  </AvatarFallback>
+                </Avatar>
                 <div>
                   <p className="font-medium">
                     {f.barber.user.firstName} {f.barber.user.lastName}
