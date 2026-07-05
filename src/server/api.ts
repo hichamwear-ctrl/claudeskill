@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { captureError } from "@/server/monitoring";
 
 export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ data }, init);
@@ -13,7 +14,8 @@ export function handleError(error: unknown) {
   if (error instanceof ZodError) {
     return fail("Données invalides", 422, error.flatten().fieldErrors);
   }
-  console.error("[api] unexpected error:", error);
+  // Never leak internals to the client; report to the monitoring seam instead.
+  captureError(error, { scope: "api" });
   return fail("Erreur serveur", 500);
 }
 

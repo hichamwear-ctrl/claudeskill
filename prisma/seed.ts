@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { SERVICE_LIST } from "../src/lib/pricing";
+import { SERVICE_LIST, SERVICES } from "../src/lib/pricing";
 
 const prisma = new PrismaClient();
 
@@ -126,6 +126,99 @@ async function main() {
       active: true,
     },
   });
+
+  // --- Demo working hours + reservations (so every dashboard is populated) ---
+  const karim = await prisma.user.findUnique({
+    where: { email: "karim@barberhome.be" },
+    include: { barberProfile: true },
+  });
+  const address = await prisma.address.findFirst({ where: { userId: client.id } });
+  const barberId = karim?.barberProfile?.id;
+
+  if (barberId) {
+    for (let weekday = 1; weekday <= 5; weekday++) {
+      await prisma.workingHours.upsert({
+        where: { barberId_weekday: { barberId, weekday } },
+        update: {},
+        create: { barberId, weekday, startTime: "09:00", endTime: "18:00", enabled: true },
+      });
+    }
+  }
+
+  const alreadySeeded = await prisma.reservation.findFirst({
+    where: { clientId: client.id },
+  });
+
+  if (!alreadySeeded && address && barberId) {
+    const day = (offset: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      d.setHours(14, 30, 0, 0);
+      return d;
+    };
+    const person = (service: keyof typeof SERVICES) => ({
+      type: SERVICES[service].type,
+      service,
+      price: SERVICES[service].price,
+      duration: SERVICES[service].duration,
+    });
+
+    // Active reservation (barber assigned, upcoming)
+    await prisma.reservation.create({
+      data: {
+        clientId: client.id,
+        barberId,
+        addressId: address.id,
+        status: "BARBER_ATTRIBUE",
+        scheduledAt: day(1),
+        durationMinutes: SERVICES.ADULTE_COUPE_BARBE.duration,
+        subtotal: 35,
+        travelFee: 0,
+        total: 35,
+        persons: { create: [person("ADULTE_COUPE_BARBE")] },
+        payment: { create: { method: "ON_SITE", amount: 35, status: "PENDING" } },
+      },
+    });
+
+    // Completed reservation (paid + invoice + review + loyalty points)
+    const done = await prisma.reservation.create({
+      data: {
+        clientId: client.id,
+        barberId,
+        addressId: address.id,
+        status: "TERMINEE",
+        scheduledAt: day(-4),
+        durationMinutes: SERVICES.ADULTE_COUPE.duration,
+        subtotal: 25,
+        travelFee: 0,
+        total: 25,
+        persons: { create: [person("ADULTE_COUPE")] },
+        payment: { create: { method: "ON_SITE", amount: 25, status: "PAID" } },
+      },
+    });
+    await prisma.invoice.create({
+      data: {
+        number: `BH-${done.reference.slice(0, 8).toUpperCase()}`,
+        reservationId: done.id,
+        userId: client.id,
+        amount: 25,
+      },
+    });
+    await prisma.review.create({
+      data: { reservationId: done.id, authorId: client.id, barberId, rating: 5, comment: "Barber au top, ponctuel et pro !" },
+    });
+    await prisma.loyaltyTransaction.create({
+      data: { userId: client.id, points: 25, reason: `reservation:${done.id}` },
+    });
+    await prisma.user.update({
+      where: { id: client.id },
+      data: { loyaltyPoints: { increment: 25 } },
+    });
+    await prisma.barber.update({
+      where: { id: barberId },
+      data: { totalJobs: { increment: 1 } },
+    });
+  }
 
   console.log("✅ Seed terminé.");
   console.log("   Admin  : admin@barberhome.be  / password123");

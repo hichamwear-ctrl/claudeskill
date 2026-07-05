@@ -3,7 +3,7 @@ import { auth } from "@/server/auth";
 import { prisma } from "@/server/prisma";
 import { getPaymentProvider } from "@/server/payments";
 import { settleReservationPayment } from "@/server/invoices";
-import { ok, fail, handleError } from "@/server/api";
+import { ok, fail, handleError, rateLimit } from "@/server/api";
 
 const schema = z.object({ reservationId: z.string() });
 
@@ -11,6 +11,9 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) return fail("Non authentifié", 401);
+
+    const { allowed } = rateLimit(`checkout:${session.user.id}`, { limit: 15 });
+    if (!allowed) return fail("Trop de requêtes", 429);
 
     const { reservationId } = schema.parse(await req.json());
     const reservation = await prisma.reservation.findUnique({

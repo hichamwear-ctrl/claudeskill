@@ -1,127 +1,154 @@
 # Barber Home — Le Uber des barbers à domicile 💈
 
-Plateforme SaaS premium de réservation de barbers à domicile à Bruxelles.
-Design haut de gamme (noir profond · doré · anthracite), dark theme, mobile-first.
+Plateforme SaaS complète de réservation de barbers à domicile à Bruxelles :
+réservation multi-personnes, suivi **temps réel + GPS**, paiement, fidélité,
+favoris, dashboards Client / Barber / Admin. Thème sombre premium, mobile-first.
+
+> **Prêt à l'emploi immédiatement** : sans aucune clé d'API, l'application tourne
+> de bout en bout grâce à des fournisseurs *mock* (paiement, email, SMS, temps
+> réel, carte). Renseignez les clés réelles quand vous le souhaitez — voir
+> [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
 
 ## Stack
 
-- **Next.js 15** (App Router) · **React 19** · **TypeScript** (strict)
-- **TailwindCSS** + composants type shadcn/ui (Radix)
-- **Framer Motion** (animations premium)
-- **Prisma** + **PostgreSQL**
-- **Auth.js / NextAuth v5** (credentials, JWT, rôles)
-- **React Hook Form** + **Zod** (validation)
-- **TanStack Query** · **Zustand** (état du booking)
-- Architecture prête pour **Stripe**, notifications temps réel et carte (Leaflet/Google Maps)
+Next.js 15 (App Router) · React 19 · TypeScript strict · TailwindCSS ·
+Framer Motion · Prisma · PostgreSQL · Auth.js (NextAuth v5) · Zod ·
+TanStack Query · Zustand · Supabase Realtime (temps réel) · Stripe (paiement) ·
+pdf-lib (factures) · Vitest (tests).
 
-## Fonctionnalités
+---
 
-### 3 rôles, 3 dashboards
-- **CLIENT** — tableau de bord, réservation multi-étapes, historique, factures, adresses, profil
-- **BARBER** — demandes entrantes, courses en cours, planning, revenus, disponibilité, changement de statut
-- **ADMIN** — statistiques, graphiques, gestion réservations / barbers / clients / avis / promotions
-
-### Workflow de réservation (5 étapes)
-1. **Adresse** — géolocalisation ou saisie ; détection auto de la zone Bruxelles (supplément déplacement hors zone)
-2. **Date & heure** — créneaux disponibles uniquement
-3. **Personnes** — adultes/enfants illimités, chacun avec sa prestation ; calcul auto durée + prix
-4. **Détails d'accès** — digicode, étage, parking, notes
-5. **Résumé** — récapitulatif complet + mode de paiement + confirmation
-
-### Statuts de réservation (temps réel)
-`DEMANDE_ENVOYEE → ACCEPTEE → BARBER_ATTRIBUE → EN_ROUTE → ARRIVE → EN_COURS → TERMINEE` (+ `ANNULEE`)
-Le dashboard client se met à jour automatiquement (stand-in temps réel via revalidation, prêt pour Socket.io/Supabase).
-
-## Démarrage
+## 🚀 Démarrage rapide (local)
 
 ```bash
-# 1. Dépendances
+cp .env.example .env      # les valeurs par défaut suffisent en local
 npm install
-
-# 2. Configuration
-cp .env.example .env
-#   → renseignez DATABASE_URL (PostgreSQL) et AUTH_SECRET
-
-# 3. Base de données
-npm run db:push      # applique le schéma Prisma
-npm run db:seed      # données de démo (admin, barbers, client, promos)
-
-# 4. Développement
-npm run dev          # http://localhost:3000
+npm run db:push           # crée le schéma dans PostgreSQL
+npm run db:seed           # comptes + données de démonstration
+npm run dev               # http://localhost:3000
 ```
 
-### Comptes de démo (après `db:seed`)
+Il vous faut simplement une base **PostgreSQL** accessible et renseignée dans
+`DATABASE_URL` (`.env`). Rien d'autre n'est requis pour tester.
+
+### Comptes de démonstration (créés par `db:seed`)
 
 | Rôle   | Email                     | Mot de passe |
 | ------ | ------------------------- | ------------ |
-| Admin  | admin@barberhome.be       | password123  |
-| Barber | karim@barberhome.be       | password123  |
-| Client | client@barberhome.be      | password123  |
+| Client | `client@barberhome.be`    | `password123` |
+| Barber | `karim@barberhome.be`     | `password123` |
+| Admin  | `admin@barberhome.be`     | `password123` |
 
-## Structure
+Le seed crée aussi une réservation **en cours** et une réservation **terminée**
+(avec facture, avis et points de fidélité) pour que chaque dashboard soit déjà
+peuplé.
 
-Séparation nette **client / serveur / logique pure** :
+---
+
+## ⚙️ Configuration des variables d'environnement
+
+Tout est documenté dans `.env.example`. Les 3 seules variables nécessaires en
+local/production : `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`. Les autres activent
+les intégrations réelles ; laissées vides, le mode mock s'applique.
+
+---
+
+## 🧪 Tester chaque rôle
+
+### Client (`client@barberhome.be`)
+1. **Réserver** : `Nouvelle réservation` → adresse (ou géolocalisation) → créneau
+   → personnes & prestations → détails d'accès → résumé → confirmer.
+2. **Suivi temps réel** : quand le barber passe `EN_ROUTE`, la carte de suivi et
+   l'ETA s'affichent sur le tableau de bord.
+3. **Paiement** : choisir *En ligne* → page **Paiements** → `Payer en ligne`
+   (réglé instantanément par le mock).
+4. **Factures** : historique → `Facture PDF` (PDF réel).
+5. **Fidélité** : page **Fidélité** → voir points/niveau → échanger un bon.
+6. **Favoris** : cœur sur une prestation terminée → page **Favoris** → re-réserver.
+
+### Barber (`karim@barberhome.be`)
+1. **Disponibilités** : horaires hebdomadaires + congés/indisponibilités par date.
+2. **Missions** : accepter une demande, puis faire évoluer le statut
+   (`En route` → `Arrivé` → `En cours` → `Terminé`).
+3. **GPS** : en `EN_ROUTE`, le partage de position s'active (le navigateur
+   demande l'autorisation de géolocalisation).
+4. **Revenus / historique / planning** : onglets dédiés.
+
+### Admin (`admin@barberhome.be`)
+Vue d'ensemble (CA, réservations, clients, barbers, graphiques) + gestion des
+réservations (changement de statut), barbers, clients, avis et promotions.
+
+---
+
+## 💳 Paiements mock (par défaut)
+
+Sans `STRIPE_SECRET_KEY`, un fournisseur *mock* règle le paiement en ligne
+instantanément (statut `PAID`) et émet la facture — **aucune transaction
+réelle**. Idéal pour tester le parcours complet.
+Pour Stripe réel : voir [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
+
+## 🔌 Remplacer les fournisseurs mock par les services réels
+
+Chaque intégration est derrière une interface propre avec un adaptateur mock par
+défaut. Il suffit de renseigner les variables `.env` (et, pour email/SMS,
+d'implémenter l'adaptateur) — **aucun composant ni route à modifier**.
+
+| Intégration | Variable(s) | Détails |
+|---|---|---|
+| Temps réel | `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase Realtime |
+| Paiement | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe Checkout + webhook |
+| Email | `RESEND_API_KEY` | `setEmailProvider(...)` |
+| SMS | `TWILIO_*` | `setSmsProvider(...)` |
+| Carte | `NEXT_PUBLIC_MAPS_PROVIDER`, `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Leaflet/Google |
+| Monitoring | `SENTRY_DSN` | `@sentry/nextjs` |
+
+Guide complet : [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
+
+---
+
+## 📦 Scripts
+
+| Commande | Rôle |
+|---|---|
+| `npm run dev` | Développement |
+| `npm run build` / `npm run start` | Build / serveur de production |
+| `npm run verify` | lint + typecheck + test + build |
+| `npm run lint` · `typecheck` · `test` | Qualité (individuel) |
+| `npm run db:push` · `db:seed` · `db:studio` | Schéma / données / inspection |
+| `npm run db:migrate` · `db:migrate:dev` · `db:reset` | Migrations (prod/dev) |
+
+## 🗂️ Structure
 
 ```
 src/
-├── app/                     # App Router
-│   ├── (auth)/              # login, register, forgot-password
-│   ├── (client)/client/     # dashboard client + booking + historique + adresses + profil
-│   ├── (barber)/barber/     # dashboard barber + planning + revenus + historique
-│   ├── (admin)/admin/       # dashboard admin + gestion
-│   ├── api/                 # routes REST (auth, reservations, reviews, addresses, profile, invoices…)
-│   ├── layout.tsx · page.tsx (landing) · robots.ts · sitemap.ts
-├── components/
-│   ├── ui/                  # primitives (button, card, input, tabs, toast…)
-│   ├── marketing/           # header, hero, sections, footer
-│   ├── auth/ · booking/ · dashboard/
-├── server/                  # code SERVEUR uniquement (accès DB, auth)
-│   │                        #   prisma · auth · auth.config · session · api
-│   └                        #   notifications · reservations · barber · admin
-├── lib/                     # logique PURE et partagée (client + serveur)
-│   │                        #   pricing · zones · status · slots
-│   └                        #   validations (Zod) · utils
-├── stores/                  # Zustand (booking wizard)
-└── types/                   # augmentation des types NextAuth
-
+├── app/                     # App Router : (auth) · (client) · (barber) · (admin) · api
+├── components/              # ui/ · marketing/ · dashboard/ · booking/ · tracking/ · map/ · realtime/
+├── server/                  # code SERVEUR only : prisma, auth, api, reservations, barber,
+│                            #   admin, loyalty, invoices, notifications/, payments/, realtime/, monitoring
+├── lib/                     # logique PURE partagée : pricing, zones, routing, loyalty,
+│                            #   working-hours, unavailability, geo-project, realtime, utils…
+├── hooks/                   # useRealtime, useReservationChannel, useBarberGeolocation
+└── stores/                  # Zustand (assistant de réservation)
 prisma/                      # schema.prisma + seed.ts
-archive/                     # anciens fichiers HTML sans lien avec le projet
+docs/                        # INTEGRATIONS.md · DEPLOYMENT.md
 ```
 
-> `src/server/*` ne doit jamais être importé par un composant client — c'est la
-> frontière serveur (Prisma, secrets, sessions). `src/lib/*` est pur et
-> partageable des deux côtés.
+`src/server/*` n'est jamais importé côté client (frontière stricte, vérifiée).
 
-## Scripts
+## 🔒 Sécurité
 
-| Commande            | Rôle                                        |
-| ------------------- | ------------------------------------------- |
-| `npm run dev`       | Serveur de développement                    |
-| `npm run build`     | `prisma generate` + build de production     |
-| `npm run start`     | Serveur de production                       |
-| `npm run lint`      | ESLint (`eslint src`)                        |
-| `npm run typecheck` | Vérification TypeScript stricte (`tsc`)     |
-| `npm run db:push`   | Applique le schéma Prisma                    |
-| `npm run db:seed`   | Données de démo                              |
-| `npm run db:studio` | Prisma Studio                                |
+Sessions JWT · middleware RBAC par rôle · **validation Zod** sur toutes les
+entrées · **bcrypt** (coût 12) · **rate limiting** sur les endpoints sensibles ·
+tokens de canal temps réel **signés (HMAC)** · webhook Stripe à **signature
+vérifiée** · **en-têtes de sécurité** (HSTS, X-Frame-Options, nosniff,
+Referrer-Policy, Permissions-Policy) · erreurs jamais divulguées au client.
 
-## Sécurité
+## 🚀 Déploiement
 
-- Validation **Zod** sur toutes les entrées API
-- Hash des mots de passe **bcrypt** (coût 12)
-- **Middleware** de protection des routes par rôle
-- **Rate limiting** en mémoire (à remplacer par Redis en prod)
-- Réponses constantes sur « mot de passe oublié » (anti-énumération)
-- Calcul des prix **côté serveur** (jamais de confiance dans le total client)
+Guide complet (Vercel, PostgreSQL, migrations, sauvegarde/restauration,
+monitoring, checklist) : [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
-## Prochaines étapes (extensible)
+## ✅ Qualité
 
-> Le découpage des périmètres (PR #1 stabilisation vs **PR #2** GPS / temps réel)
-> est figé dans [`docs/ROADMAP.md`](docs/ROADMAP.md).
-
-- Intégration **Stripe** (architecture Payment déjà en place)
-- Notifications **email/SMS** réelles (Resend, Twilio) via `lib/notifications.ts`
-- **Temps réel** Socket.io / Supabase (remplacer `AutoRefresh`)
-- **Carte** live barber + ETA (helpers `distanceKm` / `estimateEtaMinutes` prêts)
-- Génération **PDF** serveur des factures (actuellement HTML imprimable)
-- Application **mobile** (API REST déjà exposée)
+`npm run verify` doit être au vert (lint · typecheck · test · build). La CI
+GitHub Actions exécute ces mêmes contrôles sur chaque push / PR.
