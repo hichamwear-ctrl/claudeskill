@@ -140,6 +140,12 @@ export function DashboardShell({ nav, user, roleLabel, children }: ShellProps) {
     </div>
   );
 
+  // On mobile we surface the first 3 destinations as bottom tabs; the rest live
+  // behind the "Menu" tab (the drawer). Keeps the screen uncluttered.
+  const tabs = nav.slice(0, 3);
+  const isActive = (href: string) =>
+    pathname === href || (href !== nav[0].href && pathname.startsWith(href));
+
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
       {/* Desktop sidebar */}
@@ -147,15 +153,20 @@ export function DashboardShell({ nav, user, roleLabel, children }: ShellProps) {
         <div className="sticky top-0 h-screen">{sidebar}</div>
       </aside>
 
-      {/* Mobile top bar */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 lg:hidden">
+      {/* Mobile top bar: logo + avatar */}
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:hidden">
         <Logo href="#" />
-        <Button variant="ghost" size="icon" onClick={() => setOpen(true)}>
-          <Menu className="size-5" />
-        </Button>
+        <button onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
+          <Avatar className="size-9">
+            {user.image && <AvatarImage src={user.image} alt="" />}
+            <AvatarFallback>
+              {getInitials(user.firstName, user.lastName)}
+            </AvatarFallback>
+          </Avatar>
+        </button>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer (full navigation) */}
       <AnimatePresence>
         {open && (
           <>
@@ -176,6 +187,7 @@ export function DashboardShell({ nav, user, roleLabel, children }: ShellProps) {
               <button
                 className="absolute right-4 top-4 text-muted-foreground"
                 onClick={() => setOpen(false)}
+                aria-label="Fermer le menu"
               >
                 <X className="size-5" />
               </button>
@@ -185,7 +197,43 @@ export function DashboardShell({ nav, user, roleLabel, children }: ShellProps) {
         )}
       </AnimatePresence>
 
-      <main className="min-w-0">{children}</main>
+      {/* Extra bottom padding on mobile so the tab bar never overlaps content */}
+      <main className="min-w-0 pb-24 lg:pb-0">{children}</main>
+
+      {/* Mobile bottom tab bar (dark/gold) */}
+      <nav
+        aria-label="Navigation"
+        className="fixed inset-x-0 bottom-0 z-40 lg:hidden"
+      >
+        <div className="glass mx-3 mb-3 flex items-stretch justify-around gap-1 rounded-2xl px-2 py-2 premium-shadow">
+          {tabs.map((item) => {
+            const Icon = NAV_ICONS[item.icon];
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-medium transition-colors",
+                  active ? "bg-gold/10 text-gold" : "text-muted-foreground",
+                )}
+              >
+                <Icon className="size-5" />
+                <span className="max-w-full truncate">
+                  {item.label.split(" ")[0]}
+                </span>
+              </Link>
+            );
+          })}
+          <button
+            onClick={() => setOpen(true)}
+            className="flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors"
+          >
+            <Menu className="size-5" />
+            <span>Menu</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }
