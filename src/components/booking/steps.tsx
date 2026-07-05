@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Address } from "@prisma/client";
 import { motion } from "framer-motion";
 import {
@@ -13,10 +13,12 @@ import {
   Check,
   CalendarDays,
   Info,
+  Loader2,
+  Moon,
 } from "lucide-react";
 import { useBookingStore } from "@/stores/booking";
-import { servicesForType, SERVICES } from "@/lib/pricing";
-import { generateSlots, upcomingDays, toDateInput } from "@/lib/slots";
+import { servicesForType, isNightHour } from "@/lib/pricing";
+import { upcomingDays, toDateInput, type HourSlot } from "@/lib/slots";
 import { formatCurrency, formatDuration, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -214,14 +216,39 @@ export function StepDateTime() {
 
   const days = upcomingDays(14);
   const activeDate = scheduledDate || toDateInput(new Date());
-  const slots = generateSlots(activeDate);
+  const [slots, setSlots] = useState<HourSlot[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load the real availability (barbers' working hours) for the selected day.
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/availability?date=${activeDate}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setSlots(d.data?.slots ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSlots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDate]);
+
+  const night = scheduledTime
+    ? isNightHour(parseInt(scheduledTime.slice(0, 2), 10))
+    : false;
 
   return (
     <motion.div {...stepMotion} className="space-y-6">
       <StepIntro
         icon={CalendarDays}
         title="Choisissez un créneau"
-        subtitle="Seuls les créneaux disponibles sont affichés."
+        subtitle="Seules les tranches horaires avec un barber disponible sont proposées."
       />
 
       <div className="space-y-2">
@@ -230,7 +257,8 @@ export function StepDateTime() {
           {days.map((d) => (
             <button
               key={d.value}
-              onClick={() => setDateTime(d.value, scheduledTime)}
+              // Changing day resets the hour (avoids a stale selection).
+              onClick={() => setDateTime(d.value, "")}
               className={cn(
                 "shrink-0 rounded-xl border px-4 py-3 text-sm capitalize transition-colors",
                 activeDate === d.value
@@ -245,26 +273,43 @@ export function StepDateTime() {
       </div>
 
       <div className="space-y-2">
-        <Label>Heure</Label>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {slots.map((slot) => (
-            <button
-              key={slot.time}
-              disabled={slot.disabled}
-              onClick={() => setDateTime(activeDate, slot.time)}
-              className={cn(
-                "rounded-lg border py-2.5 text-sm transition-colors",
-                slot.disabled && "cursor-not-allowed opacity-30",
-                scheduledTime === slot.time && activeDate === scheduledDate
-                  ? "border-gold bg-gold/10 text-gold"
-                  : "border-border hover:border-gold/40",
-              )}
-            >
-              {slot.time}
-            </button>
-          ))}
-        </div>
+        <Label>Tranche horaire</Label>
+        {loading ? (
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Recherche des disponibilités…
+          </div>
+        ) : slots.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+            Aucun créneau disponible ce jour. Choisissez une autre date.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {slots.map((slot) => (
+              <button
+                key={slot.start}
+                disabled={slot.disabled}
+                onClick={() => setDateTime(activeDate, slot.start)}
+                className={cn(
+                  "rounded-xl border py-3 text-sm font-medium transition-colors",
+                  slot.disabled && "cursor-not-allowed opacity-30",
+                  scheduledTime === slot.start
+                    ? "border-gold bg-gold/10 text-gold"
+                    : "border-border hover:border-gold/40",
+                )}
+              >
+                {slot.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {night && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-400">
+          <Moon className="size-4 shrink-0" />
+          Tarif de nuit (22 h – 9 h) : coupe 30 €, coupe + barbe 45 €.
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -451,10 +496,10 @@ export function StepSummary() {
         </SummaryRow>
         <SummaryRow label="Prestations">
           <div className="space-y-1">
-            {persons.map((p) => (
-              <div key={p.id} className="flex justify-between gap-4">
-                <span>{SERVICES[p.service].name}</span>
-                <span>{formatCurrency(SERVICES[p.service].price)}</span>
+            {breakdown.lines.map((line, i) => (
+              <div key={persons[i]?.id ?? i} className="flex justify-between gap-4">
+                <span>{line.name}</span>
+                <span>{formatCurrency(line.price)}</span>
               </div>
             ))}
           </div>

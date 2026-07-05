@@ -86,7 +86,7 @@ export function DashboardShell({ nav, user, roleLabel, children }: ShellProps) {
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center px-6">
-        <Logo href="#" />
+        <Logo href="/" />
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {nav.map((item) => {
@@ -155,7 +155,7 @@ export function DashboardShell({ nav, user, roleLabel, children }: ShellProps) {
 
       {/* Mobile top bar: logo + avatar */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:hidden">
-        <Logo href="#" />
+        <Logo href="/" />
         <button onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
           <Avatar className="size-9">
             {user.image && <AvatarImage src={user.image} alt="" />}

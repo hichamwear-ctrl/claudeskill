@@ -1,5 +1,11 @@
 import { prisma } from "./prisma";
-import { computePrice, SERVICES, type BookingPerson } from "@/lib/pricing";
+import {
+  computePrice,
+  priceFor,
+  isNightHour,
+  SERVICES,
+  type BookingPerson,
+} from "@/lib/pricing";
 import { resolveZone } from "@/lib/zones";
 import { notifyStatusChange } from "./notifications";
 import type { CreateReservationInput } from "@/lib/validations";
@@ -66,22 +72,24 @@ export async function createReservation(
     }
   }
 
-  // 3. Compute pricing server-side
+  // 3. Compute pricing server-side (night surcharge derived from the slot hour)
+  const scheduledAt = new Date(input.scheduledAt);
+  const night = isNightHour(scheduledAt.getHours());
   const persons: BookingPerson[] = input.persons;
-  const preBreakdown = computePrice(persons, { insideZone });
+  const preBreakdown = computePrice(persons, { insideZone, night });
   if (promoCodeId) {
     const promo = await prisma.promoCode.findUnique({ where: { id: promoCodeId } });
     if (promo?.percentOff) discount = (preBreakdown.subtotal * promo.percentOff) / 100;
     else if (promo?.amountOff) discount = promo.amountOff;
   }
-  const breakdown = computePrice(persons, { insideZone, discount });
+  const breakdown = computePrice(persons, { insideZone, discount, night });
 
   // 4. Persist reservation + people + payment record
   const reservation = await prisma.reservation.create({
     data: {
       clientId,
       addressId,
-      scheduledAt: new Date(input.scheduledAt),
+      scheduledAt,
       durationMinutes: breakdown.durationMinutes,
       subtotal: breakdown.subtotal,
       travelFee: breakdown.travelFee,
@@ -96,7 +104,7 @@ export async function createReservation(
         create: persons.map((p) => ({
           type: p.type,
           service: p.service,
-          price: SERVICES[p.service].price,
+          price: priceFor(p.service, night),
           duration: SERVICES[p.service].duration,
           label: p.label,
         })),

@@ -40,6 +40,18 @@ export async function PATCH(
       if (!allowed.includes(status))
         return fail(`Transition ${reservation.status} → ${status} invalide`, 422);
 
+      // "Je suis en route" (and the GPS tracking it triggers) may only be
+      // activated within the last hour before the appointment.
+      if (status === "EN_ROUTE") {
+        const oneHourBefore =
+          reservation.scheduledAt.getTime() - 60 * 60 * 1000;
+        if (Date.now() < oneHourBefore)
+          return fail(
+            "Vous pourrez indiquer « Je suis en route » à partir d'une heure avant le rendez-vous.",
+            422,
+          );
+      }
+
       // Auto-assign the barber when accepting an open request.
       const assignBarber =
         barber && (status === "ACCEPTEE" || status === "BARBER_ATTRIBUE")

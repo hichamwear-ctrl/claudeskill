@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   computePrice,
   servicesForType,
+  isNightHour,
+  priceFor,
   SERVICES,
   TRAVEL_FEE_OUTSIDE_BRUSSELS,
   type BookingPerson,
@@ -57,6 +59,36 @@ describe("servicesForType", () => {
     const list = servicesForType("ENFANT");
     expect(list).toHaveLength(1);
     expect(list[0].key).toBe("ENFANT_COUPE");
+  });
+});
+
+describe("night pricing", () => {
+  it("flags the night window [22:00, 09:00)", () => {
+    expect(isNightHour(22)).toBe(true);
+    expect(isNightHour(23)).toBe(true);
+    expect(isNightHour(0)).toBe(true);
+    expect(isNightHour(8)).toBe(true);
+    expect(isNightHour(9)).toBe(false);
+    expect(isNightHour(15)).toBe(false);
+    expect(isNightHour(21)).toBe(false);
+  });
+
+  it("raises adult prices at night, leaves children unchanged", () => {
+    expect(priceFor("ADULTE_COUPE", true)).toBe(30);
+    expect(priceFor("ADULTE_COUPE_BARBE", true)).toBe(45);
+    expect(priceFor("ENFANT_COUPE", true)).toBe(SERVICES.ENFANT_COUPE.price);
+  });
+
+  it("keeps day prices when not night", () => {
+    expect(priceFor("ADULTE_COUPE", false)).toBe(25);
+    expect(priceFor("ADULTE_COUPE_BARBE", false)).toBe(35);
+  });
+
+  it("computePrice applies the night surcharge to the subtotal", () => {
+    const day = computePrice(persons, { insideZone: true });
+    const night = computePrice(persons, { insideZone: true, night: true });
+    // Adult coupe +5, adult coupe+barbe +10, child unchanged.
+    expect(night.subtotal).toBe(day.subtotal + 15);
   });
 });
 

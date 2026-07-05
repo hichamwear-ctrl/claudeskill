@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,24 @@ export function ProfileForm({ initial }: { initial: ProfileData }) {
   const { toast } = useToast();
   const [form, setForm] = useState(initial);
   const [loading, setLoading] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  function onPhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      toast({
+        variant: "error",
+        title: "Photo trop lourde",
+        description: "Choisissez une image de moins de 4 Mo.",
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      setForm((f) => ({ ...f, image: String(reader.result) }));
+    reader.readAsDataURL(file);
+  }
 
   async function save() {
     setLoading(true);
@@ -59,12 +77,36 @@ export function ProfileForm({ initial }: { initial: ProfileData }) {
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 space-y-1.5">
-          <Label>Photo de profil (URL)</Label>
-          <Input
-            value={form.image}
-            onChange={(e) => setForm({ ...form, image: e.target.value })}
-            placeholder="https://…"
+          <Label>Photo de profil</Label>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="hidden"
+            onChange={onPhotoSelected}
           />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => fileInput.current?.click()}
+            >
+              <Camera className="size-4" />
+              {form.image ? "Changer la photo" : "Ajouter une photo"}
+            </Button>
+            {form.image && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setForm({ ...form, image: "" })}
+              >
+                Retirer
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

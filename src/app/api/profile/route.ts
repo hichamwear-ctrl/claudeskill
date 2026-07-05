@@ -3,12 +3,22 @@ import { auth } from "@/server/auth";
 import { prisma } from "@/server/prisma";
 import { ok, fail, handleError } from "@/server/api";
 
+// Accept either a hosted URL or an inline data: URL (uploaded photo). Capped to
+// ~4 MB of base64 to keep the payload and column size reasonable.
+const imageField = z
+  .string()
+  .max(5_600_000)
+  .refine(
+    (v) => /^https?:\/\//.test(v) || /^data:image\/[a-z+]+;base64,/.test(v),
+    "Image invalide",
+  );
+
 const profileSchema = z.object({
   firstName: z.string().min(2),
   lastName: z.string().min(2),
   username: z.string().min(3).optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
-  image: z.string().url().optional().or(z.literal("")),
+  image: imageField.optional().or(z.literal("")),
 });
 
 export async function PATCH(req: Request) {

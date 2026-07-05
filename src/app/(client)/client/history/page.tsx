@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ReceiptText, Download, RotateCcw } from "lucide-react";
+import { ReceiptText, RotateCcw } from "lucide-react";
 import { requireRole } from "@/server/session";
 import { prisma } from "@/server/prisma";
 import { PageHeader, EmptyState } from "@/components/dashboard/common";
@@ -12,7 +12,7 @@ import { FavoriteButton } from "@/components/dashboard/favorite-button";
 import { SERVICES } from "@/lib/pricing";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Historique & factures" };
+export const metadata: Metadata = { title: "Historique de commandes" };
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
@@ -39,7 +39,7 @@ export default async function HistoryPage() {
   return (
     <div className="space-y-8 p-5 sm:p-8">
       <PageHeader
-        title="Historique & factures"
+        title="Historique de commandes"
         subtitle="Retrouvez toutes vos prestations passées."
       />
 
@@ -77,12 +77,6 @@ export default async function HistoryPage() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <Button variant="secondary" size="sm" asChild>
-                  <a href={`/api/invoices/${r.id}/pdf`} target="_blank" rel="noreferrer">
-                    <Download className="size-4" />
-                    Facture PDF
-                  </a>
-                </Button>
                 <Button variant="secondary" size="sm" asChild>
                   <Link href="/client/book">
                     <RotateCcw className="size-4" />

@@ -1,14 +1,18 @@
 "use client";
 
 import { useBookingStore } from "@/stores/booking";
-import { computePrice } from "@/lib/pricing";
+import { computePrice, isNightHour } from "@/lib/pricing";
 import { formatCurrency, formatDuration } from "@/lib/utils";
 import { Separator } from "@/components/ui/misc";
 
 export function usePriceBreakdown() {
   const persons = useBookingStore((s) => s.persons);
   const insideZone = useBookingStore((s) => s.insideZone);
-  return computePrice(persons, { insideZone });
+  const scheduledTime = useBookingStore((s) => s.scheduledTime);
+  const night = scheduledTime
+    ? isNightHour(parseInt(scheduledTime.slice(0, 2), 10))
+    : false;
+  return computePrice(persons, { insideZone, night });
 }
 
 export function PriceSummary() {
