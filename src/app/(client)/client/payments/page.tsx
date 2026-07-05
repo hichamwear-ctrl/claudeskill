@@ -52,7 +52,7 @@ export default async function PaymentsPage() {
                 <Badge className={STATUS_STYLE[p.status] ?? ""}>{p.status}</Badge>
                 {p.status === "PAID" ? (
                   <Button variant="secondary" size="sm" asChild>
-                    <a href={`/api/invoices/${p.reservationId}`} target="_blank" rel="noreferrer">
+                    <a href={`/api/invoices/${p.reservationId}/pdf`} target="_blank" rel="noreferrer">
                       <Download className="size-4" /> Facture
                     </a>
                   </Button>

@@ -5,8 +5,8 @@ import { SERVICES } from "@/lib/pricing";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 /**
- * Renders a printable invoice (Ctrl/Cmd+P → Save as PDF).
- * Replace with a server-side PDF generator (e.g. @react-pdf/renderer) later.
+ * Renders a printable HTML invoice (secondary view). The primary download is a
+ * real PDF at `/api/invoices/[id]/pdf` (pdf-lib).
  */
 export async function GET(
   _req: Request,

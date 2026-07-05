@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ReviewForm } from "@/components/dashboard/review-form";
+import { FavoriteButton } from "@/components/dashboard/favorite-button";
 import { SERVICES } from "@/lib/pricing";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -16,11 +17,24 @@ export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
   const session = await requireRole(["CLIENT", "ADMIN"]);
-  const reservations = await prisma.reservation.findMany({
-    where: { clientId: session.user.id, status: { in: ["TERMINEE", "ANNULEE"] } },
-    include: { persons: true, address: true, invoice: true, review: true },
-    orderBy: { scheduledAt: "desc" },
-  });
+  const [reservations, favorites] = await Promise.all([
+    prisma.reservation.findMany({
+      where: { clientId: session.user.id, status: { in: ["TERMINEE", "ANNULEE"] } },
+      include: {
+        persons: true,
+        address: true,
+        invoice: true,
+        review: true,
+        barber: { include: { user: true } },
+      },
+      orderBy: { scheduledAt: "desc" },
+    }),
+    prisma.favorite.findMany({
+      where: { userId: session.user.id },
+      select: { barberId: true },
+    }),
+  ]);
+  const favoriteIds = new Set(favorites.map((f) => f.barberId));
 
   return (
     <div className="space-y-8 p-5 sm:p-8">
@@ -62,9 +76,9 @@ export default async function HistoryPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Button variant="secondary" size="sm" asChild>
-                  <a href={`/api/invoices/${r.id}`} target="_blank" rel="noreferrer">
+                  <a href={`/api/invoices/${r.id}/pdf`} target="_blank" rel="noreferrer">
                     <Download className="size-4" />
                     Facture PDF
                   </a>
@@ -75,6 +89,13 @@ export default async function HistoryPage() {
                     Réserver à nouveau
                   </Link>
                 </Button>
+                {r.status === "TERMINEE" && r.barberId && (
+                  <FavoriteButton
+                    barberId={r.barberId}
+                    initialFavorited={favoriteIds.has(r.barberId)}
+                    showLabel
+                  />
+                )}
               </div>
 
               {r.status === "TERMINEE" && !r.review && (

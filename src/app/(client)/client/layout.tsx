@@ -6,6 +6,8 @@ const NAV: NavItem[] = [
   { href: "/client/book", label: "Nouvelle réservation", icon: "CalendarPlus" },
   { href: "/client/history", label: "Historique & factures", icon: "ReceiptText" },
   { href: "/client/payments", label: "Paiements", icon: "CreditCard" },
+  { href: "/client/loyalty", label: "Fidélité", icon: "Sparkles" },
+  { href: "/client/favorites", label: "Favoris", icon: "Heart" },
   { href: "/client/addresses", label: "Mes adresses", icon: "MapPin" },
   { href: "/client/profile", label: "Profil", icon: "User" },
 ];

@@ -24,6 +24,8 @@ import {
   Tag,
   CreditCard,
   Clock,
+  Sparkles,
+  Heart,
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
@@ -52,6 +54,8 @@ const NAV_ICONS = {
   Tag,
   CreditCard,
   Clock,
+  Sparkles,
+  Heart,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIconName = keyof typeof NAV_ICONS;

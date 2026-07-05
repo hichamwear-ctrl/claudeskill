@@ -3,6 +3,7 @@ import { prisma } from "@/server/prisma";
 import { updateStatusSchema } from "@/lib/validations";
 import { BARBER_NEXT_STATUS } from "@/lib/status";
 import { notifyStatusChange } from "@/server/notifications";
+import { awardLoyaltyForReservation } from "@/server/loyalty";
 import { ok, fail, handleError } from "@/server/api";
 
 export async function PATCH(
@@ -59,6 +60,7 @@ export async function PATCH(
           where: { id: barber.id },
           data: { totalJobs: { increment: 1 } },
         });
+        await awardLoyaltyForReservation(id);
       }
       return ok({ reservation: updated });
     }
@@ -72,6 +74,7 @@ export async function PATCH(
       { id: reservation.id, clientId: reservation.clientId, reference: reservation.reference },
       status,
     );
+    if (status === "TERMINEE") await awardLoyaltyForReservation(id);
     return ok({ reservation: updated });
   } catch (error) {
     return handleError(error);
