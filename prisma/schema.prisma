@@ -61,6 +61,33 @@ enum NotificationChannel {
   REALTIME
 }
 
+// Phase 5 — barber seniority tiers shown on the public profile.
+enum BarberLevel {
+  JUNIOR
+  CONFIRME
+  EXPERT
+}
+
+// Phase 5 — a barber account only goes live after an admin validates it.
+enum BarberApprovalStatus {
+  PENDING
+  APPROVED
+  REFUSED
+}
+
+// Phase 5 — end-of-order client feedback that needs human follow-up.
+enum ReportType {
+  PROBLEM
+  HELP
+}
+
+enum CallStatus {
+  INITIATED
+  ONGOING
+  ENDED
+  MISSED
+}
+
 // ---------------------------------------------------------------------------
 // Core models
 // ---------------------------------------------------------------------------
@@ -88,6 +115,9 @@ model User {
   invoices      Invoice[]
   favorites     Favorite[]
   loyaltyTxns   LoyaltyTransaction[]
+  sentMessages  Message[]            @relation("SentMessages")
+  reportsMade   Report[]             @relation("ReportedBy")
+  authoredNotes AdminNote[]          @relation("AuthoredNotes")
 }
 
 model Address {
@@ -123,6 +153,15 @@ model Barber {
   serviceRadius Int      @default(15) // km
   createdAt     DateTime @default(now())
 
+  // Phase 5 — public profile & onboarding
+  yearsExperience Int                  @default(0)
+  level           BarberLevel          @default(JUNIOR)
+  instagram       String?
+  snapchat        String?
+  approvalStatus  BarberApprovalStatus @default(APPROVED)
+  bannedAt        DateTime?
+  suspendedAt     DateTime?
+
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   reservations     Reservation[]
   availabilities   Availability[]
@@ -130,30 +169,49 @@ model Barber {
   unavailabilities Unavailability[]
   reviews          Review[]
   favoritedBy      Favorite[]
+  photos           BarberPhoto[]
+  reports          Report[]
+  adminNotes       AdminNote[]
 
   @@index([isAvailable])
+  @@index([approvalStatus])
+}
+
+// Phase 5 — a barber's portfolio of past cuts.
+model BarberPhoto {
+  id        String   @id @default(cuid())
+  barberId  String
+  url       String
+  caption   String?
+  createdAt DateTime @default(now())
+
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barberId])
 }
 
 model Reservation {
-  id              String            @id @default(cuid())
-  reference       String            @unique @default(cuid())
-  clientId        String
-  barberId        String?
-  addressId       String
-  status          ReservationStatus @default(DEMANDE_ENVOYEE)
-  scheduledAt     DateTime
-  durationMinutes Int
-  subtotal        Float
-  travelFee       Float             @default(0)
-  discount        Float             @default(0)
-  total           Float
+  id                String            @id @default(cuid())
+  reference         String            @unique @default(cuid())
+  clientId          String
+  barberId          String?
+  addressId         String
+  status            ReservationStatus @default(DEMANDE_ENVOYEE)
+  scheduledAt       DateTime
+  durationMinutes   Int
+  subtotal          Float
+  travelFee         Float             @default(0)
+  discount          Float             @default(0)
+  total             Float
   // Access details
-  notes           String?
-  digicode        String?
-  floor           String?
-  parking         String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  notes             String?
+  digicode          String?
+  floor             String?
+  parking           String?
+  // Phase 5 — barbers who declined or were refused, so they aren't re-offered.
+  declinedBarberIds String[]          @default([])
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   client      User                @relation("ClientReservations", fields: [clientId], references: [id], onDelete: Cascade)
   barber      Barber?             @relation(fields: [barberId], references: [id])
@@ -162,6 +220,9 @@ model Reservation {
   payment     Payment?
   invoice     Invoice?
   review      Review?
+  messages    Message[]
+  reports     Report[]
+  calls       CallSession[]
   promoCode   PromoCode?          @relation(fields: [promoCodeId], references: [id])
   promoCodeId String?
 
@@ -230,11 +291,76 @@ model Review {
   barberId      String
   rating        Int
   comment       String?
+  photo         String?
   createdAt     DateTime @default(now())
 
   reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   author      User        @relation("AuthorReviews", fields: [authorId], references: [id])
   barber      Barber      @relation(fields: [barberId], references: [id])
+
+  @@index([barberId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5 — chat, calls, moderation
+// ---------------------------------------------------------------------------
+
+model Message {
+  id            String    @id @default(cuid())
+  reservationId String
+  senderId      String
+  body          String
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  sender      User        @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId, createdAt])
+}
+
+model CallSession {
+  id            String     @id @default(cuid())
+  reservationId String
+  initiatorId   String
+  provider      String     @default("mock")
+  status        CallStatus @default(INITIATED)
+  room          String?
+  startedAt     DateTime?
+  endedAt       DateTime?
+  createdAt     DateTime   @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+}
+
+model Report {
+  id            String     @id @default(cuid())
+  reservationId String?
+  barberId      String?
+  reporterId    String
+  type          ReportType @default(PROBLEM)
+  message       String
+  resolvedAt    DateTime?
+  createdAt     DateTime   @default(now())
+
+  reservation Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  barber      Barber?      @relation(fields: [barberId], references: [id], onDelete: SetNull)
+  reporter    User         @relation("ReportedBy", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([resolvedAt])
+}
+
+model AdminNote {
+  id        String   @id @default(cuid())
+  barberId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  author User   @relation("AuthoredNotes", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([barberId])
 }

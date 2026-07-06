@@ -14,6 +14,16 @@ export function handleError(error: unknown) {
   if (error instanceof ZodError) {
     return fail("Données invalides", 422, error.flatten().fieldErrors);
   }
+  // Domain errors carry a safe message + intended HTTP status (e.g. OrderError).
+  if (
+    error &&
+    typeof error === "object" &&
+    "status" in error &&
+    typeof (error as { status: unknown }).status === "number" &&
+    error instanceof Error
+  ) {
+    return fail(error.message, (error as { status: number }).status);
+  }
   // Never leak internals to the client; report to the monitoring seam instead.
   captureError(error, { scope: "api" });
   return fail("Erreur serveur", 500);

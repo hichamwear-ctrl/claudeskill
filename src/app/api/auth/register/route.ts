@@ -28,6 +28,12 @@ export async function POST(req: Request) {
 
     const passwordHash = await bcrypt.hash(data.password, 12);
 
+    // Barber sign-ups create a PENDING profile that stays inactive until an
+    // admin validates it (see /admin/applications). Clients are active at once.
+    const isBarber = data.role === "BARBER";
+    const social = (data.social ?? "").trim();
+    const instagram = social.startsWith("@") ? social.slice(1) : social;
+
     const user = await prisma.user.create({
       data: {
         email: data.email,
@@ -36,12 +42,24 @@ export async function POST(req: Request) {
         username: data.username || null,
         phone: data.phone || null,
         passwordHash,
-        role: "CLIENT",
+        role: isBarber ? "BARBER" : "CLIENT",
+        ...(isBarber && {
+          barberProfile: {
+            create: {
+              bio: data.bio || null,
+              yearsExperience: data.yearsExperience ?? 0,
+              level: data.level ?? "JUNIOR",
+              instagram: instagram || null,
+              approvalStatus: "PENDING",
+              isAvailable: false,
+            },
+          },
+        }),
       },
-      select: { id: true, email: true, firstName: true },
+      select: { id: true, email: true, firstName: true, role: true },
     });
 
-    return ok({ user }, { status: 201 });
+    return ok({ user, pendingApproval: isBarber }, { status: 201 });
   } catch (error) {
     return handleError(error);
   }

@@ -30,6 +30,40 @@ export async function publishReservationStatus(
   );
 }
 
+export async function publishMessage(
+  reservationId: string,
+  message: { id: string; senderId: string; body: string },
+): Promise<void> {
+  await safePublish(() =>
+    getServerTransport().publish(reservationChannel(reservationId), "message", {
+      reservationId,
+      id: message.id,
+      senderId: message.senderId,
+      body: message.body,
+      at: Date.now(),
+    }),
+  );
+}
+
+export async function publishCall(
+  reservationId: string,
+  call: {
+    id: string;
+    status: "INITIATED" | "ONGOING" | "ENDED" | "MISSED";
+    initiatorId: string;
+  },
+): Promise<void> {
+  await safePublish(() =>
+    getServerTransport().publish(reservationChannel(reservationId), "call", {
+      reservationId,
+      id: call.id,
+      status: call.status,
+      initiatorId: call.initiatorId,
+      at: Date.now(),
+    }),
+  );
+}
+
 export async function publishBarberPosition(
   reservationId: string,
   position: BarberPosition,

@@ -10,8 +10,8 @@ const schema = z.object({
   lng: z.number().min(-180).max(180),
 });
 
-// Statuses during which live tracking is meaningful.
-const TRACKABLE = ["EN_ROUTE", "ARRIVE"];
+// Live GPS sharing runs only while the barber is en route; it stops on arrival.
+const TRACKABLE = ["EN_ROUTE"];
 
 /**
  * Barber posts a GPS fix for a reservation in progress. Persists a throttled

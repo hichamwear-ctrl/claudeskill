@@ -38,10 +38,26 @@ async function main() {
     },
   });
 
-  // --- Barbers ---
+  // --- Barbers (approved & live) ---
   const barbersData = [
-    { email: "karim@barberhome.be", firstName: "Karim", lastName: "El Amrani" },
-    { email: "sofiane@barberhome.be", firstName: "Sofiane", lastName: "Benali" },
+    {
+      email: "karim@barberhome.be",
+      firstName: "Karim",
+      lastName: "El Amrani",
+      level: "EXPERT" as const,
+      yearsExperience: 9,
+      instagram: "karim.cuts",
+      bio: "Expert coupe & barbe, 9 ans d'expérience. Dégradés nets et soin de la barbe au rasoir.",
+    },
+    {
+      email: "sofiane@barberhome.be",
+      firstName: "Sofiane",
+      lastName: "Benali",
+      level: "CONFIRME" as const,
+      yearsExperience: 5,
+      instagram: "sofiane.barber",
+      bio: "Barber confirmé, spécialiste des coupes tendance et du travail à la tondeuse.",
+    },
   ];
   for (const b of barbersData) {
     const user = await prisma.user.upsert({
@@ -51,22 +67,73 @@ async function main() {
         email: b.email,
         firstName: b.firstName,
         lastName: b.lastName,
+        phone: "+32 470 00 00 00",
         role: "BARBER",
         passwordHash,
       },
     });
-    await prisma.barber.upsert({
+    const barber = await prisma.barber.upsert({
       where: { userId: user.id },
-      update: {},
+      update: {
+        bio: b.bio,
+        level: b.level,
+        yearsExperience: b.yearsExperience,
+        instagram: b.instagram,
+        approvalStatus: "APPROVED",
+      },
       create: {
         userId: user.id,
-        bio: "Barber professionnel spécialisé coupe & barbe.",
+        bio: b.bio,
+        level: b.level,
+        yearsExperience: b.yearsExperience,
+        instagram: b.instagram,
+        approvalStatus: "APPROVED",
         isAvailable: true,
         currentLat: 50.8467,
         currentLng: 4.3499,
       },
     });
+    // A small portfolio (generated placeholders) so the profile isn't empty.
+    const existingPhotos = await prisma.barberPhoto.count({
+      where: { barberId: barber.id },
+    });
+    if (existingPhotos === 0) {
+      await prisma.barberPhoto.createMany({
+        data: [1, 2, 3].map((n) => ({
+          barberId: barber.id,
+          url: `https://picsum.photos/seed/${b.firstName.toLowerCase()}-${n}/600/600`,
+          caption: `Réalisation ${n}`,
+        })),
+      });
+    }
   }
+
+  // --- A pending barber application (for the admin validation demo) ---
+  const applicant = await prisma.user.upsert({
+    where: { email: "yassine@barberhome.be" },
+    update: {},
+    create: {
+      email: "yassine@barberhome.be",
+      firstName: "Yassine",
+      lastName: "Haddad",
+      phone: "+32 471 22 33 44",
+      role: "BARBER",
+      passwordHash,
+    },
+  });
+  await prisma.barber.upsert({
+    where: { userId: applicant.id },
+    update: {},
+    create: {
+      userId: applicant.id,
+      bio: "Jeune barber motivé, formé en salon, cherche à se lancer à domicile.",
+      level: "JUNIOR",
+      yearsExperience: 2,
+      instagram: "yassine.fades",
+      approvalStatus: "PENDING",
+      isAvailable: false,
+    },
+  });
 
   // --- Client with an address ---
   const client = await prisma.user.upsert({

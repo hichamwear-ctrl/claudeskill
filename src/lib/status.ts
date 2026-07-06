@@ -56,17 +56,58 @@ export const STATUS_META: Record<
   },
 };
 
-/** Statuses a barber can transition to from the current one. */
+/**
+ * Statuses a barber can transition to from the current one.
+ *
+ * Phase 5 workflow: a barber accepts a request (→ ACCEPTEE, provisional
+ * assignment) and then waits — only the client can validate that choice
+ * (ACCEPTEE → BARBER_ATTRIBUE, handled by the confirm endpoint, not here).
+ * "Je suis arrivé" (EN_ROUTE → ARRIVE) ends the visit: GPS, chat and calls
+ * all close and the client's rating page appears. The barber can then finalise
+ * the accounting (→ TERMINEE).
+ */
 export const BARBER_NEXT_STATUS: Partial<
   Record<ReservationStatus, ReservationStatus[]>
 > = {
-  DEMANDE_ENVOYEE: ["ACCEPTEE", "ANNULEE"],
-  ACCEPTEE: ["BARBER_ATTRIBUE", "ANNULEE"],
+  DEMANDE_ENVOYEE: ["ACCEPTEE"],
+  ACCEPTEE: ["ANNULEE"],
   BARBER_ATTRIBUE: ["EN_ROUTE", "ANNULEE"],
   EN_ROUTE: ["ARRIVE"],
-  ARRIVE: ["EN_COURS"],
+  ARRIVE: ["EN_COURS", "TERMINEE"],
   EN_COURS: ["TERMINEE"],
 };
+
+/** True while a barber has accepted but the client hasn't validated yet. */
+export function awaitsClientConfirmation(status: ReservationStatus): boolean {
+  return status === "ACCEPTEE";
+}
+
+/** True once the client has validated the barber (order definitively booked). */
+export function isConfirmed(status: ReservationStatus): boolean {
+  return (
+    status !== "DEMANDE_ENVOYEE" &&
+    status !== "ACCEPTEE" &&
+    status !== "ANNULEE"
+  );
+}
+
+/** GPS sharing runs only while the barber is travelling to the client. */
+export function isGpsActive(status: ReservationStatus): boolean {
+  return status === "EN_ROUTE";
+}
+
+/**
+ * The private chat and audio calls are available from the moment the client
+ * confirms the barber until the barber arrives (they close at ARRIVE).
+ */
+export function isConversationActive(status: ReservationStatus): boolean {
+  return status === "BARBER_ATTRIBUE" || status === "EN_ROUTE";
+}
+
+/** After arrival the client is shown the rating / report page. */
+export function isOrderFinished(status: ReservationStatus): boolean {
+  return status === "ARRIVE" || status === "EN_COURS" || status === "TERMINEE";
+}
 
 export function statusProgress(status: ReservationStatus): number {
   if (status === "ANNULEE") return 0;

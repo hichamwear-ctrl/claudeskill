@@ -7,7 +7,9 @@ const NAV: NavItem[] = [
   { href: "/barber/availability", label: "Disponibilités", icon: "Clock" },
   { href: "/barber/history", label: "Historique", icon: "History" },
   { href: "/barber/earnings", label: "Revenus", icon: "Wallet" },
-  { href: "/client/profile", label: "Profil", icon: "User" },
+  { href: "/barber/reviews", label: "Avis reçus", icon: "Star" },
+  { href: "/barber/profile", label: "Mon profil", icon: "Scissors" },
+  { href: "/client/profile", label: "Compte", icon: "User" },
 ];
 
 export default async function BarberLayout({

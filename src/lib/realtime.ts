@@ -18,6 +18,20 @@ export interface RealtimeEventMap {
   status: { reservationId: string; status: ReservationStatus; at: number };
   position: { reservationId: string; position: BarberPosition };
   eta: { reservationId: string; minutes: number; distanceKm: number; at: number };
+  message: {
+    reservationId: string;
+    id: string;
+    senderId: string;
+    body: string;
+    at: number;
+  };
+  call: {
+    reservationId: string;
+    id: string;
+    status: "INITIATED" | "ONGOING" | "ENDED" | "MISSED";
+    initiatorId: string;
+    at: number;
+  };
 }
 
 export type RealtimeEventName = keyof RealtimeEventMap;

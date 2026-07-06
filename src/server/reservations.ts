@@ -7,7 +7,7 @@ import {
   type BookingPerson,
 } from "@/lib/pricing";
 import { resolveZone } from "@/lib/zones";
-import { notifyStatusChange } from "./notifications";
+import { notifyStatusChange, notify } from "./notifications";
 import type { CreateReservationInput } from "@/lib/validations";
 
 /**
@@ -130,6 +130,25 @@ export async function createReservation(
   await notifyStatusChange(
     { id: reservation.id, clientId, reference: reservation.reference },
     "DEMANDE_ENVOYEE",
+  );
+
+  // Phase 5 — fan the new request out to every available, approved barber.
+  const availableBarbers = await prisma.barber.findMany({
+    where: {
+      isAvailable: true,
+      approvalStatus: "APPROVED",
+      bannedAt: null,
+      suspendedAt: null,
+    },
+    select: { userId: true },
+  });
+  await Promise.all(
+    availableBarbers.map((b) =>
+      notify(b.userId, {
+        title: "Nouvelle demande",
+        body: "Une nouvelle demande de réservation est disponible.",
+      }).catch(() => {}),
+    ),
   );
 
   return reservation;

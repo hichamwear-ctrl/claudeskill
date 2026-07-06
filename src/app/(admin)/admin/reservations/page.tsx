@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { Search } from "lucide-react";
 import { requireRole } from "@/server/session";
-import { prisma } from "@/server/prisma";
+import { searchReservations } from "@/server/admin";
 import { PageHeader } from "@/components/dashboard/common";
 import { AdminStatusSelect } from "@/components/dashboard/admin-status-select";
 import { Card } from "@/components/ui/card";
@@ -10,25 +11,38 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 export const metadata: Metadata = { title: "Réservations" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminReservationsPage() {
+export default async function AdminReservationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requireRole(["ADMIN"]);
-  const reservations = await prisma.reservation.findMany({
-    include: {
-      persons: true,
-      client: true,
-      address: true,
-      barber: { include: { user: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  const { q = "" } = await searchParams;
+  const reservations = await searchReservations(q);
 
   return (
     <div className="space-y-8 p-5 sm:p-8">
       <PageHeader
         title="Réservations"
-        subtitle={`${reservations.length} réservation(s) récente(s).`}
+        subtitle={
+          q
+            ? `${reservations.length} résultat(s) pour « ${q} ».`
+            : `${reservations.length} réservation(s) récente(s).`
+        }
       />
+
+      {/* Search by order number, client name/firstname, phone, address, barber */}
+      <form method="GET" className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="N° commande, nom, prénom, téléphone, adresse, barber…"
+            className="h-11 w-full rounded-xl border border-input bg-secondary/50 pl-10 pr-4 text-sm focus-visible:border-gold/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/20"
+          />
+        </div>
+      </form>
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

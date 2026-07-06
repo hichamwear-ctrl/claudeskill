@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   CalendarCheck,
   CalendarRange,
@@ -6,6 +7,8 @@ import {
   Scissors,
   Zap,
   Clock,
+  UserPlus,
+  ShieldAlert,
 } from "lucide-react";
 import { requireRole } from "@/server/session";
 import { getAdminStats } from "@/server/admin";
@@ -41,6 +44,33 @@ export default async function AdminDashboardPage() {
           icon={Zap}
         />
       </div>
+
+      {(stats.pendingApplications > 0 || stats.openReports > 0) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {stats.pendingApplications > 0 && (
+            <Link href="/admin/applications">
+              <Card className="flex items-center gap-3 p-4 transition-colors hover:border-gold/40">
+                <UserPlus className="size-5 text-gold" />
+                <p className="text-sm">
+                  <span className="font-semibold">{stats.pendingApplications}</span>{" "}
+                  demande(s) de compte barber à valider
+                </p>
+              </Card>
+            </Link>
+          )}
+          {stats.openReports > 0 && (
+            <Link href="/admin/reports">
+              <Card className="flex items-center gap-3 p-4 transition-colors hover:border-gold/40">
+                <ShieldAlert className="size-5 text-rose-400" />
+                <p className="text-sm">
+                  <span className="font-semibold">{stats.openReports}</span>{" "}
+                  signalement(s) à traiter
+                </p>
+              </Card>
+            </Link>
+          )}
+        </div>
+      )}
 
       <Card>
         <CardHeader>

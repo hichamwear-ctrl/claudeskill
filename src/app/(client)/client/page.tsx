@@ -81,7 +81,16 @@ export default async function ClientDashboardPage() {
                       />
                     </div>
                   )}
-                <div className="mt-4 flex justify-end">
+                {r.status === "ACCEPTEE" && (
+                  <div className="mt-4 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm text-gold">
+                    Un barber a accepté votre demande — ouvrez la commande pour
+                    voir son profil et confirmer.
+                  </div>
+                )}
+                <div className="mt-4 flex items-center justify-between gap-2">
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href={`/client/orders/${r.id}`}>Gérer la commande</Link>
+                  </Button>
                   <CancelReservationButton id={r.id} status={r.status} />
                 </div>
               </ReservationCard>

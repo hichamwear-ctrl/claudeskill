@@ -4,7 +4,9 @@ import { DashboardShell, type NavItem } from "@/components/dashboard/shell";
 const NAV: NavItem[] = [
   { href: "/admin", label: "Vue d'ensemble", icon: "LayoutDashboard" },
   { href: "/admin/reservations", label: "Réservations", icon: "CalendarRange" },
+  { href: "/admin/applications", label: "Demandes barber", icon: "UserPlus" },
   { href: "/admin/barbers", label: "Barbers", icon: "Scissors" },
+  { href: "/admin/reports", label: "Signalements", icon: "ShieldAlert" },
   { href: "/admin/clients", label: "Clients", icon: "Users" },
   { href: "/admin/reviews", label: "Avis", icon: "Star" },
   { href: "/admin/promos", label: "Promotions", icon: "Tag" },

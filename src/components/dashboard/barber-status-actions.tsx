@@ -3,19 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReservationStatus } from "@prisma/client";
-import { Loader2, Check, X, Truck, MapPin, Scissors, Flag } from "lucide-react";
+import { Loader2, Check, X, Truck, MapPin, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { BARBER_NEXT_STATUS, STATUS_META } from "@/lib/status";
 
 const ICONS: Partial<Record<ReservationStatus, typeof Check>> = {
   ACCEPTEE: Check,
-  BARBER_ATTRIBUE: Flag,
   EN_ROUTE: Truck,
   ARRIVE: MapPin,
   EN_COURS: Scissors,
   TERMINEE: Check,
   ANNULEE: X,
+};
+
+// Barber-facing labels (spec wording) that differ from the generic status name.
+const LABELS: Partial<Record<ReservationStatus, string>> = {
+  EN_ROUTE: "Je suis en route",
+  ARRIVE: "Je suis arrivé",
+  TERMINEE: "Terminer la prestation",
 };
 
 export function BarberStatusActions({
@@ -29,10 +35,69 @@ export function BarberStatusActions({
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
 
+  async function call(url: string, body?: unknown, successTitle?: string) {
+    setLoading(url);
+    const res = await fetch(url, {
+      method: body === undefined ? "POST" : "PATCH",
+      headers: { "Content-Type": "application/json" },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    setLoading(null);
+    if (res.ok) {
+      if (successTitle) toast({ variant: "success", title: successTitle });
+      router.refresh();
+    } else {
+      const { error } = await res.json().catch(() => ({ error: "Erreur" }));
+      toast({ variant: "error", title: "Action impossible", description: error });
+    }
+  }
+
+  // Open request: accept (provisional) or decline — dedicated endpoints.
+  if (status === "DEMANDE_ENVOYEE") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          onClick={() => call(`/api/reservations/${id}/accept`, undefined, "Demande acceptée")}
+          disabled={loading !== null}
+        >
+          {loading?.endsWith("/accept") ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Check className="size-4" />
+          )}
+          Accepter
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => call(`/api/reservations/${id}/decline`, undefined, "Demande refusée")}
+          disabled={loading !== null}
+        >
+          {loading?.endsWith("/decline") ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <X className="size-4" />
+          )}
+          Refuser
+        </Button>
+      </div>
+    );
+  }
+
+  // Barber accepted, waiting for the client's confirmation.
+  if (status === "ACCEPTEE") {
+    return (
+      <p className="text-sm text-muted-foreground">
+        En attente de la confirmation du client…
+      </p>
+    );
+  }
+
   const next = BARBER_NEXT_STATUS[status] ?? [];
   if (next.length === 0) return null;
 
-  async function update(target: ReservationStatus) {
+  async function updateStatus(target: ReservationStatus) {
     setLoading(target);
     const res = await fetch(`/api/reservations/${id}/status`, {
       method: "PATCH",
@@ -59,7 +124,7 @@ export function BarberStatusActions({
             key={target}
             size="sm"
             variant={destructive ? "ghost" : "default"}
-            onClick={() => update(target)}
+            onClick={() => updateStatus(target)}
             disabled={loading !== null}
           >
             {loading === target ? (
@@ -67,7 +132,7 @@ export function BarberStatusActions({
             ) : (
               <Icon className="size-4" />
             )}
-            {destructive ? "Refuser" : STATUS_META[target].label}
+            {destructive ? "Annuler" : LABELS[target] ?? STATUS_META[target].label}
           </Button>
         );
       })}

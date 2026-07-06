@@ -4,11 +4,14 @@ import type {
   ReservationPerson,
   User,
 } from "@prisma/client";
-import { MapPin, Clock, User as UserIcon, KeyRound } from "lucide-react";
+import Link from "next/link";
+import { MapPin, Clock, User as UserIcon, KeyRound, MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { BarberStatusActions } from "@/components/dashboard/barber-status-actions";
 import { BarberTracker } from "@/components/tracking/barber-tracker";
+import { isConversationActive, isGpsActive } from "@/lib/status";
 import { SERVICES } from "@/lib/pricing";
 import { formatCurrency, formatDateTime, formatDuration } from "@/lib/utils";
 
@@ -67,12 +70,20 @@ export function BarberReservationItem({ reservation }: { reservation: Item }) {
         </p>
       )}
 
-      {(reservation.status === "EN_ROUTE" || reservation.status === "ARRIVE") && (
+      {isGpsActive(reservation.status) && (
         <div className="mt-4">
-          <BarberTracker
-            reservationId={reservation.id}
-            active={reservation.status === "EN_ROUTE" || reservation.status === "ARRIVE"}
-          />
+          <BarberTracker reservationId={reservation.id} active />
+        </div>
+      )}
+
+      {isConversationActive(reservation.status) && (
+        <div className="mt-4">
+          <Button variant="secondary" size="sm" asChild>
+            <Link href={`/barber/orders/${reservation.id}`}>
+              <MessageSquare className="size-4" />
+              Ouvrir le chat
+            </Link>
+          </Button>
         </div>
       )}
 
