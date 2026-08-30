@@ -1,0 +1,2 @@
+# Ce fichier est requis par le système de migration.
+provider = "postgresql"

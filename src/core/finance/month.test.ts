@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { monthNetRemainder, type MonthLine } from "./month.js";
+import { monthNetRemainder, type MonthLine } from "./month";
 
 describe("monthNetRemainder", () => {
   it("revenu seul, sans lignes", () => {

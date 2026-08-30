@@ -1,7 +1,7 @@
-export { assertCents, assertPositiveCents, formatEuros } from "./money.js";
-export { vatFromTotal, vat, recoveredVat } from "./vat.js";
-export { monthNetRemainder, type MonthLine, type CategoryType } from "./month.js";
-export { globalCapital, type KharjaLine, type KharjaType } from "./capital.js";
+export { assertCents, assertPositiveCents, formatEuros } from "./money";
+export { vatFromTotal, vat, recoveredVat } from "./vat";
+export { monthNetRemainder, type MonthLine, type CategoryType } from "./month";
+export { globalCapital, type KharjaLine, type KharjaType } from "./capital";
 export {
   transferNet,
   repaymentNet,
@@ -9,4 +9,4 @@ export {
   type RDebtLine,
   type RDebtType,
   type PaymentMethod,
-} from "./rdebt.js";
+} from "./rdebt";

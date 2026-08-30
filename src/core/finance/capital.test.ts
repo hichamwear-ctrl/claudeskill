@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { globalCapital, type KharjaLine } from "./capital.js";
+import { globalCapital, type KharjaLine } from "./capital";
 
 describe("globalCapital", () => {
   it("somme des restes de mois, sans Kharja", () => {

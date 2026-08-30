@@ -7,7 +7,7 @@
  * (jamais recalculé ici). Cette fonction ne connaît ni le revenu, ni les lignes
  * d'un mois, ni le solde R — séparation stricte des trois totaux.
  */
-import { assertCents, assertPositiveCents } from "./money.js";
+import { assertCents, assertPositiveCents } from "./money";
 
 export type KharjaType = "IN" | "OUT";
 

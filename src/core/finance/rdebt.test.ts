@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { transferNet, repaymentNet, rDebtBalance, type RDebtLine } from "./rdebt.js";
+import { transferNet, repaymentNet, rDebtBalance, type RDebtLine } from "./rdebt";
 
 describe("transferNet (−8 %)", () => {
   it("exemple du cahier des charges : 180 € -> 165,60 €", () => {

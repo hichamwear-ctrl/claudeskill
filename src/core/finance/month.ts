@@ -7,7 +7,7 @@
  * lignes signées : elles entrent ici via leur type de catégorie, sans traitement
  * spécial. Plusieurs lignes TVA / TVA récupérée peuvent coexister dans un mois.
  */
-import { assertCents, assertPositiveCents } from "./money.js";
+import { assertCents, assertPositiveCents } from "./money";
 
 export type CategoryType = "ADDITION" | "SUBTRACTION";
 

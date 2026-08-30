@@ -3,7 +3,7 @@
  * Formule unique : HTVA = round(total / 1.21) ; TVA = total - HTVA.
  * Résultat toujours entier (centimes).
  */
-import { assertPositiveCents } from "./money.js";
+import { assertPositiveCents } from "./money";
 
 const VAT_DIVISOR = 1.21;
 

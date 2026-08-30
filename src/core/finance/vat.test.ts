@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { vatFromTotal, vat, recoveredVat } from "./vat.js";
+import { vatFromTotal, vat, recoveredVat } from "./vat";
 
 describe("vatFromTotal", () => {
   it("cas exact (TTC = HT × 1.21)", () => {

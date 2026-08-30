@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assertCents, assertPositiveCents, formatEuros } from "./money.js";
+import { assertCents, assertPositiveCents, formatEuros } from "./money";
 
 describe("assertCents", () => {
   it("accepte un entier", () => {

@@ -1,0 +1,115 @@
+// Base de données pilotée UNIQUEMENT par DATABASE_URL (aucune spécificité d'hôte).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  READER
+}
+
+enum CategoryType {
+  SUBTRACTION
+  ADDITION
+}
+
+enum KharjaType {
+  IN
+  OUT
+}
+
+enum RDebtType {
+  INCREASE
+  REPAYMENT
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         Role
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model Month {
+  id            String        @id @default(cuid())
+  label         String
+  clientPayment Int // centimes
+  createdAt     DateTime      @default(now())
+  expenses      ExpenseLine[]
+  kharja        Kharja?
+
+  @@index([createdAt])
+}
+
+model Category {
+  id       String        @id @default(cuid())
+  name     String
+  icon     String
+  type     CategoryType
+  isCustom Boolean       @default(false)
+  isSystem Boolean       @default(false) // catégories internes TVA / TVA récupérée
+  lines    ExpenseLine[]
+}
+
+model ExpenseLine {
+  id         String   @id @default(cuid())
+  monthId    String
+  month      Month    @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  amount     Int // centimes, positif ; le signe vient du type de catégorie
+  createdAt  DateTime @default(now())
+
+  @@index([monthId])
+}
+
+model Kharja {
+  id      String       @id @default(cuid())
+  monthId String       @unique // un seul Kharja par mois
+  month   Month        @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  lines   KharjaLine[]
+}
+
+model KharjaLine {
+  id        String     @id @default(cuid())
+  kharjaId  String
+  kharja    Kharja     @relation(fields: [kharjaId], references: [id], onDelete: Cascade)
+  type      KharjaType
+  amount    Int // centimes, positif
+  note      String
+  createdAt DateTime   @default(now())
+
+  @@index([kharjaId])
+}
+
+model RDebt {
+  id         String      @id @default(cuid())
+  baseAmount Int // centimes — seed initial obligatoire : 2 336 750
+  lines      RDebtLine[]
+}
+
+model RDebtLine {
+  id            String         @id @default(cuid())
+  rDebtId       String
+  rDebt         RDebt          @relation(fields: [rDebtId], references: [id], onDelete: Cascade)
+  type          RDebtType
+  paymentMethod PaymentMethod? // uniquement pour REPAYMENT
+  amountGross   Int // centimes saisis
+  amountNet     Int // centimes réellement appliqués (= gross si cash, round(gross×0.92) si transfer)
+  createdAt     DateTime       @default(now())
+
+  @@index([rDebtId])
+}

@@ -7,7 +7,7 @@
  * Remboursement par virement : net = round(brut × 0.92) (−8 %).
  * Remboursement cash : net = brut.
  */
-import { assertPositiveCents } from "./money.js";
+import { assertPositiveCents } from "./money";
 
 export type RDebtType = "INCREASE" | "REPAYMENT";
 export type PaymentMethod = "CASH" | "TRANSFER";

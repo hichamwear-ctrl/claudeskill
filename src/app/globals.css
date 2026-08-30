@@ -1,0 +1,370 @@
+:root {
+  --bg: #ffffff;
+  --card: #f4f4f5;
+  --card-border: #ececed;
+  --text: #18181b;
+  --muted: #71717a;
+  --accent: #2563eb; /* accent unique */
+  --accent-contrast: #ffffff;
+  --kharja: #f97316; /* orange RÉSERVÉ au Kharja */
+  --danger: #dc2626;
+  --positive: #16a34a;
+  --radius: 16px;
+  --shell-max: 480px;
+  --nav-h: 64px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #e9e9ec;
+  color: var(--text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Coquille mobile : colonne unique centrée, jamais de disposition desktop. */
+.shell {
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg);
+  position: relative;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+.screen {
+  padding: 16px 16px 24px;
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 16px 8px;
+}
+.screen-title {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Cartes */
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 0 16px 12px;
+}
+.card-tap {
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+.card-tap:active {
+  transform: scale(0.985);
+}
+
+.total-card {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 20px;
+  margin: 0 16px 16px;
+}
+.total-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+.total-value {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin: 6px 0 2px;
+}
+
+.amount-big {
+  font-size: 22px;
+  font-weight: 800;
+}
+.amount-pos {
+  color: var(--positive);
+}
+.amount-neg {
+  color: var(--danger);
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Bandeau Kharja (orange, collé sous la carte du mois) */
+.kharja-band {
+  margin: -14px 16px 12px;
+  background: color-mix(in srgb, var(--kharja) 12%, white);
+  border: 1px solid color-mix(in srgb, var(--kharja) 35%, white);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 10px 16px;
+  color: var(--kharja);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Boutons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--card);
+  color: var(--text);
+}
+.btn-block {
+  width: 100%;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.btn-danger {
+  background: color-mix(in srgb, var(--danger) 12%, white);
+  color: var(--danger);
+}
+.btn-ghost {
+  background: transparent;
+}
+.btn-sm {
+  min-height: 38px;
+  font-size: 14px;
+  padding: 0 12px;
+}
+
+/* Bouton d'action rond (+) */
+.fab {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Grille de catégories */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 12px 16px;
+}
+.cat-btn {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 14px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 84px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text);
+}
+.cat-icon {
+  font-size: 22px;
+}
+
+/* Historique */
+.hist-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--card-border);
+}
+.hist-name {
+  flex: 1;
+  font-weight: 600;
+}
+.hist-amount {
+  font-weight: 700;
+}
+
+/* Barre de navigation basse fixe */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--shell-max);
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: #fff;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  z-index: 50;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+.nav-item.active {
+  color: var(--accent);
+}
+.nav-icon {
+  font-size: 22px;
+}
+
+/* Bottom sheet (modale mobile) */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  width: 100%;
+  max-width: var(--shell-max);
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  animation: sheet-up 0.18s ease;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 14px;
+}
+.sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Champs */
+.field {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 18px;
+  font-weight: 600;
+  background: #fafafa;
+}
+.field-label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 12px 0 6px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--card-border);
+}
+.check-row input {
+  width: 22px;
+  height: 22px;
+}
+
+.seg {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0;
+}
+.seg button {
+  flex: 1;
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: #fafafa;
+  font-weight: 700;
+  cursor: pointer;
+}
+.seg button.on {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.error-box {
+  background: color-mix(in srgb, var(--danger) 10%, white);
+  color: var(--danger);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin: 8px 16px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+}
+
+.link-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 16px 0;
+}
