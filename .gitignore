@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Outillage agent / Neon (non lié à l'app)
+.agents/
+.neon
+
 # Env / secrets — jamais commit
 .env
 .env.*
