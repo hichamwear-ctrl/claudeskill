@@ -1,3 +1,23 @@
+# Dependencies
+node_modules/
+
+# Env / secrets — jamais commit
+.env
+.env.*
+!.env.example
+
+# Build
+.next/
+dist/
+out/
+
+# Test / coverage
+coverage/
+
+# Logs & OS
+*.log
+.DS_Store
+
 # Python bytecode cache
 __pycache__/
 *.pyc
