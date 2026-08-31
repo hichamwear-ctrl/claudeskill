@@ -168,8 +168,10 @@ def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
     if p.get("alert_only_fresh") and alertable and not _est_frais(lst, p):
         _refuser("pas publiee aujourd'hui")
 
-    veh = engine.normalize_vehicle(lst["title"] or "", lst["description"] or "",
-                                   lst["year"], lst["fuel"], lst["transmission"])
+    veh = engine.normalize_vehicle(
+        lst["title"] or "", lst["description"] or "",
+        lst["year"], lst["fuel"], lst["transmission"],
+        site_model=lst.get("site_model"), site_body=lst.get("site_body"))
 
     marques = p.get("brands")
     if marques and marques != "all":
@@ -483,13 +485,21 @@ def _ordre_par_date(raws: list[dict]) -> bool:
     return inversions <= max(2, len(ids) // 20)
 
 
+# Nombre d'annonces en fin de page qui doivent TOUTES etre sous le filigrane
+# pour conclure que le flux est epuise. Absorbe les annonces isolees remontees
+# par le site sans laisser passer une vraie frontiere.
+QUEUE_ARRET = 10
+
+
 def _collecte_du_jour(con, src, verbose: bool = True) -> tuple[list[dict], dict]:
     """Recupere les annonces du jour, en ne relisant que le necessaire.
 
     Retourne (annonces_brutes, diagnostic).
     """
     diag = {"pages": 0, "vues": 0, "tri_date": False, "arret": "",
+            "securite": False,
             "filigrane_avant": _watermark(con, "fast"), "filigrane_apres": 0}
+    securite_lue = False
     pages_max = COLL.get("fast_loop_max_pages", 30)
     filigrane = diag["filigrane_avant"]
 
@@ -525,14 +535,23 @@ def _collecte_du_jour(con, src, verbose: bool = True) -> tuple[list[dict], dict]
             break
 
         # ── Arret anticipe : uniquement si le tri par date est confirme ──
-        # On lit une page de SECURITE au-dela du filigrane avant de
-        # s'arreter, pour absorber les annonces mises en avant.
+        #
+        # On regarde la QUEUE de la page, pas son minimum. Une annonce
+        # ancienne remontee par le site (mise en avant, republication)
+        # peut apparaitre n'importe ou : prendre le minimum de la page
+        # faisait s'arreter des la premiere, et les pages suivantes —
+        # pleines de nouveautes — n'etaient jamais lues.
+        #
+        # Et on lit UNE PAGE DE SECURITE au-dela avant de conclure.
         if diag["tri_date"] and filigrane:
-            plus_bas = min((_numid(r.get("itemId")) for r in brut
-                            if _numid(r.get("itemId"))), default=0)
-            if plus_bas and plus_bas <= filigrane:
-                diag["arret"] = "filigrane atteint"
-                break
+            queue = [i for i in (_numid(r.get("itemId")) for r in brut[-QUEUE_ARRET:])
+                     if i]
+            if queue and all(i <= filigrane for i in queue):
+                if securite_lue:
+                    diag["arret"] = "filigrane atteint"
+                    break
+                securite_lue = True
+                diag["securite"] = True
 
         time.sleep(src.delay)
 

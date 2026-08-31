@@ -43,6 +43,12 @@ def _migrate(con: sqlite3.Connection) -> None:
     # `pmin` est la reference qui decide du score, mais elle n'etait nulle
     # part persistee : check.py, `top` et le digest affichaient p25 ou p50,
     # c'est-a-dire un chiffre different de celui qui avait tranche.
+    # Champs structures du site, jusqu'ici jetes par le parser.
+    for c, t in (("site_model", "TEXT"), ("site_body", "TEXT"),
+                 ("latitude", "REAL"), ("longitude", "REAL")):
+        if c not in cols:
+            con.execute(f"ALTER TABLE listings ADD COLUMN {c} {t}")
+
     vcols = {r["name"] for r in con.execute("PRAGMA table_info(valuations)")}
     if vcols and "value_pmin" not in vcols:
         con.execute("ALTER TABLE valuations ADD COLUMN value_pmin INTEGER")
@@ -102,7 +108,7 @@ def store_raw(con, src_id: int, external_id: str, url: str, payload: dict) -> in
 LISTING_COLS = (
     "title description price_eur price_type is_lease mileage_km year fuel transmission "
     "power_kw location postal_code distance_km seller_type seller_id "
-    "photo_count published_at url"
+    "photo_count published_at url site_model site_body latitude longitude"
 ).split()
 
 

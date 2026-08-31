@@ -71,12 +71,14 @@ print(f"{maj} annonces mises a jour, {err} erreurs\n")
 # ═══ 2. NORMALISATION ═══
 titre(2, "NORMALISATION DES VEHICULES")
 lignes = con.execute(
-    "SELECT id, title, description, year, fuel, transmission FROM listings").fetchall()
+    "SELECT id, title, description, year, fuel, transmission, "
+    "site_model, site_body FROM listings").fetchall()
 print(f"{len(lignes)} annonces a normaliser...")
 identifies = 0
 for i, r in enumerate(lignes, 1):
     v = engine.normalize_vehicle(r["title"] or "", r["description"] or "",
-                                 r["year"], r["fuel"], r["transmission"])
+                                 r["year"], r["fuel"], r["transmission"],
+                                 site_model=r["site_model"], site_body=r["site_body"])
     ok = engine.vehicle_usable(v)
     identifies += ok
     con.execute("UPDATE listings SET norm_confidence=?, vkey=?, vkey_loose=? WHERE id=?",

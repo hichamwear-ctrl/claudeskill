@@ -332,7 +332,15 @@ class TweedehandsSource(SourceAdapter):
             "fuel": self._attr(raw, "fuel", "brandstof"),
             "transmission": self._attr(raw, "transmission", "transmissie"),
             "power_kw": self._int(self._attr(raw, "power", "vermogen")),
+            # Le site fournit `model` (56 % des annonces) et `body` (46 %).
+            # Les ignorer obligeait a deviner le modele depuis le titre —
+            # d'ou les cles fourre-tout et le classement en "utilitaire" des
+            # Golf dont la description contenait le mot neerlandais "van".
+            "site_model": self._attr(raw, "model", "modelBE"),
+            "site_body": self._attr(raw, "body", "carrosserie", "koetswerk"),
             "location": loc.get("cityName"),
+            "latitude": loc.get("latitude"),
+            "longitude": loc.get("longitude"),
             "postal_code": None,
             "distance_km": dist / 1000 if isinstance(dist, (int, float)) and dist > 0 else None,
             "seller_type": seller_known or self._seller_type(raw),

@@ -651,6 +651,63 @@ finally:
     runmod.notify.send = _vrai_send
 
 
+# ── 16e. une annonce ancienne remontée ne doit rien faire rater ──
+# Le site remonte parfois une vieille annonce (mise en avant, republication).
+# Prendre le MINIMUM de la page pour décider l'arrêt faisait stopper dès la
+# première rencontrée, et les pages suivantes — pleines de nouveautés —
+# n'étaient jamais lues.
+print("\n[16e] RADAR — annonce ancienne remontée par le site")
+_F = 2_437_000_000
+
+
+class _SiteOrdonne(_TS):
+    """Sert les annonces dans un ordre imposé, pour reproduire un vrai flux."""
+
+    def __init__(self, ordre):
+        super().__init__(delay=0)
+        self.ordre = ordre
+
+    def _get(self, params, retries=2):
+        o = int(params.get("offset", 0))
+        l = int(params.get("limit", 100))
+        return {"listings": self.ordre[o:o + l], "totalResultCount": len(self.ordre)}
+
+
+def _ann_id(i):
+    a = _annonce()
+    a["itemId"] = f"m{i}"
+    return a
+
+
+_recentes = [_ann_id(_F + 1000 - i) for i in range(140)]
+_ancienne = _ann_id(_F - 500_000)
+
+for _nom, _ordre, _attendu in [
+    ("une ancienne au milieu de la page", _recentes[:50] + [_ancienne] + _recentes[50:], 140),
+    ("une ancienne en fin de page", _recentes[:99] + [_ancienne] + _recentes[99:], 140),
+    ("plusieurs anciennes éparpillées",
+     _recentes[:20] + [_ancienne] + _recentes[20:60] + [_ann_id(_F - 9)] + _recentes[60:], 140),
+]:
+    con = _base_neuve(f"/tmp/carsniper_remontee.db")
+    runmod._set_watermark(con, _F, "fast")
+    con.commit()
+    raws, diag = runmod._collecte_du_jour(con, _SiteOrdonne(_ordre), verbose=False)
+    neufs = len([r for r in raws if runmod._numid(r["itemId"]) > _F])
+    check(f"{_nom} → aucune nouveauté ratée ({neufs}/{_attendu})", neufs == _attendu)
+
+# la vraie frontière est bien détectée, elle
+con = _base_neuve("/tmp/carsniper_frontiere.db")
+runmod._set_watermark(con, _F, "fast")
+con.commit()
+_flux = [_ann_id(_F + 50 - i) for i in range(50)] + [_ann_id(_F - i) for i in range(200)]
+raws, diag = runmod._collecte_du_jour(con, _SiteOrdonne(_flux), verbose=False)
+neufs = len([r for r in raws if runmod._numid(r["itemId"]) > _F])
+print(f"     frontière réelle : {diag['pages']} page(s) lues sur 250 annonces")
+check("la vraie frontière arrête bien la pagination", diag["pages"] <= 3)
+check("et les 50 nouveautés sont toutes captées", neufs == 50)
+check("une page de sécurité est lue au-delà", diag["securite"] is True)
+
+
 # ── 17. la vraie date de publication ────────────────────────
 print("\n[17] DATE DE PUBLICATION — publiée aujourd'hui ≠ vue aujourd'hui")
 con = _base_neuve("/tmp/carsniper_dates.db")
@@ -736,6 +793,104 @@ finally:
     runmod.db.init = _vrai_init
     runmod._source = _vrai_source
     runmod.notify.send = _vrai_send
+
+
+
+
+def _compat_ok(a, b):
+    """Les deux clés sont-elles comparables au sens du moteur ?"""
+    from carsniper.engine import _compat
+    return _compat(a, b)[0]
+
+
+# ═══════════════════════════════════════════════════════════
+#  ÉTAPE 2 — IDENTIFICATION DU VÉHICULE
+# ═══════════════════════════════════════════════════════════
+print("\n[19] IDENTIFICATION — les données du site priment sur la devinette")
+
+from carsniper.engine import canon_body, MODEL_BRAND
+
+# le modèle déclaré par 2ememain est utilisé en priorité
+v = normalize_vehicle("Land Rover Range Rover Evoque 2.0 TD4", "", 2016,
+                      "Diesel", "Automaat",
+                      site_model="Range Rover Evoque", site_body="SUV of Terreinwagen")
+print(f"     {v.key()}  [modèle: {v.model_source}, carrosserie: {v.body_source}]")
+check("le modèle déclaré par le site est retenu", v.model_source == "site")
+check("la carrosserie déclarée par le site est retenue", v.body_source == "site")
+check("'SUV of Terreinwagen' devient 'suv'", v.body == "suv")
+
+# le fourre-tout du site n'est PAS un modèle
+v = normalize_vehicle("Peugeot 208 1.2 essence", "", 2015, "Benzine", "Manueel",
+                      site_model="Overige modellen", site_body="Overige carrosserie")
+check("'Overige modellen' n'est pas pris pour un modèle", v.model == "208")
+check("'Overige carrosserie' n'est pas prise pour une carrosserie", v.body is None)
+
+# un titre sans marque reste exploitable grâce au modèle déclaré
+for titre, modele, attendu in [
+    ("GOLF 5 UNITED 1.4 ESSENCE", "Golf", "volkswagen"),
+    ("Touran 7-zits benzine", "Touran", "volkswagen"),
+    ("GLC 250 4matic automaat", "GLC", "mercedes"),
+    ("3 reeks 320d", "3 reeks", "bmw"),
+]:
+    v = normalize_vehicle(titre, "", 2016, "Diesel", "Automaat", site_model=modele)
+    check(f"'{titre[:26]}' → marque retrouvée ({attendu})",
+          v.make == attendu and vehicle_usable(v))
+
+# BMW Série 1 et Série 3 restent séparées
+v1 = normalize_vehicle("1 reeks 116d", "", 2016, "Diesel", "Manueel", site_model="1 reeks")
+v3 = normalize_vehicle("3 reeks 320d", "", 2016, "Diesel", "Manueel", site_model="3 reeks")
+print(f"     {v1.key()}\n     {v3.key()}")
+check("BMW Série 1 ≠ BMW Série 3", v1.model != v3.model)
+check("et leurs clés sont incompatibles", not _compat_ok(v1.key(), v3.key()))
+
+# la carrosserie du site sépare ce que les mots-clés mélangeaient
+berline = normalize_vehicle("Toyota Yaris 1.5 Hybrid", "", 2022, "Hybride",
+                            "Automaat", site_model="Yaris", site_body="Stadsauto")
+suv = normalize_vehicle("Toyota Yaris Cross 1.5 Hybrid", "", 2022, "Hybride",
+                        "Automaat", site_model="Yaris Cross", site_body="SUV of Terreinwagen")
+check("une Yaris et une Yaris Cross ne sont plus comparables",
+      not _compat_ok(berline.key(), suv.key()))
+
+# "van" néerlandais : toujours neutralisé, et le site tranche
+v = normalize_vehicle("Volkswagen Golf 7 1.2 TSI",
+                      "mooie golf van eerste eigenaar, airco", 2015,
+                      "Benzine", "Handgeschakeld", site_body="Stadsauto")
+check("'van' néerlandais ne fait toujours pas un utilitaire", v.body != "utilitaire")
+check("et la carrosserie vient du site", v.body == "berline")
+
+# marques ajoutées
+print("\n[20] MARQUES — celles qui manquaient")
+for titre, marque in [("MG ZS 1.5 Luxury", "mg"), ("Rover 75 2.0 CDT", "rover"),
+                      ("Saab 9-3 Aero Cabrio", "saab"), ("Chevrolet Aveo 1.2", "chevrolet"),
+                      ("SsangYong Tivoli 1.6", "ssangyong"), ("Iveco Daily 35S12", "iveco"),
+                      ("Lancia Ypsilon 1.2", "lancia")]:
+    v = normalize_vehicle(titre, "", 2015, "Diesel", "Manuelle")
+    check(f"{titre[:24]:<26} → {marque}", v.make == marque)
+for faute, marque in [("Mercedez benz GLC 220", "mercedes"), ("peugoet 207 1.4", "peugeot"),
+                      ("Peugeut GT 208", "peugeot")]:
+    v = normalize_vehicle(faute, "", 2015, "Diesel", "Manuelle")
+    check(f"faute de frappe '{faute[:20]}' → {marque}", v.make == marque)
+
+check(f"table modèle→marque dérivée des données ({len(MODEL_BRAND)} entrées)",
+      len(MODEL_BRAND) > 300 and MODEL_BRAND.get("golf") == "volkswagen")
+check("carrosseries du site normalisées",
+      canon_body("SUV of Terreinwagen") == "suv" and canon_body("Break") == "break"
+      and canon_body("Overige carrosserie") is None)
+
+# les champs sont bien captés par le parser et stockés
+from carsniper.sources.twoememain import TweedehandsSource as _TS3
+_p = _TS3().parse({"itemId": "m1", "title": "Test", "priceInfo": {"priceCents": 500000},
+                   "location": {"cityName": "Gent", "latitude": 51.05, "longitude": 3.72,
+                                "distanceMeters": -1000},
+                   "attributes": [{"key": "model", "value": "Golf"},
+                                  {"key": "body", "value": "Stadsauto"}]})
+check("le parser capte site_model", _p["site_model"] == "Golf")
+check("le parser capte site_body", _p["site_body"] == "Stadsauto")
+check("le parser capte les coordonnées GPS",
+      _p["latitude"] == 51.05 and _p["longitude"] == 3.72)
+from carsniper.storage import db as _db3
+check("site_model/site_body/latitude/longitude sont persistés",
+      {"site_model", "site_body", "latitude", "longitude"} <= set(_db3.LISTING_COLS))
 
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")

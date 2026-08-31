@@ -44,12 +44,19 @@ def norm_text(s: str | None) -> str:
 # 1. NORMALISATION DU VÉHICULE
 # ═══════════════════════════════════════════════════════════
 
+# Marques absentes = annonces inexploitables. Les ajouts ci-dessous
+# representent ~3 099 annonces de la base reelle (MG 1 133, Rover 785,
+# Chevrolet 386, Iveco 220, Saab 126, SsangYong 103, Lancia 87...).
 BRANDS = [
-    "abarth", "alfa romeo", "audi", "bmw", "citroen", "cupra", "dacia", "ds",
-    "fiat", "ford", "honda", "hyundai", "jaguar", "jeep", "kia", "land rover",
-    "lexus", "mazda", "mercedes", "mini", "mitsubishi", "nissan", "opel",
-    "peugeot", "porsche", "renault", "seat", "skoda", "smart", "subaru",
-    "suzuki", "tesla", "toyota", "volkswagen", "volvo",
+    "abarth", "alfa romeo", "alpine", "aston martin", "audi", "bentley",
+    "bmw", "byd", "cadillac", "chevrolet", "chrysler", "citroen", "cupra",
+    "dacia", "daewoo", "daihatsu", "dodge", "ds", "ferrari", "fiat", "ford",
+    "genesis", "honda", "hyundai", "infiniti", "isuzu", "iveco", "jaguar",
+    "jeep", "kia", "lada", "lamborghini", "lancia", "land rover", "lexus",
+    "maserati", "mazda", "mercedes", "mg", "mini", "mitsubishi", "nissan",
+    "opel", "peugeot", "polestar", "porsche", "renault", "rover", "saab",
+    "seat", "skoda", "smart", "ssangyong", "subaru", "suzuki", "tesla",
+    "toyota", "volkswagen", "volvo",
 ]
 STOPWORDS = {
     "te", "koop", "a", "vendre", "auto", "voiture", "wagen", "car", "occasion",
@@ -60,6 +67,12 @@ STOPWORDS = {
 BRAND_ALIASES = {
     "vw": "volkswagen", "mercedes-benz": "mercedes", "mercedes benz": "mercedes",
     "alfa": "alfa romeo", "landrover": "land rover", "range rover": "land rover",
+    # fautes de frappe relevees dans les titres de la base
+    "mercedez": "mercedes", "mercedez benz": "mercedes", "merecedes": "mercedes",
+    "peugoet": "peugeot", "peugeut": "peugeot", "peugot": "peugeot",
+    "wolkswagen": "volkswagen", "volskwagen": "volkswagen",
+    "citroën": "citroen", "citroen ds": "ds", "ssang yong": "ssangyong",
+    "vauxhall": "opel",
 }
 
 # Valeur canonique -> variantes. Le champ "fuel" du site arrive en
@@ -134,6 +147,9 @@ class Vehicle:
     power_kw: int | None = None
     year: int | None = None
     confidence: float = 0.0
+    # d'ou vient l'information : "site" (declaree) ou "titre" (devinee)
+    model_source: str | None = None
+    body_source: str | None = None
 
     def key(self) -> str:
         """Cle STRICTE : deux vehicules ne sont comparables que s'ils
@@ -220,6 +236,203 @@ def _extract_model(make: str, after: str) -> str | None:
     return None
 
 
+# Modele declare par 2ememain -> marque, DERIVE de la base reelle
+# (464 associations, retenues a partir de 8 observations et 90 % de
+# concordance). Sert de repli quand la marque n'apparait pas dans le
+# titre : "GOLF 5 UNITED" -> volkswagen, "3 reeks" -> bmw.
+MODEL_BRAND = {
+    "1-reeks": "bmw", "100": "audi", "1007": "peugeot",
+    "107": "peugeot", "108": "peugeot", "124-spider": "fiat",
+    "156": "alfa romeo", "159": "alfa romeo", "19": "renault",
+    "190-serie": "mercedes", "2": "mazda", "2-reeks": "bmw",
+    "2-reeks-active-tourer": "bmw", "2-reeks-gran-coupe": "bmw", "2-reeks-gran-tourer": "bmw",
+    "200-serie": "mercedes", "2008": "peugeot", "206": "peugeot",
+    "207": "peugeot", "208": "peugeot", "240": "volvo",
+    "2cv": "citroen", "3-reeks": "bmw", "3-reeks-gt": "bmw",
+    "300-serie": "mercedes", "3008": "peugeot", "307": "peugeot",
+    "308": "peugeot", "4": "renault", "4-reeks": "bmw",
+    "4-reeks-gran-coupe": "bmw", "407": "peugeot", "408": "peugeot",
+    "5-reeks": "bmw", "5-reeks-gt": "bmw", "500": "fiat",
+    "5008": "peugeot", "500c": "fiat", "500e": "fiat",
+    "500l": "fiat", "500x": "fiat", "508": "peugeot",
+    "595": "abarth", "6": "mazda", "6-reeks": "bmw",
+    "6-sportbreak": "mazda", "600": "fiat", "7-reeks": "bmw",
+    "80": "audi", "90": "audi", "911": "porsche",
+    "924": "porsche", "928": "porsche", "944": "porsche",
+    "a-klasse": "mercedes", "a1": "audi", "a2": "audi",
+    "a3": "audi", "a4": "audi", "a5": "audi",
+    "a6": "audi", "a7": "audi", "a8": "audi",
+    "accord": "honda", "adam": "opel", "agila": "opel",
+    "alhambra": "seat", "almera": "nissan", "altea": "seat",
+    "altea-xl": "seat", "alto": "suzuki", "amarok": "volkswagen",
+    "antara": "opel", "arkana": "renault", "arona": "seat",
+    "arteon": "volkswagen", "astra": "opel", "asx": "mitsubishi",
+    "ateca": "seat", "atos": "hyundai", "auris": "toyota",
+    "austral": "renault", "avenger": "jeep", "avensis": "toyota",
+    "aveo": "chevrolet", "aygo": "toyota", "aygo-x": "toyota",
+    "b": "mg", "b-klasse": "mercedes", "b-max": "ford",
+    "baleno": "suzuki", "barchetta": "fiat", "bayon": "hyundai",
+    "beetle-kever": "volkswagen", "berlingo": "citroen", "bigster": "dacia",
+    "bipper": "peugeot", "boxer": "peugeot", "boxster": "porsche",
+    "bravo": "fiat", "c-hr": "toyota", "c-klasse": "mercedes",
+    "c-max": "ford", "c1": "citroen", "c2": "citroen",
+    "c3": "citroen", "c3-aircross": "citroen", "c3-picasso": "citroen",
+    "c30": "volvo", "c4": "citroen", "c4-cactus": "citroen",
+    "c4-grand-picasso": "citroen", "c5": "citroen", "c5-aircross": "citroen",
+    "c5-x": "citroen", "c70": "volvo", "caddy-combi": "volkswagen",
+    "caddy-maxi": "volkswagen", "captiva": "chevrolet", "captur": "renault",
+    "carens": "kia", "cascada": "opel", "cayenne": "porsche",
+    "cayman": "porsche", "celerio": "suzuki", "celica": "toyota",
+    "cherokee": "jeep", "chevy-van": "chevrolet", "citan-combi": "mercedes",
+    "citigo": "skoda", "civic": "honda", "cl": "mercedes",
+    "cla": "mercedes", "clio": "renault", "clk": "mercedes",
+    "cls": "mercedes", "clubman": "mini", "colt": "mitsubishi",
+    "combo-tour": "opel", "compass": "jeep", "cooper": "mini",
+    "cooper-s": "mini", "corolla": "toyota", "corolla-cross": "toyota",
+    "corolla-ts": "toyota", "corsa": "opel", "corsa-e": "opel",
+    "corvette": "chevrolet", "countryman": "mini", "cr-v": "honda",
+    "crossland-x": "opel", "cruze": "chevrolet", "crx": "honda",
+    "ct-h": "lexus", "cx-3": "mazda", "cx-30": "mazda",
+    "cx-5": "mazda", "defender": "land rover", "delta": "lancia",
+    "discovery": "land rover", "discovery-sport": "land rover", "doblo": "fiat",
+    "dokker": "dacia", "ds": "ds", "ds-3": "ds",
+    "ds-4": "ds", "ds-7": "ds", "ds3": "citroen",
+    "ds4": "citroen", "ds5": "citroen", "ducato": "fiat",
+    "duster": "dacia", "e-klasse": "mercedes", "e-pace": "jaguar",
+    "e-tron": "audi", "eclipse": "mitsubishi", "ecosport": "ford",
+    "edge": "ford", "ehs": "mg", "eos": "volkswagen",
+    "espace": "renault", "expert-combi": "peugeot", "f": "mg",
+    "f-150": "ford", "f-pace": "jaguar", "fabia": "skoda",
+    "fiesta": "ford", "focus": "ford", "forfour": "smart",
+    "formentor": "cupra", "fortwo": "smart", "fox": "volkswagen",
+    "freelander": "land rover", "frontera": "opel", "fusion": "ford",
+    "g-klasse": "mercedes", "galaxy": "ford", "getz": "hyundai",
+    "ghibli": "maserati", "giulia": "alfa romeo", "giulietta": "alfa romeo",
+    "gla": "mercedes", "glb": "mercedes", "glc": "mercedes",
+    "glc-coupe": "mercedes", "gle": "mercedes", "glk": "mercedes",
+    "golf": "volkswagen", "golf-plus": "volkswagen", "golf-sportsvan": "volkswagen",
+    "golf-variant": "volkswagen", "grand-c-max": "ford", "grand-cherokee": "jeep",
+    "grand-scenic": "renault", "grand-vitara": "suzuki", "grande-punto": "fiat",
+    "grandland": "opel", "grandland-x": "opel", "gtv": "alfa romeo",
+    "hilux": "toyota", "hr-v": "honda", "i-pace": "jaguar",
+    "i10": "hyundai", "i20": "hyundai", "i3": "bmw",
+    "i30": "hyundai", "i40": "hyundai", "ibiza": "seat",
+    "id3": "volkswagen", "idea": "fiat", "ignis": "suzuki",
+    "impreza": "subaru", "insignia": "opel", "ioniq": "hyundai",
+    "iq": "toyota", "is": "lexus", "ix20": "hyundai",
+    "ix35": "hyundai", "jazz": "honda", "jetta": "volkswagen",
+    "jimny": "suzuki", "jogger": "dacia", "john-cooper-works": "mini",
+    "juke": "nissan", "jumper": "citroen", "jumpy-combi": "citroen",
+    "junior": "alfa romeo", "ka": "ford", "kadjar": "renault",
+    "kamiq": "skoda", "kangoo": "renault", "karl": "opel",
+    "karoq": "skoda", "kodiaq": "skoda", "koleos": "renault",
+    "kona": "hyundai", "korando": "ssangyong", "kuga": "ford",
+    "l200": "mitsubishi", "laguna": "renault", "lancer": "mitsubishi",
+    "landcruiser": "toyota", "lbx": "lexus", "leaf": "nissan",
+    "lodgy": "dacia", "logan": "dacia", "logan-mcv": "dacia",
+    "m-klasse": "mercedes", "macan": "porsche", "master": "renault",
+    "megane": "renault", "meriva": "opel", "mg4": "mg",
+    "micra": "nissan", "mito": "alfa romeo", "model-3": "tesla",
+    "model-s": "tesla", "model-y": "tesla", "modus": "renault",
+    "mokka": "opel", "mokkax": "opel", "mondeo": "ford",
+    "movano": "opel", "mr2": "toyota", "multivan": "volkswagen",
+    "musa": "lancia", "mustang": "ford", "mx-30": "mazda",
+    "mx-5": "mazda", "mx-5-rf": "mazda", "navara-double-cab": "nissan",
+    "nemo": "citroen", "niro": "kia", "niva": "lada",
+    "note": "nissan", "nv400": "nissan", "nx": "lexus",
+    "octavia": "skoda", "one": "mini", "optima": "kia",
+    "orlando": "chevrolet", "outlander": "mitsubishi", "pajero": "mitsubishi",
+    "panamera": "porsche", "panda": "fiat", "partner": "peugeot",
+    "partner-tepee": "peugeot", "passat": "volkswagen", "patrol": "nissan",
+    "picanto": "kia", "pixo": "nissan", "polestar-2": "polestar",
+    "polo": "volkswagen", "prius": "toyota", "pro-cee-d": "kia",
+    "proace": "toyota", "proace-city": "toyota", "pulsar": "nissan",
+    "puma": "ford", "punto": "fiat", "punto-evo": "fiat",
+    "q2": "audi", "q3": "audi", "q30": "infiniti",
+    "q5": "audi", "q7": "audi", "qashqai": "nissan",
+    "qashqai2": "nissan", "quattro": "audi", "quattroporte": "maserati",
+    "qubo": "fiat", "ram-1500": "dodge", "range-rover": "land rover",
+    "range-rover-evoque": "land rover", "range-rover-sport": "land rover", "range-rover-velar": "land rover",
+    "ranger": "ford", "rapid": "skoda", "rav4": "toyota",
+    "rcz": "peugeot", "renegade": "jeep", "rexton": "ssangyong",
+    "rifter": "peugeot", "rio": "kia", "rodius": "ssangyong",
+    "roomster": "skoda", "rx-8": "mazda", "rx-h": "lexus",
+    "s-cross": "suzuki", "s-klasse": "mercedes", "s-max": "ford",
+    "s-type": "jaguar", "s3": "audi", "s4": "audi",
+    "s40": "volvo", "s60": "volvo", "s80": "volvo",
+    "s90": "volvo", "saab-9-3": "saab", "saab-9-5": "saab",
+    "saab-900": "saab", "samurai": "suzuki", "sandero": "dacia",
+    "sandero-stepway": "dacia", "santa-fe": "hyundai", "saxo": "citroen",
+    "scala": "skoda", "scenic": "renault", "scirocco": "volkswagen",
+    "scudo": "fiat", "series": "land rover", "sharan": "volkswagen",
+    "silverado": "chevrolet", "sirion": "daihatsu", "sl": "mercedes",
+    "slc": "mercedes", "slk": "mercedes", "sorento": "kia",
+    "soul": "kia", "space-star": "mitsubishi", "space-tourer": "citroen",
+    "spark": "chevrolet", "spider": "alfa romeo", "splash": "suzuki",
+    "sportage": "kia", "spring": "dacia", "sprinter-combi": "mercedes",
+    "sq5": "audi", "starlet": "toyota", "stelvio": "alfa romeo",
+    "stonic": "kia", "superb": "skoda", "swift": "suzuki",
+    "sx4": "suzuki", "symbioz": "renault", "t-cross": "volkswagen",
+    "t-roc": "volkswagen", "taigo": "volkswagen", "talento": "fiat",
+    "talisman": "renault", "tarraco": "seat", "tigra": "opel",
+    "tiguan": "volkswagen", "tipo": "fiat", "tivoli": "ssangyong",
+    "toledo": "seat", "tonale": "alfa romeo", "touareg": "volkswagen",
+    "touran": "volkswagen", "tourneo-connect": "ford", "tourneo-courier": "ford",
+    "trafic": "renault", "transit": "ford", "transporter": "volkswagen",
+    "trax": "chevrolet", "tt": "audi", "tucson": "hyundai",
+    "twingo": "renault", "up": "volkswagen", "ux": "lexus",
+    "v-klasse": "mercedes", "v40": "volvo", "v50": "volvo",
+    "v60": "volvo", "v70": "volvo", "v90": "volvo",
+    "vectra": "opel", "venga": "kia", "verso": "toyota",
+    "verso-s": "toyota", "viano": "mercedes", "vitara": "suzuki",
+    "vito": "mercedes", "vivaro": "opel", "wind": "renault",
+    "wrangler": "jeep", "x-trail": "nissan", "x-type": "jaguar",
+    "x1": "bmw", "x2": "bmw", "x3": "bmw",
+    "x4": "bmw", "x5": "bmw", "x6": "bmw",
+    "xc40": "volvo", "xc60": "volvo", "xc90": "volvo",
+    "xceed": "kia", "xe": "jaguar", "xf": "jaguar",
+    "xj": "jaguar", "xjs": "jaguar", "xk": "jaguar",
+    "xlv": "ssangyong", "xsara": "citroen", "yaris": "toyota",
+    "yaris-cross": "toyota", "yeti": "skoda", "ypsilon": "lancia",
+    "z3": "bmw", "z4": "bmw", "zafira": "opel",
+    "zoe": "renault", "zs": "mg",
+}
+
+
+def _model_du_site(valeur: str | None, make: str | None) -> str | None:
+    """Normalise le modele declare par 2ememain.
+
+    "Overige modellen" (= autres modeles) n'est pas un modele : c'est le
+    fourre-tout du site, il ne doit surtout pas devenir une cle.
+    """
+    v = norm_text(valeur)
+    if not v or v in ("overige modellen", "andere", "autre", "overige",
+                      "other", "overige modellen/merken"):
+        return None
+    # "Saab 9-3" -> on retire la marque si elle est repetee dans le modele
+    if make and v.startswith(make + " "):
+        v = v[len(make) + 1:]
+    v = re.sub(r"[^a-z0-9\- ]", "", v).strip()
+    v = re.sub(r"\s+", "-", v)
+    return v[:24] or None
+
+
+def _marque_du_modele(valeur: str | None) -> str | None:
+    """Retrouve la marque a partir du modele declare par le site.
+
+    Deux chemins : le modele contient deja la marque ("Saab 9-3"), ou la
+    table MODEL_BRAND l'associe sans ambiguite. Sauve les titres ou la
+    marque n'apparait pas — 3,1 % des annonces de la base.
+    """
+    v = norm_text(valeur)
+    if not v:
+        return None
+    for b in sorted(BRANDS, key=len, reverse=True):
+        if v.startswith(b):
+            return b
+    return MODEL_BRAND.get(_model_du_site(valeur, None) or "")
+
+
 def vehicle_usable(v: "Vehicle", min_conf: float = 0.55) -> bool:
     """Le vehicule est-il assez sûrement identifie pour servir de base a
     une comparaison ? Sans marque ET modele, la reponse est non : mieux
@@ -231,9 +444,39 @@ def vehicle_usable(v: "Vehicle", min_conf: float = 0.55) -> bool:
     return v.confidence >= min_conf
 
 
+# Carrosseries declarees par 2ememain -> notre vocabulaire interne.
+SITE_BODY = {
+    "berline": "berline", "sedan": "berline", "hatchback": "berline",
+    "stadsauto": "berline", "citadine": "berline",
+    "break": "break", "stationwagen": "break", "combi": "break",
+    "coupe": "coupe", "cabriolet": "cabrio", "roadster": "cabrio",
+    "monovolume": "monospace", "mpv": "monospace",
+    "suv of terreinwagen": "suv", "suv": "suv", "terreinwagen": "suv",
+    "4x4": "suv", "tout-terrain": "suv",
+    "bestelwagen": "utilitaire", "utilitaire": "utilitaire",
+    "lichte vracht": "utilitaire", "minibus": "utilitaire",
+}
+SITE_BODY_INCONNU = {"overige carrosserie", "andere", "autre", "overige"}
+
+
+def canon_body(value: str | None) -> str | None:
+    """Ramene la carrosserie DECLAREE par le site a notre vocabulaire."""
+    v = norm_text(value)
+    if not v or v in SITE_BODY_INCONNU:
+        return None
+    if v in SITE_BODY:
+        return SITE_BODY[v]
+    for k, canon in SITE_BODY.items():
+        if k in v:
+            return canon
+    return None
+
+
 def normalize_vehicle(title: str, description: str = "", year: int | None = None,
                       fuel_hint: str | None = None,
-                      transmission_hint: str | None = None) -> Vehicle:
+                      transmission_hint: str | None = None,
+                      site_model: str | None = None,
+                      site_body: str | None = None) -> Vehicle:
     t = norm_text(title)
     full = t + " " + norm_text(description)[:600]
     v = Vehicle(year=year)
@@ -255,11 +498,21 @@ def normalize_vehicle(title: str, description: str = "", year: int | None = None
     if v.make:
         conf += 0.40
 
-    # Modèle : premier token significatif après le mot de marque trouvé.
-    if v.make and matched:
+    # Modèle — la valeur DÉCLARÉE par 2ememain prime sur la devinette faite
+    # à partir du titre. C'est elle qui évite les clés fourre-tout, et elle
+    # sauve les titres où la marque n'apparaît pas ("GOLF 5 UNITED").
+    declare = _model_du_site(site_model, v.make)
+    if declare:
+        v.model = declare
+        v.model_source = "site"
+        conf += 0.30
+        if not v.make:
+            v.make = _marque_du_modele(site_model) or v.make
+    elif v.make and matched:
         after = t.split(matched, 1)[-1].strip()
         v.model = _extract_model(v.make, after)
         if v.model:
+            v.model_source = "titre"
             conf += 0.25
 
     # Carburant — le champ du site fait foi, ramené à sa forme canonique.
@@ -294,11 +547,18 @@ def normalize_vehicle(title: str, description: str = "", year: int | None = None
             v.displacement = cc
             conf += 0.05
 
-    # Carrosserie
-    for label, mots in BODY_HINTS.items():
-        if any(re.search(rf"\b{re.escape(w)}\b", full) for w in mots):
-            v.body = label
-            break
+    # Carrosserie — le site d'abord. Les mots-clés ne servent que de repli :
+    # c'est eux qui avaient classé 1 003 citadines en "utilitaire" à cause du
+    # mot néerlandais "van".
+    v.body = canon_body(site_body)
+    if v.body:
+        v.body_source = "site"
+    else:
+        for label, mots in BODY_HINTS.items():
+            if any(re.search(rf"\b{re.escape(w)}\b", full) for w in mots):
+                v.body = label
+                v.body_source = "titre"
+                break
 
     # Puissance
     m = re.search(r"(\d{2,3})\s?(ch|pk|hp)\b", full)

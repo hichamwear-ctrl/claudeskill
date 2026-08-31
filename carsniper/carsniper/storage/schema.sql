@@ -92,6 +92,10 @@ CREATE TABLE IF NOT EXISTS listings (
     vehicle_ref_id INTEGER REFERENCES vehicle_refs(id),
     vkey           TEXT,          -- cache de normalisation
     vkey_loose     TEXT,
+    site_model     TEXT,          -- modele DECLARE par 2ememain (56 % des cas)
+    site_body      TEXT,          -- carrosserie DECLAREE par 2ememain (46 %)
+    latitude       REAL,
+    longitude      REAL,
     norm_confidence REAL,
     fingerprint    TEXT,
     duplicate_of   INTEGER REFERENCES listings(id),
