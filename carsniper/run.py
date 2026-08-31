@@ -292,6 +292,16 @@ def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
             else:
                 print(f"  ! envoi Telegram echoue pour #{listing_id} — "
                       f"pas d'alerte enregistree, nouvel essai au prochain tour")
+
+    # On trace aussi les CANDIDATES NON ENVOYEES : savoir pourquoi une
+    # annonce n'est PAS partie vaut autant que savoir pourquoi une autre
+    # est partie. `plafonds` et `refus_json` portent la reponse.
+    if alertable and (res["tier"] != "below" or res.get("plafonds")):
+        deja = con.execute(
+            "SELECT 1 FROM decisions WHERE listing_id=? AND envoyee=1 "
+            "AND decided_at > datetime('now','-1 hour')", (listing_id,)).fetchone()
+        if not deja:
+            _tracer_decision(con, listing_id, res, envoyee=False)
     # On ne garde que les 5 dernieres evaluations par annonce : sans ca,
     # le recalcul nocturne de 52 000 annonces ajoute 100 000 lignes par
     # nuit et la requete de classement ralentit chaque jour.

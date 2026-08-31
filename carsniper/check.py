@@ -65,8 +65,13 @@ from carsniper.sources.twoememain import TweedehandsSource
 from carsniper.storage import db
 import run
 
-con = db.init()
+# Permet de verifier une base de travail sans toucher a la base courante :
+#   python check.py data/carsniper.RETRAITEE.db
+BASE = sys.argv[1] if len(sys.argv) > 1 else None
+con = db.init(BASE) if BASE else db.init()
 src = TweedehandsSource(delay=1.5)
+if BASE:
+    print(f"\n   (base verifiee : {BASE})")
 PROFILE, LEX = engine.load_config()
 q = lambda s, *a: con.execute(s, a).fetchone()[0]
 
