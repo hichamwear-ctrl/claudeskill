@@ -893,5 +893,104 @@ check("site_model/site_body/latitude/longitude sont persistés",
       {"site_model", "site_body", "latitude", "longitude"} <= set(_db3.LISTING_COLS))
 
 
+
+# ═══════════════════════════════════════════════════════════
+#  ÉTAPE 3 — LES COMPARABLES
+# ═══════════════════════════════════════════════════════════
+print("\n[21] COMPARABLES — la vraie moins chère comme ancre")
+
+from carsniper.engine import NIVEAUX, _aberrants_bas, _dedupliquer
+
+_VK = "opel|corsa|essence|manuelle|1.2|berline"
+
+
+def _pool(prix, cle_speciale=None, idx=0):
+    out = []
+    for i, p in enumerate(prix):
+        out.append({"title": f"Corsa {i}", "price_eur": p,
+                    "mileage_km": 140000 + i * 500, "year": 2014,
+                    "vkey": cle_speciale if (cle_speciale and i == idx) else _VK,
+                    "has_defect": False, "defauts_analyses": True,
+                    "seller_type": "particulier"})
+    return out
+
+
+_CIBLE = {"year": 2014, "mileage_km": 142000, "vkey": _VK}
+
+v = value_market(_CIBLE, _pool([3500, 3900, 4100, 4300, 4500, 4700, 4900, 5100, 5300, 5500]))
+print(f"     prix 3500…5500 → ancre {v.pmin} € · médiane {v.mediane} € · n={v.n}")
+check("l'ancre est la VRAIE moins chère, pas la moyenne des 3", v.pmin == 3500)
+check("la médiane est fournie à part", v.mediane == 4600)
+check("le nombre de comparables est fourni", v.n == 10)
+
+# aberrant bas : écarté ET signalé
+v = value_market(_CIBLE, _pool([1900, 3500, 3900, 4100, 4300, 4500, 4700, 4900, 5100, 5300]))
+print(f"     avec un 1900 € → ancre {v.pmin} €, exclus {v.exclus}")
+check("une annonce aberrante ne devient pas l'ancre", v.pmin == 3500)
+check("et elle est signalée, pas cachée", v.exclus == [1900])
+v = value_market(_CIBLE, _pool([1000, 4800, 5000, 5000, 5100, 5200, 5200, 5300, 5400, 5500]))
+check("un prix à 20 % de la médiane est écarté", v.exclus == [1000])
+# mais un vrai bon prix n'est PAS écarté
+v = value_market(_CIBLE, _pool([3200, 3500, 3900, 4100, 4300, 4500, 4700, 4900, 5100, 5300]))
+check("un prix simplement bas reste l'ancre", v.pmin == 3200 and not v.exclus)
+
+# doublons
+_p = _pool([3500, 3900, 4100, 4300, 4500, 4700, 4900, 5100, 5300, 5500])
+_p += [dict(_p[0]), dict(_p[0])]
+v = value_market(_CIBLE, _p)
+check("les republications sont dédupliquées", v.n == 10 and v.doublons == 2)
+check("_dedupliquer garde une seule occurrence",
+      _dedupliquer([{"title": "A", "price_eur": 1, "year": 2, "mileage_km": 3}] * 3)[1] == 2)
+
+# ancre incomplète
+v = value_market(_CIBLE, _pool([3100, 3500, 3900, 4100, 4300, 4500, 4700, 4900, 5100, 5300],
+                               cle_speciale="opel|corsa|essence|None|?|berline"))
+print(f"     moins chère brute {v.moins_chere_brute} € (config partielle) "
+      f"→ ancre retenue {v.pmin} €")
+check("une annonce très incomplète ne devient pas l'ancre", v.pmin == 3500)
+check("mais la moins chère brute reste consultable", v.moins_chere_brute == 3100)
+check("et le rattrapage est signalé", v.ancre_complete is False)
+
+# paliers de tolérance
+print("\n[22] COMPARABLES — élargissement progressif")
+check("trois paliers définis", len(NIVEAUX) == 3)
+check("la marque/modèle/carburant/boîte/carrosserie restent TOUJOURS exigés",
+      all(set(n) == {"nom", "year", "km", "fiabilite"} for n in NIVEAUX))
+check("l'année se resserre plus que le kilométrage (mesuré sur la base)",
+      NIVEAUX[0]["year"] == 1 and NIVEAUX[0]["km"] == 0.30
+      and NIVEAUX[2]["year"] == 3 and NIVEAUX[2]["km"] == 0.50)
+check("chaque élargissement coûte de la fiabilité",
+      NIVEAUX[0]["fiabilite"] > NIVEAUX[1]["fiabilite"] > NIVEAUX[2]["fiabilite"])
+
+_p12 = [{"title": f"c{i}", "price_eur": 4000 + i * 100, "mileage_km": 140000,
+         "year": 2014, "vkey": _VK, "has_defect": False,
+         "defauts_analyses": True, "seller_type": "particulier"} for i in range(12)]
+niveaux_vus = []
+for annee in (2014, 2016, 2017):
+    v = value_market({"year": annee, "mileage_km": 142000, "vkey": _VK}, _p12)
+    niveaux_vus.append((v.niveau, v.confidence))
+print(f"     cible 2014/2016/2017 vs comparables 2014 → {niveaux_vus}")
+check("le palier utilisé est tracé", [n for n, _ in niveaux_vus] == ["strict", "elargi", "large"])
+check("la confiance baisse à chaque élargissement",
+      niveaux_vus[0][1] > niveaux_vus[1][1] > niveaux_vus[2][1])
+
+# on n'élargit JAMAIS sur la configuration
+autre_carburant = [{**c, "vkey": "opel|corsa|diesel|manuelle|1.2|berline"} for c in _p12]
+check("un carburant différent n'est jamais accepté, même au palier large",
+      value_market({"year": 2014, "mileage_km": 142000, "vkey": _VK},
+                   autre_carburant).n == 0)
+autre_carrosserie = [{**c, "vkey": "opel|corsa|essence|manuelle|1.2|break"} for c in _p12]
+check("une carrosserie différente n'est jamais acceptée",
+      value_market({"year": 2014, "mileage_km": 142000, "vkey": _VK},
+                   autre_carrosserie).n == 0)
+
+# les comparables utilisés restent consultables
+v = value_market(_CIBLE, _pool([3500, 3900, 4100, 4300, 4500, 4700, 4900, 5100, 5300, 5500]))
+check("les comparables retenus sont conservés pour l'explication",
+      len(v.comparables) == 10 and v.comparables[0]["price_eur"] == 3500)
+check("chaque comparable porte son degré d'incertitude",
+      all("flous" in c for c in v.comparables))
+
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)

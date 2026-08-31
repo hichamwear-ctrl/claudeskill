@@ -779,6 +779,13 @@ class Valuation:
     flou_moyen: float = 0.0       # dimensions inconnues par comparable
     rejets_flous: int = 0         # comparables ecartes faute d'annee/km
     comparables: list = field(default_factory=list)
+    # ── v3 : l'ancre, c'est la VRAIE moins chere comparable ──
+    moins_chere_brute: int | None = None   # le minimum absolu, meme incomplet
+    ancre_complete: bool = True            # l'ancre a-t-elle une config connue ?
+    mediane: int | None = None
+    exclus: list = field(default_factory=list)   # aberrants bas ecartes
+    doublons: int = 0                      # republications retirees
+    niveau: str = ""                       # strict | elargi | large
 
 
 UNKNOWN = ("none", "?", "", "null")
@@ -821,42 +828,103 @@ def _mad_filter(prices: list[float]) -> list[int]:
     return [i for i, p in enumerate(prices) if abs(p - med) / (1.4826 * mad) <= 3.0]
 
 
-def value_market(target: dict, pool: list[dict]) -> Valuation:
-    """target/pool : dicts avec price_eur, mileage_km, year, vkey, has_defect.
+# Tolerances mesurees sur la base reelle, pas choisies au jugé.
+# Ecart de prix median entre deux voitures de MEME cle :
+#     annee   1 an -> 12 %   2 ans -> 17 %   3 ans -> 21 %   5 ans -> 33 %
+#     km      10 % ->  1 %   30 %  -> 11 %   50 %  -> 12 %   80 % -> 17 %
+# L'annee pese ~4x plus que le kilometrage : on serre l'annee, on relache le
+# kilometrage. L'ancien reglage (±1 an / ±15 % km) faisait l'inverse et
+# ecartait 177 des 251 annonces du jour restees sans comparables.
+NIVEAUX = (
+    {"nom": "strict", "year": 1, "km": 0.30, "fiabilite": 1.00},
+    {"nom": "elargi", "year": 2, "km": 0.40, "fiabilite": 0.93},
+    {"nom": "large",  "year": 3, "km": 0.50, "fiabilite": 0.85},
+)
 
-    Principe : petit pool fiable > gros pool contamine. La cle stricte est
-    TOUJOURS exigee ; on n'elargit que sur l'annee et le kilometrage, jamais
-    sur la configuration du vehicule.
+# Au-dela de ce nombre de dimensions inconnues, un comparable reste utile
+# pour situer le marche mais ne peut pas servir d'ANCRE a lui seul.
+FLOU_MAX_ANCRE = 1
+MIN_ANCRES_COMPLETES = 3
+
+
+def _cle_doublon(c: dict) -> tuple:
+    """Deux annonces republiees decrivent la MEME voiture. Les compter deux
+    fois donne l'illusion qu'il existe plusieurs voitures a ce prix."""
+    return (norm_text(c.get("title"))[:60], c.get("price_eur"),
+            c.get("year"), c.get("mileage_km"))
+
+
+def _dedupliquer(comps: list[dict]) -> tuple[list[dict], int]:
+    vus, out = set(), []
+    for c in comps:
+        k = _cle_doublon(c)
+        if k in vus:
+            continue
+        vus.add(k)
+        out.append(c)
+    return out, len(comps) - len(out)
+
+
+def _aberrants_bas(prix: list[float]) -> set[int]:
+    """Indices des prix anormalement BAS.
+
+    On ne filtre que vers le bas : c'est l'ancre qui nous interesse, et une
+    annonce a 1 000 EUR au milieu d'un marche a 5 000 EUR ne doit pas
+    devenir la reference. Les prix hauts, eux, ne genent personne.
     """
-    levels = [
-        dict(year=1, km=0.15),
-        dict(year=1, km=0.25),
-        dict(year=2, km=0.30),
-    ]
-    t_year, t_km = target.get("year"), target.get("mileage_km")
+    if len(prix) < 6:
+        return set()
+    med = statistics.median(prix)
+    ecarts = [abs(p - med) for p in prix]
+    mad = statistics.median(ecarts) or 1.0
+    # Deux criteres, l'un statistique, l'autre de bon sens : une voiture a
+    # moins de 45 % de la mediane de sa propre configuration n'est pas la
+    # meme voiture (epave, erreur de saisie, prix par mois...). L'ecart
+    # median mesure seul laissait passer 1 900 EUR dans un marche a 4 400.
+    return {i for i, p in enumerate(prix)
+            if p < med and ((med - p) / (1.4826 * mad) > 3.0
+                            or p < med * 0.45)}
 
-    # SANS annee ni kilometrage sur la cible, les filtres correspondants
-    # etaient purement et simplement sautes : une Aygo sans annee se
-    # retrouvait comparee a des Aygo neuves. On refuse d'evaluer plutot
-    # que de produire une estimation delirante.
+
+def _choisir_ancre(comps: list[dict]) -> tuple[dict, dict | None]:
+    """Retourne (ancre, moins_chere_brute).
+
+    L'ancre est la VRAIE moins chere — jamais une moyenne. Mais une annonce
+    dont la configuration est largement inconnue est compatible avec presque
+    tout : si c'est elle la moins chere et qu'il existe assez de comparables
+    complets, on prend le moins cher des complets et on le signale.
+    """
+    par_prix = sorted(comps, key=lambda c: c["price_eur"])
+    brute = par_prix[0]
+    complets = [c for c in par_prix if c.get("_flous", 0) <= FLOU_MAX_ANCRE]
+    if brute.get("_flous", 0) <= FLOU_MAX_ANCRE:
+        return brute, None
+    if len(complets) >= MIN_ANCRES_COMPLETES:
+        return complets[0], brute
+    return brute, None
+
+
+def value_market(target: dict, pool: list[dict]) -> Valuation:
+    """Constitue les comparables et designe la moins chere.
+
+    Trois paliers de tolerance, du plus strict au plus large. On s'arrete au
+    premier qui atteint MIN_COMPARABLES : la marque, le modele, le
+    carburant, la boite, la cylindree et la carrosserie restent TOUJOURS
+    exiges — on n'elargit que sur l'annee et le kilometrage.
+    """
+    t_year, t_km = target.get("year"), target.get("mileage_km")
     if not t_year or not t_km:
         return Valuation(method="insufficient_data")
 
-    for lvl in levels:
+    for lvl in NIVEAUX:
         comps = []
         rejets_flous = 0
         for c in pool:
-            if c.get("has_defect"):          # marché sain uniquement
+            if c.get("has_defect") or not c.get("price_eur"):
                 continue
-            if not c.get("price_eur"):
-                continue
-            ok, flous = _compat(target.get("vkey", ""), c.get("vkey", ""))
+            ok, flous = _compat(target.get("vkey", ""), c.get("vkey") or "")
             if not ok:
                 continue
-            # Un comparable dont l'annee OU le kilometrage est inconnu n'est
-            # pas un comparable : le filtre correspondant serait purement
-            # saute et la voiture entrerait dans n'importe quel pool.
-            # L'ancien code ne gardait ce verrou que sur le kilometrage.
             if not c.get("year") or not c.get("mileage_km"):
                 rejets_flous += 1
                 continue
@@ -866,79 +934,48 @@ def value_market(target: dict, pool: list[dict]) -> Valuation:
                 continue
             comps.append({**c, "_flous": flous})
 
+        comps, doublons = _dedupliquer(comps)
         if len(comps) < MIN_COMPARABLES:
             continue
 
-        prices = [float(c["price_eur"]) for c in comps]
-        keep = _mad_filter(prices)
-        comps = [comps[i] for i in keep]
-        prices = [prices[i] for i in keep]
+        prix = [float(c["price_eur"]) for c in comps]
+        idx_ab = _aberrants_bas(prix)
+        exclus = sorted(int(prix[i]) for i in idx_ab)
+        comps = [c for i, c in enumerate(comps) if i not in idx_ab]
+        prix = [p for i, p in enumerate(prix) if i not in idx_ab]
         if len(comps) < MIN_COMPARABLES:
             continue
 
-        # Médiane pondérée par similarité (noyau gaussien)
-        weights = []
-        for c in comps:
-            dkm = abs((c.get("mileage_km") or t_km) - t_km) / 15000
-            dyr = abs((c.get("year") or t_year) - t_year) / 1.0
-            w = math.exp(-((dkm ** 2 + dyr ** 2) / 2))
-            if c.get("seller_type") == "pro":
-                w *= 0.85
-            weights.append(max(w, 0.02))
-
-        order = sorted(range(len(prices)), key=lambda i: prices[i])
-        total = sum(weights)
-
-        def wq(q: float) -> int:
-            acc = 0.0
-            for i in order:
-                acc += weights[i]
-                if acc >= q * total:
-                    return int(round(prices[i]))
-            return int(round(prices[order[-1]]))
-
-        p25, p50, p75 = wq(0.25), wq(0.50), wq(0.75)
-        # plancher robuste : moyenne des 3 moins cheres, pour ne pas se caler
-        # sur une seule annonce douteuse
-        bas = sorted(prices)[:3]
-        pmin = int(round(sum(bas) / len(bas)))
+        ancre, brute = _choisir_ancre(comps)
         n = len(comps)
+        tries = sorted(prix)
+        p25 = int(tries[max(0, int(n * 0.25) - 1)])
+        p50 = int(statistics.median(tries))
+        p75 = int(tries[min(n - 1, int(n * 0.75))])
         iqr_ratio = (p75 - p25) / p50 if p50 else 1.0
 
-        # ── QUALITE DU POOL ─────────────────────────────────────────
-        # 1. dimensions inconnues de part et d'autre de la cle
+        # ── qualite du pool ──
         flou_moyen = sum(c.get("_flous", 0) for c in comps) / n
-        penalite_flou = max(0.55, 1 - flou_moyen * 0.15)
-
-        # 2. part du pool dont on ignore s'il porte un defaut. Un comparable
-        #    jamais passe par la detection est "sain par defaut" — une
-        #    hypothese, pas un fait. Sur la base reelle, 65 % du pool etait
-        #    dans ce cas et le "marche sain" n'en etait pas un.
-        # Un comparable est "verifie" s'il est passe par la detection
-        # (drapeau pose par le constructeur de pool), ou si l'appelant a
-        # renseigne has_defect explicitement — c'est alors une donnee, pas
-        # une hypothese.
+        penalite_flou = max(0.70, 1 - flou_moyen * 0.10)
         connus = sum(1 for c in comps
                      if c.get("defauts_analyses", "has_defect" in c))
         part_verifiee = connus / n
-        penalite_verif = 0.70 + 0.30 * part_verifiee
-
-        # 3. dispersion : un pool tres etale melange des configurations
-        #    differentes, meme si la cle est formellement identique.
+        penalite_verif = 0.80 + 0.20 * part_verifiee
         penalite_disp = max(0.0, 1 - min(iqr_ratio, 0.6) * 0.8)
+        conf = (min(1.0, n / 12) * penalite_disp * penalite_flou
+                * penalite_verif * lvl["fiabilite"])
 
-        # 4. elargissement : le 3e palier compare a +/- 2 ans et +/- 30 % de
-        #    kilometrage. C'est un repli, il doit se voir dans la confiance.
-        penalite_niveau = {0.15: 1.0, 0.25: 0.92, 0.30: 0.82}[lvl["km"]]
-
-        conf = (min(1.0, n / 12)
-                * penalite_disp
-                * penalite_flou
-                * penalite_verif
-                * penalite_niveau)
-
-        methode = "weighted_median" if lvl["km"] == 0.15 else "weighted_median_elargi"
-        val = Valuation(pmin, p25, p50, p75, n, methode, round(conf, 2))
+        val = Valuation(
+            pmin=int(ancre["price_eur"]), p25=p25, p50=p50, p75=p75, n=n,
+            method="weighted_median" if lvl["nom"] == "strict"
+            else "weighted_median_elargi",
+            confidence=round(conf, 2))
+        val.moins_chere_brute = int(brute["price_eur"]) if brute else int(ancre["price_eur"])
+        val.ancre_complete = brute is None
+        val.mediane = p50
+        val.exclus = exclus
+        val.doublons = doublons
+        val.niveau = lvl["nom"]
         val.pool_verifie = round(part_verifiee, 2)
         val.iqr_ratio = round(iqr_ratio, 3)
         val.flou_moyen = round(flou_moyen, 2)
@@ -946,7 +983,7 @@ def value_market(target: dict, pool: list[dict]) -> Valuation:
         val.comparables = [
             {"price_eur": int(c["price_eur"]), "year": c.get("year"),
              "mileage_km": c.get("mileage_km"), "vkey": c.get("vkey"),
-             "seller_type": c.get("seller_type")}
+             "seller_type": c.get("seller_type"), "flous": c.get("_flous", 0)}
             for c in sorted(comps, key=lambda x: x["price_eur"])[:40]
         ]
         return val

@@ -99,7 +99,7 @@ def _pool(con, vkey_loose: str, exclure_id: int) -> list[dict]:
     celle qu'on évalue — tirait son propre plancher vers le bas.
     """
     rows = con.execute(
-        """SELECT l.price_eur, l.mileage_km, l.year, l.seller_type,
+        """SELECT l.title, l.price_eur, l.mileage_km, l.year, l.seller_type,
                   l.vkey, l.vkey_loose, l.norm_confidence,
                   EXISTS(SELECT 1 FROM listing_defects d WHERE d.listing_id=l.id
                          AND d.is_negated=0) AS has_defect,
@@ -113,6 +113,7 @@ def _pool(con, vkey_loose: str, exclure_id: int) -> list[dict]:
              AND l.vkey_loose = ? AND l.id <> ?""", (vkey_loose, exclure_id),
     ).fetchall()
     return [{
+        "title": r["title"],
         "price_eur": r["price_eur"], "mileage_km": r["mileage_km"],
         "year": r["year"], "seller_type": r["seller_type"],
         "vkey": r["vkey"], "vkey_loose": r["vkey_loose"],
