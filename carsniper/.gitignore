@@ -1,0 +1,6 @@
+# Base de donnees : 328 Mo, au-dela de la limite GitHub. Elle se reconstruit
+# avec `python run.py bootstrap` puis `python reprocess.py`.
+data/
+__pycache__/
+*.pyc
+*.bak

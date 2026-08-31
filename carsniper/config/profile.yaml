@@ -1,0 +1,120 @@
+# CAR SNIPER — profil utilisateur
+# Modifiable à chaud. Aucune recollecte nécessaire après changement :
+# la collecte ne filtre rien, les critères s'appliquent en local.
+
+profile:
+  name: "Pro mécanique — Bruxelles"
+  active: true
+
+  # ── Localisation ──────────────────────────────────────────
+  # NON UTILISES PAR LE MOTEUR — informatifs seulement. La distance vient
+  # du site (champ distanceMeters), le systeme ne calcule aucun trajet.
+  base_postal_code: "1070"        # Anderlecht
+  base_lat: 50.8333
+  base_lon: 4.3000
+  # Applique : filtre d'alerte sur distance_km fourni par 2ememain.
+  max_distance_km: 250            # couvre toute la Belgique
+
+  # ── Budget ────────────────────────────────────────────────
+  budget_min: 2000
+  budget_max: 20000
+
+  # ── Véhicule ──────────────────────────────────────────────
+  brands: all                     # ou ["BMW", "Audi", "Volkswagen"] — applique
+  excluded_brands: []
+  year_min: 2005
+  year_max: 2026
+  mileage_max: null
+  fuels: all
+  transmissions: all
+  seller_types: [particulier]     # alertes : particuliers uniquement
+
+  # ── Fraîcheur des annonces ────────────────────────────────
+  max_listing_age_days: 0         # 0 = aujourd'hui uniquement, remise à
+                                  # zéro automatique à minuit
+  alert_only_fresh: true
+  allow_first_seen_fallback: true # si la date du site est illisible, on se
+                                  # rabat sur l'instant où NOUS l'avons vue
+
+  # ── Référence de marché ───────────────────────────────────
+  # pmin = la moins chère du site (moyenne des 3 plus basses) — ton vrai
+  #        concurrent, et la cible a battre apres negociation
+  # p25  = premier quartile        p50 = médiane (plus permissif)
+  market_reference: pmin
+
+  # ── Mode ──────────────────────────────────────────────────
+  # Appliques a l'alerte (l'annonce reste evaluee et sert de comparable).
+  mode: ALL                       # ALL | DEFECT_ONLY | HEALTHY_ONLY
+  require_defect: false
+
+# ── Seuils par segment de prix ──────────────────────────────
+# Une marge de 1200 € est excellente à 2500 €, dérisoire à 18000 €.
+# D'où trois régimes distincts.
+segments:
+  - name: budget
+    price_from: 2000
+    price_to: 6000
+    min_margin_eur: 700
+    min_margin_pct: 22
+    min_confidence: 0.55          # applique : sous ce seuil, aucune alerte
+    max_risk_penalty: 45          # applique : veto si risk < 100 - cette valeur
+
+  - name: core
+    price_from: 6000
+    price_to: 12000
+    min_margin_eur: 1500
+    min_margin_pct: 18
+    min_confidence: 0.50
+    max_risk_penalty: 55
+
+  - name: premium
+    price_from: 12000
+    price_to: 20000
+    min_margin_eur: 3000
+    min_margin_pct: 15
+    min_confidence: 0.50
+    max_risk_penalty: 55
+
+# ── Paliers d'alerte ────────────────────────────────────────
+tiers:
+  good:   { min: 75, max: 84,  emoji: "🟢", label: "GOOD DEAL"  }
+  great:  { min: 85, max: 92,  emoji: "🟠", label: "GREAT DEAL" }
+  sniper: { min: 93, max: 100, emoji: "🔴", label: "SNIPER"     }
+
+# SEUIL D'ENVOI REEL. Une annonce sous ce score est stockee et visible dans
+# `run.py top`, mais aucune alerte ne part. Les garde-fous du moteur
+# (confiance, marge, risque) plafonnent a seuil-1 pour bloquer une alerte.
+# 68-74 = palier "À REGARDER" ; 75+ = GOOD / GREAT / SNIPER.
+notification_threshold: 68
+
+# ── Récapitulatif quotidien ─────────────────────────────────
+# Envoie le meilleur de la journée sur Telegram, même si rien n'a
+# franchi le seuil d'alerte. Pour voir aussi les affaires correctes,
+# pas seulement les prix cassés.
+digest:
+  enabled: true
+  hour: 19                        # heure d'envoi
+  count: 8                        # nombre d'annonces
+  min_score: 40                   # ignore ce qui n'a aucun intérêt
+  detail: true                    # envoie aussi chaque annonce séparément,
+                                  # avec son format complet et ses boutons
+
+# ── Anti-spam ───────────────────────────────────────────────
+antispam:
+  cooldown_hours: 72              # délai avant re-notification
+  renotify_on_price_drop_eur: 400
+  renotify_on_score_gain: 8
+  suppress_after_reaction: ["not_interested", "bad"]
+
+# ── Collecte ────────────────────────────────────────────────
+collection:
+  fast_loop_seconds: 90         # cadence de la boucle rapide
+  fast_loop_pages: 2            # pages lues par défaut
+  fast_loop_max_pages: 30       # 3000 annonces max par passage
+  night_loop_hour: 3
+  night_max_alerts: 10            # plafond de sécurité du recalcul nocturne
+  bootstrap_max_pages: 900
+  request_delay_seconds: 2.5      # cadence fixe, un seul thread — applique
+  user_agent: "CarSniper/1.0 (usage personnel)"
+  backoff_on_429_seconds: 900
+  stop_after_consecutive_errors: 12   # applique : arrêt propre + notification

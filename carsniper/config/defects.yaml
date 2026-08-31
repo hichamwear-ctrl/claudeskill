@@ -1,0 +1,603 @@
+# CAR SNIPER — lexique des défauts (v2)
+#
+# CHANGEMENT DE FOND PAR RAPPORT À v1
+# ───────────────────────────────────
+# v1 cherchait des NOMS DE PIÈCES. "airco" déclenchait un défaut de
+# climatisation alors que le mot signifie que la voiture EN EST ÉQUIPÉE.
+# 47 % des défauts détectés étaient de ce type.
+#
+# v2 distingue deux natures de termes :
+#
+#   components_*  le nom d'un organe. NEUTRE tout seul. Ne devient un défaut
+#                 que si un marqueur de panne (fault_markers) apparaît dans
+#                 la MÊME proposition.
+#                   "airco"                        → rien
+#                   "airco kapot"                  → défaut
+#
+#   faults_*      une formulation qui EST un défaut à elle seule.
+#                   "motorschade"                  → défaut
+#                   "koppeling versleten"          → défaut
+#
+# Un terme préfixé par "re:" est une expression régulière brute (utile pour
+# les mots composés néerlandais : schadewagen, carrosserieschade…).
+#
+# Les marqueurs et les négations sont GLOBAUX : une formulation de panne
+# apprise une fois vaut pour tous les organes.
+
+version: 2
+
+# ── Marqueurs de PANNE ──────────────────────────────────────
+# Relevés dans la base réelle (nombre d'occurrences en commentaire).
+# Rendent un composant fautif s'ils apparaissent dans la même proposition.
+fault_markers:
+  - "en panne"            # 6
+  - "hs"                  # 60  "joint de culasse hs"
+  - "h.s."
+  - "ne fonctionne pas"   # 4
+  - "ne fonctionnent pas"
+  - "ne marche pas"
+  - "ne marchent pas"
+  - "ne demarre pas"
+  - "defectueux"
+  - "defectueuse"
+  - "casse"
+  - "cassee"
+  - "foutu"
+  - "mort"
+  - "morte"
+  - "use"
+  - "usee"
+  - "uses"
+  - "usees"
+  - "fatigue"
+  - "fatiguee"
+  - "a refaire"           # 17
+  - "a changer"           # 28
+  - "a remplacer"         # 31
+  - "a reviser"
+  - "a prevoir"
+  - "a faire"
+  - "fuite"
+  - "fuit"
+  - "fissure"
+  - "fissuree"
+  - "impact"
+  - "eclat"
+  - "patine"              # 3
+  - "patiner"
+  - "claque"              # 5
+  - "cogne"
+  - "siffle"
+  - "grince"
+  - "broute"
+  - "s'affaisse"
+  - "affaisse"
+  - "bruit"               # 59
+  - "bruits"
+  - "souci"               # 18
+  - "soucis"
+  - "probleme"            # 290
+  - "problemes"
+  - "panne"
+  - "voyant allume"
+  - "voyant moteur"
+  - "ne tient plus"
+  - "jeu important"
+  # ── néerlandais ──
+  - "kapot"               # 59
+  - "defect"              # 91
+  - "defekt"              # 2
+  - "werkt niet"          # 45
+  - "werken niet"
+  - "doet het niet"       # 2
+  - "niet werkend"
+  - "versleten"           # 27
+  - "slijtage"
+  - "lekt"                # 17
+  - "lek"
+  - "lekkage"
+  - "te vervangen"        # 40
+  - "moet vervangen"
+  - "vervangen worden"
+  - "probleem"
+  - "problemen"
+  - "storing"             # 21
+  - "storingen"
+  - "geluid"              # 66  "koppeling maakt geluid"
+  - "lawaai"
+  - "tikt"                # 6
+  - "tikkend"
+  - "tikkende"
+  - "piept"
+  - "slaat niet aan"      # 7
+  - "schokt"              # 5
+  - "schokken"
+  - "hapert"              # 6
+  - "euvel"
+  - "zwak"
+  - "gebarsten"
+  - "barst"
+  - "steenslag"
+  - "gebroken"
+  - "moet gebeuren"
+  # "stuk" seul est ambigu : "per stuk" = à l'unité. On exige la tournure.
+  - "re:(?<!per )\\bis stuk\\b"
+  - "re:\\bhelemaal stuk\\b"
+  - "re:\\bvolledig stuk\\b"
+
+# ── Marqueurs d'ENTRETIEN FAIT ──────────────────────────────
+# La mention de l'organe est un ARGUMENT DE VENTE : pas de défaut.
+maintenance_markers:
+  - "change"
+  - "changee"
+  - "changes"
+  - "changees"
+  - "remplace"
+  - "remplacee"
+  - "refait"
+  - "refaite"
+  - "revise"
+  - "revisee"
+  - "neuf"
+  - "neuve"
+  - "neufs"
+  - "neuves"
+  - "nouveau"
+  - "nouvelle"
+  - "recent"
+  - "recente"
+  - "recents"
+  - "recentes"
+  - "vient d'etre"
+  - "faite"
+  - "fait"
+  - "ok"
+  - "bon etat"
+  - "parfait etat"
+  - "nickel"
+  - "impeccable"
+  - "vervangen"
+  - "nieuw"
+  - "nieuwe"
+  - "gedaan"
+  - "gereviseerd"
+  - "onlangs"
+  - "in orde"
+  - "goed"
+  - "perfect"
+
+# ── NÉGATIONS explicites ────────────────────────────────────
+# Priment sur les marqueurs de panne : "aucun souci", "geen probleem".
+negations_global:
+  - "pas de"
+  - "aucun"
+  - "aucune"
+  - "sans"
+  - "jamais"
+  - "nooit"
+  - "geen"
+  - "zonder"
+  - "vrij van"
+  - "niks"
+  - "niets"
+  - "rien"
+  - "nie"          # "nie" = "niet" en dialecte flamand
+  - "nauwelijks"
+  - "nihil"
+
+defects:
+
+  # ═══ MÉCANIQUE ═══
+  - code: clutch
+    category: mechanical
+    severity: 3
+    base_confidence: 0.80
+    components_fr: [embrayage, butee d'embrayage, disque d'embrayage]
+    components_nl: [koppeling, koppelingsplaat]
+    faults_fr: [embrayage patine, embrayage qui patine, embrayage a refaire]
+    faults_nl: [koppeling versleten, koppeling kapot, koppelingsschade]
+    market_discount: [1800, 3000]
+    pro_cost: [350, 1100]
+    risk_penalty: 5
+    checklist:
+      - "Point de patinage : démarrer en 3e frein tiré, le moteur doit caler"
+      - "Vérifier l'émetteur/récepteur hydraulique (fuite au maître-cylindre)"
+      - "Demander si le volant moteur a déjà été remplacé"
+
+  - code: timing
+    category: mechanical
+    severity: 3
+    base_confidence: 0.80
+    components_fr: [distribution, courroie de distribution, chaine de distribution]
+    components_nl: [distributie, distributieriem, distributieketting, tandriem]
+    faults_fr: [distribution a faire, courroie a changer]
+    faults_nl: [distributieriem moet vervangen]
+    market_discount: [1200, 2200]
+    pro_cost: [180, 600]
+    risk_penalty: 8
+    checklist:
+      - "Exiger la facture de distribution avec date ET kilométrage"
+      - "Écouter le bruit de chaîne à froid au démarrage"
+
+  - code: turbo
+    category: mechanical
+    severity: 3
+    base_confidence: 0.78
+    # "turbo diesel" / "1.4 turbo" décrivent la motorisation : neutres.
+    components_fr: [turbo, turbocompresseur]
+    components_nl: [turbo]
+    faults_fr: [turbo hs, turbo a refaire, siffle du turbo]
+    faults_nl: [turbo kapot, turbo defect, turboschade]
+    market_discount: [1500, 2600]
+    pro_cost: [280, 900]
+    risk_penalty: 6
+    checklist:
+      - "Fumée bleue à l'accélération = segments ou turbo"
+      - "Contrôler le jeu axial de l'arbre et les traces d'huile dans la durite"
+
+  - code: injectors
+    category: mechanical
+    severity: 3
+    base_confidence: 0.78
+    components_fr: [injecteur, injecteurs, injection]
+    components_nl: [injector, injectoren, verstuiver, verstuivers]
+    faults_fr: [injecteurs hs, probleme d'injection]
+    faults_nl: [injector defect, verstuivers versleten]
+    market_discount: [1200, 2400]
+    pro_cost: [250, 1000]
+    risk_penalty: 5
+    checklist:
+      - "Démarrage à froid difficile ou fumée blanche persistante"
+      - "Relever le débit de retour des injecteurs"
+
+  - code: dpf_egr
+    category: mechanical
+    severity: 2
+    base_confidence: 0.75
+    components_fr: [fap, filtre a particules, vanne egr, egr]
+    components_nl: [roetfilter, dpf, egr klep, egr]
+    faults_fr: [fap bouche, egr encrassee, fap colmate]
+    faults_nl: [roetfilter vol, roetfilter verstopt, egr defect]
+    market_discount: [900, 1800]
+    pro_cost: [120, 500]
+    risk_penalty: 3
+    checklist:
+      - "Voyant FAP au tableau, historique des régénérations"
+      - "Vérifier que le FAP n'a pas été supprimé (refus au contrôle technique)"
+
+  - code: suspension
+    category: mechanical
+    severity: 2
+    base_confidence: 0.75
+    # "luchtvering" = suspension pneumatique : c'est un ÉQUIPEMENT.
+    components_fr: [suspension, suspensions, amortisseur, amortisseurs, ressort,
+                    bras de suspension, rotule, silentbloc, triangle]
+    components_nl: [vering, luchtvering, schokdemper, schokdempers, veer,
+                    draagarm, draagarmen, draag armen, fusee, kogelgewricht]
+    faults_fr: [suspension s'affaisse, amortisseurs fuient, suspension a refaire]
+    faults_nl: [vering zakt, schokdemper lekt, luchtvering defect]
+    market_discount: [1000, 2900]
+    pro_cost: [200, 900]
+    risk_penalty: 3
+    checklist:
+      - "Voiture garée une nuit : mesurer si l'arrière s'est affaissé"
+      - "Écouter les claquements sur dos-d'âne, contrôler les fuites d'huile"
+
+  - code: starter_alt
+    category: mechanical
+    severity: 2
+    base_confidence: 0.75
+    components_fr: [demarreur, alternateur, starter]
+    components_nl: [startmotor, starter, alternator, dynamo]
+    faults_fr: [demarreur hs, alternateur hs]
+    faults_nl: [alternator kapot, startmotor defect]
+    market_discount: [800, 2000]
+    pro_cost: [100, 400]
+    risk_penalty: 2
+    checklist:
+      - "Tension batterie moteur tournant : 13,8–14,4 V"
+
+  - code: warning_light
+    category: mechanical
+    severity: 2
+    base_confidence: 0.70
+    components_fr: [voyant, temoin]
+    components_nl: [waarschuwingslampje, lampje, foutmelding]
+    faults_fr: [voyant moteur allume, voyant allume, voyant reste allume]
+    faults_nl: [motorlampje brandt, foutmelding motor, storingslampje]
+    market_discount: [1200, 2500]
+    pro_cost: [50, 700]
+    risk_penalty: 6
+    checklist:
+      - "Passer la valise AVANT de négocier : un voyant peut cacher n'importe quoi"
+
+  - code: no_ct
+    category: mechanical
+    severity: 2
+    base_confidence: 0.85
+    components_fr: []
+    components_nl: []
+    faults_fr: [sans controle technique, ct non passe, refuse au controle,
+                vendu sans ct, pas de ct, controle technique a faire]
+    faults_nl: [zonder keuring, niet gekeurd, gekeurd voor verkoop afgekeurd,
+                afgekeurd, keuring afgekeurd]
+    market_discount: [800, 1800]
+    pro_cost: [100, 700]
+    risk_penalty: 5
+    checklist:
+      - "Demander le PV de contrôle : la liste des refus chiffre la négociation"
+
+  # ═══ MAJEUR ═══
+  - code: gearbox
+    category: major
+    severity: 4
+    base_confidence: 0.82
+    # "handgeschakelde versnellingsbak" / "boîte manuelle" = une SPEC.
+    components_fr: [boite de vitesses, boite auto, boite automatique, bva]
+    components_nl: [versnellingsbak, transmissie, automaatbak]
+    faults_fr: [boite hs, boite qui craque, ne passe plus les vitesses,
+                probleme de boite, boite a refaire]
+    faults_nl: [versnellingsbak defect, versnellingsbak kapot, bakschade,
+                schakelt niet, versnellingsbak versleten]
+    market_discount: [2500, 4500]
+    pro_cost: [400, 2400]
+    risk_penalty: 10
+    checklist:
+      - "Essayer toutes les vitesses à froid ET à chaud, marche arrière comprise"
+      - "Boîte auto : à-coups au passage 1→2 = embrayages ou mécatronique"
+
+  - code: engine
+    category: major
+    severity: 4
+    base_confidence: 0.85
+    components_fr: [moteur, bloc moteur]
+    components_nl: [motor, motorblok]
+    faults_fr: [moteur hs, moteur casse, moteur claque, moteur qui claque,
+                probleme moteur, moteur a refaire, moteur fatigue]
+    faults_nl: [motorschade, motor defect, motor kapot, motor tikt,
+                motor slaat niet aan, motorprobleem]
+    market_discount: [3000, 7000]
+    pro_cost: [800, 4000]
+    risk_penalty: 15
+    checklist:
+      - "Compression sur les 4 cylindres avant toute offre"
+      - "Huile : mayonnaise au bouchon = joint de culasse"
+
+  - code: headgasket
+    category: major
+    severity: 4
+    base_confidence: 0.85
+    components_fr: [joint de culasse, culasse]
+    components_nl: [koppakking, cilinderkop]
+    faults_fr: [joint de culasse hs, joint de culasse a refaire, culasse fissuree]
+    faults_nl: [koppakking kapot, koppakking defect, koppakkingschade]
+    market_discount: [2500, 4500]
+    pro_cost: [500, 2000]
+    risk_penalty: 12
+    checklist:
+      - "Test CO2 dans le liquide de refroidissement"
+      - "Bulles dans le vase d'expansion moteur chaud"
+
+  - code: accident
+    category: major
+    severity: 4
+    base_confidence: 0.85
+    # AUCUN composant neutre : "pare-choc" ne doit jamais suffire.
+    components_fr: []
+    components_nl: []
+    faults_fr: [accidente, accidentee, vendu accidente, vendue accidentee,
+                degats, degat, sinistre, epave, voiture accidentee,
+                # "pare-choc" est une piece : ne doit jamais valoir accident
+                "re:(?<!pare-)(?<!pare )\\bchoc (avant|arriere)\\b"]
+    faults_nl:
+      # \w*schade\w* SAUF "schadevrij…" (= SANS dommage) et les composés
+      # traités par d'autres codes (motorschade → engine, lakschade → cosmetic).
+      - "re:\\b(?!schadevrij)(?!motorschade)(?!lakschade)(?!hagelschade)(?!gebruiksschade)(?!waterschade)(?!turboschade)(?!koppelingsschade)(?!bakschade)(?!koppakkingschade)\\w*schade\\w*\\b(?!\\s*vrij)"
+      # "ongeval vrij" en deux mots = SANS accident
+      - "re:\\bongeval(?!\\s*vrij)\\w*\\b"
+      - "aanrijding"
+      - "total loss"
+      - "totalloss"
+    market_discount: [2000, 8000]
+    pro_cost: [600, 5000]
+    risk_penalty: 25
+    checklist:
+      - "Mesurer les jeux de capot/portes et comparer les teintes de peinture"
+      - "Contrôler les longerons et les points de soudure sous le tapis"
+      - "Vérifier au marbre si le châssis a été touché : là, on ne rattrape pas"
+
+  - code: corrosion
+    category: major
+    severity: 4
+    base_confidence: 0.80
+    # ÉCART NÉGATIF ASSUMÉ : le marché décote moins que ce que ça coûte.
+    # Sert de repoussoir, pas d'opportunité.
+    components_fr: []
+    components_nl: []
+    faults_fr: [rouille, rouille perforante, corrosion, chassis rouille,
+                bas de caisse rouille]
+    faults_nl: [roest, doorroest, roestschade, roestplekken, corrosie]
+    market_discount: [600, 1800]
+    pro_cost: [800, 4000]
+    risk_penalty: 20
+    checklist:
+      - "Bas de caisse, passages de roue, berceau : sonder au tournevis"
+      - "La rouille perforante coûte plus cher que ce que le marché décote"
+
+  # ═══ ESTHÉTIQUE (nouveau code v2) ═══
+  # Sépare le bobo de carrosserie du vrai accident. Faible décote, faible coût.
+  - code: cosmetic
+    category: maintenance
+    severity: 1
+    base_confidence: 0.70
+    components_fr: []
+    components_nl: []
+    faults_fr: [rayure, rayures, griffes, petit choc, bosse, enfoncement,
+                peinture ecaillee]
+    faults_nl: [lakschade, hagelschade, gebruiksschade, krassen, deuk, deukje,
+                deukjes, parkeerschade]
+    market_discount: [300, 1200]
+    pro_cost: [80, 500]
+    risk_penalty: 1
+    checklist:
+      - "Photos sous lumière rasante : un bobo peut cacher une réparation"
+
+  # ═══ ENTRETIEN ═══
+  - code: tyres
+    category: maintenance
+    severity: 1
+    base_confidence: 0.70
+    components_fr: [pneus, pneu, pneumatiques]
+    components_nl: [banden, band]
+    faults_fr: [pneus a changer, pneus uses, pneus lisses]
+    faults_nl: [banden versleten, banden te vervangen]
+    market_discount: [300, 700]
+    pro_cost: [200, 450]
+    risk_penalty: 0
+    checklist:
+      - "Profondeur des sculptures et date DOT des 4 pneus"
+
+  - code: brakes
+    category: maintenance
+    severity: 1
+    base_confidence: 0.72
+    components_fr: [freins, plaquettes, disques de frein, disques]
+    components_nl: [remmen, remblokken, remschijven]
+    faults_fr: [freins a refaire, plaquettes a changer, disques voiles,
+                freins qui grincent]
+    faults_nl: [remmen versleten, remschijven versleten, remmen te vervangen]
+    market_discount: [400, 900]
+    pro_cost: [120, 350]
+    risk_penalty: 1
+    checklist:
+      - "Épaisseur des plaquettes et état des disques (gorge, voile)"
+
+  - code: battery
+    category: maintenance
+    severity: 1
+    base_confidence: 0.70
+    # "24 kWh accu" = capacité d'une électrique : neutre.
+    components_fr: [batterie]
+    components_nl: [accu, batterij]
+    faults_fr: [batterie hs, batterie a changer, batterie morte]
+    faults_nl: [accu defect, accu leeg, accu vervangen worden]
+    market_discount: [200, 500]
+    pro_cost: [90, 220]
+    risk_penalty: 0
+    checklist:
+      - "Tension au repos > 12,4 V, test de charge sous contrainte"
+
+  - code: aircon
+    category: maintenance
+    severity: 1
+    base_confidence: 0.70
+    # LE cas d'école : "airco" annonce un ÉQUIPEMENT, pas une panne.
+    components_fr: [climatisation, clim, climatiseur, air conditionne]
+    components_nl: [airco, airconditioning, aircondition, klimaatregeling]
+    faults_fr: [clim a recharger, climatisation a recharger, clim hs]
+    faults_nl: [airco bijvullen, airco moet bijgevuld]
+    market_discount: [400, 900]
+    pro_cost: [80, 450]
+    risk_penalty: 0
+    checklist:
+      - "Température de sortie d'air : une recharge simple ou un compresseur ?"
+
+  - code: axle
+    category: mechanical
+    severity: 3
+    base_confidence: 0.78
+    # "achteras defect" releve en base : cher au garage, abordable pour un pro.
+    components_fr: [pont arriere, differentiel, cardan, transmission, arbre de transmission]
+    components_nl: [achteras, differentieel, aandrijfas, homokineet]
+    faults_fr: [cardan hs, differentiel qui siffle]
+    faults_nl: [achteras defect, aandrijfas kapot]
+    market_discount: [1000, 2400]
+    pro_cost: [200, 800]
+    risk_penalty: 4
+    checklist:
+      - "Claquement en virage serré = cardan ; hurlement constant = pont"
+
+  - code: glass
+    category: maintenance
+    severity: 1
+    base_confidence: 0.75
+    # Un impact dans le champ de l'essuie-glace = refus au controle technique.
+    # Le marche s'en effraie, le pro le traite pour une fraction du prix.
+    components_fr: [pare-brise, pare brise, vitre, lunette arriere]
+    components_nl: [voorruit, ruit, achterruit]
+    faults_fr: [pare-brise fissure, impact pare-brise, fissure au pare-brise,
+                vitre cassee]
+    faults_nl: [voorruit gebarsten, barst in de voorruit, ruit kapot, steenslag]
+    market_discount: [400, 1000]
+    pro_cost: [120, 400]
+    risk_penalty: 1
+    checklist:
+      - "Impact dans le champ de balayage = refus au contrôle technique"
+
+  - code: electrical
+    category: mechanical
+    severity: 2
+    base_confidence: 0.70
+    # Le marche fuit l'electricite ("gremlins"). Souvent un connecteur.
+    components_fr: [vitre electrique, leve-vitre, centralisation, telecommande,
+                    cruise control, regulateur de vitesse, capteur, faisceau]
+    components_nl: [afstandsbediening, afstandbediening, ruitbediening,
+                    centrale vergrendeling,
+                    sensor, bedrading, elektronica, stuurbekrachtiging]
+    faults_fr: [probleme electrique, panne electrique, faisceau hs]
+    faults_nl: [elektrisch probleem, elektronica storing, storing in de elektronica]
+    market_discount: [600, 1600]
+    pro_cost: [80, 450]
+    risk_penalty: 4
+    checklist:
+      - "Passer la valise : un défaut électrique isolé ≠ un faisceau à refaire"
+
+  - code: unspecified
+    category: major
+    severity: 3
+    base_confidence: 0.60
+    # "technisch probleem" sans plus de precision. On ne CHIFFRE PAS une
+    # reparation inconnue : ce code sert a signaler qu'il y a quelque chose,
+    # ce qui fait BAISSER la confiance au lieu d'inventer un cout.
+    components_fr: []
+    components_nl: []
+    faults_fr: [probleme technique, probleme mecanique, gros probleme,
+                probleme moteur non identifie]
+    faults_nl: [technisch probleem, technische problemen, mechanisch probleem,
+                technisch defect]
+    market_discount: [0, 0]
+    pro_cost: [0, 0]
+    risk_penalty: 12
+    checklist:
+      - "Problème annoncé sans être nommé : exiger le détail AVANT de te déplacer"
+
+  # ═══ MODIFICATEURS (jamais niables) ═══
+  - code: as_is
+    category: modifier
+    severity: 2
+    base_confidence: 0.90
+    components_fr: []
+    components_nl: []
+    faults_fr: [vendu en l'etat, vendue en l'etat, en l'etat, vendu tel quel,
+                dans l'etat, sans garantie]
+    faults_nl: [in staat van, zoals gezien, wordt verkocht in de staat,
+                zonder garantie, geen garantie]
+    market_discount: [0, 0]
+    pro_cost: [0, 0]
+    risk_penalty: 4
+    checklist: []
+
+  - code: for_parts
+    category: modifier
+    severity: 4
+    base_confidence: 0.90
+    components_fr: []
+    components_nl: []
+    faults_fr: [pour pieces, pour piece, pieces detachees, a demonter,
+                pour la casse]
+    faults_nl: [voor onderdelen, onderdelen auto, sloopauto, loopt niet meer]
+    market_discount: [0, 0]
+    pro_cost: [0, 0]
+    risk_penalty: 30
+    checklist:
+      - "Véhicule annoncé pour pièces : vérifier qu'il est encore immatriculable"

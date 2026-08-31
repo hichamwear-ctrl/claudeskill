@@ -1,0 +1,68 @@
+CAR SNIPER — lot complet
+v3 — moteur d'interpretation (2026-08-31)
+
+REMPLACE INTEGRALEMENT le dossier precedent.
+Conserve uniquement data/carsniper.db de l'ancien dossier.
+
+INSTALLATION
+  1. sauvegarder data/carsniper.db de l'ancien dossier
+  2. decompresser cette archive dans un dossier neuf
+  3. y recreer data/ et y remettre carsniper.db
+  4. pip install pyyaml
+
+COMMANDES
+  python check.py           verification complete, un verdict
+  python run.py fast        une passe de collecte
+  python run.py loop        tourne en continu (90 s)
+  python run.py top 15      classement du jour
+  python run.py digest      recapitulatif Telegram immediat
+  python run.py bootstrap   sweep complet (hebdomadaire, plusieurs heures)
+  python compare.py 10      compare site et base, champ par champ
+  python audit.py           verifie le filtre de fraicheur
+  python redate.py          remet les dates du jour a plat
+  python reprocess.py       retraite tout depuis les donnees brutes
+
+TELEGRAM (permanent)
+  setx TELEGRAM_TOKEN "..."
+  setx TELEGRAM_CHAT_ID "..."
+  puis fermer et rouvrir cmd
+
+CE QUE FAIT LE SYSTEME
+  Alertes uniquement sur les annonces publiees AUJOURD'HUI, par des
+  PARTICULIERS, annees 2005-2026, budget 2000-20000 EUR.
+
+  Reference de marche : pmin, la moins chere du site (moyenne des 3 plus
+  basses) — le vrai concurrent.
+
+  Moteur de negociation : estime la remise obtenable au telephone a partir
+  du texte de l'annonce (defaut declare, "vendu en l'etat", "doit partir",
+  kilometrage eleve). La marge est calculee sur le PRIX NEGOCIE, pas sur le
+  prix affiche. Une voiture au-dessus du marche peut donc devenir une
+  alerte si elle est negociable sous le plancher.
+
+  Seuil d'alerte : 68 (notification_threshold, REELLEMENT applique depuis
+  la v3 ; auparavant le vrai seuil etait 75 sans que rien ne le dise).
+  68-74 = "A REGARDER", 75+ = GOOD / GREAT / SNIPER.
+  Recapitulatif quotidien a 19h.
+
+  GARDE-FOUS (v3)
+    - confiance sous le minimum du segment  -> pas d'alerte
+    - marge ou risque hors seuils du segment -> pas d'alerte
+    - decote inexpliquee par les defauts     -> confiance effondree
+    - defaut non chiffrable (accident, corrosion, moteur, pieces)
+                                             -> confiance plafonnee a 0.45
+    - marge dependant de la seule negociation -> jamais GREAT/SNIPER
+  Chaque plafond declenche est trace dans la table `decisions`.
+
+CE QUI CHANGE EN v3
+  - Le lexique distingue un ORGANE CITE d'un ORGANE EN PANNE.
+    "airco" n'est plus une panne de clim (c'etait 47 % des defauts detectes).
+  - Composes neerlandais : "schadewagen" est vu, "schadevrij" ne l'est pas.
+  - Carburant normalise : "benzine" et "essence" ne sont plus deux marches
+    separes.
+  - "van" (= "de" en NL) ne fait plus d'une Golf un utilitaire.
+  - Plus de cles fourre-tout "bmw|serie" / "mercedes|classe".
+  - Une annonce n'est plus son propre comparable.
+  - Les boutons Telegram fonctionnent et ne confirment que ce qui est
+    reellement enregistre.
+  - Table `decisions` : toute alerte est explicable apres coup.
