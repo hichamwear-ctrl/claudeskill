@@ -529,5 +529,214 @@ check("le résultat porte le détail des défauts",
       "defauts_detail" in res_b and len(res_b["defauts_detail"]) > 0)
 
 
+
+# ═══════════════════════════════════════════════════════════
+#  ÉTAPE 1 — LE RADAR DU JOUR
+#  2ememain est simulé : on teste le comportement du radar,
+#  pas la disponibilité du site.
+# ═══════════════════════════════════════════════════════════
+print("\n[16] RADAR — détection des nouvelles annonces")
+
+import os as _os2, time as _t2, json as _j2
+from carsniper.sources.twoememain import TweedehandsSource as _TS
+from carsniper.storage import db as _db2
+
+_ID = [2_437_000_000]          # compteur d'identifiants, croissant comme sur le site
+
+
+def _annonce(prix=5000, titre="Volkswagen Golf 1.4 TSI", date="Vandaag", **kw):
+    """Fabrique un payload 2ememain plausible."""
+    _ID[0] += 17
+    return {
+        "itemId": f"m{_ID[0]}", "title": titre, "date": date,
+        "categorySpecificDescription": kw.get("desc", "Voiture en bon etat, entretiens faits."),
+        "priceInfo": {"priceCents": prix * 100, "priceType": "FIXED"},
+        "vipUrl": f"/v/auto/{_ID[0]}",
+        "location": {"cityName": kw.get("ville", "Kasterlee"),
+                     "latitude": 51.24, "longitude": 4.94, "distanceMeters": -1000},
+        "imageUrls": ["a", "b", "c", "d", "e"],
+        "sellerInformation": {"sellerId": 1},
+        "attributes": [{"key": "constructionYear", "value": str(kw.get("annee", 2015))},
+                       {"key": "mileage", "value": str(kw.get("km", 140000))},
+                       {"key": "fuel", "value": kw.get("fuel", "Benzine")},
+                       {"key": "transmission", "value": "Handgeschakeld"},
+                       {"key": "advertiser", "value": "Particulier"}],
+    }
+
+
+class _FauxSite(_TS):
+    """2ememain simulé : un stock d'annonces, servi trié par date."""
+
+    def __init__(self, stock=None, trie_par_date=True):
+        super().__init__(delay=0)
+        self.stock = list(stock or [])
+        self.trie_par_date = trie_par_date
+        self.requetes = []
+
+    def publier(self, *annonces):
+        self.stock.extend(annonces)
+
+    def _get(self, params, retries=2):
+        self.requetes.append(dict(params))
+        lot = sorted(self.stock, key=lambda r: int(r["itemId"][1:]),
+                     reverse=True) if self.trie_par_date else list(self.stock)
+        off = int(params.get("offset", 0))
+        lim = int(params.get("limit", 100))
+        return {"listings": lot[off:off + lim], "totalResultCount": len(lot)}
+
+
+def _base_neuve(chemin="/tmp/carsniper_radar.db"):
+    if _os2.path.exists(chemin):
+        _os2.remove(chemin)
+    for suf in ("-wal", "-shm"):
+        if _os2.path.exists(chemin + suf):
+            _os2.remove(chemin + suf)
+    c = _db2.init(chemin)
+    _db2.load_defects(c, lexicon)
+    return c
+
+
+# ── 16a. l'amorçage n'alerte pas, mais enregistre tout ─────
+con = _base_neuve()
+site = _FauxSite([_annonce(prix=4000 + i * 50) for i in range(12)])
+envois = []
+_vrai_send = runmod.notify.send
+runmod.notify.send = lambda msg, url=None: (envois.append(msg), 1)[1]
+try:
+    raws, diag = runmod._collecte_du_jour(con, site, verbose=False)
+    check("l'amorçage lit bien tout le flux du jour", len(raws) == 12)
+    check("le tri par date est reconnu", diag["tri_date"] is True)
+    seen, new = runmod._ingest(con, site, raws, "amorcage",
+                               seller_known="particulier", alerter=False)
+    check("les 12 annonces sont enregistrées", new == 12)
+    check("l'amorçage n'envoie AUCUNE alerte", len(envois) == 0)
+    runmod._set_watermark(con, diag["filigrane_apres"], "fast")
+    con.commit()
+    filigrane1 = runmod._watermark(con, "fast")
+    check("le filigrane est posé", filigrane1 > 0)
+
+    # ── 16b. rien de neuf → aucune relecture inutile, aucune alerte ──
+    site.requetes.clear()
+    raws2, diag2 = runmod._collecte_du_jour(con, site, verbose=False)
+    nouveaux = [r for r in raws2 if runmod._numid(r["itemId"]) > filigrane1]
+    check("un cycle sans nouveauté ne trouve aucune annonce nouvelle",
+          len(nouveaux) == 0)
+    check("il s'arrête au filigrane, sans lire tout le flux",
+          diag2["arret"] == "filigrane atteint" or diag2["pages"] <= 1)
+    seen2, new2 = runmod._ingest(con, site, raws2, "fast_loop",
+                                 seller_known="particulier")
+    check("aucune annonce déjà vue n'est réenregistrée", new2 == 0)
+    check("aucune 2e alerte sur les annonces déjà connues", len(envois) == 0)
+
+    # ── 16c. une nouvelle annonce est captée et analysée ──
+    site.publier(_annonce(prix=2600, titre="Volkswagen Golf 1.4 TSI",
+                          desc="Vends rapidement, voiture en bon etat."))
+    raws3, diag3 = runmod._collecte_du_jour(con, site, verbose=False)
+    nouveaux3 = [r for r in raws3 if runmod._numid(r["itemId"]) > filigrane1]
+    check("la nouvelle annonce est détectée au cycle suivant", len(nouveaux3) == 1)
+    seen3, new3 = runmod._ingest(con, site, raws3, "fast_loop",
+                                 seller_known="particulier")
+    check("elle est enregistrée comme nouvelle", new3 == 1)
+    runmod._set_watermark(con, diag3["filigrane_apres"], "fast")
+    con.commit()
+    check("le filigrane a avancé", runmod._watermark(con, "fast") > filigrane1)
+
+    # ── 16d. la même annonce au cycle d'après : pas de 2e alerte ──
+    avant = len(envois)
+    raws4, _ = runmod._collecte_du_jour(con, site, verbose=False)
+    runmod._ingest(con, site, raws4, "fast_loop", seller_known="particulier")
+    check("l'annonce retrouvée au scan suivant ne réalerte pas",
+          len(envois) == avant)
+finally:
+    runmod.notify.send = _vrai_send
+
+
+# ── 17. la vraie date de publication ────────────────────────
+print("\n[17] DATE DE PUBLICATION — publiée aujourd'hui ≠ vue aujourd'hui")
+con = _base_neuve("/tmp/carsniper_dates.db")
+site = _FauxSite([
+    _annonce(prix=5000, titre="Volkswagen Golf 1.4 TSI", date="Vandaag"),
+    _annonce(prix=5100, titre="Volkswagen Polo 1.2 TSI", date="Gisteren"),
+    _annonce(prix=5200, titre="Opel Corsa 1.2 essence", date="24 aug 26"),
+])
+raws, _ = runmod._collecte_du_jour(con, site, verbose=False)
+runmod._ingest(con, site, raws, "fast_loop", seller_known="particulier")
+from datetime import date as _d, timedelta as _td
+auj, hier = _d.today().isoformat(), (_d.today() - _td(days=1)).isoformat()
+dates = {r["title"]: r["published_at"]
+         for r in con.execute("SELECT title, published_at FROM listings")}
+print(f"     {dates}")
+check("'Vandaag' → aujourd'hui",
+      dates.get("Volkswagen Golf 1.4 TSI") == auj)
+check("'Gisteren' → HIER, plus estampillée aujourd'hui",
+      dates.get("Volkswagen Polo 1.2 TSI") == hier)
+check("une date explicite est respectée",
+      dates.get("Opel Corsa 1.2 essence") not in (auj, None))
+check("une annonce d'hier n'est pas une annonce du jour",
+      len([v for v in dates.values() if v == auj]) == 1)
+
+# la fraîcheur commande bien l'alerte
+p_frais = dict(profile["profile"])
+lst_hier = {"published_at": hier, "first_seen_at": None}
+lst_auj = {"published_at": auj, "first_seen_at": None}
+check("_est_frais accepte l'annonce du jour", runmod._est_frais(lst_auj, p_frais))
+check("_est_frais refuse celle d'hier", not runmod._est_frais(lst_hier, p_frais))
+
+
+# ── 18. robustesse du radar ─────────────────────────────────
+print("\n[18] RADAR — robustesse")
+
+# flux NON trié par date : on ne doit pas s'arrêter au filigrane
+con = _base_neuve("/tmp/carsniper_ordre.db")
+melange = [_annonce(prix=4000 + i * 50) for i in range(30)]
+import random as _rnd
+_rnd.Random(1).shuffle(melange)
+site_melange = _FauxSite(melange, trie_par_date=False)
+raws, diag = runmod._collecte_du_jour(con, site_melange, verbose=False)
+check("un flux non trié par date est reconnu comme tel", diag["tri_date"] is False)
+check("dans ce cas on lit tout le flux (rien n'est raté)", len(raws) == 30)
+
+# le filigrane n'avance pas si l'ingestion échoue
+con = _base_neuve("/tmp/carsniper_filigrane.db")
+site = _FauxSite([_annonce(prix=5000) for _ in range(5)])
+avant = runmod._watermark(con, "fast")
+raws, diag = runmod._collecte_du_jour(con, site, verbose=False)
+check("le filigrane reste inchangé tant qu'on ne l'écrit pas",
+      runmod._watermark(con, "fast") == avant)
+check("le diagnostic propose bien un filigrane à jour",
+      diag["filigrane_apres"] > avant)
+
+# la commande fast accepte --once et rend la main
+import inspect as _ins
+sig = _ins.signature(runmod.cmd_fast)
+check("cmd_fast a un mode --once", "once" in sig.parameters)
+check("cmd_fast boucle par défaut", sig.parameters["once"].default is False)
+src_fast = _ins.getsource(runmod.cmd_fast)
+check("cmd_fast attend entre deux cycles", "time.sleep" in src_fast)
+check("la cadence vient de la configuration", "fast_loop_seconds" in src_fast)
+check("cmd_loop ne relance pas une boucle infinie",
+      "cmd_fast(once=True)" in _ins.getsource(runmod.cmd_loop))
+
+# une passe unique se termine réellement
+con = _base_neuve("/tmp/carsniper_once.db")
+_vrai_init = runmod.db.init
+runmod.db.init = lambda *a, **k: con
+_vrai_source = runmod._source
+runmod._source = lambda: _FauxSite([_annonce(prix=5000 + i * 40) for i in range(6)])
+_vrai_send = runmod.notify.send
+runmod.notify.send = lambda msg, url=None: 1
+try:
+    t0 = _t2.time()
+    runmod.cmd_fast(once=True)
+    check("`fast --once` rend la main (pas de boucle)", _t2.time() - t0 < 20)
+    check("la passe a bien enregistré les annonces",
+          con.execute("SELECT COUNT(*) FROM listings").fetchone()[0] == 6)
+    check("le filigrane est posé après la passe", runmod._watermark(con, "fast") > 0)
+finally:
+    runmod.db.init = _vrai_init
+    runmod._source = _vrai_source
+    runmod.notify.send = _vrai_send
+
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)

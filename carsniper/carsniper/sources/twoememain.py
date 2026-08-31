@@ -154,15 +154,23 @@ class TweedehandsSource(SourceAdapter):
                     return None
         return None
 
+    # Tri par pertinence (defaut du site) et tri par date de publication.
+    # Le second est indispensable au radar : sans lui, une annonce publiee
+    # il y a deux minutes peut se trouver a n'importe quelle page, et il
+    # faut relire tout le flux du jour a chaque cycle pour la trouver.
+    SORT_PERTINENCE = "SORT_INDEX"
+    SORT_DATE = "SORT_DATE"
+
     def _params(self, offset: int, l2: int | None = None,
                 pmin: int | None = None, pmax: int | None = None,
                 limit: int | None = None, private_only: bool = False,
-                today_only: bool = False, since: str | None = None) -> dict:
+                today_only: bool = False, since: str | None = None,
+                sort: str | None = None) -> dict:
         p = {
             "l1CategoryId": self.category_id,
             "limit": limit or self.limit,
             "offset": offset,
-            "sortBy": "SORT_INDEX",
+            "sortBy": sort or self.SORT_PERTINENCE,
             "sortOrder": "DECREASING",
             "viewOptions": "list-view",
         }

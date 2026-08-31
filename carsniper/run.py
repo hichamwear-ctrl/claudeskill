@@ -3,7 +3,9 @@
 
   python run.py init        initialise la base et charge le lexique
   python run.py bootstrap   sweep complet de l'inventaire (une nuit)
-  python run.py fast        une passe de la boucle rapide
+  python run.py fast        RADAR : surveillance continue (~90 s)
+  python run.py fast --once une seule passe
+  python run.py fast --catchup  alerte aussi sur l'amorcage
   python run.py night       snapshots quotidiens + recalcul
   python run.py loop        tourne en continu (rapide + nocturne)
   python run.py top [N]     classement des meilleures annonces actives
@@ -360,16 +362,20 @@ def _tracer_decision(con, listing_id: int, res: dict, mid=None,
 
 def _ingest(con, src, raws: list[dict], job: str,
             seller_known: str | None = None,
-            date_connue: str | None = None) -> tuple[int, int]:
+            date_connue: str | None = None,
+            alerter: bool = True) -> tuple[int, int]:
     sid = db.source_id(con, "2ememain")
     new = 0
     rejets: dict[str, int] = {}
     for raw in raws:
         try:
+            # La date de PUBLICATION vient du site ("Vandaag", "Gisteren",
+            # "24 aug 26"), ancree sur la date de collecte. On ne la force
+            # plus a aujourd'hui : le filtre offeredSince:Vandaag laisse
+            # passer des annonces de la veille (32 sur 995 mesurees sur la
+            # base reelle), et les estampiller du jour faisait alerter sur
+            # des annonces qui ne sont pas nouvelles.
             data = src.parse(raw, seller_known=seller_known)
-            # le flux filtre offeredSince:Vandaag ne contient QUE des annonces
-            # du jour : on le prend pour argent comptant plutot que de
-            # reinterpreter un champ texte
             if date_connue:
                 data["published_at"] = date_connue
             if not data.get("external_id"):
@@ -398,7 +404,7 @@ def _ingest(con, src, raws: list[dict], job: str,
             if is_new or prix_avant != data["price_eur"]:
                 if not is_new:
                     rejets["prix_modifie"] = rejets.get("prix_modifie", 0) + 1
-                analyse(con, lid)
+                analyse(con, lid, send_alert=alerter)
         except Exception as e:
             rejets["erreur"] = rejets.get("erreur", 0) + 1
             if rejets["erreur"] <= 3:
@@ -455,95 +461,169 @@ def _set_watermark(con, v: int, flux: str = "fast") -> None:
                 (f"watermark_{flux}", str(v)))
 
 
-def cmd_fast():
-    """Boucle rapide, bornee par la frontiere du jour.
+def _ordre_par_date(raws: list[dict]) -> bool:
+    """Le lot revient-il vraiment du plus recent au plus ancien ?
 
-    On pagine le flux (particuliers, recents) jusqu'a redescendre sous la
-    borne du jour : a ce moment on a vu TOUTES les annonces publiees depuis
-    minuit, quel que soit le temps ou le systeme etait a l'arret.
+    Le filigrane ne peut interrompre la pagination QUE si le flux est trie
+    par date. `sortBy=SORT_INDEX` (le defaut du site) trie par pertinence :
+    une annonce publiee il y a deux minutes peut alors se trouver page 12,
+    et s'arreter tot ferait rater des annonces.
+
+    On ne suppose rien : on verifie sur le lot recu que les identifiants
+    decroissent (ils sont sequentiels chez 2ememain, verifie sur la base :
+    aucune annonce du jour sous le plus grand identifiant de la veille).
+    Quelques inversions sont tolerees — les annonces mises en avant
+    remontent parfois en tete.
     """
-    con = db.init()
-    src = _source()
+    ids = [_numid(r.get("itemId")) for r in raws]
+    ids = [i for i in ids if i]
+    if len(ids) < 10:
+        return False
+    inversions = sum(1 for a, b in zip(ids, ids[1:]) if b > a)
+    return inversions <= max(2, len(ids) // 20)
+
+
+def _collecte_du_jour(con, src, verbose: bool = True) -> tuple[list[dict], dict]:
+    """Recupere les annonces du jour, en ne relisant que le necessaire.
+
+    Retourne (annonces_brutes, diagnostic).
+    """
+    diag = {"pages": 0, "vues": 0, "tri_date": False, "arret": "",
+            "filigrane_avant": _watermark(con, "fast"), "filigrane_apres": 0}
     pages_max = COLL.get("fast_loop_max_pages", 30)
-    pages_min = COLL.get("fast_loop_pages", 2)
+    filigrane = diag["filigrane_avant"]
 
     raws: list[dict] = []
     vus: set[str] = set()
     page = 0
-    complet = False
+    max_id = filigrane
 
     while page < pages_max:
-        try:
-            d = src._get(src._params(page * src.limit,
-                                     private_only=True, today_only=True))
-        except BlockedError as e:
-            notify.send(f"CAR SNIPER en pause : {e}")
-            return
-
+        d = src._get(src._params(page * src.limit, private_only=True,
+                                 today_only=True, sort=src.SORT_DATE))
         brut = d.get("listings") or []
         if not brut:
-            complet = True
+            diag["arret"] = "flux epuise"
             break
+        diag["pages"] += 1
+        diag["vues"] += len(brut)
 
-        # la deduplication ne doit PAS servir de condition d'arret : une page
-        # entierement deja connue donnait un lot vide et la boucle croyait
-        # avoir tout vu alors qu'il restait des pages entieres a lire.
-        batch = [r for r in brut if str(r.get("itemId")) not in vus]
+        if page == 0:
+            diag["tri_date"] = _ordre_par_date(brut)
+
         for r in brut:
-            vus.add(str(r.get("itemId")))
-        raws.extend(batch)
+            k = str(r.get("itemId") or "")
+            if k and k not in vus:
+                vus.add(k)
+                raws.append(r)
+                max_id = max(max_id, _numid(k))
+
         page += 1
 
-        # c'est la page BRUTE qui dit si le flux est epuise
         if len(brut) < src.limit:
-            complet = True
+            diag["arret"] = "derniere page"
             break
+
+        # ── Arret anticipe : uniquement si le tri par date est confirme ──
+        # On lit une page de SECURITE au-dela du filigrane avant de
+        # s'arreter, pour absorber les annonces mises en avant.
+        if diag["tri_date"] and filigrane:
+            plus_bas = min((_numid(r.get("itemId")) for r in brut
+                            if _numid(r.get("itemId"))), default=0)
+            if plus_bas and plus_bas <= filigrane:
+                diag["arret"] = "filigrane atteint"
+                break
+
         time.sleep(src.delay)
 
-    seen, new = _ingest(con, src, raws, "fast_loop",
-                        seller_known="particulier",
-                        date_connue=datetime.now().date().isoformat())
+    if not diag["arret"]:
+        diag["arret"] = f"limite de {pages_max} pages"
+    diag["filigrane_apres"] = max_id
+    if verbose and not diag["tri_date"] and diag["filigrane_avant"]:
+        print("   [tri] le flux n'est PAS trie par date : relecture complete "
+              "du jour a chaque cycle (plus lent, mais rien n'est rate)")
+    return raws, diag
 
-    # Rattrapage : toute annonce du jour sans score est (re)analysee.
-    # Rend le systeme auto-reparant apres une erreur, une interruption
-    # ou une modification du moteur.
-    manquants = con.execute(
-        """SELECT l.id FROM listings l
-           WHERE l.status='active' AND l.price_eur IS NOT NULL
-             AND l.published_at = date('now','localtime')
-             AND NOT EXISTS(SELECT 1 FROM scores s WHERE s.listing_id=l.id)
-           LIMIT 400""").fetchall()
-    rattrapes = 0
-    for r in manquants:
+
+def cmd_fast(once: bool = False, amorcage_alerte: bool = False):
+    """RADAR — surveille en continu les annonces publiees aujourd'hui.
+
+        python run.py fast            surveillance continue (~90 s)
+        python run.py fast --once     une seule passe (tests, cron)
+        python run.py fast --catchup  alerte aussi sur l'amorcage
+
+    Au tout premier lancement, aucun filigrane n'existe : la passe lit tout
+    le flux du jour pour etablir la reference. Elle n'ENVOIE PAS d'alerte
+    (sauf --catchup), sinon le demarrage inonderait Telegram avec toutes les
+    annonces deja publiees depuis minuit. Les passes suivantes ne lisent que
+    les nouveautes et alertent immediatement.
+    """
+    con = db.init()
+    src = _source()
+    intervalle = COLL.get("fast_loop_seconds", 90)
+    cycle = 0
+
+    while True:
+        cycle += 1
+        debut = time.time()
         try:
-            analyse(con, r["id"])
-            rattrapes += 1
+            amorcage = _watermark(con, "fast") == 0
+            raws, diag = _collecte_du_jour(con, src)
+
+            if amorcage and not amorcage_alerte:
+                print(f"[{datetime.now():%H:%M:%S}] amorcage : {len(raws)} annonces "
+                      f"du jour enregistrees SANS alerte. La surveillance des "
+                      f"nouveautes commence maintenant.")
+                print("   (relance avec --catchup pour alerter aussi sur celles-ci)")
+                seen, new = _ingest(con, src, raws, "amorcage",
+                                    seller_known="particulier", alerter=False)
+            else:
+                seen, new = _ingest(con, src, raws, "fast_loop",
+                                    seller_known="particulier")
+
+            # Le filigrane n'avance QU'APRES une ingestion reussie : une
+            # erreur au milieu ne doit pas faire sauter des annonces.
+            if diag["filigrane_apres"] > diag["filigrane_avant"]:
+                _set_watermark(con, diag["filigrane_apres"], "fast")
+                con.commit()
+
+            try:
+                retours = notify.poll_feedback(con)
+                if retours:
+                    print(f"   {retours} retour(s) de feedback enregistre(s)")
+            except Exception as e:
+                print(f"   [feedback] ignore : {e}")
+
+            duree = time.time() - debut
+            print(f"[{datetime.now():%H:%M:%S}] cycle {cycle} : {diag['pages']} page(s), "
+                  f"{seen} annonce(s) lue(s), {new} nouvelle(s)  "
+                  f"({duree:.0f}s, arret : {diag['arret']})")
+            if duree > intervalle:
+                print(f"   [cadence] la passe a dure {duree:.0f}s pour un "
+                      f"intervalle de {intervalle}s")
+
+        except BlockedError as e:
+            print(f"[{datetime.now():%H:%M:%S}] 2ememain bloque : {e} — "
+                  f"pause {COLL['backoff_on_429_seconds']}s")
+            if once:
+                return
+            time.sleep(COLL["backoff_on_429_seconds"])
+            continue
+        except KeyboardInterrupt:
+            print("\nArrêt.")
+            return
         except Exception as e:
-            if rattrapes < 3:
-                print(f"  ! rattrapage : {e}")
-    if rattrapes:
-        con.commit()
+            import traceback
+            print(f"[{datetime.now():%H:%M:%S}] erreur : {type(e).__name__}: {e}")
+            traceback.print_exc()
+            if once:
+                return
+            time.sleep(min(intervalle, 60))
+            continue
 
-    # Les clics Telegram sont lus a CHAQUE passe, pas seulement dans `loop`.
-    # Telegram jette les updates non recuperes au bout de 24 h : un clic fait
-    # pendant que la boucle etait a l'arret etait perdu definitivement.
-    try:
-        retours = notify.poll_feedback(con)
-        if retours:
-            print(f"   {retours} retour(s) de feedback enregistre(s)")
-    except Exception as e:
-        # Le feedback est un confort : il ne doit jamais empecher la collecte.
-        print(f"   [feedback] ignore : {e}")
-
-    total = con.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
-
-    extra = f"  ({page} page(s))" if page > pages_min else ""
-    if rattrapes:
-        extra += f"  [+{rattrapes} rattrapee(s)]"
-    if not complet:
-        extra += f"  [limite de {pages_max} pages atteinte, relancer 'fast']"
-    print(f"[{datetime.now():%H:%M:%S}] {seen} vues, {new} nouvelles"
-          f"  (base: {total}){extra}")
+        if once:
+            return
+        time.sleep(max(1, intervalle - (time.time() - debut)))
 
 
 def cmd_night(full_sweep: bool = True):
@@ -757,7 +837,11 @@ def cmd_digest(force: bool = False):
 
 
 def cmd_loop():
-    """Boucle principale. Aucune exception ne doit pouvoir l'arreter :
+    """Boucle complete : radar + recalcul nocturne + recapitulatif du soir.
+
+    Pour la seule surveillance des nouvelles annonces, `run.py fast` suffit.
+
+    Aucune exception ne doit pouvoir l'arreter :
     l'ancienne version n'attrapait que BlockedError et KeyboardInterrupt,
     si bien qu'une erreur inattendue dans cmd_fast tuait le processus —
     et avec lui le seul endroit ou les retours Telegram etaient lus."""
@@ -766,7 +850,8 @@ def cmd_loop():
     echecs = 0
     while True:
         try:
-            cmd_fast()
+            # une SEULE passe : c'est cmd_loop qui gere la cadence ici.
+            cmd_fast(once=True)
             echecs = 0
 
             h = datetime.now().hour
@@ -814,13 +899,17 @@ def cmd_stats():
 
 
 if __name__ == "__main__":
-    cmds = {"init": cmd_init, "bootstrap": cmd_bootstrap, "fast": cmd_fast,
+    opts = set(a for a in sys.argv[2:] if a.startswith("--"))
+    cmds = {"init": cmd_init, "bootstrap": cmd_bootstrap,
             "night": cmd_night, "loop": cmd_loop, "stats": cmd_stats,
             "recalc": lambda: cmd_night(full_sweep=False),
             "digest": lambda: cmd_digest(force=True)}
     arg = sys.argv[1] if len(sys.argv) > 1 else "stats"
-    if arg == "top":
-        cmd_top(int(sys.argv[2]) if len(sys.argv) > 2 else 15)
+    if arg == "fast":
+        cmd_fast(once="--once" in opts, amorcage_alerte="--catchup" in opts)
+    elif arg == "top":
+        n = next((int(a) for a in sys.argv[2:] if a.isdigit()), 15)
+        cmd_top(n)
     elif arg in cmds:
         cmds[arg]()
     else:

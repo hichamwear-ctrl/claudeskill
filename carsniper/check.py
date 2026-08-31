@@ -204,6 +204,36 @@ if tok and cid and al and offset == 0:
 elif offset:
     ok(f"boucle de feedback active (dernier update lu : {offset})")
 
+# ── 7bis. RADAR DU JOUR ──
+print("\n7b) RADAR DES NOUVELLES ANNONCES")
+fw = con.execute("SELECT value FROM meta WHERE key='watermark_fast'").fetchone()
+if not fw or int(fw["value"]) == 0:
+    av("aucun filigrane : 'run.py fast' n'a jamais tourne sur cette base")
+else:
+    print(f"   filigrane : {fw['value']}")
+    ok("filigrane pose — la surveillance ne relit que les nouveautes")
+
+vue = con.execute("SELECT MAX(first_seen_at) FROM listings").fetchone()[0]
+if vue:
+    from datetime import datetime as _dt
+    try:
+        d = _dt.fromisoformat(str(vue).replace(" ", "T"))
+        retard = (_dt.now() - d).total_seconds() / 60
+        print(f"   derniere annonce vue : {vue}  (il y a {retard:.0f} min)")
+        if retard > 30:
+            ko(f"le radar n'a rien collecte depuis {retard:.0f} min -> "
+               f"lancer 'python run.py fast'")
+        elif retard > 5:
+            av(f"derniere collecte il y a {retard:.0f} min")
+        else:
+            ok("le radar est a jour")
+    except ValueError:
+        pass
+
+auj_pub = q("SELECT COUNT(*) FROM listings WHERE published_at=?", AUJ)
+auj_vue = q("SELECT COUNT(*) FROM listings WHERE date(first_seen_at)=?", AUJ)
+print(f"   publiees aujourd'hui {auj_pub} | decouvertes aujourd'hui {auj_vue}")
+
 # ── 8. TRACABILITE ──
 print("\n8) TRACABILITE DES DECISIONS")
 try:
