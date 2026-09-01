@@ -815,6 +815,31 @@ try:
     check("la passe a bien enregistré les annonces",
           con.execute("SELECT COUNT(*) FROM listings").fetchone()[0] == 6)
     check("le filigrane est posé après la passe", runmod._watermark(con, "fast") > 0)
+
+    # ── le filigrane n'avance QUE si l'ingestion a réussi ──
+    # Sinon une erreur au milieu d'un cycle ferait sauter définitivement
+    # toutes les annonces de ce cycle : elles ne seraient jamais relues.
+    _fili_avant = runmod._watermark(con, "fast")
+    _n_avant = con.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
+    runmod._source = lambda: _FauxSite([_annonce(prix=9000 + i * 40)
+                                        for i in range(4)])
+    _vrai_ingest = runmod._ingest
+    runmod._ingest = lambda *a, **k: (_ for _ in ()).throw(
+        RuntimeError("coupure réseau en pleine ingestion"))
+    try:
+        runmod.cmd_fast(once=True)          # l'erreur est attrapée, pas fatale
+    finally:
+        runmod._ingest = _vrai_ingest
+    check("une ingestion qui échoue ne fait PAS avancer le filigrane",
+          runmod._watermark(con, "fast") == _fili_avant)
+    check("et n'enregistre aucune annonce à moitié",
+          con.execute("SELECT COUNT(*) FROM listings").fetchone()[0] == _n_avant)
+
+    # le cycle suivant, lui, rattrape bien ces annonces
+    runmod.cmd_fast(once=True)
+    check("le cycle suivant rattrape les annonces du cycle échoué",
+          con.execute("SELECT COUNT(*) FROM listings").fetchone()[0] == _n_avant + 4)
+    check("et le filigrane avance alors", runmod._watermark(con, "fast") > _fili_avant)
 finally:
     runmod.db.init = _vrai_init
     runmod._source = _vrai_source
@@ -1306,6 +1331,56 @@ check("mais un vrai modèle reste identifié",
 check("Golf berline ≠ Golf break",
       not _compat_ok(_k("VW Golf 1.6 TDI", site_body="Berline"),
                      _k("VW Golf 1.6 TDI", site_body="Break")))
+
+
+print("\n[29] REPUBLICATIONS — une voiture republiée = UNE alerte")
+
+import sqlite3 as _sq3
+from carsniper.storage import db as _dbm
+
+_c = _dbm.init(":memory:")
+_sid = _dbm.source_id(_c, "2ememain")
+
+
+def _poser(ext, titre, prix, vkey="toyota|chr|hybride|automatique|1.8|suv",
+           annee=2019):
+    _c.execute(
+        "INSERT INTO listings(source_id, external_id, title, price_eur, year, "
+        "vkey, status, seller_type) VALUES(?,?,?,?,?,?,'active','particulier')",
+        (_sid, ext, titre, prix, annee, vkey))
+    return _c.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+_TITRE = "Toyota C-HR 1.8 CVT HSD TC C-LUB LHD"
+_a = _poser("m1", _TITRE, 17900)
+_b = _poser("m2", _TITRE, 17900)            # republication : autre id du site
+_d = _poser("m3", _TITRE, 16500)            # même voiture, prix baissé
+_e = _poser("m4", "Toyota Yaris 1.5 hybride", 17900,
+            vkey="toyota|yaris|hybride|automatique|1.5|berline")
+
+_anti = dict(profile["antispam"])
+
+go1, _ = _nf.should_notify(_c, _a, 88, "great", 17900, _anti)
+check("la première annonce est notifiée", go1 is True)
+
+_c.execute("INSERT INTO alerts(listing_id, deal_score, tier, sent_at) "
+           "VALUES(?,?,?,datetime('now'))", (_a, 88, "great"))
+_c.commit()
+
+go2, _ = _nf.should_notify(_c, _b, 88, "great", 17900, _anti)
+check("la republication identique n'en déclenche PAS une seconde",
+      go2 is False)
+
+go3, _ = _nf.should_notify(_c, _d, 92, "sniper", 16500, _anti)
+check("mais un prix différent reste une annonce à part", go3 is True)
+
+go4, _ = _nf.should_notify(_c, _e, 88, "great", 17900, _anti)
+check("et une autre voiture au même prix passe toujours", go4 is True)
+
+_anti_off = dict(_anti, suppress_reposts=False)
+go5, _ = _nf.should_notify(_c, _b, 88, "great", 17900, _anti_off)
+check("le garde-fou est débrayable par la config", go5 is True)
+_c.close()
 
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")

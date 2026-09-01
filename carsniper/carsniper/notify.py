@@ -309,6 +309,36 @@ def poll_feedback(con) -> int:
 
 # ── Anti-spam ───────────────────────────────────────────────
 
+def _deja_alertee_ailleurs(con, listing_id: int, antispam: dict) -> bool:
+    """La MEME voiture a-t-elle deja ete annoncee sous une autre annonce ?
+
+    On ne se fie pas a l'identifiant du site : une republication en cree un
+    nouveau. La signature est le contenu — titre, prix, configuration —,
+    la meme que celle qui dedoublonne deja les comparables.
+    """
+    if not antispam.get("suppress_reposts", True):
+        return False
+    heures = antispam.get("repost_window_hours",
+                          antispam.get("cooldown_hours", 72))
+    ref = con.execute(
+        "SELECT title, price_eur, vkey, year, mileage_km FROM listings "
+        "WHERE id=?", (listing_id,)).fetchone()
+    if not ref or not ref["title"] or not ref["price_eur"]:
+        return False
+    jumeau = con.execute(
+        """SELECT 1 FROM alerts a JOIN listings l ON l.id=a.listing_id
+           WHERE a.listing_id <> ?
+             AND l.price_eur = ?
+             AND SUBSTR(LOWER(l.title),1,60) = SUBSTR(LOWER(?),1,60)
+             AND COALESCE(l.vkey,'') = COALESCE(?,'')
+             AND COALESCE(l.year,-1) = COALESCE(?,-1)
+             AND a.sent_at >= datetime('now', ?)
+           LIMIT 1""",
+        (listing_id, ref["price_eur"], ref["title"], ref["vkey"], ref["year"],
+         f"-{int(heures)} hours")).fetchone()
+    return jumeau is not None
+
+
 def should_notify(con, listing_id: int, score: float, tier: str,
                   price: int, antispam: dict) -> tuple[bool, str]:
     if tier == "below":
@@ -331,6 +361,12 @@ def should_notify(con, listing_id: int, score: float, tier: str,
         "ORDER BY sent_at DESC LIMIT 1", (listing_id,)
     ).fetchone()
     if last is None:
+        # Un vendeur republie souvent la MEME voiture sous plusieurs
+        # annonces : identifiants et URL differents, mais meme titre, meme
+        # prix, meme configuration. Sans ce garde-fou, une seule voiture
+        # produisait quatre notifications identiques.
+        if _deja_alertee_ailleurs(con, listing_id, antispam):
+            return False, ""
         return True, "new"
 
     # Une baisse de prix significative passe AVANT le delai d'attente :
