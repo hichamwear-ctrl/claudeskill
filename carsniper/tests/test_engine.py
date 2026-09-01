@@ -295,6 +295,7 @@ check("une annonce bon marché tire bien le plancher — d'où l'exclusion",
       val_avec.pmin < val_sans.pmin)
 
 import run as runmod
+import carsniper.notify as notify_mod
 import inspect
 sig = inspect.signature(runmod._pool)
 check("run._pool exige l'identifiant à exclure", "exclure_id" in sig.parameters)
@@ -1015,6 +1016,113 @@ check("les comparables retenus sont conservés pour l'explication",
       len(v.comparables) == 10 and v.comparables[0]["price_eur"] == 3500)
 check("chaque comparable porte son degré d'incertitude",
       all("flous" in c for c in v.comparables))
+
+# ═══════════════════════════════════════════════════════════
+#  ÉTAPES 5 & 6 — DÉFAUT INFORMATIF, DISTANCE, MESSAGE
+# ═══════════════════════════════════════════════════════════
+print("\n[23] DÉFAUT — une information, jamais une pénalité financière")
+
+_VKC = "opel|corsa|essence|manuelle|1.2|berline"
+
+
+def _marche(mc, n=15):
+    return [{"title": f"Corsa {i}", "price_eur": int(mc * (1 + 0.05 * i)),
+             "mileage_km": 140000 + i * 700, "year": 2014, "vkey": _VKC,
+             "has_defect": False, "defauts_analyses": True,
+             "seller_type": "particulier"} for i in range(n)]
+
+
+def _annonce_test(prix, desc, mc=5000):
+    P = _marche(mc)
+    v = value_market({"year": 2014, "mileage_km": 142000, "vkey": _VKC}, P)
+    lst = {"title": "Opel Corsa 1.2 essence", "description": desc, "price_eur": prix,
+           "mileage_km": 142000, "year": 2014, "photo_count": 10,
+           "seller_type": "particulier", "fuel": "essence",
+           "transmission": "manuelle", "location": "Gent",
+           "latitude": 51.05, "longitude": 3.72, "vkey": _VKC}
+    veh = normalize_vehicle(lst["title"], desc, 2014, "Essence", "Manuelle")
+    hits = detect_defects(f"{lst['title']} {desc}", lexicon)
+    return lst, v, compute_deal(lst, veh, hits, v, len(P), 0.3, 0, None, profile)
+
+# le cas exact de la consigne : 4 000 € face à 5 000 €, embrayage HS
+_l, _v, _saine = _annonce_test(4000, "Voiture en bon etat, airco, 5 portes.")
+_l2, _v2, _defaut = _annonce_test(4000, "Koppeling versleten, moet vervangen worden.")
+print(f"     saine  {_saine['deal_score']:.0f}/100   ·   embrayage HS "
+      f"{_defaut['deal_score']:.0f}/100  (moins chère {_v.pmin} €)")
+check("une annonce à 4 000 € face à 5 000 € est notifiée", _saine["tier"] != "below")
+check("la MÊME annonce avec embrayage HS est notifiée aussi",
+      _defaut["tier"] != "below")
+check("le défaut ne change PAS le score de prix",
+      _saine["score_prix"] == _defaut["score_prix"])
+check("le défaut ne retire rien du prix",
+      _saine["ecart_eur"] == _defaut["ecart_eur"])
+check("mais il est bien détecté et disponible",
+      "clutch" in [d["code"] for d in _defaut["defauts_detail"] if not d["negated"]])
+check("aucun coût de réparation n'existe dans le résultat",
+      not any(k in _defaut for k in
+              ("true_deal_value", "true_cost_low", "margin_pct", "marge_affichee")))
+
+# tous les types de défauts restent dans le radar
+for desc, code in [("Motorschade, rijdt niet meer.", "engine"),
+                   ("Versnellingsbak defect.", "gearbox"),
+                   ("Airco kapot.", "aircon"),
+                   ("Banden versleten.", "tyres"),
+                   ("Accu defect.", "battery"),
+                   ("Carrosserieschade aan de zijkant.", "accident"),
+                   ("Remmen te vervangen.", "brakes")]:
+    _, _, r = _annonce_test(4000, desc)
+    detectes = [d["code"] for d in r["defauts_detail"] if not d["negated"]]
+    check(f"{code:<10} détecté et l'annonce reste notifiable",
+          code in detectes and r["tier"] != "below")
+
+# le message nomme le défaut sans le chiffrer
+_msg = notify_mod.format_alert(_l2, _defaut, 0, 0.3)
+check("le message nomme le défaut en clair", "embrayage" in _msg)
+check("le message ne chiffre AUCUN coût de réparation",
+      "garage" not in _msg.lower() and "toi " not in _msg)
+
+
+print("\n[24] DISTANCE — information, jamais un filtre du score")
+from carsniper.engine import distance_km as _dist
+
+check("Anderlecht → 0 km", _dist(50.8333, 4.3000, 50.8333, 4.3000) == 0.0)
+check("Gent ≈ 47 km", 45 <= _dist(51.05, 3.72, 50.8333, 4.3000) <= 50)
+check("Arlon ≈ 167 km", 160 <= _dist(49.68, 5.81, 50.8333, 4.3000) <= 175)
+check("coordonnées absentes → distance inconnue",
+      _dist(None, None, 50.8333, 4.3000) is None)
+check("coordonnées (0,0) rejetées", _dist(0, 0, 50.8333, 4.3000) is None)
+
+# la distance n'entre pas dans le score
+_proche = dict(_l); _proche.update(latitude=50.84, longitude=4.31)
+_loin = dict(_l); _loin.update(latitude=49.68, longitude=5.81)
+_veh = normalize_vehicle(_l["title"], "", 2014, "Essence", "Manuelle")
+_r_proche = compute_deal(_proche, _veh, [], _v, 15, 0.3, 0, None, profile)
+_r_loin = compute_deal(_loin, _veh, [], _v, 15, 0.3, 0, None, profile)
+check("une voiture à 167 km a EXACTEMENT le même score qu'à 1 km",
+      _r_proche["deal_score"] == _r_loin["deal_score"])
+
+_l["distance_km"] = _dist(51.05, 3.72, 50.8333, 4.3000)
+_msg = notify_mod.format_alert(_l, _saine, 0, 0.3)
+check("le message affiche la ville", "Gent" in _msg)
+check("et la distance depuis Bruxelles", "Bruxelles" in _msg and "47" in _msg)
+check("en précisant que c'est à vol d'oiseau", "vol d'oiseau" in _msg)
+_sans = dict(_l); _sans["distance_km"] = None
+check("distance inconnue → dit clairement, jamais inventée",
+      "inconnue" in notify_mod.format_alert(_sans, _saine, 0, 0.3))
+
+
+print("\n[25] MESSAGE — tout ce qu'il faut pour décider d'appeler")
+_msg = notify_mod.format_alert(_l, _saine, 0, 0.3)
+for quoi, motif in [("le prix demandé", "4 000 €"),
+                    ("la moins chère comparable", "Moins chère comparable"),
+                    ("l'écart en € et en %", "Écart"),
+                    ("le nombre de comparables", "comparables"),
+                    ("le score sur 100", "Score"),
+                    ("la ville", "📍"),
+                    ("la distance", "📏"),
+                    ("la configuration comparée", "Même configuration")]:
+    check(f"le message donne {quoi}", motif in _msg)
+check("la médiane est présente comme information secondaire", "Médiane" in _msg)
 
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")

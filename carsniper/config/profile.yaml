@@ -7,13 +7,15 @@ profile:
   active: true
 
   # ── Localisation ──────────────────────────────────────────
-  # NON UTILISES PAR LE MOTEUR — informatifs seulement. La distance vient
-  # du site (champ distanceMeters), le systeme ne calcule aucun trajet.
+  # APPLIQUES : point de reference pour la distance a vol d'oiseau, calculee
+  # depuis la latitude/longitude de chaque annonce. Le champ distanceMeters
+  # de 2ememain vaut -1000 (inconnu) et n'est pas exploitable.
   base_postal_code: "1070"        # Anderlecht
   base_lat: 50.8333
   base_lon: 4.3000
-  # Applique : filtre d'alerte sur distance_km fourni par 2ememain.
-  max_distance_km: 250            # couvre toute la Belgique
+  # Applique, mais la Belgique tient dans 180 km : ne filtre quasi rien.
+  # La distance sert surtout d'INFORMATION dans l'alerte.
+  max_distance_km: 250
 
   # ── Budget ────────────────────────────────────────────────
   budget_min: 2000

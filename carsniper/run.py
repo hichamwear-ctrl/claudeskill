@@ -150,6 +150,12 @@ def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
         _refuser("mensualite de leasing, pas un prix de vente")
     if not (p["budget_min"] <= lst["price_eur"] <= p["budget_max"]):
         _refuser(f"hors budget {p['budget_min']}-{p['budget_max']} EUR")
+    # Distance a vol d'oiseau depuis la base. `distanceMeters` du site vaut
+    # -1000 (inconnu) : c'est la latitude/longitude du payload qui sert.
+    if lst.get("distance_km") is None:
+        lst["distance_km"] = engine.distance_km(
+            lst.get("latitude"), lst.get("longitude"),
+            p.get("base_lat", 50.8333), p.get("base_lon", 4.3000))
     if lst.get("distance_km") and lst["distance_km"] > p["max_distance_km"]:
         _refuser(f"a {lst['distance_km']:.0f} km (max {p['max_distance_km']})")
     if p.get("year_min") and (not lst.get("year") or lst["year"] < p["year_min"]):

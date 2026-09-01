@@ -29,6 +29,36 @@ def load_config() -> tuple[dict, dict]:
     return profile, lexicon
 
 
+def distance_km(lat: float | None, lon: float | None,
+                base_lat: float, base_lon: float) -> float | None:
+    """Distance A VOL D'OISEAU entre l'annonce et le point de reference.
+
+    2ememain renvoie `distanceMeters: -1000` — une valeur sentinelle, parce
+    que la requete n'envoie aucune origine. Le champ etait donc NULL sur les
+    53 599 annonces de la base, le filtre `max_distance_km` n'a jamais
+    ecarte quoi que ce soit, et l'alerte n'a jamais affiche de distance.
+    Mais le payload contient bien la latitude et la longitude (96 % des
+    annonces) : il suffisait de les utiliser.
+
+    C'est une distance a vol d'oiseau, PAS un trajet routier — en Belgique
+    la route fait typiquement 20 a 30 % de plus. Le message le dit.
+    """
+    if lat is None or lon is None:
+        return None
+    try:
+        lat, lon = float(lat), float(lon)
+    except (TypeError, ValueError):
+        return None
+    if not (-90 <= lat <= 90) or not (-180 <= lon <= 180) or (lat == 0 and lon == 0):
+        return None
+    R = 6371.0
+    p1, p2 = math.radians(base_lat), math.radians(lat)
+    dp = math.radians(lat - base_lat)
+    dl = math.radians(lon - base_lon)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return round(2 * R * math.asin(math.sqrt(a)), 1)
+
+
 def strip_accents(s: str) -> str:
     return "".join(
         c for c in unicodedata.normalize("NFD", s)

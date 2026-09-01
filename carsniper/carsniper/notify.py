@@ -7,6 +7,20 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+# Le code technique du defaut -> un mot que tu lis d'un coup d'oeil.
+DEFAUT_FR = {
+    "clutch": "embrayage", "timing": "distribution", "turbo": "turbo",
+    "injectors": "injecteurs", "dpf_egr": "FAP / EGR", "suspension": "suspension",
+    "starter_alt": "démarreur / alternateur", "warning_light": "voyant allumé",
+    "no_ct": "contrôle technique", "gearbox": "boîte de vitesses",
+    "engine": "moteur", "headgasket": "joint de culasse", "accident": "dommage / accident",
+    "corrosion": "corrosion", "cosmetic": "carrosserie (esthétique)",
+    "tyres": "pneus", "brakes": "freins", "battery": "batterie",
+    "aircon": "climatisation", "axle": "transmission / pont", "glass": "vitrage",
+    "electrical": "électricité", "unspecified": "problème non précisé",
+    "as_is": "vendu en l'état", "for_parts": "pour pièces",
+}
+
 TIER_STYLE = {
     "sniper": ("🔴", "SNIPER"),
     "great": ("🟠", "GREAT DEAL"),
@@ -77,122 +91,122 @@ def _mot_confiance(c: float) -> str:
     return "faible"
 
 
+def _config_lisible(vkey: str | None) -> str:
+    """Traduit la cle technique en une phrase comprehensible."""
+    if not vkey:
+        return ""
+    p = vkey.split("|")
+    if len(p) < 6:
+        return ""
+    make, model, fuel, boite, cyl, body = p[:6]
+    bouts = []
+    if fuel and fuel.lower() not in ("none", "?"):
+        bouts.append(fuel)
+    if boite and boite.lower() not in ("none", "?"):
+        bouts.append(boite)
+    if cyl and cyl not in ("?", "None"):
+        bouts.append(f"{cyl} L")
+    if body and body.lower() not in ("none", "?"):
+        bouts.append(body)
+    return " · ".join(bouts)
+
+
 def format_alert(listing: dict, res: dict, drops: int = 0,
                  age_days: float = 0) -> str:
-    """Message d'alerte.
+    """Message d'alerte — un radar de prix, lisible en dix secondes.
 
-    Objectif : permettre de trancher "j'appelle ou pas" en dix secondes.
-    L'ordre suit le raisonnement du mecanicien — ce que vaut la voiture,
-    ce qu'elle coute vraiment, ce qui reste — et separe explicitement ce
-    qui est TENU (prix affiche) de ce qui est SUPPOSE (la negociation).
+    Prix demande, VRAIE moins chere comparable, ecart, nombre de
+    comparables, score, ville et distance. Le defaut eventuel est une
+    INFORMATION : il est nomme, jamais chiffre ni soustrait du prix.
     """
     emoji, label = TIER_STYLE.get(res["tier"], ("⚪", "DEAL"))
     val = res["valuation"]
-    rep = res["repairs"]
-    nego = res.get("negociation") or {}
     price = listing["price_eur"]
-    cible = res.get("prix_negocie") or price
-    ref = res.get("reference") or getattr(val, "pmin", None) or val.p50 or 0
-    conf = res.get("confidence") or 0
+    mc = res.get("moins_chere")
+    med = res.get("mediane")
+    ecart = res.get("ecart_eur")
+    ecart_pct = res.get("ecart_pct")
 
-    L = [f"{emoji} <b>{label} — {res['deal_score']:.0f}/100</b>",
-         f"Confiance : <b>{_mot_confiance(conf)}</b> ({conf:.0%})",
-         ""]
+    L = []
 
-    L.append(f"<b>{(listing.get('title') or '')[:70]}</b>")
+    # ── la voiture ──
+    ligne = f"🚗 <b>{(listing.get('title') or '')[:64]}</b>"
+    L.append(ligne)
     meta = []
     if listing.get("year"):
         meta.append(str(listing["year"]))
     if listing.get("mileage_km"):
         meta.append(f"{int(listing['mileage_km']):,}".replace(",", " ") + " km")
-    if listing.get("transmission"):
-        meta.append(str(listing["transmission"]))
-    if listing.get("fuel"):
-        meta.append(str(listing["fuel"]))
     if meta:
-        L.append(" · ".join(meta))
-    lieu = []
-    if listing.get("location"):
-        lieu.append(f"📍 {listing['location']}")
-    if listing.get("distance_km"):
-        lieu.append(f"{listing['distance_km']:.0f} km")
-    if lieu:
-        L.append(" · ".join(lieu))
+        L.append("   " + " — ".join(meta))
 
-    # ── L'arithmetique, alignee ──────────────────────────────
-    lignes = [
-        ("Marché comparable", _eur(val.p50), f"{val.n} annonces"),
-        ("Moins chère du site", _eur(ref), "← référence"),
-        ("Prix affiché", _eur(price), ""),
-    ]
-    if nego.get("taux"):
-        lignes.append(("Négo estimée", _eur(cible), f"−{nego['taux']:.0%} · hypothèse"))
-    if rep.get("items"):
-        lignes.append(("Réparation (toi)",
-                       f"{_eur(rep['pro_low'])[:-2]}–{_eur(rep['pro_high'])}", ""))
-    lignes.append(("Ton coût réel",
-                   f"{_eur(res.get('true_cost_low'))[:-2]}–"
-                   f"{_eur(res.get('true_cost_high'))}", ""))
-
-    larg = max(len(a) for a, _, _ in lignes)
-    largv = max(len(b) for _, b, _ in lignes)
-    bloc = []
-    for a, b, c in lignes:
-        ligne = f"{a:<{larg}}  {b:>{largv}}"
-        if c:
-            ligne += f"  {c}"
-        bloc.append(ligne)
-    L.append("")
-    L.append("<pre>" + "\n".join(bloc) + "</pre>")
+    # ── ou ──
+    lieu = f"📍 {listing.get('location') or 'lieu inconnu'}"
+    d = listing.get("distance_km")
+    if d is not None:
+        lieu += f"\n📏 Bruxelles : ~{d:.0f} km à vol d'oiseau"
+    else:
+        lieu += "\n📏 Distance inconnue (coordonnées absentes de l'annonce)"
+    L.append(lieu)
     L.append("")
 
-    # ── La marge, avec sa part hypothetique ──────────────────
-    tdv = res.get("true_deal_value") or 0
-    mp = res.get("margin_pct") or 0
-    tenue = res.get("marge_affichee")
-    L.append(f"💰 <b>MARGE ~{_eur(tdv)} ({mp:.0f} %)</b>")
-    if tenue is not None and nego.get("remise"):
-        if tenue > 0:
-            L.append(f"   · {_eur(tenue)} tenus au prix affiché")
-            L.append(f"   · {_eur(tdv - tenue)} dépendent de la négo")
-        else:
-            L.append("   ⚠️ nulle au prix affiché — repose entièrement "
-                     "sur la remise supposée")
+    # ── le prix, le coeur du message ──
+    L.append(f"💰 <b>Prix : {_eur(price)}</b>")
+    if mc:
+        L.append(f"🔻 Moins chère comparable : <b>{_eur(mc)}</b>")
+        if med and med != mc:
+            L.append(f"📊 Médiane du marché : {_eur(med)}")
+        if ecart is not None:
+            if ecart > 0:
+                L.append(f"📈 Écart : <b>+{_eur(ecart)} / {ecart_pct:+.0f} %</b>")
+            elif ecart < 0:
+                L.append(f"📉 Écart : <b>{_eur(ecart)} / {ecart_pct:+.0f} %</b>  "
+                         f"(sous la moins chère)")
+            else:
+                L.append("🎯 <b>Au prix exact de la moins chère comparable</b>")
+        L.append(f"📊 {val.n} comparables"
+                 + (f" · tolérance {val.niveau}" if val.niveau != "strict" else ""))
 
-    # ── Le defaut, chiffre ───────────────────────────────────
-    if rep.get("items"):
-        L.append("")
-        detail = {d["code"]: d for d in (res.get("defauts_detail") or [])
-                  if not d.get("negated")}
-        for code, pro, mkt in rep["items"]:
-            d = detail.get(code, {})
-            trouve = d.get("matched")
+    L.append("")
+    L.append(f"🎯 <b>Score : {res['deal_score']:.0f}/100</b>  ·  {label}")
+
+    # ── le defaut : une information, jamais un calcul ──
+    actifs = [d for d in (res.get("defauts_detail") or [])
+              if not d.get("negated")]
+    if actifs:
+        noms = []
+        for d in actifs:
+            n = DEFAUT_FR.get(d["code"], d["code"])
             if d.get("trigger"):
-                trouve = f"{trouve} … {d['trigger']}"
-            ded = " (déduit)" if d.get("evidence") == "component+marker" else ""
-            L.append(f"🔧 <b>{code}</b>" + (f" — « {trouve} »" if trouve else "") + ded)
-            L.append(f"   garage {_eur(mkt[0])[:-2]}–{_eur(mkt[1])} · "
-                     f"<b>toi {_eur(pro[0])[:-2]}–{_eur(pro[1])}</b>")
+                n += f" (« {d['matched']} … {d['trigger']} »)"
+            elif d.get("matched"):
+                n += f" (« {d['matched']} »)"
+            noms.append(n)
+        L.append(f"🔧 Défaut déclaré : {', '.join(noms[:3])}")
 
-    if nego.get("raisons"):
-        L.append("")
-        L.append("🗣️ Leviers : " + ", ".join(nego["raisons"][:3]))
+    # ── sur quoi porte la comparaison ──
+    cfg = _config_lisible(listing.get("vkey"))
+    if cfg:
+        L.append(f"➡️ Même configuration : {cfg}")
 
-    # ── Ce qui limite la confiance : jamais masque ───────────
+    # ── ce qui limite la confiance : jamais masque ──
     limites = res.get("confidence_limites") or []
     if limites:
         L.append("")
-        L.append("⚠️ <b>Ce qui limite la confiance</b>")
-        for x in limites[:4]:
+        L.append(f"⚠️ Fiabilité de la comparaison : {res['fiabilite']:.0%}")
+        for x in limites[:3]:
             L.append(f"   • {x}")
+    if val.exclus:
+        L.append("⚠️ Annonce(s) écartée(s) du calcul : "
+                 + ", ".join(_eur(x) for x in val.exclus))
 
     if res.get("risk", 100) < 60:
-        L.append(f"🚨 Risque élevé ({res['risk']:.0f}/100)")
+        L.append(f"🚨 Signaux de prudence sur l'annonce ({res['risk']:.0f}/100)")
 
     if res.get("checklist"):
         L.append("")
         L.append("🔍 <b>À vérifier sur place</b>")
-        for c in list(dict.fromkeys(res["checklist"]))[:4]:
+        for c in list(dict.fromkeys(res["checklist"]))[:3]:
             L.append(f"   • {c}")
 
     pied = []
