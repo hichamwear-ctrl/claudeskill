@@ -404,6 +404,7 @@ def _ingest(con, src, raws: list[dict], job: str,
     sid = db.source_id(con, "2ememain")
     new = 0
     rejets: dict[str, int] = {}
+    reevaluees = 0
     for raw in raws:
         try:
             # La date de PUBLICATION vient du site ("Vandaag", "Gisteren",
@@ -440,13 +441,18 @@ def _ingest(con, src, raws: list[dict], job: str,
             # Sans ca, une baisse de 1000 EUR a 14h attendait la nuit.
             if is_new or prix_avant != data["price_eur"]:
                 if not is_new:
-                    rejets["prix_modifie"] = rejets.get("prix_modifie", 0) + 1
+                    # Une annonce dont le prix bouge est REEVALUEE. La
+                    # compter dans `rejets` la faisait afficher sous
+                    # "non evaluees", c'est-a-dire l'inverse de la verite.
+                    reevaluees += 1
                 analyse(con, lid, send_alert=alerter)
         except Exception as e:
             rejets["erreur"] = rejets.get("erreur", 0) + 1
             if rejets["erreur"] <= 3:
                 print(f"  ! {e}")
     con.commit()
+    if reevaluees:
+        print(f"   ({reevaluees} annonce(s) reevaluee(s) apres changement de prix)")
     if rejets:
         detail = ", ".join(f"{k}={v}" for k, v in sorted(rejets.items()))
         print(f"   (non evaluees : {detail})")

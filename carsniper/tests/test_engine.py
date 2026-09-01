@@ -1570,5 +1570,56 @@ check("une panne ne fait pas avancer le filigrane",
 _cp.close()
 
 
+print("\n[33] RADAR DE BOUT EN BOUT — baisse de prix et absence de plafond")
+
+# Le radar doit re-notifier une annonce dont le prix BAISSE, même si elle
+# a déjà été alertée : c'est précisément l'événement à ne pas rater.
+_cr = _base_neuve("/tmp/carsniper_baisse.db")
+_msgs = []
+_vi, _vs, _vsrc = runmod.db.init, runmod.notify.send, runmod._source
+runmod.db.init = lambda *a, **k: _cr
+runmod.notify.send = lambda msg, url=None: (_msgs.append(msg), 55)[1]
+
+# Un marché : 14 Golf comparables autour de 8 000 €, plus la cible à 5 200 €.
+_site = _FauxSite([_annonce(prix=8000 + i * 60, km=140000 + i * 500)
+                   for i in range(14)])
+_cible = _annonce(prix=5200, km=141000)
+_site.publier(_cible)
+runmod._source = lambda: _site
+try:
+    runmod.cmd_fast(once=True, amorcage_alerte=True)   # amorçage AVEC alertes
+    _n1 = len(_msgs)
+    check(f"la bonne affaire est notifiée au premier passage ({_n1} message(s))",
+          _n1 >= 1)
+
+    _msgs.clear()
+    runmod.cmd_fast(once=True)
+    check("le cycle suivant ne la renotifie pas", len(_msgs) == 0)
+
+    # Le vendeur baisse son prix de 900 € : l'événement doit repartir.
+    _cible["priceInfo"]["priceCents"] = 4300 * 100
+    _msgs.clear()
+    runmod.cmd_fast(once=True)
+    check("une baisse de prix significative EST notifiée",
+          len(_msgs) == 1 and "4 300" in _msgs[0])
+
+    # Une baisse dérisoire ne redéclenche rien.
+    _cible["priceInfo"]["priceCents"] = 4290 * 100
+    _msgs.clear()
+    runmod.cmd_fast(once=True)
+    check("une baisse dérisoire ne redéclenche rien", len(_msgs) == 0)
+
+    # ── AUCUN plafond : 30 bonnes affaires d'un coup = 30 notifications ──
+    for i in range(30):
+        _site.publier(_annonce(prix=5000 + i, km=140500 + i))
+    _msgs.clear()
+    runmod.cmd_fast(once=True)
+    check(f"30 bonnes affaires simultanées → 30 notifications (reçu : {len(_msgs)})",
+          len(_msgs) == 30)
+finally:
+    runmod.db.init, runmod.notify.send, runmod._source = _vi, _vs, _vsrc
+    _cr.close()
+
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)
