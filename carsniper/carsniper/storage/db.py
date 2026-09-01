@@ -118,13 +118,37 @@ def store_raw(con, src_id: int, external_id: str, url: str, payload: dict) -> in
 
 LISTING_COLS = (
     "title description price_eur price_type is_lease mileage_km year fuel transmission "
-    "power_kw location postal_code distance_km seller_type seller_id "
+    "power_kw location postal_code seller_type seller_id "
     "photo_count published_at url site_model site_body latitude longitude"
 ).split()
 
+# `distance_km` est CALCULEE apres le parsing, pas fournie par le site.
+# Elle etait dans LISTING_COLS, donc chaque revue d'annonce la remettait a
+# NULL : 2 044 annonces de la base reelle avaient perdu leur distance, et
+# le message affichait alors "coordonnees absentes" — un mensonge, elles
+# etaient bien la.
 
-def upsert_listing(con, src_id: int, external_id: str, data: dict) -> tuple[int, bool]:
-    """Retourne (listing_id, is_new)."""
+# Colonnes ou une valeur CONNUE ne doit jamais etre remplacee par NULL :
+# une reponse partielle du site (attribut absent le temps d'une requete)
+# detruisait durablement la donnee, et l'annonce sortait des comparables.
+JAMAIS_EFFACER = {
+    "mileage_km", "year", "fuel", "transmission", "power_kw",
+    "latitude", "longitude", "site_model", "site_body", "url",
+    "title", "location", "postal_code", "seller_type", "published_at",
+}
+
+
+def upsert_listing(con, src_id: int, external_id: str, data: dict,
+                   reconstruire: bool = False) -> tuple[int, bool]:
+    """Retourne (listing_id, is_new).
+
+    `reconstruire=True` reecrit TOUTES les colonnes, y compris avec des
+    NULL. Reserve au retraitement complet (`reprocess.py`), qui rejoue les
+    payloads bruts et doit pouvoir NETTOYER une valeur devenue invalide —
+    un kilometrage sentinelle 999 999, par exemple. Le chemin courant,
+    lui, ne doit jamais effacer une donnee connue a cause d'une reponse
+    partielle du site.
+    """
     row = con.execute(
         "SELECT id, price_eur FROM listings WHERE source_id=? AND external_id=?",
         (src_id, external_id),
@@ -147,12 +171,28 @@ def upsert_listing(con, src_id: int, external_id: str, data: dict) -> tuple[int,
         return lid, True
 
     lid = row["id"]
-    sets = ", ".join(f"{k}=?" for k in LISTING_COLS)
+    # On n'ecrase JAMAIS une valeur connue par un NULL venu d'une reponse
+    # incomplete. Seul le prix peut legitimement disparaitre — quand
+    # l'annonce passe en "Bieden" / "N.o.t.k.", ce que `price_type` dit.
+    a_ecrire = []
+    for k in LISTING_COLS:
+        v = fields.get(k)
+        if v is None and k in JAMAIS_EFFACER and not reconstruire:
+            continue
+        a_ecrire.append(k)
+    if (not reconstruire and fields.get("price_eur") is None
+            and not fields.get("price_type")):
+        # prix absent SANS type de prix : c'est un echec de lecture, pas un
+        # passage aux encheres. On garde l'ancien prix.
+        if "price_eur" in a_ecrire:
+            a_ecrire.remove("price_eur")
+
+    sets = ", ".join(f"{k}=?" for k in a_ecrire)
     con.execute(
         f"UPDATE listings SET {sets}, last_seen_at=?, status='active' WHERE id=?",
-        [fields[k] for k in LISTING_COLS] + [now(), lid],
+        [fields[k] for k in a_ecrire] + [now(), lid],
     )
-    if row["price_eur"] != fields.get("price_eur"):
+    if "price_eur" in a_ecrire and row["price_eur"] != fields.get("price_eur"):
         snapshot(con, lid, fields.get("price_eur"), "active")
     return lid, False
 
@@ -232,3 +272,77 @@ if __name__ == "__main__":
     print(f"Base initialisée : {DB_PATH}")
     print(f"Défauts chargés  : {con.execute('SELECT COUNT(*) FROM defects').fetchone()[0]}")
     print(f'Tables           : ' + str(con.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'").fetchone()[0]))
+
+
+# ── VERROU DE PROCESSUS ─────────────────────────────────────────────
+# Rien n'empechait deux `run.py fast` de tourner ensemble : les deux
+# envoyaient la meme alerte, et `_set_watermark` etant un simple ecrasement,
+# le filigrane pouvait RECULER. Le verrou vit dans la base elle-meme : pas
+# de fichier orphelin a nettoyer, et il survit a un changement de
+# repertoire de travail.
+
+VERROU_PERIME_S = 300          # sans battement depuis 5 min : instance morte
+
+
+class VerrouOccupe(RuntimeError):
+    """Une autre instance travaille deja sur cette base."""
+
+
+def prendre_verrou(con, tache: str) -> bool:
+    """Tente de prendre le verrou. Renvoie True si obtenu.
+
+    Un verrou dont le battement est trop vieux est considere comme laisse
+    par un processus mort : on le reprend, en le disant.
+    """
+    import os
+    import socket
+    maintenant = datetime.now(timezone.utc)
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        r = con.execute("SELECT pid, hote, tache, battement FROM verrou "
+                        "WHERE id=1").fetchone()
+        if r is not None:
+            try:
+                age = (maintenant - datetime.fromisoformat(
+                    r["battement"])).total_seconds()
+            except (ValueError, TypeError):
+                age = VERROU_PERIME_S + 1
+            meme_process = (r["pid"] == os.getpid()
+                            and r["hote"] == socket.gethostname())
+            if age <= VERROU_PERIME_S and not meme_process:
+                con.rollback()
+                return False
+            if age > VERROU_PERIME_S and not meme_process:
+                print(f"[verrou] verrou perime repris (pid {r['pid']}, "
+                      f"tache {r['tache']}, {age:.0f}s sans battement)")
+        con.execute(
+            "INSERT INTO verrou(id, pid, hote, tache, pris_le, battement) "
+            "VALUES(1,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET "
+            "pid=excluded.pid, hote=excluded.hote, tache=excluded.tache, "
+            "pris_le=excluded.pris_le, battement=excluded.battement",
+            (os.getpid(), socket.gethostname(), tache,
+             maintenant.isoformat(timespec="seconds"),
+             maintenant.isoformat(timespec="seconds")))
+        con.commit()
+        return True
+    except Exception:
+        con.rollback()
+        raise
+
+
+def battre_verrou(con) -> None:
+    """A appeler a chaque cycle : prouve que l'instance est vivante."""
+    import os
+    con.execute("UPDATE verrou SET battement=? WHERE id=1 AND pid=?",
+                (datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                 os.getpid()))
+    con.commit()
+
+
+def rendre_verrou(con) -> None:
+    import os
+    try:
+        con.execute("DELETE FROM verrou WHERE id=1 AND pid=?", (os.getpid(),))
+        con.commit()
+    except Exception:
+        pass

@@ -32,6 +32,33 @@ class SourceAdapter(ABC):
     def parse(self, raw: dict) -> dict: ...
 
 
+# Bornes de vraisemblance. Une valeur hors de ces bornes n'est pas une
+# donnee : c'est un artefact (priceCents malforme, kilometrage saisi en
+# metres, annee absurde). La retenir faussait la mediane, l'ecart
+# interquartile et donc la fiabilite. Mesure sur la base reelle :
+# 351 annonces au-dela de 900 000 km, 8 au-dela de 100 000 EUR.
+PRIX_MAX = 500_000
+# 999 999 est la valeur SENTINELLE du site pour "kilometrage non
+# communique" : 310 annonces la portent, contre 4 seulement a 600 000.
+# Au-dela de 900 000 km il n'y a plus de donnee, seulement du bruit.
+# On conserve les 240 annonces entre 500 000 et 900 000 : un utilitaire
+# peut reellement les atteindre.
+KM_MAX = 900_000
+ANNEE_MAX = 2100
+
+
+def _borne(v, mini, maxi):
+    """Renvoie la valeur si elle est plausible, None sinon. On prefere
+    l'absence de donnee a une donnee fausse."""
+    if v is None:
+        return None
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        return None
+    return v if mini <= v <= maxi else None
+
+
 class BlockedError(RuntimeError):
     """Le site refuse les requetes. On s'arrete, on ne contourne pas."""
 
@@ -340,9 +367,13 @@ class TweedehandsSource(SourceAdapter):
             "title": raw.get("title"),
             "description": raw.get("categorySpecificDescription")
                            or raw.get("description") or "",
-            "price_eur": int(price / 100) if isinstance(price, int) and price > 0 else None,
-            "mileage_km": self._int(self._attr(raw, "mileage", "kilometerstand")),
-            "year": self._int(self._attr(raw, "constructionYear", "bouwjaar")),
+            "price_eur": _borne(int(price / 100), 1, PRIX_MAX)
+                         if isinstance(price, int) and price > 0 else None,
+            "mileage_km": _borne(self._int(self._attr(raw, "mileage",
+                                                      "kilometerstand")),
+                                 0, KM_MAX),
+            "year": _borne(self._int(self._attr(raw, "constructionYear",
+                                                "bouwjaar")), 1900, ANNEE_MAX),
             "fuel": self._attr(raw, "fuel", "brandstof"),
             "transmission": self._attr(raw, "transmission", "transmissie"),
             "power_kw": self._int(self._attr(raw, "power", "vermogen")),

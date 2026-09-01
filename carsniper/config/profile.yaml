@@ -10,7 +10,6 @@ profile:
   # APPLIQUES : point de reference pour la distance a vol d'oiseau, calculee
   # depuis la latitude/longitude de chaque annonce. Le champ distanceMeters
   # de 2ememain vaut -1000 (inconnu) et n'est pas exploitable.
-  base_postal_code: "1070"        # Anderlecht
   base_lat: 50.8333
   base_lon: 4.3000
   # Applique, mais la Belgique tient dans 180 km : ne filtre quasi rien.
@@ -72,9 +71,11 @@ segments:
 
 # ── Paliers d'alerte ────────────────────────────────────────
 tiers:
-  good:   { min: 75, max: 84,  emoji: "🟢", label: "GOOD DEAL"  }
-  great:  { min: 85, max: 92,  emoji: "🟠", label: "GREAT DEAL" }
-  sniper: { min: 93, max: 100, emoji: "🔴", label: "SNIPER"     }
+  # `min` decide du palier, `emoji` et `label` sont affiches dans l'alerte.
+  # Ces trois cles sont toutes reellement lues.
+  good:   { min: 75, emoji: "🟢", label: "GOOD DEAL"  }
+  great:  { min: 85, emoji: "🟠", label: "GREAT DEAL" }
+  sniper: { min: 93, emoji: "🔴", label: "SNIPER"     }
 
 # SEUIL D'ENVOI REEL. Une annonce sous ce score est stockee et visible dans
 # `run.py top`, mais aucune alerte ne part. Les garde-fous du moteur
@@ -106,9 +107,11 @@ antispam:
 # ── Collecte ────────────────────────────────────────────────
 collection:
   fast_loop_seconds: 90         # cadence de la boucle rapide
-  fast_loop_pages: 2            # pages lues par défaut
   fast_loop_max_pages: 30       # 3000 annonces max par passage
   night_loop_hour: 3
+  # Jour du balayage COMPLET (0 = lundi ... 6 = dimanche). C'est la seule
+  # passe qui retire du marche les annonces disparues du site.
+  full_sweep_weekday: 6
   bootstrap_max_pages: 900
   request_delay_seconds: 2.5      # cadence fixe, un seul thread — applique
   user_agent: "CarSniper/1.0 (usage personnel)"

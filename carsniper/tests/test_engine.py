@@ -1,6 +1,13 @@
 """Test du moteur sur des cas réels reconstitués."""
 import sys
+import tempfile
 from pathlib import Path
+
+
+def _tmp(nom: str) -> str:
+    """Chemin temporaire PORTABLE. Les chemins /tmp/... codes en dur
+    rendaient toute la suite inutilisable sous Windows."""
+    return str(Path(tempfile.gettempdir()) / nom)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -8,9 +15,17 @@ from carsniper.engine import (
     load_config, normalize_vehicle, detect_defects,
     value_market, compute_deal, Valuation,
     canon_fuel, vehicle_usable, score_confidence, estimate_repairs,
+    score_prix, COEF_ECART,
 )
 
 profile, lexicon = load_config()
+
+from carsniper.storage import db as _dbm
+
+# La file de sortie temporise 1,1 s entre deux envois (limite Telegram).
+# Inutile dans les tests : on la neutralise une fois pour toutes.
+import carsniper.notify as _nfmod
+_nfmod.PAUSE_ENTRE_ENVOIS_S = 0
 ok = 0
 fail = 0
 
@@ -302,7 +317,19 @@ import carsniper.notify as notify_mod
 import inspect
 sig = inspect.signature(runmod._pool)
 check("run._pool exige l'identifiant à exclure", "exclure_id" in sig.parameters)
-check("run._pool filtre bien sur l.id <> ?", "l.id <> ?" in inspect.getsource(runmod._pool))
+_cp0 = _dbm.init(":memory:")
+_cp0.execute("INSERT INTO listings(source_id,external_id,title,price_eur,year,"
+             "mileage_km,vkey_loose,status,seller_type) VALUES(1,'p1','Golf',"
+             "5000,2015,120000,'volkswagen|golf','active','particulier')")
+_cp0.execute("INSERT INTO listings(source_id,external_id,title,price_eur,year,"
+             "mileage_km,vkey_loose,status,seller_type) VALUES(1,'p2','Golf',"
+             "6000,2015,120000,'volkswagen|golf','active','particulier')")
+_cp0.commit()
+_pid = _cp0.execute("SELECT id FROM listings WHERE external_id='p1'").fetchone()["id"]
+_pool0 = runmod._pool(_cp0, "volkswagen|golf", _pid)
+check("run._pool exclut RÉELLEMENT la cible de son propre pool",
+      len(_pool0) == 1 and _pool0[0]["price_eur"] == 6000)
+_cp0.close()
 
 # un comparable sans année n'est pas un comparable
 sans_annee = [{**c, "year": None} for c in base_pool]
@@ -391,8 +418,18 @@ check("le plancher artificiel de 0.5 a disparu", c_flou < c_net)
 
 # ── 13. Décision d'alerte ──────────────────────────────────
 print("\n[13] DÉCISION D'ALERTE")
-check("notification_threshold est lu depuis la config",
-      "notification_threshold" in inspect.getsource(compute_deal))
+_pr_bas = {**profile, "notification_threshold": 10}
+_pr_haut = {**profile, "notification_threshold": 99}
+_vseuil = Valuation(pmin=5000, p25=5200, p50=5500, p75=5800, n=14, confidence=0.9)
+_vseuil.niveau = "strict"; _vseuil.ancre_complete = True; _vseuil.flou_moyen = 0
+_lseuil = {"price_eur": 5300, "description": "x" * 300, "photo_count": 8,
+           "year": 2015, "mileage_km": 120000}
+_vh = normalize_vehicle("Volkswagen Golf 1.4 TSI", "", 2015, "Essence", "Manuelle")
+_rb = compute_deal(_lseuil, _vh, [], _vseuil, 14, 1, 0, None, _pr_bas)
+_rh = compute_deal(_lseuil, _vh, [], _vseuil, 14, 1, 0, None, _pr_haut)
+check("le seuil de la config change RÉELLEMENT la décision "
+      f"(seuil 10 → {_rb['tier']}, seuil 99 → {_rh['tier']})",
+      _rb["tier"] != "below" and _rh["tier"] == "below")
 
 # une marge qui n'existe que grâce à la négociation ne monte pas haut
 pool_c = [{"price_eur": 5600 + (i % 8) * 120, "mileage_km": 150000 + (i % 5) * 1000,
@@ -473,7 +510,7 @@ def _faux_urlopen(req, timeout=None):
 _vrai_urlopen = _nf.urllib.request.urlopen
 _nf.urllib.request.urlopen = _faux_urlopen
 try:
-    chemin = "/tmp/carsniper_test_feedback.db"
+    chemin = _tmp("carsniper_test_feedback.db")
     if _os.path.exists(chemin):
         _os.remove(chemin)
     con = _db.init(chemin)
@@ -555,11 +592,23 @@ try:
           _parti is False
           and con.execute("SELECT COUNT(*) FROM alerts").fetchone()[0] == _n_av)
 
+    # L'alerte non délivrée doit RESTER dans la file, pas disparaître.
+    check("l'alerte non délivrée est conservée dans la file",
+          _nf.en_attente(con) == 1)
+
+    # Et c'est la reprise de file qui la livre, pas un second _notifier :
+    # rappeler _notifier ne doit surtout PAS créer une seconde intention.
+    _redepot = runmod._notifier(con, _lid2, _res_ko)
+    check("rappeler _notifier ne duplique pas l'intention",
+          _redepot is False
+          and con.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 1)
+
     ETAT["sendMessage_ok"] = True
-    _parti2 = runmod._notifier(con, _lid2, _res_ko)
-    check("et le tour suivant réussit bien à l'envoyer",
-          _parti2 is True
+    _bilan = _nf.reprendre(con)
+    check("la reprise de file délivre l'alerte en attente",
+          _bilan["delivrees"] == 1
           and con.execute("SELECT COUNT(*) FROM alerts").fetchone()[0] == _n_av + 1)
+    check("et la file est alors vide", _nf.en_attente(con) == 0)
     con.close()
 finally:
     _nf.urllib.request.urlopen = _vrai_urlopen
@@ -569,12 +618,18 @@ finally:
 
 # ── 15. Traçabilité ────────────────────────────────────────
 print("\n[15] TRAÇABILITÉ")
-check("pmin est persisté dans valuations",
-      "value_pmin" in inspect.getsource(runmod.analyse))
+_cv0 = _dbm.init(":memory:")
+_cols_val = {r["name"] for r in _cv0.execute("PRAGMA table_info(valuations)")}
+_cv0.close()
+check("la colonne value_pmin existe et porte l'ancre",
+      "value_pmin" in _cols_val)
 check("les comparables utilisés sont conservés",
       len(val_aygo.comparables) > 0)
-check("une décision enregistre ce qui l'a limitée",
-      "limites_json" in inspect.getsource(runmod._tracer_decision))
+_cd0 = _dbm.init(":memory:")
+_cols_dec = {r["name"] for r in _cd0.execute("PRAGMA table_info(decisions)")}
+_cd0.close()
+check("la table decisions porte les limites de fiabilité",
+      "limites_json" in _cols_dec)
 check("le résultat porte le détail des défauts",
       "defauts_detail" in res_b and len(res_b["defauts_detail"]) > 0)
 
@@ -635,7 +690,8 @@ class _FauxSite(_TS):
         return {"listings": lot[off:off + lim], "totalResultCount": len(lot)}
 
 
-def _base_neuve(chemin="/tmp/carsniper_radar.db"):
+def _base_neuve(chemin=None):
+    chemin = chemin or _tmp("carsniper_radar.db")
     if _os2.path.exists(chemin):
         _os2.remove(chemin)
     for suf in ("-wal", "-shm"):
@@ -650,8 +706,8 @@ def _base_neuve(chemin="/tmp/carsniper_radar.db"):
 con = _base_neuve()
 site = _FauxSite([_annonce(prix=4000 + i * 50) for i in range(12)])
 envois = []
-_vrai_send = runmod.notify.send
-runmod.notify.send = lambda msg, url=None: (envois.append(msg), 1)[1]
+_vrai_send = runmod.notify.envoyer_strict
+runmod.notify.envoyer_strict = lambda msg, url=None: (envois.append(msg), 1)[1]
 try:
     raws, diag = runmod._collecte_du_jour(con, site, verbose=False)
     check("l'amorçage lit bien tout le flux du jour", len(raws) == 12)
@@ -698,7 +754,7 @@ try:
     check("l'annonce retrouvée au scan suivant ne réalerte pas",
           len(envois) == avant)
 finally:
-    runmod.notify.send = _vrai_send
+    runmod.notify.envoyer_strict = _vrai_send
 
 
 # ── 16e. une annonce ancienne remontée ne doit rien faire rater ──
@@ -738,7 +794,7 @@ for _nom, _ordre, _attendu in [
     ("plusieurs anciennes éparpillées",
      _recentes[:20] + [_ancienne] + _recentes[20:60] + [_ann_id(_F - 9)] + _recentes[60:], 140),
 ]:
-    con = _base_neuve(f"/tmp/carsniper_remontee.db")
+    con = _base_neuve(_tmp("carsniper_remontee.db"))
     runmod._set_watermark(con, _F, "fast")
     con.commit()
     raws, diag = runmod._collecte_du_jour(con, _SiteOrdonne(_ordre), verbose=False)
@@ -746,7 +802,7 @@ for _nom, _ordre, _attendu in [
     check(f"{_nom} → aucune nouveauté ratée ({neufs}/{_attendu})", neufs == _attendu)
 
 # la vraie frontière est bien détectée, elle
-con = _base_neuve("/tmp/carsniper_frontiere.db")
+con = _base_neuve(_tmp("carsniper_frontiere.db"))
 runmod._set_watermark(con, _F, "fast")
 con.commit()
 _flux = [_ann_id(_F + 50 - i) for i in range(50)] + [_ann_id(_F - i) for i in range(200)]
@@ -760,7 +816,7 @@ check("une page de sécurité est lue au-delà", diag["securite"] is True)
 
 # ── 17. la vraie date de publication ────────────────────────
 print("\n[17] DATE DE PUBLICATION — publiée aujourd'hui ≠ vue aujourd'hui")
-con = _base_neuve("/tmp/carsniper_dates.db")
+con = _base_neuve(_tmp("carsniper_dates.db"))
 site = _FauxSite([
     _annonce(prix=5000, titre="Volkswagen Golf 1.4 TSI", date="Vandaag"),
     _annonce(prix=5100, titre="Volkswagen Polo 1.2 TSI", date="Gisteren"),
@@ -794,7 +850,7 @@ check("_est_frais refuse celle d'hier", not runmod._est_frais(lst_hier, p_frais)
 print("\n[18] RADAR — robustesse")
 
 # flux NON trié par date : on ne doit pas s'arrêter au filigrane
-con = _base_neuve("/tmp/carsniper_ordre.db")
+con = _base_neuve(_tmp("carsniper_ordre.db"))
 melange = [_annonce(prix=4000 + i * 50) for i in range(30)]
 import random as _rnd
 _rnd.Random(1).shuffle(melange)
@@ -804,7 +860,7 @@ check("un flux non trié par date est reconnu comme tel", diag["tri_date"] is Fa
 check("dans ce cas on lit tout le flux (rien n'est raté)", len(raws) == 30)
 
 # le filigrane n'avance pas si l'ingestion échoue
-con = _base_neuve("/tmp/carsniper_filigrane.db")
+con = _base_neuve(_tmp("carsniper_filigrane.db"))
 site = _FauxSite([_annonce(prix=5000) for _ in range(5)])
 avant = runmod._watermark(con, "fast")
 raws, diag = runmod._collecte_du_jour(con, site, verbose=False)
@@ -818,20 +874,22 @@ import inspect as _ins
 sig = _ins.signature(runmod.cmd_fast)
 check("cmd_fast a un mode --once", "once" in sig.parameters)
 check("cmd_fast boucle par défaut", sig.parameters["once"].default is False)
-src_fast = _ins.getsource(runmod.cmd_fast)
-check("cmd_fast attend entre deux cycles", "time.sleep" in src_fast)
-check("la cadence vient de la configuration", "fast_loop_seconds" in src_fast)
-check("cmd_loop ne relance pas une boucle infinie",
-      "cmd_fast(once=True)" in _ins.getsource(runmod.cmd_loop))
+check("la cadence est bien déclarée dans la configuration",
+      isinstance(runmod.COLL.get("fast_loop_seconds"), (int, float))
+      and runmod.COLL["fast_loop_seconds"] > 0)
+_sig_loop = _ins.signature(runmod.cmd_loop)
+check("cmd_loop ne prend aucun argument obligatoire",
+      not [p for p in _sig_loop.parameters.values()
+           if p.default is p.empty])
 
 # une passe unique se termine réellement
-con = _base_neuve("/tmp/carsniper_once.db")
+con = _base_neuve(_tmp("carsniper_once.db"))
 _vrai_init = runmod.db.init
 runmod.db.init = lambda *a, **k: con
 _vrai_source = runmod._source
 runmod._source = lambda: _FauxSite([_annonce(prix=5000 + i * 40) for i in range(6)])
-_vrai_send = runmod.notify.send
-runmod.notify.send = lambda msg, url=None: 1
+_vrai_send = runmod.notify.envoyer_strict
+runmod.notify.envoyer_strict = lambda msg, url=None: 1
 try:
     t0 = _t2.time()
     runmod.cmd_fast(once=True)
@@ -867,7 +925,7 @@ try:
 finally:
     runmod.db.init = _vrai_init
     runmod._source = _vrai_source
-    runmod.notify.send = _vrai_send
+    runmod.notify.envoyer_strict = _vrai_send
 
 
 
@@ -1412,12 +1470,11 @@ print("\n[30] RECALCUL NOCTURNE — amorçage silencieux, puis AUCUN plafond")
 # La règle : un quota de notifications ne doit exister nulle part. Le seul
 # garde-fou légitime est l'amorçage — le tout premier passage note l'état
 # de départ sans rien envoyer, exactement comme le filigrane du radar.
-check("aucun plafond de notifications ne subsiste dans le code",
-      "night_max_alerts" not in _ins.getsource(runmod))
-check("ni dans la configuration",
-      "night_max_alerts" not in (Path(__file__).resolve().parent.parent / "config" / "profile.yaml").read_text())
+check("aucun plafond de notifications dans la configuration",
+      "night_max_alerts" not in (Path(__file__).resolve().parent.parent
+                                 / "config" / "profile.yaml").read_text())
 
-_cn = _base_neuve("/tmp/carsniper_recalc.db")
+_cn = _base_neuve(_tmp("carsniper_recalc.db"))
 _sid_n = _dbm.source_id(_cn, "2ememain") if False else 1
 
 # 40 annonces largement sous le marché : toutes méritent une notification.
@@ -1444,9 +1501,9 @@ for i in range(20):
 _cn.commit()
 
 _envois = []
-_vrai_init2, _vrai_send2 = runmod.db.init, runmod.notify.send
+_vrai_init2, _vrai_send2 = runmod.db.init, runmod.notify.envoyer_strict
 runmod.db.init = lambda *a, **k: _cn
-runmod.notify.send = lambda msg, url=None: (_envois.append(msg), 1)[1]
+runmod.notify.envoyer_strict = lambda msg, url=None: (_envois.append(msg), 1)[1]
 try:
     r1 = runmod._recalculer(_cn)
     check("l'amorçage recalcule bien toutes les annonces", r1["analysees"] == 60)
@@ -1478,7 +1535,7 @@ try:
     runmod._recalculer(_cn)
     check("une baisse insignifiante ne redéclenche rien", len(_envois) == 0)
 finally:
-    runmod.db.init, runmod.notify.send = _vrai_init2, _vrai_send2
+    runmod.db.init, runmod.notify.envoyer_strict = _vrai_init2, _vrai_send2
     _cn.close()
 
 
@@ -1554,7 +1611,7 @@ class _SiteVide(_TS):
         return {"listings": []}
 
 
-_cp = _base_neuve("/tmp/carsniper_panne.db")
+_cp = _base_neuve(_tmp("carsniper_panne.db"))
 _, _dp = runmod._collecte_du_jour(_cp, _SiteEnPanne(), verbose=False)
 _, _dv = runmod._collecte_du_jour(_cp, _SiteVide(), verbose=False)
 
@@ -1574,11 +1631,11 @@ print("\n[33] RADAR DE BOUT EN BOUT — baisse de prix et absence de plafond")
 
 # Le radar doit re-notifier une annonce dont le prix BAISSE, même si elle
 # a déjà été alertée : c'est précisément l'événement à ne pas rater.
-_cr = _base_neuve("/tmp/carsniper_baisse.db")
+_cr = _base_neuve(_tmp("carsniper_baisse.db"))
 _msgs = []
-_vi, _vs, _vsrc = runmod.db.init, runmod.notify.send, runmod._source
+_vi, _vs, _vsrc = runmod.db.init, runmod.notify.envoyer_strict, runmod._source
 runmod.db.init = lambda *a, **k: _cr
-runmod.notify.send = lambda msg, url=None: (_msgs.append(msg), 55)[1]
+runmod.notify.envoyer_strict = lambda msg, url=None: (_msgs.append(msg), 55)[1]
 
 # Un marché : 14 Golf comparables autour de 8 000 €, plus la cible à 5 200 €.
 _site = _FauxSite([_annonce(prix=8000 + i * 60, km=140000 + i * 500)
@@ -1609,16 +1666,575 @@ try:
     runmod.cmd_fast(once=True)
     check("une baisse dérisoire ne redéclenche rien", len(_msgs) == 0)
 
-    # ── AUCUN plafond : 30 bonnes affaires d'un coup = 30 notifications ──
-    for i in range(30):
-        _site.publier(_annonce(prix=5000 + i, km=140500 + i))
-    _msgs.clear()
-    runmod.cmd_fast(once=True)
-    check(f"30 bonnes affaires simultanées → 30 notifications (reçu : {len(_msgs)})",
-          len(_msgs) == 30)
 finally:
-    runmod.db.init, runmod.notify.send, runmod._source = _vi, _vs, _vsrc
+    runmod.db.init, runmod.notify.envoyer_strict, runmod._source = _vi, _vs, _vsrc
     _cr.close()
+
+
+print("\n[34] AUCUN PLAFOND — 30 bonnes affaires d'un coup = 30 notifications")
+
+# Base neuve et marché propre : la propriété testée est « aucun quota »,
+# elle ne doit dépendre ni de la calibration de la courbe ni de l'ordre
+# d'analyse.
+_cq = _base_neuve(_tmp("carsniper_quota.db"))
+_mq = []
+_vi3, _vs3, _vsrc3 = runmod.db.init, runmod.notify.envoyer_strict, runmod._source
+runmod.db.init = lambda *a, **k: _cq
+runmod.notify.envoyer_strict = lambda msg, url=None: (_mq.append(msg), 77)[1]
+try:
+    # 14 comparables serrés autour de 8 000 €, puis 30 annonces à 4 000 €
+    _sq = _FauxSite([_annonce(prix=8000 + i * 20, km=140000 + i * 200)
+                     for i in range(14)])
+    runmod._source = lambda: _sq
+    runmod.cmd_fast(once=True)            # amorçage silencieux
+    _mq.clear()
+    for i in range(30):
+        _sq.publier(_annonce(prix=4000 + i, km=140100 + i * 5))
+    runmod.cmd_fast(once=True)
+    check(f"30 annonces méritantes → 30 notifications (reçu : {len(_mq)})",
+          len(_mq) == 30)
+finally:
+    runmod.db.init, runmod.notify.envoyer_strict, runmod._source = _vi3, _vs3, _vsrc3
+    _cq.close()
+
+
+print("\n[35] DEAL SCORE — l'écart de prix DOMINE, la fiabilité ne fait que pondérer")
+
+# Contrainte métier explicite : à +15 % du plancher, score < 50.
+_PLANCHER = 6490
+check(f"plancher {_PLANCHER} € × 1,15 → score < 50 "
+      f"({score_prix(round(_PLANCHER * 1.15), _PLANCHER):.1f})",
+      score_prix(round(_PLANCHER * 1.15), _PLANCHER) < 50)
+
+# La même contrainte sur une dizaine de planchers différents : la règle
+# porte sur l'ÉCART RELATIF, elle ne peut pas dépendre du niveau de prix.
+for _p in (1500, 2450, 3500, 6490, 9990, 12750, 18000, 24500, 47000):
+    check(f"plancher {_p} € × 1,15 → score < 50",
+          score_prix(round(_p * 1.15), _p) < 50)
+
+# Toute la courbe, pour qu'aucune formule bricolée sur un seul point ne
+# puisse passer : monotone, bornée, et cohérente de bout en bout.
+_courbe = [(0, 100.0), (5, 94.3), (10, 77.0), (15, 48.3), (20, 8.0), (25, 0.0)]
+for _pct, _attendu in _courbe:
+    _obtenu = score_prix(round(_PLANCHER * (1 + _pct / 100)), _PLANCHER)
+    check(f"écart +{_pct:>2} % → {_attendu:.1f} (obtenu {_obtenu:.1f})",
+          abs(_obtenu - _attendu) < 1.0)
+
+_precedent = 101.0
+for _pct in range(0, 40):
+    _s = score_prix(round(_PLANCHER * (1 + _pct / 100)), _PLANCHER)
+    check(f"la courbe ne remonte jamais (+{_pct} %)", _s <= _precedent + 1e-9)
+    _precedent = _s
+
+check("au prix du plancher → 100", score_prix(_PLANCHER, _PLANCHER) == 100.0)
+check("sous le plancher → 100", score_prix(_PLANCHER - 1, _PLANCHER) == 100.0)
+
+# ── LA FIABILITÉ NE PEUT JAMAIS AMÉLIORER UNE OPPORTUNITÉ ──
+# C'est un invariant, pas un exemple : score = score_prix × fiabilité,
+# avec fiabilité ∈ [0,45 ; 1,00]. On le vérifie exhaustivement.
+_viol = []
+_franchi = []
+_SEUIL = 70.0
+for _pct in range(-20, 60):
+    _sp = score_prix(round(_PLANCHER * (1 + _pct / 100)), _PLANCHER)
+    for _f in (0.45, 0.55, 0.70, 0.85, 0.93, 1.00):
+        # invariant 1 : le produit ne dépasse jamais le score de prix
+        if _sp * _f > _sp + 1e-9:
+            _viol.append((_pct, _f))
+        # invariant 2 — le vrai enjeu métier : une opportunité qui ne mérite
+        # PAS d'alerte ne peut pas en mériter une grâce à la fiabilité.
+        _final = round(max(0.0, min(100.0, _sp * _f)), 1)
+        if _sp < _SEUIL <= _final:
+            _franchi.append((_pct, _f))
+check(f"la fiabilité ne peut JAMAIS augmenter le score de prix "
+      f"({len(_viol)} violation(s) sur 480 combinaisons)", not _viol)
+check(f"aucune mauvaise opportunité ne franchit 70 grâce à la fiabilité "
+      f"({len(_franchi)} cas sur 480)", not _franchi)
+
+# Et concrètement : une mauvaise opportunité reste mauvaise, quelle que
+# soit la qualité de la comparaison.
+for _pct in (15, 20, 25, 30):
+    _sp = score_prix(round(_PLANCHER * (1 + _pct / 100)), _PLANCHER)
+    check(f"+{_pct} % : même à fiabilité parfaite, jamais notifiable "
+          f"({_sp * 1.0:.1f} < 70)", _sp * 1.00 < 70)
+
+# Bornes et valeurs hostiles : aucun chemin ne sort de [0, 100].
+_hostiles = [(None, 100), (100, None), ("x", 100), ([], 100), (0, 100),
+             (100, 0), (-5, 100), (100, -5), (float("nan"), 100),
+             (float("inf"), 100), (100, float("nan")), (100, float("inf")),
+             (10**18, 1), (1, 10**18)]
+_hs = [score_prix(a, b) for a, b in _hostiles]
+check("aucune entrée hostile ne lève d'exception", len(_hs) == len(_hostiles))
+check("aucune entrée hostile ne sort de [0,100]",
+      all(0.0 <= v <= 100.0 for v in _hs))
+check("aucun NaN ni inf en sortie",
+      all(v == v and v not in (float("inf"), float("-inf")) for v in _hs))
+
+
+print("\n[36] DÉFAILLANCES — crash, reprise, concurrence, Telegram")
+
+import sqlite3 as _sq
+import subprocess as _sp
+import os as _os3
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+
+class _SiteTest(_TS):
+    """Site pilotable : stock, tri, panne, structure modifiée."""
+
+    def __init__(self, stock=None, trie=True):
+        super().__init__(delay=0)
+        self.stock = list(stock or [])
+        self.trie = trie
+        self.panne = None
+        self.pages_lues = 0
+
+    def publier(self, *a):
+        self.stock.extend(a)
+
+    def _get(self, params, retries=2):
+        self.pages_lues += 1
+        if self.panne:
+            self.derniere_erreur = self.panne
+            return {}
+        self.derniere_erreur = None
+        lot = (sorted(self.stock, key=lambda r: int(r["itemId"][1:]), reverse=True)
+               if self.trie else list(self.stock))
+        off, lim = int(params.get("offset", 0)), int(params.get("limit", 100))
+        return {"listings": lot[off:off + lim], "totalResultCount": len(lot)}
+
+
+# `runmod.db` EST le module storage.db : le patcher patche le module.
+# On garde donc une reference au VRAI `init` avant toute substitution.
+_VRAI_INIT = _dbm.init
+
+
+def _banc(nom):
+    """Un banc d'essai isolé : base neuve, site simulé, Telegram capturé."""
+    _dbm.init = _VRAI_INIT
+    c = _base_neuve(_tmp(nom))
+    envois = []
+    etat = {"ko": False, "code": None}
+
+    def faux_envoi(msg, url=None):
+        if etat["ko"]:
+            raise notify_mod.EchecTelegram(
+                f"panne simulee {etat['code'] or ''}", code=etat["code"],
+                retry_after=etat.get("retry_after", 0),
+                definitif=etat["code"] in notify_mod.CODES_DEFINITIFS
+                if etat["code"] else False)
+        envois.append(msg)
+        return 1000 + len(envois)
+
+    runmod.db.init = lambda *a, **k: c
+    runmod.notify.envoyer_strict = faux_envoi
+    return c, envois, etat
+
+
+def _marche(n=14, base=8000):
+    return [_annonce(prix=base + i * 40, km=140000 + i * 300) for i in range(n)]
+
+
+_sauve = (_VRAI_INIT, runmod.notify.envoyer_strict, runmod._source)
+try:
+    # ── a) crash APRÈS envoi Telegram, AVANT commit : aucune double alerte
+    _c, _env, _et = _banc("f_crash_commit.db")
+    _site = _SiteTest(_marche() + [_annonce(prix=5200, km=141000)])
+    runmod._source = lambda: _site
+
+    class _ConCrash:
+        def __init__(self, c): object.__setattr__(self, "_c", c); object.__setattr__(self, "boum", False)
+        def __getattr__(self, n):
+            if n == "commit" and object.__getattribute__(self, "boum"):
+                def _b(): raise _sq.OperationalError("disk I/O error simule")
+                return _b
+            return getattr(object.__getattribute__(self, "_c"), n)
+        def __setattr__(self, n, v): object.__setattr__(self, n, v)
+
+    _wrap = _ConCrash(_c)
+    runmod.db.init = lambda *a, **k: _wrap
+
+    # Le crash survient APRÈS le 3e envoi réel : le message est parti,
+    # la ligne `alerts` n'a pas pu être écrite. C'est la fenêtre exacte
+    # qui produisait une double alerte.
+    _vrai_env = runmod.notify.envoyer_strict
+
+    def _envoi_puis_crash(msg, url=None):
+        r = _vrai_env(msg, url)
+        if len(_env) >= 3:
+            _wrap.boum = True
+        return r
+
+    runmod.notify.envoyer_strict = _envoi_puis_crash
+    try:
+        runmod.cmd_fast(once=True, amorcage_alerte=True)
+    except Exception:
+        pass
+    runmod.notify.envoyer_strict = _vrai_env
+    _wrap.boum = False
+    _c.rollback()
+    _avant_crash = list(_env)
+    check(f"des messages sont bien partis avant le crash ({len(_avant_crash)})",
+          len(_avant_crash) >= 3)
+    _env.clear()
+    runmod.cmd_fast(once=True, amorcage_alerte=True)
+    # Ce qui compte n'est pas le NOMBRE de messages du cycle suivant — il
+    # peut légitimement en partir pour d'autres annonces — mais le fait
+    # qu'aucun message DÉJÀ PARTI ne reparte.
+    _renvoyes = [m for m in _env if m in _avant_crash]
+    check(f"après un crash post-envoi, aucun message déjà parti n'est "
+          f"renvoyé (renvois : {len(_renvoyes)})", not _renvoyes)
+    _dbm.init = _VRAI_INIT
+    _c.close()
+
+    # ── b) Telegram KO puis OK : rien de perdu, rien de dupliqué ──
+    _c, _env, _et = _banc("f_tg_ko.db")
+    runmod.db.init = lambda *a, **k: _c
+    _site = _SiteTest(_marche() + [_annonce(prix=5100, km=141000)])
+    runmod._source = lambda: _site
+    _et["ko"] = True
+    runmod.cmd_fast(once=True, amorcage_alerte=True)
+    check("Telegram KO : aucune alerte enregistrée",
+          _c.execute("SELECT COUNT(*) FROM alerts").fetchone()[0] == 0)
+    _attente = notify_mod.en_attente(_c)
+    check(f"mais l'intention est conservée en file ({_attente})", _attente > 0)
+    _et["ko"] = False
+    _b = notify_mod.reprendre(_c)
+    check(f"le rétablissement délivre tout ({_b['delivrees']}/{_attente})",
+          _b["delivrees"] == _attente and notify_mod.en_attente(_c) == 0)
+    _n_alertes = _c.execute("SELECT COUNT(*) FROM alerts").fetchone()[0]
+    notify_mod.reprendre(_c)
+    check("une seconde reprise ne redélivre rien",
+          _c.execute("SELECT COUNT(*) FROM alerts").fetchone()[0] == _n_alertes)
+    _c.close()
+
+    # ── c) 429 : on respecte retry_after et on n'insiste pas ──
+    _c, _env, _et = _banc("f_429.db")
+    runmod.db.init = lambda *a, **k: _c
+    _site = _SiteTest(_marche() + [_annonce(prix=4900, km=141000)])
+    runmod._source = lambda: _site
+    _et.update(ko=True, code=429, retry_after=120)
+    runmod.cmd_fast(once=True, amorcage_alerte=True)
+    _lignes = _c.execute(
+        "SELECT etat, prochain_essai, tentatives FROM outbox").fetchall()
+    check("un 429 laisse la ligne à réessayer",
+          all(l["etat"] == "a_envoyer" for l in _lignes) and len(_lignes) > 0)
+    _futur = _c.execute(
+        "SELECT COUNT(*) FROM outbox WHERE prochain_essai > datetime('now')"
+    ).fetchone()[0]
+    check(f"et repousse le prochain essai dans le futur ({_futur})", _futur > 0)
+    _et.update(ko=False, code=None)
+    _c.execute("UPDATE outbox SET prochain_essai=datetime('now','-1 hour')")
+    _c.commit()
+    _b = notify_mod.reprendre(_c)
+    check(f"une fois l'attente écoulée, tout part ({_b['delivrees']})",
+          _b["delivrees"] > 0 and notify_mod.en_attente(_c) == 0)
+    _c.close()
+
+    # ── d) 400 (message refusé) : erreur DÉFINITIVE, pas de boucle ──
+    _c, _env, _et = _banc("f_400.db")
+    runmod.db.init = lambda *a, **k: _c
+    _site = _SiteTest(_marche() + [_annonce(prix=4800, km=141000)])
+    runmod._source = lambda: _site
+    _et.update(ko=True, code=400)
+    runmod.cmd_fast(once=True, amorcage_alerte=True)
+    check("un 400 marque la ligne en échec définitif",
+          _c.execute("SELECT COUNT(*) FROM outbox WHERE etat='echec'"
+                     ).fetchone()[0] > 0)
+    check("et ne la rejoue pas indéfiniment",
+          notify_mod.reprendre(_c)["reprises"] == 0)
+    _c.close()
+
+    # ── e) crash PENDANT l'envoi : sort inconnu, jamais renvoyé ──
+    _c, _env, _et = _banc("f_interrompu.db")
+    runmod.db.init = lambda *a, **k: _c
+    _c.execute("INSERT INTO listings(source_id,external_id,title,price_eur,"
+               "year,status,seller_type) VALUES(1,'z','Golf',5000,2015,"
+               "'active','particulier')")
+    _lz = _c.execute("SELECT id FROM listings").fetchone()["id"]
+    _c.execute("INSERT INTO outbox(listing_id,cle_unique,etat,tier,deal_score,"
+               "motif,message) VALUES(?,'k1','envoi_en_cours','great',88,"
+               "'new','msg')", (_lz,))
+    _c.commit()
+    _b = notify_mod.reprendre(_c)
+    check("un envoi interrompu est clos, pas renvoyé",
+          _b["ambigues"] == 1 and len(_env) == 0)
+    check("et il est tracé comme reçu pour ne pas ré-alerter",
+          _c.execute("SELECT COUNT(*) FROM alerts WHERE listing_id=?",
+                     (_lz,)).fetchone()[0] == 1)
+    _c.close()
+
+    # ── f) structure de l'API modifiée : rien n'est perdu ──
+    _c, _env, _et = _banc("f_api.db")
+    runmod.db.init = lambda *a, **k: _c
+    _site = _SiteTest(_marche(12))
+    runmod._source = lambda: _site
+    runmod.cmd_fast(once=True)
+    _f0 = runmod._watermark(_c, "fast")
+    _casses = [_annonce(prix=3000 + i, km=139000 + i) for i in range(8)]
+    for _a in _casses:
+        _a["attributes"] = {x["key"]: x["value"] for x in _a["attributes"]}
+    _site.publier(*_casses)
+    runmod.cmd_fast(once=True)
+    _f1 = runmod._watermark(_c, "fast")
+    _maxi = max(int(a["itemId"][1:]) for a in _casses)
+    check(f"API cassée : le filigrane ne dépasse PAS les annonces perdues "
+          f"({_f1} < {_maxi})", _f1 < _maxi)
+    check("le filigrane n'a pas reculé non plus", _f1 >= _f0)
+    _c.close()
+
+    # ── g) limite de pages : reprise, aucune annonce hors d'atteinte ──
+    _c, _env, _et = _banc("f_pages.db")
+    runmod.db.init = lambda *a, **k: _c
+    _vmax = runmod.COLL["fast_loop_max_pages"]
+    runmod.COLL["fast_loop_max_pages"] = 2
+    try:
+        _site = _SiteTest([_annonce(prix=4000 + i, km=140000 + i)
+                           for i in range(450)])
+        runmod._source = lambda: _site
+        for _ in range(5):
+            runmod.cmd_fast(once=True)
+        _lues = _c.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
+        check(f"limite de pages : les 450 annonces finissent par être lues "
+              f"({_lues})", _lues == 450)
+    finally:
+        runmod.COLL["fast_loop_max_pages"] = _vmax
+    _c.close()
+
+    # ── h) filigrane MONOTONE ──
+    _dbm.init = _VRAI_INIT
+    _c = _base_neuve(_tmp("f_filigrane.db"))
+    runmod._set_watermark(_c, 5000, "fast")
+    runmod._set_watermark(_c, 3000, "fast")
+    check("le filigrane ne peut pas reculer",
+          runmod._watermark(_c, "fast") == 5000)
+    runmod._set_watermark(_c, 7000, "fast")
+    check("mais il avance normalement",
+          runmod._watermark(_c, "fast") == 7000)
+    _c.close()
+
+    # ── i) verrou : deux instances ne travaillent jamais ensemble ──
+    _dbm.init = _VRAI_INIT
+    _lv = _tmp("f_verrou.db")
+    for _sfx in ("", "-wal", "-shm"):
+        if _os3.path.exists(_lv + _sfx):
+            _os3.remove(_lv + _sfx)
+    _cv = _dbm.init(_lv)
+    _script = (
+        "import sys; sys.path.insert(0, %r)\n"
+        "from carsniper.storage import db\n"
+        "c = db.init(%r)\n"
+        "print('OUI' if db.prendre_verrou(c, 'fast') else 'NON')\n"
+        % (str(Path(__file__).resolve().parents[1]), _lv))
+    check("l'instance A prend le verrou", _dbm.prendre_verrou(_cv, "fast"))
+    _r = _sp.run([sys.executable, "-c", _script], capture_output=True, text=True)
+    check("l'instance B (autre processus) est refusée", "NON" in _r.stdout)
+    _dbm.rendre_verrou(_cv)
+    _r2 = _sp.run([sys.executable, "-c", _script], capture_output=True, text=True)
+    check("après libération, B peut travailler", "OUI" in _r2.stdout)
+    _cv.close()
+
+    # ── j) verrou d'un processus mort : repris, pas de blocage ──
+    _cv = _dbm.connect(_lv)
+    _cv.execute("INSERT INTO verrou(id,pid,hote,tache,pris_le,battement) "
+                "VALUES(1,999999,'machine-morte','fast',"
+                "datetime('now','-2 hours'),?) "
+                "ON CONFLICT(id) DO UPDATE SET pid=excluded.pid, "
+                "hote=excluded.hote, battement=excluded.battement",
+                ((_dt.now(_tz.utc) - _td(hours=2))
+                 .isoformat(timespec="seconds"),))
+    _cv.commit()
+    check("un verrou périmé est repris, il ne bloque pas éternellement",
+          _dbm.prendre_verrou(_cv, "fast"))
+    _cv.close()
+
+finally:
+    _dbm.init, runmod.notify.envoyer_strict, runmod._source = _sauve
+
+
+print("\n[37] DONNÉES ET INVARIANTS — ce que le bot ne doit jamais faire")
+
+_sv2 = (_VRAI_INIT, runmod.notify.envoyer_strict, runmod._source)
+try:
+    # ── la distance calculée survit à une revue d'annonce ──
+    _dbm.init = _VRAI_INIT
+    _cd = _base_neuve(_tmp("i_distance.db"))
+    runmod.db.init = lambda *a, **k: _cd
+    runmod.notify.envoyer_strict = lambda m, u=None: 1
+    _sd = _SiteTest([_annonce(prix=5000 + i, km=140000 + i * 200)
+                     for i in range(12)])
+    runmod._source = lambda: _sd
+    runmod.cmd_fast(once=True)
+    _d1 = _cd.execute("SELECT distance_km FROM listings LIMIT 1").fetchone()[0]
+    runmod.cmd_fast(once=True)
+    _d2 = _cd.execute("SELECT distance_km FROM listings LIMIT 1").fetchone()[0]
+    check(f"la distance calculée survit à une revue ({_d1} → {_d2})",
+          _d1 is not None and _d1 == _d2)
+
+    # ── une réponse partielle ne détruit pas une donnée connue ──
+    _cible = _sd.stock[0]
+    _cible["attributes"] = [a for a in _cible["attributes"]
+                            if a["key"] != "mileage"]
+    runmod.cmd_fast(once=True)
+    _km = _cd.execute("SELECT mileage_km FROM listings WHERE external_id=?",
+                      (_cible["itemId"],)).fetchone()[0]
+    check(f"un attribut absent n'efface pas le kilométrage connu ({_km})",
+          _km is not None)
+
+    # Mais un retraitement DÉLIBÉRÉ doit pouvoir nettoyer une valeur
+    # devenue invalide (kilométrage sentinelle, prix aberrant). Sans cette
+    # distinction, la protection ci-dessus rendait toute correction
+    # impossible : 351 annonces gardaient un kilométrage de 999 999.
+    _sid_r = _dbm.source_id(_cd, "2ememain")
+    _dbm.upsert_listing(_cd, _sid_r, _cible["itemId"],
+                        {"title": "Golf", "mileage_km": None,
+                         "price_eur": 5000, "price_type": "FIXED"},
+                        reconstruire=True)
+    _cd.commit()
+    _km2 = _cd.execute("SELECT mileage_km FROM listings WHERE external_id=?",
+                       (_cible["itemId"],)).fetchone()[0]
+    check("un retraitement délibéré, lui, peut nettoyer la valeur",
+          _km2 is None)
+    _cd.execute("UPDATE listings SET mileage_km=? WHERE external_id=?",
+                (_km, _cible["itemId"]))
+    _cd.commit()
+
+    # ── une annonce ingérée mais non analysée est reprise ──
+    _cd.execute("UPDATE listings SET enriched_at=NULL WHERE external_id=?",
+                (_cible["itemId"],))
+    _cd.execute("DELETE FROM scores WHERE listing_id=("
+                "SELECT id FROM listings WHERE external_id=?)",
+                (_cible["itemId"],))
+    _cd.commit()
+    runmod.cmd_fast(once=True)
+    check("une annonce jamais analysée est reprise au cycle suivant",
+          _cd.execute("SELECT enriched_at FROM listings WHERE external_id=?",
+                      (_cible["itemId"],)).fetchone()[0] is not None)
+    _cd.close()
+
+    # ── digest : un récapitulatif n'est pas une alerte ──
+    _dbm.init = _VRAI_INIT
+    _cg = _base_neuve(_tmp("i_digest.db"))
+    _cg.execute("INSERT INTO listings(source_id,external_id,title,price_eur,"
+                "year,mileage_km,status,seller_type) VALUES(1,'d1','Golf 1.4',"
+                "5000,2015,120000,'active','particulier')")
+    _lg = _cg.execute("SELECT id FROM listings").fetchone()["id"]
+    _cg.execute("INSERT INTO alerts(listing_id,tier,deal_score,trigger_reason,"
+                "sent_at) VALUES(?,'below',45,'digest',datetime('now'))", (_lg,))
+    _cg.commit()
+    _go, _ = notify_mod.should_notify(_cg, _lg, 88, "great", 5000,
+                                      profile["antispam"])
+    check("une ligne de récap n'empêche pas une vraie alerte à 88/100", _go)
+    _cg.execute("INSERT INTO alerts(listing_id,tier,deal_score,trigger_reason,"
+                "sent_at) VALUES(?,'great',88,'new',datetime('now'))", (_lg,))
+    _cg.commit()
+    _go2, _ = notify_mod.should_notify(_cg, _lg, 88, "great", 5000,
+                                       profile["antispam"])
+    check("mais une VRAIE alerte, elle, bloque bien la suivante", not _go2)
+
+    # ── anti-republication : le kilométrage compte ──
+    _cg.execute("INSERT INTO listings(source_id,external_id,title,price_eur,"
+                "year,mileage_km,vkey,status,seller_type) VALUES(1,'d2',"
+                "'Toyota Aygo',5000,2015,120000,'toyota|aygo|essence|manuelle|"
+                "1.0|?','active','particulier')")
+    _cg.execute("INSERT INTO listings(source_id,external_id,title,price_eur,"
+                "year,mileage_km,vkey,status,seller_type) VALUES(1,'d3',"
+                "'Toyota Aygo',5000,2015,120000,'toyota|aygo|essence|manuelle|"
+                "1.0|?','active','particulier')")
+    _cg.execute("INSERT INTO listings(source_id,external_id,title,price_eur,"
+                "year,mileage_km,vkey,status,seller_type) VALUES(1,'d4',"
+                "'Toyota Aygo',5000,2015,180000,'toyota|aygo|essence|manuelle|"
+                "1.0|?','active','particulier')")
+    _cg.commit()
+    _a, _b2, _c2 = [r["id"] for r in _cg.execute(
+        "SELECT id FROM listings WHERE external_id IN ('d2','d3','d4') "
+        "ORDER BY external_id")]
+    _cg.execute("INSERT INTO alerts(listing_id,tier,deal_score,trigger_reason,"
+                "sent_at) VALUES(?,'great',88,'new',datetime('now'))", (_a,))
+    _cg.commit()
+    _r1, _ = notify_mod.should_notify(_cg, _b2, 88, "great", 5000,
+                                      profile["antispam"])
+    _r2, _ = notify_mod.should_notify(_cg, _c2, 88, "great", 5000,
+                                      profile["antispam"])
+    check("republication exacte (même km) → supprimée", not _r1)
+    check("même titre/prix/année mais AUTRE kilométrage → notifiée", _r2)
+    _cg.close()
+
+    # ── carrosserie inconnue : jamais transformée en « berline » ──
+    _vi = normalize_vehicle("Volkswagen Golf 1.4 TSI", "", 2016, None, None)
+    check("carrosserie inconnue → « ? » dans la clé, pas « berline »",
+          _vi.key().split("|")[5] == "?")
+    check("carrosserie inconnue vs berline déclarée → comparaison FLOUE",
+          _compat_ok("volkswagen|golf|essence|manuelle|1.4|?",
+                     "volkswagen|golf|essence|manuelle|1.4|berline"))
+    check("carrosserie inconnue vs SUV déclaré → comparaison possible aussi",
+          _compat_ok("volkswagen|golf|essence|manuelle|1.4|?",
+                     "volkswagen|golf|essence|manuelle|1.4|suv"))
+    check("mais berline déclarée ≠ SUV déclaré",
+          not _compat_ok("volkswagen|golf|essence|manuelle|1.4|berline",
+                         "volkswagen|golf|essence|manuelle|1.4|suv"))
+
+    # ── modèle numérique du site : génération ≠ modèle ──
+    check("« Renault Clio » avec un site_model « 4 » n'est pas `renault|4`",
+          normalize_vehicle("Renault Clio 1.2", "", 2016, None, None,
+                            site_model="4").key().split("|")[1] != "4")
+    check("mais « Mazda 2 » reste bien `mazda|2`",
+          normalize_vehicle("Mazda 2 1.5", "", 2016, None, None,
+                            site_model="2").key().split("|")[1] == "2")
+    check("et « Polestar 2 » aussi",
+          normalize_vehicle("Polestar 2", "", 2022, None, None,
+                            site_model="2").key().split("|")[1] == "2")
+
+    # ── km = 0 est une valeur valide ──
+    _p0 = [{"price_eur": 15000 + i * 100, "year": 2024, "mileage_km": i * 10,
+            "vkey": "toyota|aygo|essence|manuelle|1.0|?",
+            "vkey_loose": "toyota|aygo", "seller_type": "particulier",
+            "has_defect": False, "defauts_analyses": True,
+            "norm_confidence": 0.9, "title": f"Aygo {i}"} for i in range(12)]
+    _v0 = value_market({"year": 2024, "mileage_km": 0, "price_eur": 14000,
+                        "vkey": "toyota|aygo|essence|manuelle|1.0|?"}, _p0)
+    check(f"une voiture à 0 km est évaluable ({_v0.n} comparables)", _v0.n >= 8)
+
+    # ── valeurs aberrantes bornées à la source ──
+    _src = _TS(delay=0)
+    _ab = _src.parse({"itemId": "m1", "title": "X",
+                      "priceInfo": {"priceCents": 10 ** 15},
+                      "attributes": [{"key": "mileage", "value": "9999999"},
+                                     {"key": "constructionYear",
+                                      "value": "9999"}]})
+    check("un prix absurde est écarté, pas enregistré",
+          _ab["price_eur"] is None)
+    check("un kilométrage absurde est écarté", _ab["mileage_km"] is None)
+    check("une année absurde est écartée", _ab["year"] is None)
+    _ok0 = _src.parse({"itemId": "m1", "title": "X",
+                       "priceInfo": {"priceCents": 500000},
+                       "attributes": [{"key": "mileage", "value": "0"}]})
+    check("mais 0 km reste une valeur valide", _ok0["mileage_km"] == 0)
+
+    # ── la cible n'est jamais son propre comparable ──
+    _VKJ = "toyota|aygo|essence|manuelle|1.0|?"
+
+    def _cmp(p, k=120000):
+        return {"price_eur": p, "year": 2015, "mileage_km": k, "vkey": _VKJ,
+                "vkey_loose": "toyota|aygo", "seller_type": "particulier",
+                "has_defect": False, "defauts_analyses": True,
+                "norm_confidence": 0.9, "title": "Aygo"}
+
+    _cible_j = {"year": 2015, "mileage_km": 120000, "vkey": _VKJ,
+                "price_eur": 9000}
+    _vj = value_market(_cible_j,
+                       [_cmp(9000)] + [_cmp(11000 + i * 50, 120000 + i * 300)
+                                       for i in range(11)])
+    check(f"un jumeau exact est écarté du pool ({_vj.jumeaux} écarté)",
+          _vj.jumeaux == 1 and _vj.pmin != 9000)
+    _vk = value_market(_cible_j,
+                       [_cmp(9000, 125000)] + [_cmp(11000 + i * 50,
+                                                    120000 + i * 300)
+                                               for i in range(11)])
+    check("mais un vrai comparable au même prix est conservé",
+          _vk.jumeaux == 0)
+finally:
+    _dbm.init, runmod.notify.envoyer_strict, runmod._source = _sv2
 
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")

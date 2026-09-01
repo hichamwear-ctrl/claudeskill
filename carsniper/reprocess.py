@@ -56,7 +56,10 @@ for i, r in enumerate(raws, 1):
         data = src.parse(json.loads(r["payload_text"]), fetched_at=r["vu"])
         if not data.get("external_id") or not data.get("price_eur"):
             continue
-        db.upsert_listing(con, sid, data["external_id"], data)
+        # Retraitement DELIBERE depuis les payloads bruts : on reconstruit,
+        # donc on a le droit d'effacer une valeur devenue invalide.
+        db.upsert_listing(con, sid, data["external_id"], data,
+                          reconstruire=True)
         maj += 1
     except Exception as e:
         err += 1

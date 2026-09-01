@@ -125,9 +125,17 @@ def _pool(con, vkey_loose: str, exclure_id: int) -> list[dict]:
 
 def _notifier(con, listing_id: int, res: dict, lst: dict | None = None,
               drops: int = 0, age: float = 0.0) -> bool:
-    """Envoie l'alerte SI l'anti-spam l'autorise. Renvoie True si elle est
-    partie. Chemin unique : le radar et le recalcul nocturne passent tous
-    les deux par ici, donc par les memes garde-fous."""
+    """Depose l'alerte dans la FILE DE SORTIE, puis tente de la livrer.
+
+    L'intention est rendue durable AVANT tout appel reseau. C'est ce qui
+    supprime les deux pannes symetriques d'avant :
+      * un crash apres l'envoi ne peut plus faire renvoyer le message,
+        puisque la ligne existe deja et porte une cle unique ;
+      * un echec d'envoi n'est plus perdu : la ligne reste `a_envoyer` et
+        le cycle suivant la rejoue.
+
+    Renvoie True si le message est effectivement parti maintenant.
+    """
     if res is None or res.get("tier") == "below":
         return False
     if lst is None:
@@ -137,29 +145,27 @@ def _notifier(con, listing_id: int, res: dict, lst: dict | None = None,
             return False
         lst = dict(row)
 
-    go, reason = notify.should_notify(con, listing_id, res["deal_score"],
-                                      res["tier"], lst["price_eur"],
-                                      PROFILE["antispam"])
+    go, motif = notify.should_notify(con, listing_id, res["deal_score"],
+                                     res["tier"], lst["price_eur"],
+                                     PROFILE["antispam"])
     if not go:
         return False
 
     msg = notify.format_alert(lst, res, drops, age)
-    mid = notify.send(msg, lst.get("url"))
-    # Une ligne dans `alerts` signifie "recu par l'utilisateur".
-    # L'enregistrer alors que l'envoi a echoue empoisonnait l'anti-spam :
-    # l'annonce etait ensuite bloquee 72 h alors que rien n'etait jamais
-    # arrive sur le telephone.
-    if mid or not notify.telegram_configure():
-        con.execute(
-            "INSERT INTO alerts(listing_id, tier, deal_score, "
-            "trigger_reason, telegram_message_id) VALUES (?,?,?,?,?)",
-            (listing_id, res["tier"], res["deal_score"], reason, mid),
-        )
-        _tracer_decision(con, listing_id, res, mid)
-        return True
-    print(f"  ! envoi Telegram echoue pour #{listing_id} — "
-          f"pas d'alerte enregistree, nouvel essai au prochain tour")
-    return False
+    oid = notify.deposer(con, listing_id, msg, lst.get("url"), res["tier"],
+                         res["deal_score"], motif, lst.get("price_eur"))
+    if oid is None:
+        return False               # intention identique deja en file
+    ligne = con.execute("SELECT * FROM outbox WHERE id=?", (oid,)).fetchone()
+    parti, err = notify.livrer(con, ligne)
+    if parti:
+        _tracer_decision(con, listing_id, res,
+                         ligne["telegram_message_id"] if ligne else None)
+        con.commit()
+    else:
+        print(f"  ! envoi differe pour #{listing_id} ({err}) — "
+              f"conserve en file, sera reessaye")
+    return parti
 
 
 def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
@@ -268,7 +274,10 @@ def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
     if usable:
         pool = _pool(con, vkey_loose, listing_id)
         target = {"year": lst["year"], "mileage_km": lst["mileage_km"],
-                  "vkey": vkey, "vkey_loose": vkey_loose}
+                  "vkey": vkey, "vkey_loose": vkey_loose,
+                  # le prix sert a reconnaitre les REPUBLICATIONS de cette
+                  # meme voiture, qui ne doivent pas devenir ses comparables
+                  "price_eur": lst.get("price_eur")}
         val = engine.value_market(target, pool)
     else:
         pool, val = [], engine.Valuation()   # marque non identifiée
@@ -400,7 +409,11 @@ def _tracer_decision(con, listing_id: int, res: dict, mid=None,
 def _ingest(con, src, raws: list[dict], job: str,
             seller_known: str | None = None,
             date_connue: str | None = None,
-            alerter: bool = True) -> tuple[int, int]:
+            alerter: bool = True,
+            echecs: set | None = None) -> tuple[int, int]:
+    """`echecs` recoit les itemId qui n'ont PAS pu etre traites. Le filigrane
+    devra rester en dessous du plus petit d'entre eux, sinon ces annonces
+    sont sautees definitivement."""
     sid = db.source_id(con, "2ememain")
     new = 0
     rejets: dict[str, int] = {}
@@ -437,9 +450,20 @@ def _ingest(con, src, raws: list[dict], job: str,
                 continue
 
             # On re-analyse si l'annonce est nouvelle, si son prix a bouge,
-            # ou si elle vient de recevoir un prix apres avoir ete "a debattre".
-            # Sans ca, une baisse de 1000 EUR a 14h attendait la nuit.
-            if is_new or prix_avant != data["price_eur"]:
+            # si elle n'a JAMAIS ete analysee, ou si son titre a change au
+            # point de modifier l'identification du vehicule.
+            #
+            # Le cas "jamais analysee" est indispensable : une annonce dont
+            # l'analyse a echoue etait bien enregistree, mais plus jamais
+            # reprise — elle restait sans score pour toujours.
+            deja = con.execute(
+                "SELECT enriched_at, vkey, title FROM listings WHERE id=?",
+                (lid,)).fetchone()
+            jamais_analysee = not (deja and deja["enriched_at"])
+            titre_change = bool(deja and not is_new
+                                and (deja["title"] or "") != (data.get("title") or ""))
+            if (is_new or prix_avant != data["price_eur"]
+                    or jamais_analysee or titre_change):
                 if not is_new:
                     # Une annonce dont le prix bouge est REEVALUEE. La
                     # compter dans `rejets` la faisait afficher sous
@@ -448,8 +472,10 @@ def _ingest(con, src, raws: list[dict], job: str,
                 analyse(con, lid, send_alert=alerter)
         except Exception as e:
             rejets["erreur"] = rejets.get("erreur", 0) + 1
+            if echecs is not None:
+                echecs.add(str(raw.get("itemId") or ""))
             if rejets["erreur"] <= 3:
-                print(f"  ! {e}")
+                print(f"  ! {type(e).__name__}: {e}")
     con.commit()
     if reevaluees:
         print(f"   ({reevaluees} annonce(s) reevaluee(s) apres changement de prix)")
@@ -499,9 +525,67 @@ def _watermark(con, flux: str = "fast") -> int:
 
 
 def _set_watermark(con, v: int, flux: str = "fast") -> None:
-    con.execute("INSERT INTO meta(key,value) VALUES(?,?) "
+    """MONOTONE : le filigrane ne peut jamais reculer.
+
+    Deux instances concurrentes ecrivaient chacune leur valeur, et la
+    derniere gagnait — y compris quand elle etait plus BASSE, ce qui
+    faisait reperdre du terrain. `MAX` rend l'operation commutative :
+    l'ordre d'ecriture n'a plus d'importance.
+    """
+    con.execute(
+        "INSERT INTO meta(key,value) VALUES(?,?) "
+        "ON CONFLICT(key) DO UPDATE SET "
+        "value = CASE WHEN CAST(excluded.value AS INTEGER) "
+        "             > CAST(meta.value AS INTEGER) "
+        "        THEN excluded.value ELSE meta.value END",
+        (f"watermark_{flux}", str(int(v))))
+
+
+def _reprise_page(con) -> int:
+    r = con.execute("SELECT value FROM meta WHERE key='reprise_page_fast'").fetchone()
+    try:
+        return max(0, int(r["value"])) if r else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _set_reprise_page(con, page: int) -> None:
+    con.execute("INSERT INTO meta(key,value) VALUES('reprise_page_fast',?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                (f"watermark_{flux}", str(v)))
+                (str(int(page)),))
+    con.commit()
+
+
+def _avancer_filigrane(con, diag: dict, echecs: set) -> None:
+    """Le filigrane ne couvre QUE ce qui a reellement ete traite.
+
+    Trois raisons de ne pas avancer jusqu'au plus recent identifiant lu :
+
+      1. une annonce qui a echoue doit rester relisable -> on s'arrete
+         juste EN DESSOUS du plus petit identifiant en echec ;
+      2. un arret sur la limite de pages ne couvre pas le bas du flux ->
+         on n'avance pas du tout ;
+      3. une lecture en echec ne couvre rien -> on n'avance pas.
+
+    Combine a la monotonie de `_set_watermark`, cela garantit qu'aucune
+    annonce lue ne peut etre sautee definitivement.
+    """
+    if diag.get("erreur_lecture") or not diag.get("couverture_complete", True):
+        if diag["filigrane_apres"] > diag["filigrane_avant"]:
+            print(f"   [filigrane] NON avance ({diag['arret']}) : "
+                  f"le flux n'est pas entierement couvert, "
+                  f"reste a {diag['filigrane_avant']}")
+        return
+
+    cible = diag["filigrane_apres"]
+    rates = {_numid(x) for x in echecs if _numid(x)}
+    if rates:
+        cible = min(cible, min(rates) - 1)
+        print(f"   [filigrane] {len(rates)} annonce(s) non traitee(s) : "
+              f"filigrane limite a {cible} pour pouvoir les relire")
+    if cible > diag["filigrane_avant"]:
+        _set_watermark(con, cible, "fast")
+        con.commit()
 
 
 def _ordre_par_date(raws: list[dict]) -> bool:
@@ -539,17 +623,26 @@ def _collecte_du_jour(con, src, verbose: bool = True) -> tuple[list[dict], dict]
     """
     diag = {"pages": 0, "vues": 0, "tri_date": False, "arret": "",
             "securite": False, "erreur_lecture": None,
+            "couverture_complete": True,
             "filigrane_avant": _watermark(con, "fast"), "filigrane_apres": 0}
     securite_lue = False
     pages_max = COLL.get("fast_loop_max_pages", 30)
     filigrane = diag["filigrane_avant"]
 
+    # Si le cycle precedent s'est arrete faute de pages, on REPREND ou il
+    # s'etait arrete au lieu de relire eternellement les memes premieres
+    # pages. Sans cela, tout ce qui se trouvait au-dela de la limite etait
+    # hors d'atteinte pour toujours.
+    reprise = _reprise_page(con)
+    diag["reprise_page"] = reprise
+
     raws: list[dict] = []
     vus: set[str] = set()
-    page = 0
-    max_id = filigrane
+    page = reprise
+    max_id = filigrane if reprise == 0 else 0
+    pages_ce_cycle = 0
 
-    while page < pages_max:
+    while pages_ce_cycle < pages_max:
         d = src._get(src._params(page * src.limit, private_only=True,
                                  today_only=True, sort=src.SORT_DATE))
         brut = d.get("listings") or []
@@ -565,9 +658,10 @@ def _collecte_du_jour(con, src, verbose: bool = True) -> tuple[list[dict], dict]
                 diag["arret"] = "flux epuise"
             break
         diag["pages"] += 1
+        pages_ce_cycle += 1
         diag["vues"] += len(brut)
 
-        if page == 0:
+        if pages_ce_cycle == 1:
             diag["tri_date"] = _ordre_par_date(brut)
 
         for r in brut:
@@ -606,6 +700,15 @@ def _collecte_du_jour(con, src, verbose: bool = True) -> tuple[list[dict], dict]
 
     if not diag["arret"]:
         diag["arret"] = f"limite de {pages_max} pages"
+        # On s'est arrete FAUTE DE PAGES, pas parce que le flux est epuise :
+        # tout ce qui n'a pas ete lu est PLUS ANCIEN que ce qu'on a lu.
+        # Avancer le filigrane au plus recent ferait passer ce reste sous
+        # la barre, definitivement invisible. Mesure : 200 annonces sur 500
+        # perdues en trois cycles.
+        diag["couverture_complete"] = False
+        _set_reprise_page(con, page)      # le cycle suivant continuera ici
+    else:
+        _set_reprise_page(con, 0)         # flux couvert : on repart du haut
     diag["filigrane_apres"] = max_id
     if verbose and not diag["tri_date"] and diag["filigrane_avant"]:
         print("   [tri] le flux n'est PAS trie par date : relecture complete "
@@ -627,6 +730,10 @@ def cmd_fast(once: bool = False, amorcage_alerte: bool = False):
     les nouveautes et alertent immediatement.
     """
     con = db.init()
+    if not db.prendre_verrou(con, "fast"):
+        print("[verrou] une autre instance de CAR SNIPER travaille deja sur "
+              "cette base. Arret pour ne pas alerter deux fois.")
+        return
     src = _source()
     intervalle = COLL.get("fast_loop_seconds", 90)
     cycle = 0
@@ -635,8 +742,18 @@ def cmd_fast(once: bool = False, amorcage_alerte: bool = False):
         cycle += 1
         debut = time.time()
         try:
+            db.battre_verrou(con)
+            # D'abord la file : une alerte non delivree au cycle precedent
+            # doit partir avant toute nouvelle collecte.
+            bilan_file = notify.reprendre(con)
+            if bilan_file["reprises"]:
+                print(f"   [outbox] {bilan_file['reprises']} reprise(s) : "
+                      f"{bilan_file['delivrees']} delivree(s), "
+                      f"{bilan_file['echecs']} en echec")
+
             amorcage = _watermark(con, "fast") == 0
             raws, diag = _collecte_du_jour(con, src)
+            echecs: set[str] = set()
 
             if amorcage and not amorcage_alerte:
                 print(f"[{datetime.now():%H:%M:%S}] amorcage : {len(raws)} annonces "
@@ -644,16 +761,13 @@ def cmd_fast(once: bool = False, amorcage_alerte: bool = False):
                       f"nouveautes commence maintenant.")
                 print("   (relance avec --catchup pour alerter aussi sur celles-ci)")
                 seen, new = _ingest(con, src, raws, "amorcage",
-                                    seller_known="particulier", alerter=False)
+                                    seller_known="particulier", alerter=False,
+                                    echecs=echecs)
             else:
                 seen, new = _ingest(con, src, raws, "fast_loop",
-                                    seller_known="particulier")
+                                    seller_known="particulier", echecs=echecs)
 
-            # Le filigrane n'avance QU'APRES une ingestion reussie : une
-            # erreur au milieu ne doit pas faire sauter des annonces.
-            if diag["filigrane_apres"] > diag["filigrane_avant"]:
-                _set_watermark(con, diag["filigrane_apres"], "fast")
-                con.commit()
+            _avancer_filigrane(con, diag, echecs)
 
             try:
                 retours = notify.poll_feedback(con)
@@ -686,17 +800,20 @@ def cmd_fast(once: bool = False, amorcage_alerte: bool = False):
             continue
         except KeyboardInterrupt:
             print("\nArrêt.")
+            db.rendre_verrou(con)
             return
         except Exception as e:
             import traceback
             print(f"[{datetime.now():%H:%M:%S}] erreur : {type(e).__name__}: {e}")
             traceback.print_exc()
             if once:
+                db.rendre_verrou(con)
                 return
             time.sleep(min(intervalle, 60))
             continue
 
         if once:
+            db.rendre_verrou(con)
             return
         time.sleep(max(1, intervalle - (time.time() - debut)))
 
@@ -726,6 +843,7 @@ def _recalculer(con) -> dict:
     nuit, les 300 sont notifiees. C'est `should_notify` qui tranche ensuite
     (cooldown, reactions, republications), pas un quota.
     """
+    notify.reprendre(con)          # rejouer d'abord ce qui n'est pas parti
     seuil = float(PROFILE["profile"].get("notification_threshold",
                                          PROFILE.get("notification_threshold", 70)))
     amorcage = con.execute(
@@ -791,6 +909,16 @@ def cmd_night(full_sweep: bool = True):
     complet est a lancer separement une fois par semaine.
     """
     con = db.init()
+    if not db.prendre_verrou(con, "night"):
+        print("[verrou] une autre instance travaille deja sur cette base.")
+        return
+    try:
+        _cmd_night(con, full_sweep)
+    finally:
+        db.rendre_verrou(con)
+
+
+def _cmd_night(con, full_sweep: bool):
     if not full_sweep:
         _recalculer(con)
         return
@@ -986,8 +1114,14 @@ def cmd_loop():
     l'ancienne version n'attrapait que BlockedError et KeyboardInterrupt,
     si bien qu'une erreur inattendue dans cmd_fast tuait le processus —
     et avec lui le seul endroit ou les retours Telegram etaient lus."""
+    con_loop = db.init()
+    if not db.prendre_verrou(con_loop, "loop"):
+        print("[verrou] une autre instance de CAR SNIPER travaille deja sur "
+              "cette base. Arret pour ne pas alerter deux fois.")
+        return
     last_night = None
     last_digest = None
+    last_sweep = None
     echecs = 0
     while True:
         try:
@@ -1003,6 +1137,19 @@ def cmd_loop():
                 cmd_night(full_sweep=False)
                 last_night = today
 
+            # Balayage complet HEBDOMADAIRE : c'est la SEULE passe qui
+            # marque `status='gone'` les annonces disparues du site. Sans
+            # elle, aucune annonce ne sortait jamais du marche de
+            # reference — une voiture vendue il y a six mois servait encore
+            # d'ancre a son ancien prix.
+            jour_sweep = COLL.get("full_sweep_weekday", 6)   # 6 = dimanche
+            if (h == COLL["night_loop_hour"] and today.weekday() == jour_sweep
+                    and last_sweep != today):
+                print("[sweep] balayage complet hebdomadaire — le radar est "
+                      "en pause pendant cette passe")
+                cmd_night(full_sweep=True)
+                last_sweep = today
+
             dg = PROFILE.get("digest", {}) or {}
             if dg.get("enabled", True) and h == dg.get("hour", 19) \
                     and last_digest != today:
@@ -1011,6 +1158,7 @@ def cmd_loop():
 
         except KeyboardInterrupt:
             print("\nArrêt.")
+            db.rendre_verrou(con_loop)
             return
         except BlockedError as e:
             print(f"Pause {COLL['backoff_on_429_seconds']}s : {e}")

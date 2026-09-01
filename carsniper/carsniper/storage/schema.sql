@@ -329,3 +329,46 @@ CREATE TABLE IF NOT EXISTS recalc_state (
     price_eur   INTEGER,
     seen_at     TEXT NOT NULL
 );
+
+-- ── FILE DE SORTIE DES NOTIFICATIONS ────────────────────────────────
+-- Telegram est un effet EXTERNE IRREVERSIBLE : on ne peut pas l'annuler
+-- avec un ROLLBACK. Envoyer depuis l'interieur d'une transaction longue
+-- produisait donc deux pannes symetriques :
+--   * crash avant le commit -> message parti, aucune trace -> RENVOYE ;
+--   * echec d'envoi         -> aucune trace -> JAMAIS RETENTE.
+-- L'intention d'alerter est donc rendue DURABLE ici, avant tout appel
+-- reseau, et son sort est ecrit juste apres. Chaque ligne passe par
+--   'a_envoyer' -> 'envoi_en_cours' -> 'delivree' | 'echec'
+-- et chaque transition est commitee immediatement.
+CREATE TABLE IF NOT EXISTS outbox (
+    id            INTEGER PRIMARY KEY,
+    listing_id    INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    -- Empreinte de ce qui est annonce. Deux intentions identiques ne
+    -- peuvent pas coexister : c'est le garde-fou anti-double-alerte.
+    cle_unique    TEXT NOT NULL UNIQUE,
+    etat          TEXT NOT NULL DEFAULT 'a_envoyer',
+    tier          TEXT,
+    deal_score    REAL,
+    motif         TEXT,
+    message       TEXT NOT NULL,
+    url           TEXT,
+    tentatives    INTEGER NOT NULL DEFAULT 0,
+    derniere_erreur TEXT,
+    prochain_essai  TEXT,
+    telegram_message_id INTEGER,
+    cree_le       TEXT NOT NULL DEFAULT (datetime('now')),
+    fini_le       TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_outbox_etat ON outbox(etat, prochain_essai);
+
+-- ── VERROU DE PROCESSUS ─────────────────────────────────────────────
+-- Deux instances simultanees envoyaient la meme alerte deux fois et
+-- pouvaient faire RECULER le filigrane. Une seule ligne, id=1.
+CREATE TABLE IF NOT EXISTS verrou (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    pid        INTEGER NOT NULL,
+    hote       TEXT,
+    tache      TEXT,
+    pris_le    TEXT NOT NULL,
+    battement  TEXT NOT NULL
+);

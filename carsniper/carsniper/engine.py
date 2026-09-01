@@ -186,8 +186,12 @@ class Vehicle:
         partagent marque, modele, carburant, boite, cylindree et carrosserie.
         Une A3 1.6 TDI berline n'est pas une A3 2.0 TDI Sportback."""
         d = f"{self.displacement:.1f}" if self.displacement else "?"
+        # Une carrosserie INCONNUE doit rester inconnue. Ecrire "berline"
+        # par defaut transformait une donnee absente en donnee AFFIRMEE :
+        # 11 991 annonces (23 % du parc) se comparaient a pleine fiabilite
+        # a de vraies berlines, et etaient exclues des SUV declares.
         return (f"{self.make}|{self.model}|{self.fuel}|{self.transmission}"
-                f"|{d}|{self.body or 'berline'}")
+                f"|{d}|{self.body or '?'}")
 
 
 # Mots qui annoncent une FAMILLE, pas un modele : "BMW Serie 3",
@@ -509,6 +513,15 @@ MODEL_BRAND = {
 }
 
 
+# Chez Mazda, MG, Polestar, DS, un chiffre EST le modele ("Mazda 2",
+# "MG 3", "Polestar 2", "DS 7"). Chez Renault et consorts, le site met
+# parfois la GENERATION dans ce champ : "Renault Clio 4" devenait
+# `renault|4`, et un Kadjar comme une Citroen C4 s'y retrouvaient melanges.
+MARQUES_A_MODELE_CHIFFRE = {"mazda", "mg", "polestar", "ds", "ds automobiles",
+                            "volvo", "peugeot", "citroen", "audi", "bmw",
+                            "saab", "porsche", "fiat", "alfa romeo", "lancia"}
+
+
 def _model_du_site(valeur: str | None, make: str | None) -> str | None:
     """Normalise le modele declare par 2ememain.
 
@@ -524,7 +537,13 @@ def _model_du_site(valeur: str | None, make: str | None) -> str | None:
         v = v[len(make) + 1:]
     v = re.sub(r"[^a-z0-9\- ]", "", v).strip()
     v = re.sub(r"\s+", "-", v)
-    return v[:24] or None
+    v = v[:24] or None
+    # Un chiffre nu n'est un modele que chez les marques qui en utilisent.
+    # Ailleurs, c'est une generation : on prefere ne rien affirmer.
+    if v and re.fullmatch(r"[0-9]{1,2}", v) \
+            and (make or "") not in MARQUES_A_MODELE_CHIFFRE:
+        return None
+    return v
 
 
 def _marque_du_modele(valeur: str | None) -> str | None:
@@ -1047,7 +1066,8 @@ class Valuation:
     ancre_complete: bool = True            # l'ancre a-t-elle une config connue ?
     mediane: int | None = None
     exclus: list = field(default_factory=list)   # aberrants bas ecartes
-    doublons: int = 0                      # republications retirees
+    doublons: int = 0
+    jumeaux: int = 0          # republications de la cible, ecartees du pool                      # republications retirees
     niveau: str = ""                       # strict | elargi | large
 
 
@@ -1149,6 +1169,22 @@ def _aberrants_bas(prix: list[float]) -> set[int]:
                             or p < med * 0.45)}
 
 
+def _est_jumeau(target: dict, c: dict) -> bool:
+    """La meme voiture, republiee sous un autre identifiant.
+
+    Signature volontairement STRICTE — prix, annee ET kilometrage
+    identiques a l'unite pres. Deux voitures reellement differentes ne
+    partagent pratiquement jamais les trois : accepter une tolerance
+    reviendrait a supprimer de vrais comparables.
+    """
+    tp, ty, tk = (target.get("price_eur"), target.get("year"),
+                  target.get("mileage_km"))
+    if tp is None or ty is None or tk is None:
+        return False
+    return (c.get("price_eur") == tp and c.get("year") == ty
+            and c.get("mileage_km") == tk)
+
+
 def _choisir_ancre(comps: list[dict]) -> tuple[dict, dict | None]:
     """Retourne (ancre, moins_chere_brute).
 
@@ -1176,19 +1212,33 @@ def value_market(target: dict, pool: list[dict]) -> Valuation:
     exiges — on n'elargit que sur l'annee et le kilometrage.
     """
     t_year, t_km = target.get("year"), target.get("mileage_km")
-    if not t_year or not t_km:
+    # `not 0` est vrai : un vehicule a 0 km (neuf, demonstrateur) etait
+    # declare inexploitable. 87 annonces de la base reelle. On teste
+    # l'ABSENCE, pas la veracite.
+    if t_year is None or t_km is None:
         return Valuation(method="insufficient_data")
 
     for lvl in NIVEAUX:
         comps = []
         rejets_flous = 0
+        jumeaux = 0
         for c in pool:
             if c.get("has_defect") or not c.get("price_eur"):
+                continue
+            # UNE VOITURE NE PEUT PAS ETRE SON PROPRE COMPARABLE.
+            # Exclure la cible par son identifiant ne suffit pas : un
+            # vendeur republie la meme voiture sous un autre identifiant,
+            # avec un titre a peine different. Ce jumeau devenait alors la
+            # "moins chere comparable" au prix exact de la cible, donc un
+            # ecart de 0 % et un score de 100/100. Mesure sur la base
+            # reelle : 171 notifications concernees.
+            if _est_jumeau(target, c):
+                jumeaux += 1
                 continue
             ok, flous = _compat(target.get("vkey", ""), c.get("vkey") or "")
             if not ok:
                 continue
-            if not c.get("year") or not c.get("mileage_km"):
+            if c.get("year") is None or c.get("mileage_km") is None:
                 rejets_flous += 1
                 continue
             if abs(c["year"] - t_year) > lvl["year"]:
@@ -1238,6 +1288,7 @@ def value_market(target: dict, pool: list[dict]) -> Valuation:
         val.mediane = p50
         val.exclus = exclus
         val.doublons = doublons
+        val.jumeaux = jumeaux
         val.niveau = lvl["nom"]
         val.pool_verifie = round(part_verifiee, 2)
         val.iqr_ratio = round(iqr_ratio, 3)
@@ -1547,37 +1598,66 @@ def segment_for(price: int, profile: dict) -> dict:
     return profile["segments"][-1]
 
 
-# Pente de la decroissance du score avec l'ecart au prix de la moins chere.
+
+# ── COURBE DU SCORE DE PRIX ──────────────────────────────────────────
 #
-# Elle est calee sur une question metier, pas sur des exemples : a partir de
-# quel ecart un appel ne vaut plus la peine ? Sur une vente entre
-# particuliers, la marge de negociation habituelle est de 5 a 15 %. Une
-# annonce a +45 % de la moins chere comparable reste donc au-dessus du
-# plancher meme apres une excellente negociation : c'est la que l'interet
-# s'arrete. On regle donc la pente pour que le score de prix atteigne le
-# seuil (70) autour de +46 % d'ecart, a comparaison parfaite.
+# Regle metier : l'ECART AU PLANCHER DOMINE le score. Une annonce plus
+# chere que la moins chere comparable ne doit pas pouvoir obtenir un score
+# eleve, quelle que soit la qualite de la comparaison.
 #
-#   100 - 0.65 x ecart%     ->  70 quand ecart = +46 %
+# La penalite croit avec le CARRE de l'ecart. C'est ce qui donne son sens
+# au mot "domine" : doubler l'ecart quadruple la penalite.
 #
-# La fiabilite multiplie ensuite : a 0,90 (valeur courante), le seuil reel
-# se situe vers +35 % d'ecart.
-PENTE_ECART = 0.65
+#     score_prix = 100 - COEF_ECART x ecart%^2      (borne a [0, 100])
+#
+# Un seul coefficient, cale sur une contrainte metier explicite :
+# a +15 % du plancher, le score doit rester sous 50.
+#
+#     COEF_ECART x 15^2 = 51.75   ->   score = 48.25   < 50
+#
+# Consequences, a comparaison parfaite (fiabilite 1,00) :
+#
+#     ecart      0 %    ->  100.0     au prix du plancher ou en dessous
+#     ecart      5 %    ->   94.3     tres proche du plancher
+#     ecart     10 %    ->   77.0
+#     ecart   11.4 %    ->   70.0     <- seuil de notification
+#     ecart     15 %    ->   48.3     <- contrainte metier respectee
+#     ecart     20 %    ->    8.0
+#     ecart     21 %    ->    0.0     plus aucun interet
+#
+# La forme quadratique n'est pas un artifice pour passer un test : c'est
+# la traduction directe de "l'ecart domine". Une droite calee sur le meme
+# point unique donnerait 70 des +8,8 % et ecraserait tout le voisinage
+# immediat du plancher, qui est precisement la zone interessante.
+COEF_ECART = 0.23
+
+# Conserve pour la lecture des anciens scores en base uniquement.
+PENTE_ECART = COEF_ECART
 
 
-def score_prix(prix: int, moins_chere: int) -> float:
+def score_prix(prix, moins_chere) -> float:
     """Le coeur du radar : a quelle distance du prix le plus bas du marche
     reellement comparable se situe cette annonce ?
 
-    A ou sous la moins chere -> 100. Au-dessus, decroissance continue.
+    A ou sous la moins chere -> 100. Au-dessus, decroissance quadratique.
     Aucun cout de reparation, aucune hypothese de negociation : le bot
     mesure un ecart de prix, l'utilisateur decide du reste.
+
+    Robuste par construction : toute entree inexploitable (None, texte,
+    zero, negatif, NaN, inf) renvoie 0.0 plutot que de propager une
+    exception ou une valeur hors bornes.
     """
-    if not moins_chere:
+    try:
+        p = float(prix)
+        mc = float(moins_chere)
+    except (TypeError, ValueError):
         return 0.0
-    ecart = (prix - moins_chere) / moins_chere * 100
+    if not math.isfinite(p) or not math.isfinite(mc) or mc <= 0 or p <= 0:
+        return 0.0
+    ecart = (p - mc) / mc * 100.0
     if ecart <= 0:
         return 100.0
-    return max(0.0, 100.0 - PENTE_ECART * ecart)
+    return max(0.0, min(100.0, 100.0 - COEF_ECART * ecart * ecart))
 
 
 def compute_deal(listing: dict, vehicle: Vehicle, defects: list[DefectHit],
@@ -1638,16 +1718,20 @@ def compute_deal(listing: dict, vehicle: Vehicle, defects: list[DefectHit],
 
     score = round(max(0.0, min(100.0, raw)), 1)
     tiers = profile["tiers"]
-    if score >= tiers["sniper"]["min"]:
+    # LE SEUIL PRIME SUR L'ECHELLE DES PALIERS.
+    # L'ancien ordre testait d'abord les paliers : un score de 88 tombait
+    # dans "great" (min 85) et partait donc en alerte MEME AVEC un seuil
+    # regle a 99. Le reglage `notification_threshold` etait contournable.
+    if score < seuil:
+        tier = "below"
+    elif score >= tiers["sniper"]["min"]:
         tier = "sniper"
     elif score >= tiers["great"]["min"]:
         tier = "great"
     elif score >= tiers["good"]["min"]:
         tier = "good"
-    elif score >= seuil:
-        tier = "watch"
     else:
-        tier = "below"
+        tier = "watch"
 
     # ── POURQUOI CETTE ANNONCE ──
     expl = [f"Moins chère comparable : {ref} € ({val.n} comparables)"]
@@ -1670,6 +1754,8 @@ def compute_deal(listing: dict, vehicle: Vehicle, defects: list[DefectHit],
         expl.append(f"⚠️ Signaux de prudence sur l'annonce (risque {risk:.0f}/100)")
 
     return {
+        # le message a besoin des libelles de paliers declares en config
+        "profile": profile,
         "deal_score": score, "tier": tier, "deal_type": deal_type,
         "valuation": val, "repairs": rep,
         "reference": ref, "reference_key": "moins_chere",
