@@ -109,7 +109,6 @@ collection:
   fast_loop_pages: 2            # pages lues par défaut
   fast_loop_max_pages: 30       # 3000 annonces max par passage
   night_loop_hour: 3
-  night_max_alerts: 10            # plafond de sécurité du recalcul nocturne
   bootstrap_max_pages: 900
   request_delay_seconds: 2.5      # cadence fixe, un seul thread — applique
   user_agent: "CarSniper/1.0 (usage personnel)"

@@ -533,9 +533,30 @@ try:
     check("send() renvoie None quand Telegram échoue", mid_ko is None)
     check("telegram_configure() distingue panne et absence de config",
           _nf.telegram_configure() is True)
-    src_run = inspect.getsource(runmod.analyse)
-    check("run.analyse n'enregistre pas d'alerte si l'envoi a échoué",
-          "if mid or not notify.telegram_configure():" in src_run)
+    # Vérifié sur le COMPORTEMENT, pas sur le texte du code : une ligne dans
+    # `alerts` signifie "reçu sur le téléphone". Si Telegram échoue, rien ne
+    # doit être enregistré, sinon l'anti-spam bloque 72 h une annonce que tu
+    # n'as jamais vue.
+    _n_av = con.execute("SELECT COUNT(*) FROM alerts").fetchone()[0]
+    _lid2 = con.execute(
+        "INSERT INTO listings(source_id, external_id, title, price_eur, year, "
+        "status, seller_type, url) VALUES(?,?,?,?,?,'active','particulier',?)",
+        (1, "echec-1", "Opel Corsa 1.2 essence", 4000, 2014,
+         "https://example.invalid/echec")).lastrowid
+    con.commit()
+    _res_ko = {"tier": "great", "deal_score": 88.0, "valuation": Valuation(),
+               "fiabilite": 0.9, "explanation": [], "defauts_detail": []}
+    ETAT["sendMessage_ok"] = False
+    _parti = runmod._notifier(con, _lid2, _res_ko)
+    check("envoi échoué → aucune alerte enregistrée",
+          _parti is False
+          and con.execute("SELECT COUNT(*) FROM alerts").fetchone()[0] == _n_av)
+
+    ETAT["sendMessage_ok"] = True
+    _parti2 = runmod._notifier(con, _lid2, _res_ko)
+    check("et le tour suivant réussit bien à l'envoyer",
+          _parti2 is True
+          and con.execute("SELECT COUNT(*) FROM alerts").fetchone()[0] == _n_av + 1)
     con.close()
 finally:
     _nf.urllib.request.urlopen = _vrai_urlopen
@@ -1381,6 +1402,81 @@ _anti_off = dict(_anti, suppress_reposts=False)
 go5, _ = _nf.should_notify(_c, _b, 88, "great", 17900, _anti_off)
 check("le garde-fou est débrayable par la config", go5 is True)
 _c.close()
+
+
+print("\n[30] RECALCUL NOCTURNE — amorçage silencieux, puis AUCUN plafond")
+
+# La règle : un quota de notifications ne doit exister nulle part. Le seul
+# garde-fou légitime est l'amorçage — le tout premier passage note l'état
+# de départ sans rien envoyer, exactement comme le filigrane du radar.
+check("aucun plafond de notifications ne subsiste dans le code",
+      "night_max_alerts" not in _ins.getsource(runmod))
+check("ni dans la configuration",
+      "night_max_alerts" not in (Path(__file__).resolve().parent.parent / "config" / "profile.yaml").read_text())
+
+_cn = _base_neuve("/tmp/carsniper_recalc.db")
+_sid_n = _dbm.source_id(_cn, "2ememain") if False else 1
+
+# 40 annonces largement sous le marché : toutes méritent une notification.
+_POOL = "toyota|aygo|essence|manuelle|1.0|berline"
+for i in range(40):
+    _cn.execute(
+        "INSERT INTO listings(source_id, external_id, title, description, "
+        "price_eur, year, mileage_km, vkey, vkey_loose, status, seller_type, "
+        "fuel, transmission, published_at, url) "
+        "VALUES(1,?,?,'',?,?,?,?,'toyota|aygo','active','particulier',"
+        "'Essence','Manuelle',date('now','localtime'),?)",
+        (f"n{i}", f"Toyota Aygo 1.0 essence lot {i}", 4000 + i, 2015,
+         120000 + i * 100, _POOL, f"https://example.invalid/{i}"))
+# 20 comparables nettement plus chers : les 40 sont donc des affaires.
+for i in range(20):
+    _cn.execute(
+        "INSERT INTO listings(source_id, external_id, title, description, "
+        "price_eur, year, mileage_km, vkey, vkey_loose, status, seller_type, "
+        "fuel, transmission, enriched_at) "
+        "VALUES(1,?,?,'',?,?,?,?,'toyota|aygo','active','particulier',"
+        "'Essence','Manuelle',datetime('now'))",
+        (f"c{i}", f"Toyota Aygo 1.0 essence comparable {i}", 6000 + i * 30,
+         2015, 120000 + i * 90, _POOL))
+_cn.commit()
+
+_envois = []
+_vrai_init2, _vrai_send2 = runmod.db.init, runmod.notify.send
+runmod.db.init = lambda *a, **k: _cn
+runmod.notify.send = lambda msg, url=None: (_envois.append(msg), 1)[1]
+try:
+    r1 = runmod._recalculer(_cn)
+    check("l'amorçage recalcule bien toutes les annonces", r1["analysees"] == 60)
+    check("l'amorçage n'envoie AUCUNE notification", len(_envois) == 0)
+    check("il enregistre l'état de départ",
+          _cn.execute("SELECT COUNT(*) FROM recalc_state").fetchone()[0] == 60)
+
+    # Deuxième passage, rien n'a changé : rien ne doit repartir.
+    r2 = runmod._recalculer(_cn)
+    check("un second passage sans changement ne notifie rien",
+          r2["envoyees"] == 0 and len(_envois) == 0)
+
+    # Maintenant les 40 baissent de prix : les 40 doivent partir.
+    # AUCUN plafond ne doit les tronquer à 10.
+    _cn.execute("UPDATE listings SET price_eur = price_eur - 1200 "
+                "WHERE external_id LIKE 'n%'")
+    _cn.commit()
+    _envois.clear()
+    r3 = runmod._recalculer(_cn)
+    check(f"les 40 baisses de prix sont TOUTES notifiées (reçu : {len(_envois)})",
+          len(_envois) == 40)
+    check("le compteur interne le confirme", r3["envoyees"] == 40)
+
+    # Une baisse minuscule n'est pas un événement.
+    _cn.execute("UPDATE listings SET price_eur = price_eur - 5 "
+                "WHERE external_id LIKE 'n%'")
+    _cn.commit()
+    _envois.clear()
+    runmod._recalculer(_cn)
+    check("une baisse insignifiante ne redéclenche rien", len(_envois) == 0)
+finally:
+    runmod.db.init, runmod.notify.send = _vrai_init2, _vrai_send2
+    _cn.close()
 
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")

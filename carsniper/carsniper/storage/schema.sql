@@ -315,3 +315,17 @@ CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+
+-- Etat du recalcul nocturne. Il joue le meme role que le filigrane du
+-- radar : au tout premier passage on recalcule TOUT sans rien envoyer, on
+-- note ou en etait chaque annonce, et les passages suivants ne notifient
+-- que ce qui a REELLEMENT change (franchissement du seuil, baisse de prix).
+-- Sans cet etat, le premier recalcul d'une base de 50 000 annonces aurait
+-- envoye des milliers de notifications d'un coup ; avec lui, aucun plafond
+-- artificiel n'est necessaire.
+CREATE TABLE IF NOT EXISTS recalc_state (
+    listing_id  INTEGER PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
+    deal_score  REAL,
+    price_eur   INTEGER,
+    seen_at     TEXT NOT NULL
+);

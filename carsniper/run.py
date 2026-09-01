@@ -123,6 +123,45 @@ def _pool(con, vkey_loose: str, exclure_id: int) -> list[dict]:
     } for r in rows]
 
 
+def _notifier(con, listing_id: int, res: dict, lst: dict | None = None,
+              drops: int = 0, age: float = 0.0) -> bool:
+    """Envoie l'alerte SI l'anti-spam l'autorise. Renvoie True si elle est
+    partie. Chemin unique : le radar et le recalcul nocturne passent tous
+    les deux par ici, donc par les memes garde-fous."""
+    if res is None or res.get("tier") == "below":
+        return False
+    if lst is None:
+        row = con.execute("SELECT * FROM listings WHERE id=?",
+                          (listing_id,)).fetchone()
+        if not row:
+            return False
+        lst = dict(row)
+
+    go, reason = notify.should_notify(con, listing_id, res["deal_score"],
+                                      res["tier"], lst["price_eur"],
+                                      PROFILE["antispam"])
+    if not go:
+        return False
+
+    msg = notify.format_alert(lst, res, drops, age)
+    mid = notify.send(msg, lst.get("url"))
+    # Une ligne dans `alerts` signifie "recu par l'utilisateur".
+    # L'enregistrer alors que l'envoi a echoue empoisonnait l'anti-spam :
+    # l'annonce etait ensuite bloquee 72 h alors que rien n'etait jamais
+    # arrive sur le telephone.
+    if mid or not notify.telegram_configure():
+        con.execute(
+            "INSERT INTO alerts(listing_id, tier, deal_score, "
+            "trigger_reason, telegram_message_id) VALUES (?,?,?,?,?)",
+            (listing_id, res["tier"], res["deal_score"], reason, mid),
+        )
+        _tracer_decision(con, listing_id, res, mid)
+        return True
+    print(f"  ! envoi Telegram echoue pour #{listing_id} — "
+          f"pas d'alerte enregistree, nouvel essai au prochain tour")
+    return False
+
+
 def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
     row = con.execute("SELECT * FROM listings WHERE id=?", (listing_id,)).fetchone()
     if not row or not row["price_eur"]:
@@ -291,26 +330,7 @@ def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
     )
 
     if send_alert and alertable and res["tier"] != "below":
-        go, reason = notify.should_notify(con, listing_id, res["deal_score"],
-                                          res["tier"], lst["price_eur"],
-                                          PROFILE["antispam"])
-        if go:
-            msg = notify.format_alert(lst, res, drops, age)
-            mid = notify.send(msg, lst.get("url"))
-            # Une ligne dans `alerts` signifie "recu par l'utilisateur".
-            # L'enregistrer alors que l'envoi a echoue empoisonnait
-            # l'anti-spam : l'annonce etait ensuite bloquee 72 h alors que
-            # rien n'etait jamais arrive sur le telephone.
-            if mid or not notify.telegram_configure():
-                con.execute(
-                    "INSERT INTO alerts(listing_id, tier, deal_score, "
-                    "trigger_reason, telegram_message_id) VALUES (?,?,?,?,?)",
-                    (listing_id, res["tier"], res["deal_score"], reason, mid),
-                )
-                _tracer_decision(con, listing_id, res, mid)
-            else:
-                print(f"  ! envoi Telegram echoue pour #{listing_id} — "
-                      f"pas d'alerte enregistree, nouvel essai au prochain tour")
+        _notifier(con, listing_id, res, lst, drops, age)
 
     # On trace aussi les CANDIDATES NON ENVOYEES : savoir pourquoi une
     # annonce n'est PAS partie vaut autant que savoir pourquoi une autre
@@ -660,6 +680,87 @@ def cmd_fast(once: bool = False, amorcage_alerte: bool = False):
         time.sleep(max(1, intervalle - (time.time() - debut)))
 
 
+# Une baisse de prix inferieure a ce montant n'est pas un evenement : elle
+# ne justifie pas de reprendre le telephone. Meme reglage que l'anti-spam.
+def _baisse_significative(avant, apres) -> bool:
+    if not avant or not apres:
+        return False
+    return (avant - apres) >= PROFILE["antispam"]["renotify_on_price_drop_eur"]
+
+
+def _recalculer(con) -> dict:
+    """Recalcule TOUTES les annonces actives et notifie ce qui a change.
+
+    Meme principe que le filigrane du radar, applique au recalcul :
+
+      * PREMIER PASSAGE (table `recalc_state` vide) : on recalcule tout, on
+        note ou en est chaque annonce, et on N'ENVOIE RIEN. Sans cela, le
+        premier recalcul d'une base de 50 000 annonces enverrait des
+        milliers de notifications d'un coup.
+      * PASSAGES SUIVANTS : une annonce n'est proposee a la notification que
+        si sa situation a REELLEMENT change — elle franchit le seuil alors
+        qu'elle etait dessous, ou son prix a baisse.
+
+    AUCUN plafond de nombre : si 300 annonces franchissent le seuil dans la
+    nuit, les 300 sont notifiees. C'est `should_notify` qui tranche ensuite
+    (cooldown, reactions, republications), pas un quota.
+    """
+    seuil = float(PROFILE["profile"].get("notification_threshold",
+                                         PROFILE.get("notification_threshold", 70)))
+    amorcage = con.execute(
+        "SELECT COUNT(*) FROM recalc_state").fetchone()[0] == 0
+    if amorcage:
+        print(f"[{datetime.now():%H:%M}] recalcul : AMORCAGE — l'etat de "
+              f"depart est enregistre, AUCUNE notification n'est envoyee.")
+
+    etat = {r["listing_id"]: r for r in con.execute(
+        "SELECT listing_id, deal_score, price_eur FROM recalc_state")}
+
+    n = candidates = envoyees = erreurs = 0
+    for r in con.execute("SELECT id, price_eur FROM listings "
+                         "WHERE status='active'").fetchall():
+        lid = r["id"]
+        try:
+            avant = etat.get(lid)
+            # On analyse TOUJOURS : c'est l'analyse qui produit le nouveau
+            # score. L'envoi, lui, depend de ce qui a change.
+            res = analyse(con, lid, send_alert=False)
+            n += 1
+            score = float(res["deal_score"]) if res else 0.0
+            prix = r["price_eur"]
+
+            merite = False
+            if not amorcage and res and score >= seuil:
+                if avant is None:
+                    # Annonce jamais passee par un recalcul : le radar l'a
+                    # deja vue en direct, c'est `should_notify` qui dira si
+                    # elle a deja ete annoncee.
+                    merite = True
+                elif (avant["deal_score"] or 0) < seuil:
+                    merite = True          # elle FRANCHIT le seuil
+                elif _baisse_significative(avant["price_eur"], prix):
+                    merite = True          # le prix a baisse
+
+            if merite:
+                candidates += 1
+                if _notifier(con, lid, res):
+                    envoyees += 1
+
+            con.execute(
+                "INSERT INTO recalc_state(listing_id, deal_score, price_eur, "
+                "seen_at) VALUES(?,?,?,?) ON CONFLICT(listing_id) DO UPDATE SET "
+                "deal_score=excluded.deal_score, price_eur=excluded.price_eur, "
+                "seen_at=excluded.seen_at", (lid, score, prix, db.now()))
+        except Exception:
+            erreurs += 1
+    con.commit()
+    print(f"[{datetime.now():%H:%M}] recalcul : {n} annonces, "
+          f"{candidates} changement(s) au-dessus du seuil, "
+          f"{envoyees} notification(s), {erreurs} erreur(s)")
+    return {"analysees": n, "candidates": candidates, "envoyees": envoyees,
+            "erreurs": erreurs, "amorcage": amorcage}
+
+
 def cmd_night(full_sweep: bool = True):
     """Snapshots + recalcul : c'est ici que naissent les meilleures alertes.
 
@@ -670,21 +771,7 @@ def cmd_night(full_sweep: bool = True):
     """
     con = db.init()
     if not full_sweep:
-        n = 0
-        envoyees = 0
-        maxi = COLL.get("night_max_alerts", 10)
-        for r in con.execute("SELECT id FROM listings WHERE status='active'"):
-            try:
-                # plafond de securite : un recalcul de 52 000 annonces ne doit
-                # jamais pouvoir produire une rafale de notifications
-                res = analyse(con, r["id"], send_alert=(envoyees < maxi))
-                if res and res.get("tier") != "below":
-                    envoyees += 1
-                n += 1
-            except Exception:
-                pass
-        con.commit()
-        print(f"[{datetime.now():%H:%M}] recalcul nocturne : {n} annonces")
+        _recalculer(con)
         return
 
     src = _source()
