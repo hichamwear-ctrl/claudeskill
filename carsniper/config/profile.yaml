@@ -47,33 +47,26 @@ profile:
   mode: ALL                       # ALL | DEFECT_ONLY | HEALTHY_ONLY
   require_defect: false
 
-# ── Seuils par segment de prix ──────────────────────────────
-# Une marge de 1200 € est excellente à 2500 €, dérisoire à 18000 €.
-# D'où trois régimes distincts.
+# ── Exigence de fiabilité par segment de prix ───────────────
+# Le score ne dépend QUE de l'écart au prix de la moins chère comparable.
+# Les segments ne portent plus qu'une chose : à quel point la comparaison
+# doit être sûre pour qu'une alerte parte. Sous 6000 € les comparables sont
+# plus dispersés, on exige un peu plus.
 segments:
   - name: budget
     price_from: 2000
     price_to: 6000
-    min_margin_eur: 700
-    min_margin_pct: 22
-    min_confidence: 0.55          # applique : sous ce seuil, aucune alerte
-    max_risk_penalty: 45          # applique : veto si risk < 100 - cette valeur
+    min_fiabilite: 0.55           # applique : sous ce seuil, aucune alerte
 
   - name: core
     price_from: 6000
     price_to: 12000
-    min_margin_eur: 1500
-    min_margin_pct: 18
-    min_confidence: 0.50
-    max_risk_penalty: 55
+    min_fiabilite: 0.50           # applique : sous ce seuil, aucune alerte
 
   - name: premium
     price_from: 12000
     price_to: 20000
-    min_margin_eur: 3000
-    min_margin_pct: 15
-    min_confidence: 0.50
-    max_risk_penalty: 55
+    min_fiabilite: 0.50           # applique : sous ce seuil, aucune alerte
 
 # ── Paliers d'alerte ────────────────────────────────────────
 tiers:
@@ -85,7 +78,7 @@ tiers:
 # `run.py top`, mais aucune alerte ne part. Les garde-fous du moteur
 # (confiance, marge, risque) plafonnent a seuil-1 pour bloquer une alerte.
 # 68-74 = palier "À REGARDER" ; 75+ = GOOD / GREAT / SNIPER.
-notification_threshold: 68
+notification_threshold: 70
 
 # ── Récapitulatif quotidien ─────────────────────────────────
 # Envoie le meilleur de la journée sur Telegram, même si rien n'a

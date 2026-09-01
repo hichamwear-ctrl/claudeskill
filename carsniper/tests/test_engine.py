@@ -120,8 +120,9 @@ check("'vendu en l'état' capté", any(d.code == "as_is" for d in defects))
 res = compute_deal(listing, veh, defects, val, len(pool), age_days=0.1,
                    drops=0, last_drop_days=None, profile=profile)
 print(f"\n     Marché      : {val.p50} € ({val.n} comparables, conf {val.confidence})")
-print(f"     Coût réel   : {res['true_cost_low']}–{res['true_cost_high']} €")
-print(f"     Marge (TDV) : {res['true_deal_value']} €  ({res['margin_pct']} %)")
+print(f"     Moins chère : {res['moins_chere']} €  ·  médiane {res['mediane']} €")
+print(f"     Écart       : {res['ecart_eur']:+} € ({res['ecart_pct']:+.0f} %)")
+print(f"     Score prix {res['score_prix']} × fiabilité {res['fiabilite']:.0%}")
 print(f"     Risk {res['risk']} · Resale {res['resale']} · Urgency {res['urgency']} · Conf {res['confidence']}")
 print(f"     DEAL SCORE  : {res['deal_score']} → {res['tier'].upper()}")
 for e in res["explanation"]:
@@ -129,9 +130,13 @@ for e in res["explanation"]:
 
 check("type B (défaut déclaré)", res["deal_type"] == "B")
 check("référence = plancher du marché (pmin)", res["reference"] == val.pmin)
-check("prix négocié < prix affiché", res["prix_negocie"] < listing["price_eur"])
-check("leviers de négociation identifiés", len(res["negociation"]["raisons"]) > 0)
-check("marge positive et substantielle", res["true_deal_value"] > 3000)
+check("l'écart au prix de la moins chère est calculé", res["ecart_eur"] is not None)
+check("le score vient du prix, pas d'un calcul de réparation",
+      abs(res["deal_score"] - res["score_prix"] * res["fiabilite"]) < 0.11)
+check("AUCUN coût de réparation n'entre dans le score",
+      "true_deal_value" not in res and "margin_pct" not in res)
+check("mais le défaut reste disponible pour l'affichage",
+      res["repairs"]["items"] and res["repairs"]["items"][0][0] == "suspension")
 check("alerte déclenchée", res["tier"] in ("good", "great", "sniper"))
 check("checklist fournie", len(res["checklist"]) > 0)
 
@@ -152,7 +157,13 @@ res3 = compute_deal({**listing, "price_eur": 8400}, veh, defects, val,
 print(f"     Prix 11500 → 8400 € après 3 baisses en 24 j")
 print(f"     Urgency {res['urgency']} → {res3['urgency']}   |   Score {res['deal_score']} → {res3['deal_score']}")
 check("urgence MONTE avec l'âge (TYPE B)", res3["urgency"] > res["urgency"])
-check("score augmente après baisses", res3["deal_score"] > res["deal_score"])
+# Le score ne dépend QUE de l'écart au prix de la moins chère : une baisse de
+# prix rapproche l'annonce de la moins chère, donc ne peut que l'améliorer.
+# Ici les deux prix sont déjà SOUS la moins chère, le score sature à 100.
+print(f"     écart {res['ecart_pct']:+.0f} % → {res3['ecart_pct']:+.0f} %")
+check("une baisse de prix améliore (ou maintient) l'écart",
+      res3["ecart_pct"] <= res["ecart_pct"])
+check("et ne fait jamais baisser le score", res3["deal_score"] >= res["deal_score"])
 
 
 
@@ -328,10 +339,18 @@ for x in res_e["confidence_limites"]:
     print(f"       ! {x}")
 check("l'épave est détectée comme accidentée",
       any(d.code == "accident" and not d.negated for d in def_e))
+# Règle métier : un dommage ne retire JAMAIS l'annonce du radar. Elle peut
+# être notifiée si le prix le justifie — c'est le mécanicien qui tranche.
+# Mais elle ne doit pas monter en GREAT/SNIPER avec une fiabilité élevée.
 check("l'épave n'est PAS un GREAT DEAL", res_e["tier"] not in ("great", "sniper"))
-check("l'épave ne déclenche AUCUNE alerte", res_e["tier"] == "below")
-check("la confiance reste basse sur l'épave", res_e["confidence"] < 0.5)
-check("la raison du blocage est tracée", len(res_e["plafonds"]) > 0)
+check("le défaut est visible dans le résultat",
+      "accident" in [d["code"] for d in res_e["defauts_detail"] if not d["negated"]])
+check("la fiabilité est abaissée par la décote inexpliquée",
+      res_e["fiabilite"] < 0.80)
+check("et la raison est écrite noir sur blanc",
+      any("sous la moins chère" in x for x in res_e["confidence_limites"]))
+check("aucun coût de réparation n'a été soustrait",
+      res_e["ecart_eur"] == epave["price_eur"] - res_e["moins_chere"])
 
 # même annonce SANS le mot révélateur : la décote inexpliquée doit suffire
 muette = {**epave, "title": "Toyota Aygo X 1.0 2025 automaat"}
@@ -340,8 +359,12 @@ res_m = compute_deal(muette, normalize_vehicle(muette["title"], "", 2024, "Benzi
                      def_m, val_aygo, len(pool_aygo), 0.5, 0, None, profile)
 print(f"     même voiture sans le mot 'schadewagen' → score {res_m['deal_score']}, "
       f"confiance {res_m['confidence']:.0%}")
-check("un prix inexplicablement bas bloque même sans défaut détecté",
-      res_m["tier"] == "below" and res_m["confidence"] < 0.5)
+check("un prix inexplicablement bas ne produit pas d'alerte de haut rang",
+      res_m["tier"] in ("below", "watch"))
+check("et la fiabilité s'effondre faute d'explication",
+      res_m["fiabilite"] <= 0.60)
+check("une annonce muette est moins fiable qu'une annonce qui s'explique",
+      res_m["fiabilite"] < res_e["fiabilite"])
 
 # véhicule mal identifié → confiance plafonnée
 flou = Valuation(pmin=9000, p25=9500, p50=10000, p75=10500, n=15,
@@ -356,7 +379,9 @@ c_net, _ = score_confidence({"price_eur": 9000, "year": 2015, "mileage_km": 1000
                                               "Diesel", "Manuelle"),
                             [], flou, rep_vide)
 print(f"     véhicule non identifié : {c_flou:.0%} · véhicule identifié : {c_net:.0%}")
-check("un véhicule mal identifié n'obtient pas une confiance élevée", c_flou < 0.5)
+check("un véhicule mal identifié reste sous l'exigence du segment budget",
+      c_flou < 0.55)
+check("nettement moins fiable qu'un véhicule bien identifié", c_flou < c_net - 0.2)
 check("le plancher artificiel de 0.5 a disparu", c_flou < c_net)
 
 
@@ -377,11 +402,11 @@ juste = {"title": "Opel Corsa 1.2 essence", "description": "Voiture correcte, ai
 res_j = compute_deal(juste, normalize_vehicle(juste["title"], "", 2014, "Essence", "Manuelle"),
                      detect_defects(juste["title"] + " " + juste["description"], lexicon),
                      val_c, len(pool_c), 50, 2, 3, profile)
-print(f"     annonce au prix du plancher → score {res_j['deal_score']}, "
-      f"marge affichée {res_j['marge_affichee']} €, "
-      f"part hypothèse {res_j['part_hypothese']:.0%}")
-check("marge nulle au prix affiché → jamais GREAT/SNIPER",
-      res_j["tier"] not in ("great", "sniper"))
+print(f"     annonce AU PRIX de la moins chère → score {res_j['deal_score']} "
+      f"(écart {res_j['ecart_pct']:+.0f} %)")
+check("une annonce au prix de la moins chère marque très haut",
+      res_j["score_prix"] == 100.0)
+check("et déclenche une notification", res_j["tier"] != "below")
 
 # véhicule pour pièces : jamais une opportunité
 pieces = {**juste, "description": "Wordt verkocht voor onderdelen, sloopauto.",
@@ -400,13 +425,13 @@ bonne = {"title": "Opel Corsa 1.2 essence", "description":
 res_b = compute_deal(bonne, normalize_vehicle(bonne["title"], "", 2014, "Essence", "Manuelle"),
                      detect_defects(bonne["title"] + " " + bonne["description"], lexicon),
                      val_c, len(pool_c), 30, 1, 5, profile)
-print(f"     Corsa embrayage 3 200 € vs plancher {val_c.pmin} € → "
-      f"score {res_b['deal_score']} ({res_b['tier']}), marge {res_b['true_deal_value']} €, "
-      f"confiance {res_b['confidence']:.0%}")
+print(f"     Corsa embrayage 3 200 € vs moins chère {val_c.pmin} € → "
+      f"score {res_b['deal_score']} ({res_b['tier']}), écart {res_b['ecart_pct']:+.0f} %, "
+      f"fiabilité {res_b['fiabilite']:.0%}")
 check("un embrayage usé reste une OPPORTUNITÉ (pas de sur-filtrage)",
       res_b["tier"] != "below")
-check("le coût réparation est celui du PRO, pas du garage",
-      res_b["repairs"]["pro_high"] < res_b["repairs"]["market_discount_high"])
+check("le défaut est affiché sans être soustrait du prix",
+      res_b["repairs"]["items"] and res_b["ecart_eur"] == 3200 - val_c.pmin)
 check("aucune réparation inventée sur les mots 'airco'/'5 portes'",
       {c for c, _, _ in res_b["repairs"]["items"]} == {"clutch"})
 

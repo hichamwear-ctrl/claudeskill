@@ -1090,106 +1090,80 @@ NON_CHIFFRABLES = {"accident", "corrosion", "for_parts", "engine",
 
 
 def score_confidence(listing: dict, vehicle: "Vehicle", defects: list[DefectHit],
-                     val: Valuation, rep: dict,
+                     val: Valuation, rep: dict | None = None,
                      drops: int = 0) -> tuple[float, list[str]]:
-    """Fiabilite REELLE de l'estimation, avec le detail de ce qui la limite.
+    """FIABILITE DE LA COMPARAISON — un multiplicateur, entre 0.45 et 1.00.
 
-    L'ancienne version ne mesurait que la qualite de l'echantillon de
-    marche : un marche parfaitement echantillonne + une annonce mal comprise
-    donnait 82 % de confiance sur une epave. La confiance doit repondre a
-    "ai-je compris cette annonce ?", pas seulement "ai-je assez de
-    comparables ?".
+    Elle repond a une seule question : "puis-je faire confiance a cette
+    moins chere comparable ?". Elle n'evalue PAS l'interet de l'affaire.
+
+    Son role est d'empecher un mauvais rapprochement de produire un score
+    eleve — pas de rogner une bonne opportunite. Les penalites sont donc
+    volontairement douces, sauf quand la comparaison est reellement douteuse.
     """
     raisons: list[str] = []
-    conf = val.confidence
+    if not val.n:
+        return 0.0, ["pas de comparables exploitables"]
+    f = 1.0
 
-    if not conf:
-        return 0.0, ["pas de marché de référence exploitable"]
-
-    # ── 1. identification du vehicule (plus de plancher artificiel) ──
-    # L'ancien max(vehicle.confidence, 0.5) relevait a 50 % la confiance
-    # d'un vehicule non identifie.
-    conf *= vehicle.confidence
-    if vehicle.confidence < 0.7:
-        raisons.append(f"véhicule identifié à {vehicle.confidence:.0%} seulement")
-    if not vehicle.fuel:
-        conf *= 0.85
-        raisons.append("carburant inconnu")
-    if not listing.get("year"):
-        conf *= 0.75
-        raisons.append("année inconnue")
-    if not listing.get("mileage_km"):
-        conf *= 0.75
-        raisons.append("kilométrage inconnu")
-
-    # ── 2. certitude sur les defauts ──
-    # Effet AMORTI : la fiabilite du marche de reference ne depend pas de la
-    # certitude sur le defaut. Un defaut mal cerne coute au plus 25 % de
-    # confiance, il ne divise pas l'estimation par deux.
-    conf *= 0.75 + 0.25 * rep["confidence"]
-    actifs = [d for d in defects if not d.negated and d.category != "modifier"]
-    deduits = [d for d in actifs if d.evidence == "component+marker"]
-    if deduits:
-        raisons.append("défaut déduit du contexte, non affirmé : "
-                       + ", ".join(d.code for d in deduits))
-
-    # ── 3. qualite du pool ──
+    # ── combien de comparables ──
     if val.n < 12:
-        raisons.append(f"seulement {val.n} comparables")
-    if val.iqr_ratio > 0.35:
-        raisons.append(f"comparables hétérogènes (dispersion {val.iqr_ratio:.0%})")
-    if val.pool_verifie < 0.5:
-        raisons.append(f"{1 - val.pool_verifie:.0%} du marche de reference "
-                       "n'a jamais été contrôlé pour défauts")
-    if val.method.endswith("elargi"):
-        raisons.append("estimation obtenue par élargissement année/kilométrage")
+        f *= 0.88 + 0.12 * max(0, val.n - MIN_COMPARABLES) / 4
+        raisons.append(f"{val.n} comparables seulement")
 
-    # ── 4. DECOTE INEXPLIQUEE — le garde-fou central ──
-    # Une annonce tres en dessous du marche n'est une affaire que si les
-    # defauts detectes expliquent l'ecart. Sinon, l'annonce dit quelque
-    # chose que le moteur n'a pas compris : c'est le cas de l'Aygo
-    # "schadewagen" a 2 500 EUR pour un marche a 18 490 EUR.
-    ref = val.p50 or val.pmin
+    # ── sont-ils homogenes ? ──
+    if val.iqr_ratio > 0.30:
+        f *= max(0.80, 1 - (val.iqr_ratio - 0.30))
+        raisons.append(f"comparables dispersés ({val.iqr_ratio:.0%})")
+
+    # ── a quel point a-t-il fallu elargir ? ──
+    poids = {"strict": 1.00, "elargi": 0.93, "large": 0.85}.get(val.niveau, 0.93)
+    f *= poids
+    if val.niveau and val.niveau != "strict":
+        lvl = next((n for n in NIVEAUX if n["nom"] == val.niveau), None)
+        if lvl:
+            raisons.append(f"tolérance {val.niveau} (±{lvl['year']} an, "
+                           f"±{lvl['km']:.0%} km)")
+
+    # ── ai-je bien identifie la voiture ? ──
+    if vehicle.confidence < 0.75:
+        f *= max(0.60, vehicle.confidence / 0.75)
+        raisons.append(f"véhicule identifié à {vehicle.confidence:.0%}")
+    if not vehicle.fuel:
+        f *= 0.92
+        raisons.append("carburant inconnu")
+
+    # ── l'ancre elle-meme est-elle sure ? ──
+    if not val.ancre_complete:
+        f *= 0.92
+        raisons.append(f"moins chère brute ({val.moins_chere_brute} €) écartée, "
+                       f"configuration trop incomplète")
+    if val.flou_moyen >= 2:
+        f *= 0.92
+        raisons.append("configuration partiellement inconnue sur le marché")
+
+    # ── DECOTE INEXPLIQUEE : le seul garde-fou dur ──
+    # Une annonce tres en dessous de TOUT le marche comparable, sans que
+    # rien dans le texte ne l'explique, signale plus souvent une annonce mal
+    # comprise qu'une affaire du siecle. On abaisse la fiabilite, on ne
+    # supprime pas l'annonce : le defaut detecte reste affiche et c'est
+    # l'utilisateur qui tranche.
     prix = listing.get("price_eur")
-    inexplique = 0.0
-    if ref and prix:
-        reelle = (ref - prix) / ref
-        # Ce qui explique legitimement un prix bas :
-        #   a) la decote que le marche applique aux defauts detectes ;
-        #   b) la dispersion naturelle du marche — se caler sur la moins
-        #      chere du site (pmin) plutot que sur la mediane n'a rien
-        #      d'anormal, c'est meme le principe du systeme.
-        #   c) les baisses de prix REELLEMENT observees : quand on a vu le
-        #      vendeur descendre palier par palier, le prix bas est constate,
-        #      pas mysterieux. C'est l'inverse d'une annonce affichee d'emblee
-        #      a 2 500 EUR sans que rien ne l'explique.
-        dispersion = max(0, ref - (val.pmin or ref))
-        initial = listing.get("prix_initial")
-        baisse = max(0, initial - prix) if initial and initial > prix else 0
-        if not baisse and drops:
-            baisse = min(drops * 0.04, 0.20) * ref
-        expliquee = min(1.0, (rep["market_discount_high"] + dispersion + baisse) / ref)
-        inexplique = reelle - expliquee
-        if inexplique > 0.45:
-            conf *= 0.25
-            raisons.append(f"décote de {reelle:.0%} inexpliquée par les défauts "
-                           f"détectés — l'annonce cache probablement autre chose")
-        elif inexplique > 0.32:
-            conf *= 0.55
-            raisons.append(f"décote de {reelle:.0%} mal expliquée par les "
-                           f"défauts détectés")
-        elif inexplique > 0.22:
-            conf *= 0.80
-            raisons.append(f"décote de {reelle:.0%} partiellement inexpliquée")
+    actifs = [d for d in defects if not d.negated and d.category != "modifier"]
+    if prix and val.pmin:
+        sous = (val.pmin - prix) / val.pmin
+        if sous > 0.55 and not actifs:
+            f *= 0.55
+            raisons.append(f"{sous:.0%} sous la moins chère comparable sans que "
+                           f"l'annonce l'explique")
+        elif sous > 0.55:
+            f *= 0.72
+            raisons.append(f"{sous:.0%} sous la moins chère — vérifier l'état réel")
+        elif sous > 0.35 and not actifs:
+            f *= 0.85
+            raisons.append(f"{sous:.0%} sous la moins chère sans explication visible")
 
-    # ── 5. defauts non chiffrables ──
-    bloquants = [d.code for d in actifs if d.code in NON_CHIFFRABLES]
-    if bloquants:
-        conf = min(conf, 0.45)
-        raisons.append("coût de remise en état non chiffrable depuis l'annonce : "
-                       + ", ".join(bloquants))
-
-    return round(max(0.0, min(1.0, conf)), 2), raisons
+    return round(max(0.45, min(1.0, f)), 2), raisons
 
 
 def score_risk(listing: dict, defects: list[DefectHit], val: Valuation) -> float:
@@ -1310,109 +1284,94 @@ def segment_for(price: int, profile: dict) -> dict:
     return profile["segments"][-1]
 
 
+# Pente de la decroissance du score avec l'ecart au prix de la moins chere.
+#
+# Elle est calee sur une question metier, pas sur des exemples : a partir de
+# quel ecart un appel ne vaut plus la peine ? Sur une vente entre
+# particuliers, la marge de negociation habituelle est de 5 a 15 %. Une
+# annonce a +45 % de la moins chere comparable reste donc au-dessus du
+# plancher meme apres une excellente negociation : c'est la que l'interet
+# s'arrete. On regle donc la pente pour que le score de prix atteigne le
+# seuil (70) autour de +46 % d'ecart, a comparaison parfaite.
+#
+#   100 - 0.65 x ecart%     ->  70 quand ecart = +46 %
+#
+# La fiabilite multiplie ensuite : a 0,90 (valeur courante), le seuil reel
+# se situe vers +35 % d'ecart.
+PENTE_ECART = 0.65
+
+
+def score_prix(prix: int, moins_chere: int) -> float:
+    """Le coeur du radar : a quelle distance du prix le plus bas du marche
+    reellement comparable se situe cette annonce ?
+
+    A ou sous la moins chere -> 100. Au-dessus, decroissance continue.
+    Aucun cout de reparation, aucune hypothese de negociation : le bot
+    mesure un ecart de prix, l'utilisateur decide du reste.
+    """
+    if not moins_chere:
+        return 0.0
+    ecart = (prix - moins_chere) / moins_chere * 100
+    if ecart <= 0:
+        return 100.0
+    return max(0.0, 100.0 - PENTE_ECART * ecart)
+
+
 def compute_deal(listing: dict, vehicle: Vehicle, defects: list[DefectHit],
                  val: Valuation, pool_size: int, age_days: float,
                  drops: int, last_drop_days: float | None,
                  profile: dict) -> dict:
+    """RADAR DE PRIX.
+
+        score = score_prix(annonce, moins chere comparable) x fiabilite
+
+    Le defaut eventuel est DETECTE et AFFICHE, jamais soustrait du prix :
+    un mecanicien connait son cout, le bot ne le devine pas.
+    """
     price = listing["price_eur"]
-    # Reference : pmin = la moins chere du site. C'est le vrai concurrent.
-    ref_key = profile["profile"].get("market_reference", "pmin")
-    rep = estimate_repairs(defects)
-    active = [d for d in defects if not d.negated and d.category != "modifier"]
-    deal_type = "B" if active else "A"
+    rep = estimate_repairs(defects)          # pour l'AFFICHAGE uniquement
+    actifs = [d for d in defects if not d.negated and d.category != "modifier"]
+    deal_type = "B" if actifs else "A"
+    seuil = float(profile.get("notification_threshold", 70))
 
-    # Ce qui compte n'est pas le prix affiche mais celui obtenu au telephone.
-    nego = estimate_negotiation(listing, defects, age_days, drops)
-    prix_cible = nego["prix_negocie"]
+    fiabilite, limites = score_confidence(listing, vehicle, defects, val, rep, drops)
+    ref = val.pmin
 
-    true_low = prix_cible + rep["pro_low"]
-    true_high = prix_cible + rep["pro_high"]
-    # Marge SANS aucune hypothese de negociation : ce qui reste si le
-    # vendeur ne lache pas un euro.
-    true_high_affiche = price + rep["pro_high"]
-
-    ref = getattr(val, ref_key, None) or val.p50
-    if not ref:
+    if not ref or not val.n:
         return {
             "deal_score": 0, "tier": "below", "deal_type": deal_type,
-            "reason": "données insuffisantes — pas assez de comparables",
-            "negociation": nego,
+            "reason": "pas assez de comparables fiables",
             "valuation": val, "repairs": rep,
-            "true_cost_low": true_low, "true_cost_high": true_high,
-            "true_deal_value": None, "margin_pct": None,
-            "risk": 0, "resale": 0, "urgency": 0, "confidence": 0,
-            "confidence_limites": ["pas assez de comparables fiables"],
-            "explanation": [], "checklist": rep["checklist"],
+            "reference": None, "reference_key": "moins_chere",
+            "ecart_eur": None, "ecart_pct": None,
+            "score_prix": 0, "fiabilite": 0,
+            "confidence": 0, "confidence_limites": limites,
+            "plafonds": [], "risk": 0, "resale": 0, "urgency": 0,
+            "listing_price": price,
+            "defauts_detail": [], "explanation": [],
+            "checklist": rep["checklist"],
         }
 
-    tdv = ref - true_high
-    margin_pct = tdv / ref * 100
-    # Part de la marge qui repose uniquement sur l'hypothese de negociation.
-    tdv_affiche = ref - true_high_affiche
-    marge_hypothetique = tdv_affiche <= 0 < tdv
-    part_hypothese = (nego["remise"] / tdv) if tdv > 0 else 0.0
+    ecart_eur = price - ref
+    ecart_pct = ecart_eur / ref * 100
+    sp = score_prix(price, ref)
+    raw = sp * fiabilite
 
     risk = score_risk(listing, defects, val)
     resale = score_resale(val, pool_size, vehicle)
     urgency = score_urgency(deal_type, age_days, drops, last_drop_days)
-    confidence, limites = score_confidence(listing, vehicle, defects, val, rep, drops)
 
-    raw = (
-        WEIGHTS["margin_pct"] * _norm(margin_pct, 3, 28)
-        + WEIGHTS["tdv_eur"] * _norm(tdv, 300, 5000)
-        + WEIGHTS["confidence"] * confidence * 100
-        + WEIGHTS["resale"] * resale
-        + WEIGHTS["risk"] * risk
-        + WEIGHTS["urgency"] * urgency
-    )
-
-    # ── GARDE-FOUS ──────────────────────────────────────────────
-    # Chaque plafond est trace : une alerte retenue doit pouvoir etre
-    # expliquee, une alerte bloquee aussi.
-    seg = segment_for(price, profile)
+    # ── Garde-fous : le strict minimum. Chacun est trace. ──
     plafonds: list[str] = []
-    # Un cran sous le seuil de notification REEL. `notification_threshold`
-    # etait declare dans profile.yaml mais aucun code ne le lisait : le vrai
-    # seuil etait tiers.good.min (75). Il pilote desormais l'envoi.
-    seuil = float(profile.get("notification_threshold", 75))
-    PLAFOND_BLOQUANT = seuil - 1
-
-    conf_min = seg.get("min_confidence", 0.50)
-    if confidence < conf_min:
-        raw = min(raw, PLAFOND_BLOQUANT)
-        plafonds.append(f"confiance {confidence:.0%} < {conf_min:.0%} exiges "
-                        f"sur le segment {seg['name']}")
-
-    if tdv < seg["min_margin_eur"] or margin_pct < seg["min_margin_pct"]:
-        raw = min(raw, PLAFOND_BLOQUANT)
-        plafonds.append(f"marge {int(tdv)} EUR / {margin_pct:.0f} % sous le "
-                        f"minimum du segment {seg['name']} "
-                        f"({seg['min_margin_eur']} EUR / {seg['min_margin_pct']} %)")
-
-    # Le risque a desormais un veto : il ne pesait que 13 % du score et ne
-    # pouvait pas bloquer une annonce manifestement suspecte.
-    risque_max = seg.get("max_risk_penalty")
-    if risque_max is not None and risk < (100 - risque_max):
-        raw = min(raw, PLAFOND_BLOQUANT)
-        plafonds.append(f"risque trop eleve (score {risk:.0f}, plancher "
-                        f"{100 - risque_max})")
-
-    # Une marge qui n'existe QUE grace a l'hypothese de negociation ne peut
-    # pas produire une alerte de haut rang : le vendeur n'a encore rien
-    # lache, et ces taux n'ont jamais ete valides sur des ventes reelles.
-    if marge_hypothetique:
-        raw = min(raw, tiers_max_sans_nego(profile))
-        plafonds.append("marge inexistante au prix affiche — elle repose "
-                        "entierement sur la remise supposee")
-    elif part_hypothese > 0.5:
-        raw = min(raw, tiers_max_sans_nego(profile))
-        plafonds.append(f"{part_hypothese:.0%} de la marge vient de la remise "
-                        f"supposee, pas du prix affiche")
-
-    # Voiture annoncee pour pieces : jamais une opportunite de revente.
+    seg = segment_for(price, profile)
+    fiab_min = seg.get("min_fiabilite", 0.50)
+    if fiabilite < fiab_min:
+        raw = min(raw, seuil - 1)
+        plafonds.append(f"comparaison trop peu fiable ({fiabilite:.0%} < "
+                        f"{fiab_min:.0%} sur le segment {seg['name']})")
     if any(d.code == "for_parts" and not d.negated for d in defects):
-        raw = min(raw, PLAFOND_BLOQUANT)
-        plafonds.append("vehicule annonce pour pieces")
+        raw = min(raw, seuil - 1)
+        plafonds.append("véhicule annoncé pour pièces")
 
     score = round(max(0.0, min(100.0, raw)), 1)
     tiers = profile["tiers"]
@@ -1423,48 +1382,40 @@ def compute_deal(listing: dict, vehicle: Vehicle, defects: list[DefectHit],
     elif score >= tiers["good"]["min"]:
         tier = "good"
     elif score >= seuil:
-        # Bande entre le seuil de notification et le premier palier : ca vaut
-        # un coup d'oeil, pas un deplacement.
         tier = "watch"
     else:
         tier = "below"
 
-    # ── WHY_THIS_DEAL() ──
-    expl = []
-    ecart_aff = (ref - price) / ref * 100
-    ecart_neg = (ref - prix_cible) / ref * 100
-    expl.append(f"Moins chère du marché : {ref} € ({val.n} comparables)")
-    if ecart_aff < 0 <= ecart_neg:
-        expl.append(f"Affichée {abs(ecart_aff):.0f} % AU-DESSUS, mais "
-                    f"négociable à ~{prix_cible} € soit {ecart_neg:.0f} % en dessous")
+    # ── POURQUOI CETTE ANNONCE ──
+    expl = [f"Moins chère comparable : {ref} € ({val.n} comparables)"]
+    if ecart_eur <= 0:
+        expl.append(f"Affichée {abs(ecart_eur)} € SOUS la moins chère "
+                    f"({abs(ecart_pct):.0f} %)")
     else:
-        expl.append(f"Affichée {price} €, cible de négociation ~{prix_cible} € "
-                    f"({ecart_neg:.0f} % sous le plancher)")
-    if nego["raisons"]:
-        expl.append("Levier : " + ", ".join(nego["raisons"][:3]))
-    if active:
-        gap_lo = rep["market_discount_low"] - rep["pro_high"]
-        names = ", ".join(d.code for d in active)
-        expl.append(f"Défaut(s) : {names}")
-        expl.append(f"Coût garage {rep['market_discount_low']}–{rep['market_discount_high']} € "
-                    f"vs ton coût {rep['pro_low']}–{rep['pro_high']} €")
-        if gap_lo > 0:
-            expl.append(f"Écart de compétence : ~{gap_lo} € en ta faveur")
-    else:
-        expl.append("Aucun défaut déclaré — vérifier pourquoi le prix est bas")
-    if drops >= 2:
-        expl.append(f"{drops} baisses de prix en {age_days:.0f} j — vendeur mûr")
+        expl.append(f"Affichée {ecart_eur} € au-dessus ({ecart_pct:+.0f} %)")
+    if val.mediane:
+        expl.append(f"Médiane du marché comparable : {val.mediane} €")
+    if val.exclus:
+        expl.append(f"Annonce(s) aberrante(s) exclue(s) du calcul : "
+                    + ", ".join(f"{x} €" for x in val.exclus))
+    if val.doublons:
+        expl.append(f"{val.doublons} republication(s) retirée(s) des comparables")
+    if actifs:
+        expl.append("Défaut(s) déclaré(s) : " + ", ".join(d.code for d in actifs)
+                    + " — coût à ton appréciation")
     if risk < 60:
-        expl.append("⚠️ Risque élevé — informations insuffisantes ou signaux suspects")
+        expl.append(f"⚠️ Signaux de prudence sur l'annonce (risque {risk:.0f}/100)")
 
     return {
         "deal_score": score, "tier": tier, "deal_type": deal_type,
         "valuation": val, "repairs": rep,
-        "true_cost_low": true_low, "true_cost_high": true_high,
-        "true_deal_value": int(tdv), "margin_pct": round(margin_pct, 1),
+        "reference": ref, "reference_key": "moins_chere",
+        "moins_chere": ref, "mediane": val.mediane,
+        "ecart_eur": ecart_eur, "ecart_pct": round(ecart_pct, 1),
+        "score_prix": round(sp, 1), "fiabilite": fiabilite,
+        "confidence": fiabilite,          # compatibilite : meme grandeur
+        "confidence_limites": limites, "plafonds": plafonds,
         "risk": risk, "resale": resale, "urgency": urgency,
-        "reference": ref, "reference_key": ref_key,
-        "negociation": nego, "prix_negocie": prix_cible,
         "listing_price": price,
         "defauts_detail": [
             {"code": d.code, "negated": d.negated, "evidence": d.evidence,
@@ -1474,10 +1425,6 @@ def compute_deal(listing: dict, vehicle: Vehicle, defects: list[DefectHit],
              "market_discount": list(d.market_discount)}
             for d in defects
         ],
-        "confidence": confidence, "confidence_limites": limites,
-        "plafonds": plafonds,
-        "marge_affichee": int(tdv_affiche),
-        "part_hypothese": round(part_hypothese, 2),
-        "explanation": expl,
-        "checklist": rep["checklist"], "weights_version": WEIGHTS_VERSION,
+        "explanation": expl, "checklist": rep["checklist"],
+        "weights_version": WEIGHTS_VERSION,
     }
