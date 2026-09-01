@@ -560,17 +560,19 @@ def deposer(con, listing_id: int, message: str, url: str | None,
     Renvoie l'id de la ligne, ou None si cette intention exacte existe
     deja (protection anti-double-alerte au niveau de la base)."""
     cle = _cle_intention(con, listing_id, deal_score, prix)
-    try:
-        cur = con.execute(
-            "INSERT INTO outbox(listing_id, cle_unique, etat, tier, deal_score, "
-            "motif, message, url, prochain_essai) "
-            "VALUES(?,?,'a_envoyer',?,?,?,?,?,datetime('now'))",
-            (listing_id, cle, tier, deal_score, motif, message, url))
-        con.commit()
-        return cur.lastrowid
-    except sqlite3.IntegrityError:
-        con.rollback()
+    # On VERIFIE avant d'inserer plutot que d'attraper l'IntegrityError :
+    # un `rollback` ici annulerait tout le lot en cours d'ingestion, pas
+    # seulement cette ligne.
+    if con.execute("SELECT 1 FROM outbox WHERE cle_unique=?",
+                   (cle,)).fetchone():
         return None
+    cur = con.execute(
+        "INSERT INTO outbox(listing_id, cle_unique, etat, tier, deal_score, "
+        "motif, message, url, prochain_essai) "
+        "VALUES(?,?,'a_envoyer',?,?,?,?,?,datetime('now'))",
+        (listing_id, cle, tier, deal_score, motif, message, url))
+    con.commit()
+    return cur.lastrowid
 
 
 def _ecrire_alerte(con, ligne, mid) -> None:
@@ -607,16 +609,19 @@ def livrer(con, ligne) -> tuple[bool, str]:
     return True, ""
 
 
-def reprendre(con, limite: int = 200) -> dict:
+def reprendre(con, limite: int = 200, budget_s: float = 30.0) -> dict:
     """Rejoue la file : reprises apres panne, apres 429, apres redemarrage.
 
     A appeler au DEBUT de chaque cycle. Les lignes restees en
     `envoi_en_cours` viennent d'un crash : leur sort est inconnu, on les
     clot sans renvoyer et on l'ecrit noir sur blanc.
     """
-    bilan = {"reprises": 0, "delivrees": 0, "echecs": 0, "ambigues": 0}
+    bilan = {"reprises": 0, "delivrees": 0, "echecs": 0, "ambigues": 0,
+             "reste": 0}
 
-    for r in con.execute("SELECT * FROM outbox WHERE etat='envoi_en_cours'"):
+    interrompus = con.execute(
+        "SELECT * FROM outbox WHERE etat='envoi_en_cours'").fetchall()
+    for r in interrompus:
         con.execute(
             "UPDATE outbox SET etat='delivree', "
             "derniere_erreur='interrompu pendant l''envoi : sort inconnu, "
@@ -637,7 +642,14 @@ def reprendre(con, limite: int = 200) -> dict:
         "SELECT * FROM outbox WHERE etat='a_envoyer' "
         "AND (prochain_essai IS NULL OR prochain_essai <= datetime('now')) "
         "ORDER BY id LIMIT ?", (limite,)).fetchall()
+    debut = time.monotonic()
     for i, ligne in enumerate(en_attente):
+        # La file ne doit pas devenir plus longue que le cycle du radar :
+        # 200 messages a 1,1 s feraient 220 s, alors que le cycle vise 90 s.
+        # Ce qui reste part au cycle suivant, rien n'est perdu.
+        if budget_s and time.monotonic() - debut > budget_s:
+            bilan["reste"] = len(en_attente) - i
+            break
         if i:
             time.sleep(PAUSE_ENTRE_ENVOIS_S)
         bilan["reprises"] += 1

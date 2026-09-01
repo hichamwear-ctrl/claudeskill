@@ -2237,5 +2237,86 @@ finally:
     _dbm.init, runmod.notify.envoyer_strict, runmod._source = _sv2
 
 
+print("\n[38] RAFALE ET REPRISE — la file ne perd rien, n'affame pas le radar")
+
+_sv3 = (_VRAI_INIT, runmod.notify.envoyer_strict, runmod._source)
+try:
+    _dbm.init = _VRAI_INIT
+    _cr2 = _base_neuve(_tmp("i_rafale.db"))
+    _envr = []
+    _etr = {"ko": False}
+
+    def _env_rafale(msg, url=None):
+        if _etr["ko"]:
+            raise notify_mod.EchecTelegram("indisponible")
+        _envr.append(msg)
+        return 900 + len(_envr)
+
+    runmod.db.init = lambda *a, **k: _cr2
+    runmod.notify.envoyer_strict = _env_rafale
+
+    # 200 intentions d'un coup, Telegram indisponible.
+    _cr2.execute("INSERT INTO listings(source_id,external_id,title,price_eur,"
+                 "year,status,seller_type) VALUES(1,'raf','Golf',5000,2015,"
+                 "'active','particulier')")
+    _lr = _cr2.execute("SELECT id FROM listings").fetchone()["id"]
+    _cr2.commit()
+    for _i in range(200):
+        _cr2.execute("INSERT INTO outbox(listing_id,cle_unique,etat,tier,"
+                     "deal_score,motif,message) VALUES(?,?,'a_envoyer',"
+                     "'great',88,'new',?)", (_lr, f"raf{_i}", f"message {_i}"))
+    _cr2.commit()
+    check("200 alertes en attente", notify_mod.en_attente(_cr2) == 200)
+
+    _etr["ko"] = True
+    _b1 = notify_mod.reprendre(_cr2, budget_s=0)
+    check("Telegram KO : rien n'est délivré, rien n'est perdu",
+          _b1["delivrees"] == 0 and notify_mod.en_attente(_cr2) == 200)
+
+    # Telegram revient : la file part, mais SANS dépasser son budget de temps.
+    _etr["ko"] = False
+    _t0 = _t2.time()
+    _b2 = notify_mod.reprendre(_cr2, budget_s=0.05)
+    _duree = _t2.time() - _t0
+    check(f"la reprise respecte son budget de temps ({_duree:.2f}s)",
+          _duree < 5.0)
+    check(f"et le reste attend le cycle suivant "
+          f"({notify_mod.en_attente(_cr2)} en attente)",
+          notify_mod.en_attente(_cr2) > 0 or _b2["delivrees"] == 200)
+
+    # Cycles suivants : tout finit par partir, exactement une fois.
+    for _ in range(30):
+        if notify_mod.en_attente(_cr2) == 0:
+            break
+        notify_mod.reprendre(_cr2, budget_s=0)
+    check(f"toutes les alertes finissent par partir ({len(_envr)}/200)",
+          len(_envr) == 200)
+    check("aucune n'est partie deux fois", len(set(_envr)) == 200)
+    check("la file est vide", notify_mod.en_attente(_cr2) == 0)
+    _cr2.close()
+
+    # ── déposer deux fois la même intention n'annule pas le lot en cours ──
+    _dbm.init = _VRAI_INIT
+    _cd2 = _base_neuve(_tmp("i_depot.db"))
+    _cd2.execute("INSERT INTO listings(source_id,external_id,title,price_eur,"
+                 "year,status,seller_type) VALUES(1,'dep','Golf',5000,2015,"
+                 "'active','particulier')")
+    _ld = _cd2.execute("SELECT id FROM listings").fetchone()["id"]
+    _cd2.commit()
+    _o1 = notify_mod.deposer(_cd2, _ld, "m", None, "great", 88, "new", 5000)
+    # travail NON COMMITÉ en cours, comme pendant une ingestion
+    _cd2.execute("INSERT INTO listings(source_id,external_id,title,price_eur,"
+                 "year,status,seller_type) VALUES(1,'encours','Polo',6000,"
+                 "2016,'active','particulier')")
+    _o2 = notify_mod.deposer(_cd2, _ld, "m", None, "great", 88, "new", 5000)
+    check("une intention en double est refusée sans exception", _o2 is None)
+    check("et le travail en cours n'est PAS annulé",
+          _cd2.execute("SELECT COUNT(*) FROM listings WHERE external_id="
+                       "'encours'").fetchone()[0] == 1)
+    _cd2.close()
+finally:
+    _dbm.init, runmod.notify.envoyer_strict, runmod._source = _sv3
+
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)
