@@ -253,6 +253,41 @@ def _canon_famille(famille: str, designation: str) -> str:
     return f"{designation}-{suffixe}" if suffixe else f"{famille}{designation}"
 
 
+# ── BMW : le premier chiffre d'un code a trois chiffres EST la serie ──
+# 116/118/120 -> 1-reeks, 316/318/320/330 -> 3-reeks, 520/530 -> 5-reeks...
+# La regle est sure chez BMW et seulement chez BMW : "Mercedes 180" ne dit
+# PAS s'il s'agit d'une Classe A, B, C ou E, donc on n'y touche pas.
+# Les modeles a lettre (X1, M3, Z4, i3) ne sont pas concernes.
+_BMW_CODE = re.compile(r"^([1-8])\d{2}[a-z]*$")
+_BMW_FAMILLE = re.compile(r"^([1-8])[\s-]*(serie|series|reeks)$")
+
+# 2ememain separe ces carrosseries en modeles distincts. Un 218i Active
+# Tourer (monospace) n'est PAS un 218i coupe : sans ce garde-fou, la regle
+# ci-dessus les aurait melanges.
+_BMW_VARIANTES = (
+    ("active tourer", "active-tourer"), ("activetourer", "active-tourer"),
+    ("gran tourer", "gran-tourer"), ("grantourer", "gran-tourer"),
+    ("gran coupe", "gran-coupe"), ("grancoupe", "gran-coupe"),
+    ("gran turismo", "gt"),
+)
+
+
+def _bmw_serie(tok: str, texte: str) -> str | None:
+    """Rattache un code BMW a sa serie, variante comprise."""
+    m = _BMW_CODE.match(tok) or _BMW_FAMILLE.match(tok)
+    if not m:
+        return None
+    base = f"{m.group(1)}-reeks"
+    for motif, suffixe in _BMW_VARIANTES:
+        if motif in texte:
+            return f"{base}-{suffixe}"
+    # " gt " isole : "320d GT" existe, mais "gt" apparait aussi dans des
+    # mots quelconques, d'ou la recherche sur un token entier.
+    if re.search(r"\bgt\b", texte):
+        return f"{base}-gt"
+    return base
+
+
 def _extract_model(make: str, after: str) -> str | None:
     """Modele = premier token exploitable apres la marque.
 
@@ -265,6 +300,16 @@ def _extract_model(make: str, after: str) -> str | None:
         empiler sous un `bmw|serie` fourre-tout.
     """
     toks = re.findall(r"[a-z0-9][a-z0-9\-\.]{0,14}", after)
+    # BMW d'abord : chez cette marque, et seulement chez elle, le code a
+    # trois chiffres designe sans ambiguite la serie. Le rattachement doit
+    # se faire AVANT l'extraction generique, sinon "320d" reste `bmw|320`,
+    # isole de `bmw|3-reeks` et donc sans aucun comparable.
+    if make == "bmw":
+        for raw in toks[:4]:
+            serie = _bmw_serie(raw.strip(" -.,/"), after)
+            if serie:
+                return serie
+
     for i, raw in enumerate(toks[:4]):
         base = raw.strip(" -.,/")
         # "Overige modellen" est le FOURRE-TOUT du site, present aussi dans
@@ -292,6 +337,8 @@ def _extract_model(make: str, after: str) -> str | None:
                 return _canon_famille(base, suite[0])
             precis = next((t for t in suite
                            if len(t) >= 3 and re.search(r"\d", t)), None)
+            if precis and make == "bmw":
+                return _bmw_serie(precis, after) or precis
             return precis or f"{base}{suite[0]}"
         tok = _model_token(base, make)
         if tok:

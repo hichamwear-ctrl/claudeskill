@@ -255,9 +255,12 @@ check("'BMW serie' seul → inexploitable",
       not vehicle_usable(normalize_vehicle("BMW serie", "", 2015)))
 check("'Mercedes classe' seul → inexploitable",
       not vehicle_usable(normalize_vehicle("Mercedes classe", "", 2015)))
-check("'Serie 320d' et '320d' convergent",
+# La propriété testée est inchangée — les deux écritures doivent converger.
+# Seule la valeur commune a changé : "320" isolait ces annonces de
+# `bmw|3-reeks` (le nom du site), elles n'avaient donc aucun comparable.
+check("'Serie 320d' et '320d' convergent, désormais vers la série",
       normalize_vehicle("Bmw SERIE 320d", "", 2015).model
-      == normalize_vehicle("BMW 320d", "", 2015).model == "320")
+      == normalize_vehicle("BMW 320d", "", 2015).model == "3-reeks")
 check("'Classe E220D' et 'E220 CDI' convergent",
       normalize_vehicle("Mercedes Classe E220D", "", 2015).model
       == normalize_vehicle("Mercedes E220 CDI", "", 2015).model == "e220")
@@ -1477,6 +1480,61 @@ try:
 finally:
     runmod.db.init, runmod.notify.send = _vrai_init2, _vrai_send2
     _cn.close()
+
+
+print("\n[31] BMW — le code chiffré désigne la série, MAIS seulement chez BMW")
+
+def _kb(titre, site_model=None):
+    return normalize_vehicle(titre, "", 2016, "Diesel", "Manuelle",
+                             site_model=site_model).key()
+
+# a) le premier chiffre EST la série : sûr chez BMW.
+for titre, attendu in [("BMW 320d", "3-reeks"), ("BMW 116i", "1-reeks"),
+                       ("BMW 520d", "5-reeks"), ("BMW 118d", "1-reeks"),
+                       ("BMW 114 i", "1-reeks"), ("BMW 730d", "7-reeks"),
+                       ("BMW 418d", "4-reeks"), ("BMW 116iA Automaat", "1-reeks"),
+                       ("BMW Serie 3 320d", "3-reeks"),
+                       ("BMW 1-serie 118i", "1-reeks"),
+                       ("BMW 3 reeks 320d", "3-reeks")]:
+    check(f"{titre:<24} → bmw|{attendu}", _kb(titre).split("|")[1] == attendu)
+
+# b) titre et site doivent tomber sur LA MÊME clé, sinon la même voiture
+#    ne se compare jamais à elle-même.
+for titre, site in [("BMW 320d", "3 Reeks"), ("BMW 116i", "1 Reeks"),
+                    ("BMW 520d", "5 Reeks"),
+                    ("BMW 218i Active Tourer", "2 Reeks Active Tourer"),
+                    ("BMW 220i Gran Coupe", "2 Reeks Gran Coupé")]:
+    check(f"« {titre} » (titre) = « {site} » (site)",
+          _kb(titre) == _kb(titre, site_model=site))
+
+# c) les variantes que le site sépare RESTENT séparées : un 218i Active
+#    Tourer (monospace) n'est pas un 220i coupé.
+for a, b in [("BMW 320d", "BMW 118d"),
+             ("BMW 218i Active Tourer", "BMW 220i"),
+             ("BMW 320d", "BMW 320d Gran Turismo"),
+             ("BMW 320d", "BMW X3 xDrive")]:
+    check(f"{a} ≠ {b}", not _compat_ok(_kb(a), _kb(b)))
+
+# d) les modèles à lettre ne sont pas touchés.
+for titre, attendu in [("BMW X1 sDrive", "x1"), ("BMW M3 Competition", "m3"),
+                       ("BMW Z4 2.0", "z4"), ("BMW i3 electrique", "i3")]:
+    check(f"{titre:<24} reste bmw|{attendu}", _kb(titre).split("|")[1] == attendu)
+
+# e) ET SURTOUT : la règle ne s'étend PAS à Mercedes. "180" ne dit pas
+#    s'il s'agit d'une Classe A, B, C ou E — on ne suppose rien.
+for titre in ["Mercedes 180 d", "Mercedes 220 CDI", "Mercedes 200 essence",
+              "Mercedes 250 CDI"]:
+    mod = normalize_vehicle(titre, "", 2016, None, None).key().split("|")[1]
+    check(f"« {titre} » n'est rattaché à AUCUNE classe (reste « {mod} »)",
+          "klasse" not in (mod or ""))
+check("et Classe A ≠ Classe B reste vrai",
+      not _compat_ok(_kb("Mercedes Classe A 180"), _kb("Mercedes Classe B 180")))
+
+# f) une marque qui utilise aussi des nombres n'est pas affectée.
+for titre, attendu in [("Peugeot 208 1.2", "208"), ("Audi A3 1.6", "a3"),
+                       ("Volvo 240 GL", "240"), ("Fiat 500 1.2", "500")]:
+    check(f"{titre:<20} reste « {attendu} »",
+          normalize_vehicle(titre, "", 2016, None, None).key().split("|")[1] == attendu)
 
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
