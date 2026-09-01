@@ -1067,7 +1067,8 @@ class Valuation:
     mediane: int | None = None
     exclus: list = field(default_factory=list)   # aberrants bas ecartes
     doublons: int = 0
-    jumeaux: int = 0          # republications de la cible, ecartees du pool                      # republications retirees
+    jumeaux: int = 0          # republications de la cible, ecartees du pool
+    exclus_hauts: list = field(default_factory=list)   # hors statistiques                      # republications retirees
     niveau: str = ""                       # strict | elargi | large
 
 
@@ -1148,12 +1149,43 @@ def _dedupliquer(comps: list[dict]) -> tuple[list[dict], int]:
     return out, len(comps) - len(out)
 
 
+def _aberrants_hauts(prix: list[float]) -> set[int]:
+    """Indices des prix anormalement HAUTS.
+
+    Ils ne touchent PAS l'ancre — celle-ci est le prix le plus bas — mais
+    ils gonflent la mediane et l'ecart interquartile, donc la dispersion
+    apparente du marche, donc la fiabilite. Une annonce a 99 000 EUR au
+    milieu d'un marche a 3 000 EUR faisait passer un marche parfaitement
+    homogene pour un marche disperse.
+
+    Ils restent COMPTES parmi les comparables : on ne retire pas une
+    voiture du marche, on refuse seulement qu'elle deforme les
+    statistiques. Meme critere que vers le bas, en miroir.
+    """
+    if len(prix) < 6:
+        return set()
+    med = statistics.median(prix)
+    ecarts = [abs(p - med) for p in prix]
+    mad = statistics.median(ecarts) or 1.0
+    return {i for i, p in enumerate(prix)
+            if p > med and ((p - med) / (1.4826 * mad) > 3.0
+                            or p > med * 2.5)}
+
+
 def _aberrants_bas(prix: list[float]) -> set[int]:
     """Indices des prix anormalement BAS.
 
-    On ne filtre que vers le bas : c'est l'ancre qui nous interesse, et une
+    On filtre vers le bas parce que c'est l'ANCRE qui est en jeu : une
     annonce a 1 000 EUR au milieu d'un marche a 5 000 EUR ne doit pas
-    devenir la reference. Les prix hauts, eux, ne genent personne.
+    devenir la reference de prix.
+
+    CALIBRATION FIGEE POUR CETTE VERSION. Le filtre est volontairement
+    ferme : sur un marche resserre, l'ecart median est petit, et un
+    comparable 25 % sous la mediane depasse deja trois ecarts medians.
+    Il est donc ecarte, ce qui REMONTE l'ancre et donc le score. Les prix
+    ecartes sont affiches dans l'alerte, jamais masques. Les tests de la
+    section [39] verrouillent ce comportement : toute modification de la
+    calibration les fera echouer, deliberement.
     """
     if len(prix) < 6:
         return set()
@@ -1261,10 +1293,25 @@ def value_market(target: dict, pool: list[dict]) -> Valuation:
 
         ancre, brute = _choisir_ancre(comps)
         n = len(comps)
-        tries = sorted(prix)
-        p25 = int(tries[max(0, int(n * 0.25) - 1)])
+
+        # Les aberrants HAUTS restent des comparables — on ne retire pas
+        # une voiture du marche — mais ils sortent des STATISTIQUES :
+        # sinon une annonce a 99 000 EUR dans un marche a 3 000 EUR
+        # gonflait la mediane et l'ecart interquartile, donc la dispersion
+        # apparente, donc faisait chuter la fiabilite d'un marche pourtant
+        # homogene.
+        idx_haut = _aberrants_hauts(prix)
+        exclus_hauts = sorted(int(prix[i]) for i in idx_haut)
+        prix_stats = [p for i, p in enumerate(prix) if i not in idx_haut]
+        if len(prix_stats) < 3:
+            prix_stats = list(prix)
+            exclus_hauts = []
+
+        tries = sorted(prix_stats)
+        m = len(tries)
+        p25 = int(tries[max(0, int(m * 0.25) - 1)])
         p50 = int(statistics.median(tries))
-        p75 = int(tries[min(n - 1, int(n * 0.75))])
+        p75 = int(tries[min(m - 1, int(m * 0.75))])
         iqr_ratio = (p75 - p25) / p50 if p50 else 1.0
 
         # ── qualite du pool ──
@@ -1287,6 +1334,7 @@ def value_market(target: dict, pool: list[dict]) -> Valuation:
         val.ancre_complete = brute is None
         val.mediane = p50
         val.exclus = exclus
+        val.exclus_hauts = exclus_hauts
         val.doublons = doublons
         val.jumeaux = jumeaux
         val.niveau = lvl["nom"]
@@ -1466,16 +1514,23 @@ def score_confidence(listing: dict, vehicle: "Vehicle", defects: list[DefectHit]
     actifs = [d for d in defects if not d.negated and d.category != "modifier"]
     if prix and val.pmin:
         sous = (val.pmin - prix) / val.pmin
-        if sous > 0.55 and not actifs:
+        # REGLE : un defaut declare ne peut JAMAIS ameliorer le score.
+        # L'ancienne version attenuait cette penalite quand un defaut
+        # expliquait la decote (0,72 au lieu de 0,55) : le defaut faisait
+        # alors GAGNER 15 a 17 points et pouvait faire franchir le seuil a
+        # une annonce qui, sans lui, restait dessous. La penalite est
+        # desormais la MEME avec ou sans defaut — le defaut reste une
+        # information affichee, il ne pese ni dans un sens ni dans l'autre.
+        if sous > 0.55:
             f *= 0.55
-            raisons.append(f"{sous:.0%} sous la moins chère comparable sans que "
-                           f"l'annonce l'explique")
-        elif sous > 0.55:
-            f *= 0.72
-            raisons.append(f"{sous:.0%} sous la moins chère — vérifier l'état réel")
-        elif sous > 0.35 and not actifs:
+            explication = ("" if not actifs
+                           else " (un défaut est déclaré, il ne change pas ce"
+                                " constat)")
+            raisons.append(f"{sous:.0%} sous la moins chère comparable"
+                           f"{explication}")
+        elif sous > 0.35:
             f *= 0.85
-            raisons.append(f"{sous:.0%} sous la moins chère sans explication visible")
+            raisons.append(f"{sous:.0%} sous la moins chère comparable")
 
     return round(max(0.45, min(1.0, f)), 2), raisons
 

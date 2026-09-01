@@ -310,6 +310,13 @@ def format_alert(listing: dict, res: dict, drops: int = 0,
     if val.exclus:
         L.append("⚠️ Annonce(s) écartée(s) du calcul : "
                  + ", ".join(_eur(x) for x in val.exclus))
+    hauts = getattr(val, "exclus_hauts", None)
+    if hauts:
+        # Elles restent comptées parmi les comparables : elles sont
+        # seulement sorties de la médiane et de la dispersion, qu'elles
+        # déformaient. L'écart au plancher, lui, n'en dépend pas.
+        L.append("ℹ️ Prix très au-dessus du marché, hors statistiques : "
+                 + ", ".join(_eur(x) for x in hauts[:3]))
 
     if res.get("risk", 100) < 60:
         L.append(f"🚨 Signaux de prudence sur l'annonce ({res['risk']:.0f}/100)")

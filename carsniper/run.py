@@ -94,13 +94,23 @@ def _pool(con, vkey_loose: str, exclure_id: int) -> list[dict]:
     on ne renormalise pas toute la base à chaque analyse.
 
     `exclure_id` est OBLIGATOIRE : une annonce ne doit jamais compter parmi
-    ses propres comparables. Comme la référence de marché est `pmin` (la
-    moyenne des 3 prix les plus bas), une annonce bon marché — précisément
-    celle qu'on évalue — tirait son propre plancher vers le bas.
+    ses propres comparables. Comme la référence de marché est le prix le
+    plus bas, une annonce bon marché — précisément celle qu'on évalue —
+    tirait son propre plancher vers le bas.
+
+    FENÊTRE DE MARCHÉ : seules les annonces publiées dans les
+    `market_window_days` derniers jours servent de référence. Une voiture
+    encore en ligne depuis six mois n'est plus le marché d'aujourd'hui :
+    son prix a vieilli, et elle est probablement invendable à ce prix.
+    Mesuré avant la règle : 4 779 comparables actifs de plus de 30 jours,
+    et 6,3 % des notifications s'appuyaient sur une ancre de plus d'un
+    mois. La date de publication manquante retombe sur la date de
+    première observation.
     """
+    fenetre = int(PROFILE["profile"].get("market_window_days", 90))
     rows = con.execute(
         """SELECT l.title, l.price_eur, l.mileage_km, l.year, l.seller_type,
-                  l.vkey, l.vkey_loose, l.norm_confidence,
+                  l.vkey, l.vkey_loose, l.norm_confidence, l.published_at,
                   EXISTS(SELECT 1 FROM listing_defects d WHERE d.listing_id=l.id
                          AND d.is_negated=0) AS has_defect,
                   -- "deja passee par la detection" ne peut PAS se deduire de
@@ -110,7 +120,10 @@ def _pool(con, vkey_loose: str, exclure_id: int) -> list[dict]:
            FROM listings l
            WHERE l.status='active' AND l.price_eur IS NOT NULL
              AND COALESCE(l.is_lease,0)=0
-             AND l.vkey_loose = ? AND l.id <> ?""", (vkey_loose, exclure_id),
+             AND COALESCE(l.published_at, date(l.first_seen_at))
+                 >= date('now', ?)
+             AND l.vkey_loose = ? AND l.id <> ?""",
+        (f"-{fenetre} days", vkey_loose, exclure_id),
     ).fetchall()
     return [{
         "title": r["title"],
@@ -120,6 +133,7 @@ def _pool(con, vkey_loose: str, exclure_id: int) -> list[dict]:
         "has_defect": bool(r["has_defect"]),
         "defauts_analyses": bool(r["defauts_analyses"]),
         "norm_confidence": r["norm_confidence"],
+        "published_at": r["published_at"],
     } for r in rows]
 
 

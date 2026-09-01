@@ -15,7 +15,7 @@ from carsniper.engine import (
     load_config, normalize_vehicle, detect_defects,
     value_market, compute_deal, Valuation,
     canon_fuel, vehicle_usable, score_confidence, estimate_repairs,
-    score_prix, COEF_ECART,
+    score_prix, COEF_ECART, DefectHit,
 )
 
 profile, lexicon = load_config()
@@ -178,7 +178,16 @@ check("urgence MONTE avec l'âge (TYPE B)", res3["urgency"] > res["urgency"])
 print(f"     écart {res['ecart_pct']:+.0f} % → {res3['ecart_pct']:+.0f} %")
 check("une baisse de prix améliore (ou maintient) l'écart",
       res3["ecart_pct"] <= res["ecart_pct"])
-check("et ne fait jamais baisser le score", res3["deal_score"] >= res["deal_score"])
+check("une baisse de prix ne peut jamais baisser le SCORE DE PRIX",
+      res3["score_prix"] >= res["score_prix"])
+# Le score FINAL, lui, peut baisser : à 8 400 € l'annonce se retrouve 50 %
+# sous la moins chère comparable, et le garde-fou « décote inexpliquée »
+# abaisse la fiabilité. Ce n'est pas le défaut qui pèse — la pénalité est
+# identique avec ou sans défaut — c'est l'écart au marché qui devient
+# suspect. Le motif est tracé, jamais silencieux.
+check("si le score final baisse, la raison est explicitement tracée",
+      res3["deal_score"] >= res["deal_score"]
+      or any("sous la moins chère" in x for x in res3["confidence_limites"]))
 
 
 
@@ -394,8 +403,16 @@ check("un prix inexplicablement bas ne produit pas d'alerte de haut rang",
       res_m["tier"] in ("below", "watch"))
 check("et la fiabilité s'effondre faute d'explication",
       res_m["fiabilite"] <= 0.60)
-check("une annonce muette est moins fiable qu'une annonce qui s'explique",
-      res_m["fiabilite"] < res_e["fiabilite"])
+# RÈGLE MÉTIER : un défaut déclaré ne peut JAMAIS améliorer le score.
+# L'ancienne version atténuait la pénalité de décote inexpliquée quand un
+# défaut « expliquait » le prix bas : le défaut faisait alors gagner 15 à
+# 17 points et pouvait faire franchir le seuil. La pénalité est désormais
+# la même dans les deux cas.
+check("une annonce muette n'est PAS moins fiable qu'une annonce qui "
+      "s'explique — le défaut ne pèse plus dans la fiabilité",
+      res_m["fiabilite"] == res_e["fiabilite"])
+check("et leurs scores sont donc identiques",
+      res_m["deal_score"] == res_e["deal_score"])
 
 # véhicule mal identifié → confiance plafonnée
 flou = Valuation(pmin=9000, p25=9500, p50=10000, p75=10500, n=15,
@@ -2316,6 +2333,164 @@ try:
     _cd2.close()
 finally:
     _dbm.init, runmod.notify.envoyer_strict, runmod._source = _sv3
+
+
+print("\n[39] RÈGLES MÉTIER FIXÉES — fenêtre 90 j, défaut neutre, aberrants")
+
+_VKD = "toyota|aygo|essence|manuelle|1.0|?"
+
+
+def _comp(p, k=120000, a=2015):
+    return {"price_eur": p, "year": a, "mileage_km": k, "vkey": _VKD,
+            "vkey_loose": "toyota|aygo", "seller_type": "particulier",
+            "has_defect": False, "defauts_analyses": True,
+            "norm_confidence": 0.9, "title": "Aygo"}
+
+
+# ── 1. FENÊTRE DE MARCHÉ : 90 jours ──────────────────────────────────
+_dbm.init = _VRAI_INIT
+_cf = _base_neuve(_tmp("m_fenetre.db"))
+_sidf = _dbm.source_id(_cf, "2ememain")
+
+
+def _poser_dans_le_passe(ext, prix, jours):
+    _cf.execute(
+        "INSERT INTO listings(source_id,external_id,title,price_eur,year,"
+        "mileage_km,vkey,vkey_loose,status,seller_type,published_at,"
+        "first_seen_at) VALUES(?,?,'Toyota Aygo',?,2015,120000,?, "
+        "'toyota|aygo','active','particulier',date('now',?),datetime('now',?))",
+        (_sidf, ext, prix, _VKD, f"-{jours} days", f"-{jours} days"))
+
+
+# une cible, 11 comparables récents, et 3 vieilles annonces bon marché
+_poser_dans_le_passe("cible", 9000, 0)
+for _i in range(11):
+    _poser_dans_le_passe(f"recent{_i}", 11000 + _i * 50, _i)
+for _i in range(3):
+    _poser_dans_le_passe(f"vieux{_i}", 6000 + _i * 10, 120 + _i)
+_cf.commit()
+_idc = _cf.execute("SELECT id FROM listings WHERE external_id='cible'").fetchone()["id"]
+_pf = runmod._pool(_cf, "toyota|aygo", _idc)
+_prix_pool = sorted(c["price_eur"] for c in _pf)
+check(f"la fenêtre de 90 j écarte les annonces trop vieilles "
+      f"({len(_pf)} comparables retenus sur 14)", len(_pf) == 11)
+check("aucune annonce de plus de 90 jours dans le pool",
+      min(_prix_pool) >= 11000)
+
+# et la fenêtre est bien celle de la configuration
+check("la fenêtre vient de la configuration",
+      int(profile["profile"].get("market_window_days", 0)) == 90)
+
+# une annonce de 89 jours reste, une de 91 jours part
+_poser_dans_le_passe("limite89", 7000, 89)
+_poser_dans_le_passe("limite91", 7001, 91)
+_cf.commit()
+_pf2 = runmod._pool(_cf, "toyota|aygo", _idc)
+_prix2 = {c["price_eur"] for c in _pf2}
+check("une annonce de 89 jours est encore un comparable", 7000 in _prix2)
+check("une annonce de 91 jours ne l'est plus", 7001 not in _prix2)
+_cf.close()
+
+# ── 2. UN DÉFAUT NE PEUT JAMAIS AMÉLIORER LE SCORE ───────────────────
+_vd = Valuation(pmin=10000, p25=10500, p50=12000, p75=13000, n=14,
+                confidence=0.9)
+_vd.niveau = "strict"; _vd.iqr_ratio = 0.2
+_vd.ancre_complete = True; _vd.flou_moyen = 0
+_vehd = normalize_vehicle("Volkswagen Golf 1.4 TSI", "", 2015,
+                          "Essence", "Manuelle")
+_def1 = DefectHit(code="turbo", category="mechanical", severity=3,
+                  matched="turbo", context="turbo casse", negated=False,
+                  confidence=0.8, market_discount=(0, 0), pro_cost=(0, 0))
+_def2 = DefectHit(code="accident", category="major", severity=4,
+                  matched="schade", context="carrosserieschade", negated=False,
+                  confidence=0.85, market_discount=(0, 0), pro_cost=(0, 0))
+
+_pires = []
+for _prix in range(2000, 14000, 250):
+    _l = {"price_eur": _prix, "description": "x" * 300, "photo_count": 8,
+          "year": 2015, "mileage_km": 120000}
+    _sans = compute_deal(_l, _vehd, [], _vd, 14, 1, 0, None, profile)
+    for _ds in ([_def1], [_def2], [_def1, _def2]):
+        _avec = compute_deal(_l, _vehd, _ds, _vd, 14, 1, 0, None, profile)
+        if _avec["deal_score"] > _sans["deal_score"] + 1e-9:
+            _pires.append((_prix, [d.code for d in _ds],
+                           _sans["deal_score"], _avec["deal_score"]))
+check(f"sur 144 combinaisons prix × défauts, aucun défaut n'AMÉLIORE le "
+      f"score ({len(_pires)} violation(s))", not _pires)
+
+_franchit = []
+for _prix in range(2000, 14000, 100):
+    _l = {"price_eur": _prix, "description": "x" * 300, "photo_count": 8,
+          "year": 2015, "mileage_km": 120000}
+    _sans = compute_deal(_l, _vehd, [], _vd, 14, 1, 0, None, profile)
+    _avec = compute_deal(_l, _vehd, [_def1], _vd, 14, 1, 0, None, profile)
+    if _sans["tier"] == "below" and _avec["tier"] != "below":
+        _franchit.append(_prix)
+check(f"aucun défaut ne fait franchir le seuil à une annonce qui était "
+      f"dessous ({len(_franchit)} cas)", not _franchit)
+
+# le défaut reste DÉTECTÉ et AFFICHÉ, il n'est simplement plus pesé
+_ld = {"price_eur": 8000, "description": "x" * 300, "photo_count": 8,
+       "year": 2015, "mileage_km": 120000}
+_rd = compute_deal(_ld, _vehd, [_def1], _vd, 14, 1, 0, None, profile)
+check("le défaut reste présent dans le résultat",
+      any(d["code"] == "turbo" for d in _rd["defauts_detail"]))
+check("et le score de prix est strictement identique avec ou sans lui",
+      _rd["score_prix"] == compute_deal(_ld, _vehd, [], _vd, 14, 1, 0,
+                                        None, profile)["score_prix"])
+
+# ── 3. ABERRANTS BAS : calibration FIGÉE pour cette version ──────────
+# Ces valeurs verrouillent le comportement actuel. Toute recalibration
+# fera échouer ces tests — c'est voulu.
+_cible_ab = {"year": 2015, "mileage_km": 120000, "vkey": _VKD,
+             "price_eur": 3000}
+_marche_serre = [_comp(2900 + _i * 30, 120000 + _i * 200) for _i in range(11)]
+_vab = value_market(_cible_ab, [_comp(1000)] + _marche_serre)
+check(f"un prix très bas est écarté de l'ancre (exclus : {_vab.exclus})",
+      1000 in _vab.exclus and _vab.pmin > 1000)
+check("et il est SIGNALÉ, jamais masqué", len(_vab.exclus) > 0)
+_vab2 = value_market(_cible_ab, [_comp(2500)] + _marche_serre)
+check(f"sur un marché resserré, un comparable 15 % sous la médiane est "
+      f"lui aussi écarté (ancre {_vab2.pmin}) — comportement figé, documenté",
+      _vab2.pmin >= 2500)
+_large = [_comp(2000 + _i * 400, 120000 + _i * 200) for _i in range(12)]
+_vab3 = value_market(_cible_ab, _large)
+check(f"sur un marché dispersé, rien n'est écarté à tort "
+      f"(exclus : {_vab3.exclus})", not _vab3.exclus)
+check("l'ancre est alors bien le prix le plus bas", _vab3.pmin == 2000)
+
+# ── 4. ANCRE COMPLÈTE : règle conservée ──────────────────────────────
+# Prix volontairement PROCHE du marché : on isole la règle de l'ancre
+# complète, sans la mêler au filtre d'aberrants bas testé juste avant.
+_incomplet = {**_comp(2860), "vkey": "toyota|aygo|?|?|?|?"}
+_vac = value_market(_cible_ab, [_incomplet] + _marche_serre)
+check(f"une moins chère à configuration trop incomplète n'est pas l'ancre "
+      f"(ancre {_vac.pmin}, brute {_vac.moins_chere_brute})",
+      _vac.pmin != 2860)
+check("mais elle est rapportée comme moins chère brute",
+      _vac.moins_chere_brute == 2860 and not _vac.ancre_complete)
+_complet = _comp(2800)
+_vad = value_market(_cible_ab, [_complet] + _marche_serre)
+check("une moins chère bien identifiée reste l'ancre",
+      _vad.pmin == 2800 and _vad.ancre_complete)
+
+# ── 5. ABERRANTS HAUTS : hors statistiques, mais toujours comparables ─
+_homogene = [_comp(3000 + _i * 25, 120000 + _i * 150) for _i in range(12)]
+_vh1 = value_market(_cible_ab, _homogene)
+_vh2 = value_market(_cible_ab, _homogene + [_comp(99000, 120500)])
+check(f"un prix aberrant haut n'entre pas dans la médiane "
+      f"({_vh1.p50} → {_vh2.p50})", abs(_vh2.p50 - _vh1.p50) <= 60)
+check(f"ni dans la dispersion, donc ni dans la fiabilité "
+      f"({_vh1.iqr_ratio:.2f} → {_vh2.iqr_ratio:.2f})",
+      abs(_vh2.iqr_ratio - _vh1.iqr_ratio) < 0.05)
+check(f"il est signalé comme écarté ({_vh2.exclus_hauts})",
+      99000 in _vh2.exclus_hauts)
+check("mais il reste COMPTÉ parmi les comparables (on ne retire pas une "
+      "voiture du marché)", _vh2.n == _vh1.n + 1)
+check("et il ne touche pas l'ancre, qui reste le prix le plus bas",
+      _vh2.pmin == _vh1.pmin)
+_vh3 = value_market(_cible_ab, _homogene)
+check("sans aberrant haut, rien n'est écarté", not _vh3.exclus_hauts)
 
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")

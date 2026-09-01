@@ -37,6 +37,12 @@ profile:
   allow_first_seen_fallback: true # si la date du site est illisible, on se
                                   # rabat sur l'instant où NOUS l'avons vue
 
+  # ── Fenêtre du marché de référence ────────────────────────
+  # Une annonce plus ancienne que cette fenêtre ne sert plus de
+  # comparable, même si elle est toujours en ligne : son prix n'est plus
+  # le marché d'aujourd'hui.
+  market_window_days: 90
+
   # ── Référence de marché ───────────────────────────────────
   # pmin = la moins chère du site (moyenne des 3 plus basses) — ton vrai
   #        concurrent, et la cible a battre apres negociation
