@@ -31,7 +31,9 @@ version: 2
 # Rendent un composant fautif s'ils apparaissent dans la même proposition.
 fault_markers:
   - "en panne"            # 6
-  - "hs"                  # 60  "joint de culasse hs"
+  # "hs" = hors service, MAIS "MG HS" est un modele (61 des 91 occurrences)
+  # et "HS Auto" un nom de garage.
+  - "re:(?<!mg )\\bhs\\b(?!\\s*auto\\b)"   # "joint de culasse hs"
   - "h.s."
   - "ne fonctionne pas"   # 4
   - "ne fonctionnent pas"
@@ -134,6 +136,9 @@ maintenance_markers:
   - "changees"
   - "remplace"
   - "remplacee"
+  - "remplaces"
+  - "remplacees"
+  - "geplaatst"
   - "refait"
   - "refaite"
   - "revise"
@@ -184,6 +189,9 @@ negations_global:
   - "nie"          # "nie" = "niet" en dialecte flamand
   - "nauwelijks"
   - "nihil"
+  # "anti-corrosie", "behandeld tegen roest" : un TRAITEMENT, pas un defaut.
+  - "anti"
+  - "tegen"
 
 defects:
 
@@ -393,9 +401,16 @@ defects:
     faults_nl:
       # \w*schade\w* SAUF "schadevrij…" (= SANS dommage) et les composés
       # traités par d'autres codes (motorschade → engine, lakschade → cosmetic).
-      - "re:\\b(?!schadevrij)(?!motorschade)(?!lakschade)(?!hagelschade)(?!gebruiksschade)(?!waterschade)(?!turboschade)(?!koppelingsschade)(?!bakschade)(?!koppakkingschade)\\w*schade\\w*\\b(?!\\s*vrij)"
+      # "schade:" est l'INTITULE du champ du site : c'est la VALEUR qui suit
+      # qui porte le sens. On n'ecarte donc l'intitule que lorsque cette
+      # valeur dit "sans dommage" ("schade: schadevrij", 1244 annonces).
+      # "schade: bumper spatbord" reste bien un accident.
+      - "re:\\b(?!schadevri)(?!motorschade)(?!lakschade)(?!hagelschade)(?!gebruiksschade)(?!waterschade)(?!turboschade)(?!koppelingsschade)(?!bakschade)(?!koppakkingschade)\\w*schade\\w*\\b(?!\\s*vrij)(?!\\s*:\\s*schadevri)"
       # "ongeval vrij" en deux mots = SANS accident
-      - "re:\\bongeval(?!\\s*vrij)\\w*\\b"
+      # "ongevalvrij" / "ongevalsvrij" / "ongevallenvrij" = SANS accident.
+      # "ongevalvrij", "ongevalsvrij", "ongevallenvrij" et la forme composee
+      # "ongeval- en schadevrij" annoncent toutes l'ABSENCE d'accident.
+      - "re:\\bongeval(?!(s|len)?\\s*vrij)(?!\\s*-?\\s*en\\s+schadevrij)\\w*\\b"
       - "aanrijding"
       - "total loss"
       - "totalloss"

@@ -1125,5 +1125,132 @@ for quoi, motif in [("le prix demandé", "4 000 €"),
 check("la médiane est présente comme information secondaire", "Médiane" in _msg)
 
 
+print("\n[26] PANNE ÉNONCÉE vs ORGANE ENTRETENU — formulations réelles de la base")
+
+def _codes(t):
+    return [(h.code, h.negated) for h in detect_defects(t, lexicon)]
+
+def _actif(t, code):
+    return (code, False) in _codes(t)
+
+def _nie(t, code):
+    return (code, True) in _codes(t) or code not in [c for c, _ in _codes(t)]
+
+# ── a) une panne ÉNONCÉE n'est jamais annulée par un mot d'entretien.
+#    Ces phrases sont extraites telles quelles de la base réelle.
+for texte, code in [
+        ("zeer goed onderhouden maar carrosserieschade", "accident"),
+        ("schadewagen, rijdt goed", "accident"),
+        ("lichte schade carosserie rondom van vangrail interieur perfect onderhouden", "accident"),
+        ("nieuwe batterij nieuw kleppendeksel carosserie heeft schade bumper en zijdeur", "accident"),
+        ("129.000 km rijdt erg goed wat lichaamsschade te koop in de staat", "accident"),
+        ("demarre et roule moteur ok boite ok details : accidente avant gauche", "accident"),
+        ("suivi d'entretien distribution change degat carrosserie mais mecanique impeccable", "accident"),
+        ("afgekeurd op olielek wagen rijd nog goed", "no_ct"),
+        ("afgekeurd voor deurdrempel rijdt en schakelt perfect voor de rest", "no_ct"),
+        ("nieuwe batterij de wagen is uitgerust met een trekhaak roest op geleiders schuifdeur", "corrosion"),
+        ("bmw 116i 4 nieuwe banden rijdt nog motorprobleem", "engine"),
+        ("start en rijd perfect kleine krasjes en deukjes zie foto", "cosmetic"),
+        ("voor stukken of voor opmaak rijd nog perfect", "for_parts")]:
+    check(f"{code:<9} énoncé, non annulé par l'entretien — « {texte[:38]}… »",
+          _actif(texte, code))
+
+# ── b) l'inverse : un ORGANE simplement entretenu ne devient pas une panne.
+for texte, code in [
+        ("nieuwe koppeling geplaatst", "clutch"),
+        ("koppeling vervangen op 120000 km", "clutch"),
+        ("distributieriem vervangen", "timing"),
+        ("nieuwe banden voor en achter", "tyres"),
+        ("remmen en schijven nieuw", "brakes"),
+        ("airco recent bijgevuld", "aircon")]:
+    check(f"{code:<9} entretenu, PAS compté en panne — « {texte[:38]} »",
+          _nie(texte, code))
+
+# ── c) rien ne doit se déclencher sur une annonce saine ordinaire.
+for texte in ["golf 1.4 tsi in goede staat, onderhoudsboekje aanwezig",
+              "airco aanwezig, cruise control, parkeersensoren",
+              "eerste eigenaar, altijd goed onderhouden, gekeurd voor verkoop"]:
+    check(f"annonce saine → aucun défaut — « {texte[:40]} »",
+          not [c for c, n in _codes(texte) if not n])
+
+# ── d) le champ « schade: » du site est un INTITULÉ, pas un dommage.
+check("« schade: schadevrij » n'est pas un accident",
+      not _actif("onderhouden volgens voorschriften: ja schade: schadevrij", "accident"))
+check("« ongevalsvrij » n'est pas un accident",
+      not _actif("wagen is als nieuw en ongevalsvrij abs", "accident"))
+check("« ongevallenvrij » non plus",
+      not _actif("ongevallenvrij, eerste eigenaar", "accident"))
+check("« schadevri » tronqué par le site n'est pas un accident",
+      not _actif("aantal eigenaren: 2 schadevri", "accident"))
+check("« ongeval- en schadevrij » n'est pas un accident",
+      not _actif("ongeval- en schadevrij wintervelgen inbegrepen", "accident"))
+check("mais « ongevalsvoertuig » en est un",
+      _actif("ongevalsvoertuig linksachter maar herstelbaar", "accident"))
+check("mais « schade: bumper spatbord » reste un accident",
+      _actif("start goed 2 sleutels airco schade : bumper spatbord velg", "accident"))
+check("et « met ongeval gehad » aussi",
+      _actif("auto met ongeval gehad in 2019", "accident"))
+
+# ── e) une négation explicite prime toujours.
+for texte, code in [("geen schade, ongevalsvrij", "accident"),
+                    ("nooit ongeval gehad", "accident"),
+                    ("aucun probleme de moteur", "engine")]:
+    check(f"négation explicite respectée — « {texte} »", not _actif(texte, code))
+
+
+print("\n[27] ORGANE vs MARQUEUR — le marqueur doit qualifier LE BON organe")
+
+# Le piège : une seule proposition cite plusieurs organes et un seul mot
+# de panne. Sans rattachement, ce mot contaminait tous les organes cités.
+for texte, code, attendu in [
+    # a) le marqueur vise un AUTRE organe de la même phrase
+    ("opel corsa 1.0 turbo 115cv / airco / probleme joint de culasse", "headgasket", True),
+    ("opel corsa 1.0 turbo 115cv / airco / probleme joint de culasse", "turbo", False),
+    ("opel corsa 1.0 turbo 115cv / airco / probleme joint de culasse", "aircon", False),
+    # b) le marqueur est trop loin : il parle d'autre chose
+    ("fiat punto 220 000km airco euro 5 diesel start en rijdt demarre "
+     "et roule entretien a prevoir", "aircon", False),
+    # c) le signal le PLUS PROCHE est un entretien, pas une panne
+    ("disques + plaquettes arriere recemment remplaces entretien a prevoir",
+     "brakes", False),
+    # d) énumération : le marqueur porte sur TOUS les organes coordonnés
+    ("turbo en roetfilter te vervangen", "turbo", True),
+    ("turbo en roetfilter te vervangen", "dpf_egr", True),
+    ("remmen et pneus a changer", "brakes", True),
+    ("remmen et pneus a changer", "tyres", True),
+    # e) et surtout : les vraies pannes restent détectées
+    ("airco werkt niet", "aircon", True),
+    ("turbo casse", "turbo", True),
+    ("probleme turbo", "turbo", True),
+    ("draagarm te vervangen", "suspension", True),
+    ("koppeling kabel defect", "clutch", True),
+    ("le moteur tourne au demarreur mais ne demarre pas", "starter_alt", True),
+    # f) l'équipement seul ne déclenche jamais rien
+    ("golf 1.4 tsi airco cruise control parkeersensoren", "aircon", False),
+    ("clio 5 esprit alpine 145 cv e-tech hybrid boite automatique", "gearbox", False),
+    ("mg hs luxury 1.5 turbo 162ch", "turbo", False)]:
+    obtenu = _actif(texte, code)
+    check(f"{code:<11} {'=' if attendu else '≠'} panne — « {texte[:44]}… »",
+          obtenu == attendu)
+
+# « HS » est aussi un modèle MG et un nom de garage : 61 des 91 occurrences
+# de la base ne sont PAS "hors service".
+# Un TRAITEMENT contre un défaut n'est pas le défaut.
+check("« anti corrosie » n'est pas de la corrosion",
+      not _actif("gezandstraald en gecoat met anti corrosie", "corrosion"))
+check("« behandeld tegen roest » non plus",
+      not _actif("behandeld tegen roest", "corrosion"))
+check("« beschermringen tegen stoepschade » n'est pas un accident",
+      not _actif("beschermringen tegen stoepschade", "accident"))
+check("mais « lichte roest onderaan » reste de la corrosion",
+      _actif("lichte roest onderaan", "corrosion"))
+
+check("« MG HS » n'est pas une panne", not _actif("mg hs 1.5 t-gdi luxury", "turbo"))
+check("« HS Auto » non plus", not _actif("hs auto biedt u deze wagen aan", "engine"))
+check("mais « joint de culasse hs » en est une",
+      _actif("kia carens 1.7 crdi joint de culasse hs", "headgasket"))
+check("et « 2 pneus hs » aussi", _actif("2 pneus hs tel 0495/577436", "tyres"))
+
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)

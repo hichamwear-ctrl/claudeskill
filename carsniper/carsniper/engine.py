@@ -661,15 +661,23 @@ def _compile_terms(terms: list[str]) -> list[tuple[str, re.Pattern]]:
     return out
 
 
-_LEX_CACHE: dict[int, dict] = {}
+# Cache indexe par IDENTITE de l'objet lexique. `id()` seul ne suffit pas :
+# un lexique libere puis un autre alloue peuvent reutiliser la meme adresse,
+# et l'index rendu serait alors celui de l'ancien lexique — un bug muet qui
+# fausserait toute la detection. On garde donc l'objet lui-meme dans le
+# cache : tant qu'il y est, son adresse ne peut pas etre reattribuee.
+# Un dict n'accepte pas de reference faible, d'ou une reference forte et un
+# cache borne (une application n'utilise qu'un ou deux lexiques).
+_LEX_CACHE: dict[int, tuple] = {}
+_LEX_CACHE_MAX = 8
 
 
 def _lexicon_index(lexicon: dict) -> dict:
     """Compile une fois par lexique : la detection tourne sur 53 000 annonces."""
     key = id(lexicon)
     hit = _LEX_CACHE.get(key)
-    if hit is not None:
-        return hit
+    if hit is not None and hit[0] is lexicon:
+        return hit[1]
 
     idx = {
         "faults": _compile_terms(lexicon.get("fault_markers", [])),
@@ -692,7 +700,9 @@ def _lexicon_index(lexicon: dict) -> dict:
             "components": _compile_terms(comps),
             "faults": _compile_terms(fauts),
         })
-    _LEX_CACHE[key] = idx
+    if len(_LEX_CACHE) >= _LEX_CACHE_MAX:
+        _LEX_CACHE.pop(next(iter(_LEX_CACHE)))
+    _LEX_CACHE[key] = (lexicon, idx)
     return idx
 
 
@@ -704,6 +714,113 @@ def _first_match(clause: str, terms: list[tuple[str, re.Pattern]]) -> str | None
         if m:
             return m.group(0).strip() or label
     return None
+
+
+def _spans(clause: str, terms: list[tuple[str, re.Pattern]]) -> list[tuple[int, int, str]]:
+    """Toutes les occurrences, avec leur position — necessaire pour savoir
+    QUEL organe un marqueur de panne qualifie."""
+    out = []
+    for label, rx in terms:
+        for m in rx.finditer(clause):
+            out.append((m.start(), m.end(), m.group(0).strip() or label))
+    out.sort()
+    return out
+
+
+# Distance maximale, en caracteres, entre un organe cite et le signal qui
+# le qualifie. Au-dela, le signal parle d'autre chose :
+#   "airco euro 5 diesel start en rijdt ... entretien a prevoir"
+#     -> "a prevoir" qualifie l'entretien, pas la climatisation.
+# 40 caracteres ~ six mots : assez pour "turbo est completement casse",
+# trop court pour traverser une enumeration d'equipements.
+PORTEE_MARQUEUR = 40
+
+
+def _ecart(a: tuple[int, int], b: tuple[int, int]) -> int:
+    """Nombre de caracteres entre deux empans, 0 s'ils se chevauchent."""
+    if b[0] >= a[1]:
+        return b[0] - a[1]
+    if a[0] >= b[1]:
+        return a[0] - b[1]
+    return 0
+
+
+# Une ENUMERATION coordonnee partage son marqueur : "turbo en roetfilter te
+# vervangen" annonce deux pieces a remplacer, pas une.
+# Il faut une VRAIE conjonction. Une simple ponctuation ne suffit pas :
+# "1.0 turbo / airco / probleme joint de culasse" est une liste
+# d'equipements, et "probleme" n'y concerne que la culasse.
+CONJONCTIONS = {"en", "et", "of", "ou", "&", "plus", "alsook", "ainsi"}
+LIAISONS = CONJONCTIONS | {"de", "het", "la", "le", "les", "l", "des", "du",
+                           "een", "the", "d", "aan"}
+
+
+def _enumeration(entre: str) -> bool:
+    """Organe et marqueur ne sont-ils separes que par une coordination ?"""
+    mots = [w for w in re.split(r"[\s,+/&·•\-]+", entre.strip()) if w]
+    if not mots or not any(w in CONJONCTIONS for w in mots):
+        return False
+    return all(w in LIAISONS for w in mots)
+
+
+def _entre(clause: str, c, m, tous_comps) -> str:
+    """Texte separant un organe et son marqueur, les AUTRES organes retires."""
+    if m[0] >= c[1]:
+        deb, fin = c[1], m[0]
+    else:
+        deb, fin = m[1], c[0]
+    morceaux, pos = [], deb
+    for o in sorted(tous_comps):
+        if o[0] >= fin or o[1] <= deb or o is c:
+            continue
+        morceaux.append(clause[pos:o[0]])
+        pos = max(pos, o[1])
+    morceaux.append(clause[pos:fin])
+    return " ".join(morceaux)
+
+
+def _signal_de_l_organe(clause, comps, faults, upkeep, tous_comps):
+    """A quel signal cet organe est-il rattache ?
+
+    Deux regles symetriques, toutes deux necessaires :
+
+      1. l'organe prend le signal LE PLUS PROCHE de lui — panne ou
+         entretien. "plaquettes recemment remplacees ... entretien a
+         prevoir" : le signal le plus proche des plaquettes est
+         "remplacees", pas "a prevoir" ;
+      2. un marqueur de panne ne qualifie que l'organe LE PLUS PROCHE de
+         lui. "1.0 turbo / airco / probleme joint de culasse" : "probleme"
+         qualifie la culasse, la seule qu'il touche — le turbo n'est ici
+         qu'une caracteristique du moteur.
+
+    Renvoie ("panne"|"entretien", organe, marqueur), ou None si aucun
+    signal n'est assez proche : l'organe n'est alors que de l'equipement.
+    """
+    meilleur = None
+    for c in comps:
+        for kind, marks in (("panne", faults), ("entretien", upkeep)):
+            for m in marks:
+                d = _ecart((c[0], c[1]), (m[0], m[1]))
+                if d > PORTEE_MARQUEUR:
+                    continue
+                if meilleur is None or d < meilleur[0]:
+                    meilleur = (d, kind, c, m)
+    if meilleur is None:
+        return None
+    dist, kind, c, m = meilleur
+    if kind == "panne" and tous_comps:
+        # Regle 2 : ce marqueur vise-t-il bien CET organe, ou un autre ?
+        plus_proche = min(tous_comps,
+                          key=lambda o: (_ecart((o[0], o[1]), (m[0], m[1])), o[0]))
+        if _ecart((plus_proche[0], plus_proche[1]), (m[0], m[1])) < dist:
+            # Exception : une ENUMERATION. "turbo en roetfilter te
+            # vervangen" — le marqueur porte sur les deux organes, pas
+            # seulement sur le dernier. On l'accepte si tout ce qui
+            # separe l'organe du marqueur n'est que d'autres organes et
+            # des mots de liaison.
+            if not _enumeration(_entre(clause, c, m, tous_comps)):
+                return None
+    return kind, c[2], m[2]
 
 
 def detect_defects(text: str, lexicon: dict) -> list[DefectHit]:
@@ -736,6 +853,19 @@ def detect_defects(text: str, lexicon: dict) -> list[DefectHit]:
         fault_mark = _first_match(clause, idx["faults"])
         upkeep = _first_match(clause, idx["upkeep"])
 
+        # Empans calcules une fois par proposition : il faut connaitre TOUS
+        # les organes cites pour savoir lequel un marqueur qualifie.
+        sp_faults = _spans(clause, idx["faults"]) if fault_mark else []
+        sp_upkeep = _spans(clause, idx["upkeep"]) if upkeep else []
+        sp_comps = {}
+        tous_comps = []
+        if fault_mark or upkeep or neg:
+            for e in idx["defects"]:
+                cs = _spans(clause, e["components"])
+                if cs:
+                    sp_comps[e["raw"]["code"]] = cs
+                    tous_comps.extend(cs)
+
         for entry in idx["defects"]:
             d = entry["raw"]
             code = d["code"]
@@ -744,15 +874,26 @@ def detect_defects(text: str, lexicon: dict) -> list[DefectHit]:
 
             matched = _first_match(clause, entry["faults"])
             evidence = "fault_term"
+            trigger_local = None
             if matched is None:
-                comp = _first_match(clause, entry["components"])
-                if comp is None:
+                comps = sp_comps.get(code)
+                if not comps:
                     continue
                 # L'organe est cite. Sans signal, c'est de l'equipement.
-                if fault_mark is None and upkeep is None and neg is None:
-                    continue
-                matched = comp
-                evidence = "component+marker" if fault_mark else "component"
+                sig = _signal_de_l_organe(clause, comps, sp_faults,
+                                          sp_upkeep, tous_comps)
+                if sig is None:
+                    if neg is None:
+                        continue
+                    # Une negation explicite ("geen airco-probleem") reste
+                    # une information : l'organe est signale comme sain.
+                    matched, evidence = comps[0][2], "component"
+                else:
+                    kind, matched, mark = sig
+                    if kind == "panne":
+                        trigger_local, evidence = mark, "component+marker"
+                    else:
+                        evidence = "component"
 
             is_modifier = d["category"] == "modifier"
             if is_modifier:
@@ -760,9 +901,21 @@ def detect_defects(text: str, lexicon: dict) -> list[DefectHit]:
             elif neg:
                 negated = True
             elif evidence == "fault_term":
-                negated = bool(upkeep) and fault_mark is None
+                # Une PANNE EXPLICITEMENT ENONCEE ("carrosserieschade",
+                # "afgekeurd", "motorprobleem") ne s'annule que par une
+                # negation explicite. Un mot d'entretien dans la meme
+                # proposition ne la nie PAS : "zeer goed onderhouden maar
+                # carrosserieschade" annonce un dommage, pas son absence.
+                # Verifie sur la base : sur 176 propositions de ce type,
+                # aucune n'etait une negation legitime, et la formulation
+                # "schade hersteld" (dommage repare, qui justifierait une
+                # annulation) n'y apparait jamais.
+                negated = False
             else:
-                negated = fault_mark is None
+                # Un simple ORGANE cite ("koppeling", "airco") reste neutre :
+                # seul un marqueur de panne PROCHE le rend defectueux, et un
+                # marqueur d'entretien ("vervangen", "nieuw") le rend sain.
+                negated = trigger_local is None
 
             # Une deduction "organe + marqueur" est moins sure qu'une
             # formulation explicite : la certitude descend, et avec elle la
@@ -785,7 +938,7 @@ def detect_defects(text: str, lexicon: dict) -> list[DefectHit]:
                 risk_penalty=d.get("risk_penalty", 0),
                 checklist=d.get("checklist", []),
                 evidence=evidence,
-                trigger=fault_mark if evidence == "component+marker" else None,
+                trigger=trigger_local,
             ))
     return hits
 
