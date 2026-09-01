@@ -202,6 +202,12 @@ CREATE TABLE IF NOT EXISTS scores (
     urgency_score     REAL,
 
     deal_score        REAL,
+    -- ── radar de prix (v4) : ce que le score mesure vraiment ──
+    score_prix          REAL,          -- issu du seul ecart de prix
+    moins_chere_eur     INTEGER,       -- la VRAIE moins chere comparable
+    ecart_eur           INTEGER,       -- prix annonce - moins chere
+    ecart_pct           REAL,
+    fiabilite           REAL,          -- qualite de la comparaison, 0.45-1.00
     tier              TEXT,                 -- good | great | sniper | below
 
     true_cost_low     INTEGER,

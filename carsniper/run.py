@@ -275,10 +275,13 @@ def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
         "urgency_score, confidence_score, deal_score, tier, true_cost_low, "
         "true_cost_high, true_deal_value, margin_pct, explanation_json, "
         "weights_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        # `true_cost_*` et `margin_pct` n'existent plus : le score ne
+        # soustrait aucun cout. Ces colonnes portent desormais ce que le
+        # score mesure reellement — l'ecart au prix de la moins chere.
         (listing_id, res["deal_type"], res["risk"], res["resale"],
-         res["urgency"], res["confidence"], res["deal_score"], res["tier"],
-         res["true_cost_low"], res["true_cost_high"], res["true_deal_value"],
-         res["margin_pct"], json.dumps(res["explanation"], ensure_ascii=False),
+         res["urgency"], res["fiabilite"], res["deal_score"], res["tier"],
+         res.get("score_prix"), res.get("moins_chere"), res.get("ecart_eur"),
+         res.get("ecart_pct"), json.dumps(res["explanation"], ensure_ascii=False),
          res.get("weights_version", "")),
     )
 
@@ -332,7 +335,7 @@ def _tracer_decision(con, listing_id: int, res: dict, mid=None,
     pas etre une boite noire impossible a expliquer trois jours plus tard."""
     val = res.get("valuation")
     rep = res.get("repairs") or {}
-    nego = res.get("negociation") or {}
+    nego = {}
     alert_id = con.execute("SELECT id FROM alerts WHERE listing_id=? "
                            "ORDER BY id DESC LIMIT 1", (listing_id,)).fetchone() \
         if envoyee else None
@@ -350,15 +353,15 @@ def _tracer_decision(con, listing_id: int, res: dict, mid=None,
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (listing_id, alert_id["id"] if alert_id else None, int(envoyee),
          res.get("deal_score"), res.get("tier"), res.get("confidence"),
-         res.get("listing_price"), res.get("prix_negocie"), nego.get("taux"),
+         res.get("listing_price"), None, None,
          res.get("reference_key"), res.get("reference"),
          getattr(val, "pmin", None), getattr(val, "p25", None),
          getattr(val, "p50", None), getattr(val, "p75", None),
          getattr(val, "n", 0), getattr(val, "confidence", 0),
          getattr(val, "method", None), getattr(val, "pool_verifie", 0),
          getattr(val, "iqr_ratio", 0),
-         rep.get("pro_low"), rep.get("pro_high"), res.get("true_deal_value"),
-         res.get("marge_affichee"), res.get("part_hypothese"), res.get("risk"),
+         rep.get("pro_low"), rep.get("pro_high"), res.get("ecart_eur"),
+         res.get("ecart_pct"), res.get("score_prix"), res.get("risk"),
          j(res.get("defauts_detail") or []),
          j(getattr(val, "comparables", []) or []),
          j(res.get("confidence_limites") or []),
@@ -713,9 +716,9 @@ def cmd_top(n: int = 15):
     con = db.init()
     rows = con.execute("""
         SELECT l.title, l.price_eur, l.year, l.mileage_km, l.url,
-               s.deal_score, s.tier, s.true_deal_value, s.margin_pct,
-               s.risk_score, s.confidence_score,
-               v.comparable_count, v.value_p50
+               s.deal_score, s.tier, s.true_deal_value AS ecart_eur,
+               s.margin_pct AS ecart_pct, s.risk_score, s.confidence_score,
+               v.comparable_count, v.value_pmin
         FROM listings l
         JOIN scores s ON s.id = (SELECT id FROM scores WHERE listing_id=l.id
                                  ORDER BY computed_at DESC LIMIT 1)
@@ -755,12 +758,12 @@ def cmd_top(n: int = 15):
             print("\n-> annonces du jour presentes mais moins de 8 comparables")
             print("   dans leur configuration exacte.")
         return
-    print(f"{'':4s}{'score':>6} {'prix':>8} {'marché':>8} {'marge':>7} {'conf':>5} "
+    print(f"{'':4s}{'score':>6} {'prix':>8} {'-chère':>8} {'écart':>7} {'fiab':>5} "
           f"{'cmp':>4}  titre")
     for i, r in enumerate(rows, 1):
         e = {"sniper": "🔴", "great": "🟠", "good": "🟢"}.get(r["tier"], "⚪")
         print(f"{i:2d}. {e} {r['deal_score']:5.1f} {r['price_eur']:>7} € "
-              f"{r['value_p50'] or 0:>7} € {r['true_deal_value'] or 0:>6} € "
+              f"{r['value_pmin'] or 0:>7} € {r['ecart_eur'] or 0:>+6} € "
               f"{(r['confidence_score'] or 0):>5.0%} {r['comparable_count']:>4}  "
               f"{(r['title'] or '')[:40]}")
 
@@ -776,9 +779,9 @@ def cmd_digest(force: bool = False):
 
     rows = con.execute("""
         SELECT l.title, l.price_eur, l.year, l.mileage_km, l.url, l.location,
-               s.deal_score, s.tier, s.true_deal_value, s.margin_pct,
+               s.deal_score, s.tier, s.true_deal_value AS ecart_eur,
                s.risk_score, s.confidence_score,
-               v.value_p25, v.comparable_count
+               v.value_pmin, v.comparable_count
         FROM listings l
         JOIN scores s ON s.id=(SELECT id FROM scores WHERE listing_id=l.id
                                ORDER BY computed_at DESC LIMIT 1)
@@ -804,10 +807,9 @@ def cmd_digest(force: bool = False):
     L = [f"📊 <b>Récap du jour — {jour} annonces analysées</b>", ""]
     for i, r in enumerate(rows, 1):
         e = {"sniper": "🔴", "great": "🟠", "good": "🟢"}.get(r["tier"], "⚪")
-        marge = r["true_deal_value"] or 0
         L.append(f"{e} <b>{r['deal_score']:.0f}</b> · {(r['title'] or '')[:44]}")
-        L.append(f"    {r['price_eur']} € · marché {r['value_p25'] or '?'} € · "
-                 f"marge {marge} € · conf {(r['confidence_score'] or 0):.0%}")
+        L.append(f"    {r['price_eur']} € · moins chère {r['value_pmin'] or '?'} € · "
+                 f"écart {r['ecart_eur'] or 0:+} € · fiab {(r['confidence_score'] or 0):.0%}")
         if r["url"]:
             L.append(f"    {r['url']}")
         L.append("")

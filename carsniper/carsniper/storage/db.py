@@ -49,6 +49,17 @@ def _migrate(con: sqlite3.Connection) -> None:
         if c not in cols:
             con.execute(f"ALTER TABLE listings ADD COLUMN {c} {t}")
 
+    # Colonnes du radar de prix. Les anciennes (true_cost_*, true_deal_value,
+    # margin_pct) correspondaient a un calcul de marge qui n'existe plus :
+    # on ne les detourne PAS vers un autre sens, on ajoute les bons noms.
+    scols = {r["name"] for r in con.execute("PRAGMA table_info(scores)")}
+    if scols:
+        for c, t in (("score_prix", "REAL"), ("moins_chere_eur", "INTEGER"),
+                     ("ecart_eur", "INTEGER"), ("ecart_pct", "REAL"),
+                     ("fiabilite", "REAL")):
+            if c not in scols:
+                con.execute(f"ALTER TABLE scores ADD COLUMN {c} {t}")
+
     vcols = {r["name"] for r in con.execute("PRAGMA table_info(valuations)")}
     if vcols and "value_pmin" not in vcols:
         con.execute("ALTER TABLE valuations ADD COLUMN value_pmin INTEGER")
