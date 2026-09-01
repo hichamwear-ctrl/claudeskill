@@ -276,17 +276,17 @@ def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
     )
 
     con.execute(
+        # Les colonnes true_cost_* / true_deal_value / margin_pct de l'ancien
+        # calcul de marge restent NULL : elles ne veulent plus rien dire.
         "INSERT INTO scores(listing_id, deal_type, risk_score, resale_score, "
-        "urgency_score, confidence_score, deal_score, tier, true_cost_low, "
-        "true_cost_high, true_deal_value, margin_pct, explanation_json, "
-        "weights_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        # `true_cost_*` et `margin_pct` n'existent plus : le score ne
-        # soustrait aucun cout. Ces colonnes portent desormais ce que le
-        # score mesure reellement — l'ecart au prix de la moins chere.
+        "urgency_score, confidence_score, deal_score, tier, score_prix, "
+        "moins_chere_eur, ecart_eur, ecart_pct, fiabilite, explanation_json, "
+        "weights_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (listing_id, res["deal_type"], res["risk"], res["resale"],
          res["urgency"], res["fiabilite"], res["deal_score"], res["tier"],
          res.get("score_prix"), res.get("moins_chere"), res.get("ecart_eur"),
-         res.get("ecart_pct"), json.dumps(res["explanation"], ensure_ascii=False),
+         res.get("ecart_pct"), res.get("fiabilite"),
+         json.dumps(res["explanation"], ensure_ascii=False),
          res.get("weights_version", "")),
     )
 
@@ -721,9 +721,9 @@ def cmd_top(n: int = 15):
     con = db.init()
     rows = con.execute("""
         SELECT l.title, l.price_eur, l.year, l.mileage_km, l.url,
-               s.deal_score, s.tier, s.true_deal_value AS ecart_eur,
-               s.margin_pct AS ecart_pct, s.risk_score, s.confidence_score,
-               v.comparable_count, v.value_pmin
+               s.deal_score, s.tier, s.ecart_eur, s.ecart_pct,
+               s.risk_score, s.fiabilite,
+               v.comparable_count, s.moins_chere_eur AS value_pmin
         FROM listings l
         JOIN scores s ON s.id = (SELECT id FROM scores WHERE listing_id=l.id
                                  ORDER BY computed_at DESC LIMIT 1)
@@ -769,7 +769,7 @@ def cmd_top(n: int = 15):
         e = {"sniper": "🔴", "great": "🟠", "good": "🟢"}.get(r["tier"], "⚪")
         print(f"{i:2d}. {e} {r['deal_score']:5.1f} {r['price_eur']:>7} € "
               f"{r['value_pmin'] or 0:>7} € {r['ecart_eur'] or 0:>+6} € "
-              f"{(r['confidence_score'] or 0):>5.0%} {r['comparable_count']:>4}  "
+              f"{(r['fiabilite'] or 0):>5.0%} {r['comparable_count']:>4}  "
               f"{(r['title'] or '')[:40]}")
 
 
@@ -784,9 +784,9 @@ def cmd_digest(force: bool = False):
 
     rows = con.execute("""
         SELECT l.title, l.price_eur, l.year, l.mileage_km, l.url, l.location,
-               s.deal_score, s.tier, s.true_deal_value AS ecart_eur,
-               s.risk_score, s.confidence_score,
-               v.value_pmin, v.comparable_count
+               s.deal_score, s.tier, s.ecart_eur,
+               s.risk_score, s.fiabilite,
+               s.moins_chere_eur AS value_pmin, v.comparable_count
         FROM listings l
         JOIN scores s ON s.id=(SELECT id FROM scores WHERE listing_id=l.id
                                ORDER BY computed_at DESC LIMIT 1)
@@ -814,7 +814,7 @@ def cmd_digest(force: bool = False):
         e = {"sniper": "🔴", "great": "🟠", "good": "🟢"}.get(r["tier"], "⚪")
         L.append(f"{e} <b>{r['deal_score']:.0f}</b> · {(r['title'] or '')[:44]}")
         L.append(f"    {r['price_eur']} € · moins chère {r['value_pmin'] or '?'} € · "
-                 f"écart {r['ecart_eur'] or 0:+} € · fiab {(r['confidence_score'] or 0):.0%}")
+                 f"écart {r['ecart_eur'] or 0:+} € · fiab {(r['fiabilite'] or 0):.0%}")
         if r["url"]:
             L.append(f"    {r['url']}")
         L.append("")

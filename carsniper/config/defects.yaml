@@ -355,7 +355,8 @@ defects:
     faults_fr: [moteur hs, moteur casse, moteur claque, moteur qui claque,
                 probleme moteur, moteur a refaire, moteur fatigue]
     faults_nl: [motorschade, motor defect, motor kapot, motor tikt,
-                motor slaat niet aan, motorprobleem]
+                motor slaat niet aan, motor start niet, start niet meer,
+                motor draait niet, motorprobleem]
     market_discount: [3000, 7000]
     pro_cost: [800, 4000]
     risk_penalty: 15
@@ -595,7 +596,9 @@ defects:
     components_nl: []
     faults_fr: [pour pieces, pour piece, pieces detachees, a demonter,
                 pour la casse]
-    faults_nl: [voor onderdelen, onderdelen auto, sloopauto, loopt niet meer]
+    faults_nl: [voor onderdelen, onderdelen auto, sloopauto, loopt niet meer,
+                voor opmaak, voor opmaak of onderdelen, opmaak of onderdelen,
+                export of onderdelen]
     market_discount: [0, 0]
     pro_cost: [0, 0]
     risk_penalty: 30

@@ -136,29 +136,50 @@ else:
 
 # ══ 5. MOTEUR D'EVALUATION ══
 print("\n5) MOTEUR D'EVALUATION")
-fuite = q("SELECT COUNT(*) FROM scores WHERE confidence_score < 0.5 AND deal_score > 74")
-ko(f"{fuite} scores eleves sur estimation faible") if fuite else ok("garde-fou operationnel")
+seuil_notif = PROFILE.get("notification_threshold", 70)
+fuite = q("SELECT COUNT(*) FROM scores WHERE fiabilite < 0.45 AND deal_score >= ?",
+          seuil_notif)
+ko(f"{fuite} notifications sur une comparaison peu fiable") if fuite \
+    else ok("aucune notification sur une comparaison peu fiable")
 
-# On teste la reference qui DECIDE du score (pmin), pas p25 qui n'etait
-# affiche nulle part dans le calcul.
-abs_ = con.execute("""SELECT l.title, l.price_eur,
-                             COALESCE(v.value_pmin, v.value_p25) AS ref,
-                             v.comparable_count, s.confidence_score
+# ── Le test d'aberration a change de sens avec le radar de prix ──
+# Etre 3x sous la moins chere comparable n'est plus une "estimation
+# aberrante" : c'est soit une vraie occasion, soit une epave — et le moteur
+# le gere par la fiabilite. Ce qui reste dangereux, c'est une annonce
+# tres en dessous du marche, SANS defaut detecte, et malgre tout notifiee
+# avec une fiabilite elevee : la, le bot n'a pas compris l'annonce.
+abs_ = con.execute("""SELECT l.title, l.price_eur, v.value_pmin AS ref,
+                             v.comparable_count, s.fiabilite, s.deal_score
     FROM listings l
     JOIN valuations v ON v.id=(SELECT id FROM valuations WHERE listing_id=l.id
                                ORDER BY computed_at DESC LIMIT 1)
     JOIN scores s ON s.id=(SELECT id FROM scores WHERE listing_id=l.id
                            ORDER BY computed_at DESC LIMIT 1)
-    WHERE COALESCE(v.value_pmin, v.value_p25) > l.price_eur * 3
-      AND s.confidence_score >= 0.5
-    LIMIT 5""").fetchall()
+    WHERE v.value_pmin > l.price_eur * 2
+      AND s.fiabilite >= 0.75
+      AND s.deal_score >= ?
+      AND NOT EXISTS(SELECT 1 FROM listing_defects d
+                     WHERE d.listing_id=l.id AND d.is_negated=0)
+    LIMIT 5""", (PROFILE.get("notification_threshold", 70),)).fetchall()
 if abs_:
-    ko(f"{len(abs_)} estimations aberrantes AVEC confiance elevee")
+    # Ce n'est PAS un defaut du moteur : ces annonces sont notifiees a
+    # dessein — une decote inexpliquee peut etre une vraie occasion. C'est
+    # un signal de RELECTURE : soit le lexique rate une formulation, soit
+    # l'annonce cache quelque chose. A regarder de pres avant de se deplacer.
+    av(f"{len(abs_)} annonce(s) tres sous le marche sans que le texte "
+       f"l'explique — notifiees, mais a verifier de pres")
     for r in abs_:
-        print(f"      {r['price_eur']}EUR vs {r['ref']}EUR "
-              f"({r['comparable_count']} comp) {(r['title'] or '')[:32]}")
+        print(f"      {r['price_eur']}EUR vs {r['ref']}EUR ({r['comparable_count']} comp, "
+              f"fiab {r['fiabilite']:.0%}) {(r['title'] or '')[:30]}")
 else:
-    ok("aucune estimation aberrante credible")
+    ok("aucune annonce inexpliquee notifiee avec une fiabilite elevee")
+
+# la fiabilite doit etre reellement persistee
+nulles = q("SELECT COUNT(*) FROM scores WHERE fiabilite IS NULL")
+if nulles:
+    ko(f"{nulles} scores sans fiabilite enregistree")
+else:
+    ok("fiabilite persistee sur tous les scores")
 
 mc = con.execute("""SELECT AVG(v.comparable_count) c, AVG(s.confidence_score) f
     FROM valuations v JOIN listings l ON l.id=v.listing_id
