@@ -52,6 +52,10 @@ class TweedehandsSource(SourceAdapter):
     price_to: int = 3_000_000
 
     _errors: int = 0
+    # Derniere erreur de lecture, ou None. Distingue "rien a lire" de
+    # "je n'ai pas pu lire" : sans elle, une panne reseau s'affichait
+    # comme un marche calme.
+    derniere_erreur: str | None = None
     _max_page: int = 0
     _budget_pages: int = 0
     _pages_lues: int = 0
@@ -62,6 +66,11 @@ class TweedehandsSource(SourceAdapter):
         print(msg, flush=True)
 
     def _get(self, params: dict, retries: int = 2) -> dict:
+        """Renvoie {} en cas d'echec non bloquant. ATTENTION : {} ressemble
+        alors a une page vide. `derniere_erreur` permet a l'appelant de
+        distinguer "plus rien a lire" de "je n'ai pas pu lire" — sans quoi
+        une panne reseau s'affiche comme un marche calme."""
+        self.derniere_erreur = None
         url = f"{self.base}?{urllib.parse.urlencode(params, doseq=True)}"
         req = urllib.request.Request(url, headers={
             "User-Agent": self.user_agent,
@@ -81,12 +90,17 @@ class TweedehandsSource(SourceAdapter):
                     raise BlockedError(f"HTTP {e.code}") from e
                 if attempt == retries:
                     self._errors += 1
+                    self.derniere_erreur = f"HTTP {e.code}"
                     if self._errors >= self.max_consecutive_errors:
                         raise BlockedError(f"{self._errors} erreurs consecutives") from e
                     return {}
-            except Exception:
+            except Exception as e:
                 if attempt == retries:
                     self._errors += 1
+                    # Un blocage par proxy arrive en URLError, PAS en
+                    # HTTPError : sans cette trace il etait indiscernable
+                    # d'une page vide.
+                    self.derniere_erreur = f"{type(e).__name__}: {e}"
                     if self._errors >= self.max_consecutive_errors:
                         raise BlockedError(f"{self._errors} erreurs consecutives")
                     return {}

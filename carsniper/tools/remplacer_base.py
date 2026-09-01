@@ -4,6 +4,9 @@
     python tools/remplacer_base.py --verifier    controle seul, ne touche a rien
     python tools/remplacer_base.py --appliquer   remplace apres controle
 
+La base ORIGINALE (data/carsniper.ORIGINAL.db) n'est jamais touchee :
+elle est en lecture seule et sert de reference a toutes les comparaisons.
+
 Rien n'est ecrase sans une sauvegarde horodatee de la base actuelle, et le
 remplacement est refuse si le candidat perd la moindre donnee
 operationnelle (annonces, alertes, retours, filigrane).
@@ -18,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ACTUELLE = ROOT / "data" / "carsniper.db"
-CANDIDATE = ROOT / "data" / "carsniper.V2.db"
+CANDIDATE = ROOT / "data" / "carsniper.V3.db"
 
 # Ce qui ne doit JAMAIS diminuer : ce sont des faits, pas des calculs.
 INTOUCHABLES = ["listings", "alerts", "feedback", "listing_snapshots"]

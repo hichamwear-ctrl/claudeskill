@@ -1537,5 +1537,38 @@ for titre, attendu in [("Peugeot 208 1.2", "208"), ("Audi A3 1.6", "a3"),
           normalize_vehicle(titre, "", 2016, None, None).key().split("|")[1] == attendu)
 
 
+print("\n[32] PANNE RÉSEAU ≠ MARCHÉ CALME")
+
+# Un site injoignable renvoie une page vide, exactement comme un flux
+# épuisé. Les confondre faisait afficher « arrêt : flux épuisé » pendant
+# qu'aucune annonce n'était surveillée — une fausse garantie.
+class _SiteEnPanne(_TS):
+    def _get(self, params, retries=2):
+        self.derniere_erreur = "URLError: <urlopen error Tunnel 403>"
+        return {}
+
+
+class _SiteVide(_TS):
+    def _get(self, params, retries=2):
+        self.derniere_erreur = None
+        return {"listings": []}
+
+
+_cp = _base_neuve("/tmp/carsniper_panne.db")
+_, _dp = runmod._collecte_du_jour(_cp, _SiteEnPanne(), verbose=False)
+_, _dv = runmod._collecte_du_jour(_cp, _SiteVide(), verbose=False)
+
+check("un site injoignable est signalé comme un ÉCHEC DE LECTURE",
+      "ECHEC DE LECTURE" in _dp["arret"])
+check("et l'erreur exacte est remontée",
+      "403" in (_dp["erreur_lecture"] or ""))
+check("un vrai flux épuisé reste « flux epuise »",
+      _dv["arret"] == "flux epuise" and _dv["erreur_lecture"] is None)
+check("une panne ne fait pas avancer le filigrane",
+      _dp["filigrane_apres"] <= _dp["filigrane_avant"]
+      or _dp["filigrane_avant"] == 0)
+_cp.close()
+
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)

@@ -532,7 +532,7 @@ def _collecte_du_jour(con, src, verbose: bool = True) -> tuple[list[dict], dict]
     Retourne (annonces_brutes, diagnostic).
     """
     diag = {"pages": 0, "vues": 0, "tri_date": False, "arret": "",
-            "securite": False,
+            "securite": False, "erreur_lecture": None,
             "filigrane_avant": _watermark(con, "fast"), "filigrane_apres": 0}
     securite_lue = False
     pages_max = COLL.get("fast_loop_max_pages", 30)
@@ -548,7 +548,15 @@ def _collecte_du_jour(con, src, verbose: bool = True) -> tuple[list[dict], dict]
                                  today_only=True, sort=src.SORT_DATE))
         brut = d.get("listings") or []
         if not brut:
-            diag["arret"] = "flux epuise"
+            # Une reponse vide a DEUX causes opposees : il n'y a plus rien
+            # a lire, ou nous n'avons pas pu lire. Les confondre faisait
+            # passer une panne reseau pour un marche calme.
+            echec = getattr(src, "derniere_erreur", None)
+            if echec:
+                diag["erreur_lecture"] = echec
+                diag["arret"] = f"ECHEC DE LECTURE ({echec})"
+            else:
+                diag["arret"] = "flux epuise"
             break
         diag["pages"] += 1
         diag["vues"] += len(brut)
@@ -652,6 +660,13 @@ def cmd_fast(once: bool = False, amorcage_alerte: bool = False):
             print(f"[{datetime.now():%H:%M:%S}] cycle {cycle} : {diag['pages']} page(s), "
                   f"{seen} annonce(s) lue(s), {new} nouvelle(s)  "
                   f"({duree:.0f}s, arret : {diag['arret']})")
+            if diag.get("erreur_lecture") and diag["pages"] == 0:
+                # Dire clairement que le radar n'a RIEN surveille pendant ce
+                # cycle. Le filigrane n'a pas bouge : rien n'est perdu, le
+                # cycle suivant relira la meme fenetre.
+                print(f"   [!] AUCUNE surveillance sur ce cycle : le site est "
+                      f"injoignable ({diag['erreur_lecture']}). Le filigrane "
+                      f"reste a {diag['filigrane_avant']}, rien n'est perdu.")
             if duree > intervalle:
                 print(f"   [cadence] la passe a dure {duree:.0f}s pour un "
                       f"intervalle de {intervalle}s")
