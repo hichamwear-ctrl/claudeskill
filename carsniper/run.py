@@ -203,8 +203,13 @@ def analyse(con, listing_id: int, send_alert: bool = True) -> dict | None:
     usable = bool(veh.make and veh.model) and veh.confidence >= 0.55
     vkey = veh.key() if usable else None
     vkey_loose = f"{veh.make}|{veh.model}" if usable else None
-    con.execute("UPDATE listings SET norm_confidence=?, vkey=?, vkey_loose=? WHERE id=?",
-                (veh.confidence, vkey, vkey_loose, listing_id))
+    # La distance est calculee a partir de la lat/lon du payload : on la
+    # PERSISTE, sinon elle n'existe qu'en memoire le temps d'une analyse et
+    # `top`, le digest et le bilan la voient toujours nulle.
+    con.execute("UPDATE listings SET norm_confidence=?, vkey=?, vkey_loose=?, "
+                "distance_km=? WHERE id=?",
+                (veh.confidence, vkey, vkey_loose, lst.get("distance_km"),
+                 listing_id))
 
     text = f"{lst['title'] or ''} {lst['description'] or ''}"
     hits = engine.detect_defects(text, LEXICON)
