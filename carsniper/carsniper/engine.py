@@ -194,8 +194,11 @@ class Vehicle:
 # "Mercedes Classe A". Les prendre pour le modele creait des cles
 # fourre-tout — `bmw|serie` melangeait 40 voitures de 1 500 a 26 690 EUR,
 # et `mercedes|classe` des Classe A avec des Classe E.
-FAMILY_WORDS = {"serie", "series", "classe", "klasse", "class", "modele",
-                "model", "type", "gamme"}
+FAMILY_WORDS = {"serie", "series", "reeks", "classe", "klasse", "class",
+                "modele", "model", "type", "gamme"}
+
+# Mots qui annoncent explicitement qu'AUCUN modele n'est declare.
+AUCUN_MODELE = {"overige", "andere", "autres", "autre", "other", "divers"}
 
 # Tokens qui ne designent jamais un modele.
 MODEL_JUNK = {"berline", "break", "coupe", "cabrio", "cabriolet", "monospace",
@@ -238,6 +241,18 @@ def _model_token(tok: str, make: str, allow_short: bool = False) -> str | None:
     return re.sub(r"(?<=\d)[di]$", "", tok)
 
 
+# 2ememain nomme les familles "A-Klasse" et "3-reeks". Le titre ecrit
+# "Classe A" ou "Serie 3". Sans cette table, les deux sources produisaient
+# deux cles differentes pour la MEME voiture, et ne se comparaient jamais.
+FAMILLE_SUFFIXE = {"classe": "klasse", "klasse": "klasse", "class": "klasse",
+                   "serie": "reeks", "series": "reeks", "reeks": "reeks"}
+
+
+def _canon_famille(famille: str, designation: str) -> str:
+    suffixe = FAMILLE_SUFFIXE.get(famille)
+    return f"{designation}-{suffixe}" if suffixe else f"{famille}{designation}"
+
+
 def _extract_model(make: str, after: str) -> str | None:
     """Modele = premier token exploitable apres la marque.
 
@@ -252,11 +267,29 @@ def _extract_model(make: str, after: str) -> str | None:
     toks = re.findall(r"[a-z0-9][a-z0-9\-\.]{0,14}", after)
     for i, raw in enumerate(toks[:4]):
         base = raw.strip(" -.,/")
+        # "Overige modellen" est le FOURRE-TOUT du site, present aussi dans
+        # les titres. Il ne dit PAS quel modele c'est : mieux vaut renoncer
+        # que de retenir le mot suivant, qui n'est qu'une finition
+        # ("Peugeot Overige modellen Allure" n'est pas une "Peugeot Allure").
+        if base in AUCUN_MODELE:
+            return None
+        # Ordre neerlandais : la designation PRECEDE le mot de famille
+        # ("3 reeks", "A klasse"). Le francais fait l'inverse ("Serie 3").
+        if (base in FAMILY_WORDS and i > 0
+                and re.fullmatch(r"[a-z0-9]", toks[i - 1].strip(" -.,/"))):
+            return _canon_famille(base, toks[i - 1].strip(" -.,/"))
         if base in FAMILY_WORDS:
             suite = [t for t in (_model_token(x, make, allow_short=True)
                                  for x in toks[i + 1:i + 4]) if t]
             if not suite:
                 return None                      # "serie" seul : inexploitable
+            # Le token qui suit IMMEDIATEMENT le mot de famille designe la
+            # famille : le "A" de "Classe A 180", le "3" de "Serie 3 320d".
+            # Il ne doit jamais etre efface par le code moteur qui suit :
+            # "Classe A 180" et "Classe B 180" sont deux voitures
+            # differentes, et les reduire toutes deux a "180" les melangeait.
+            if re.fullmatch(r"[a-z0-9]", suite[0]):
+                return _canon_famille(base, suite[0])
             precis = next((t for t in suite
                            if len(t) >= 3 and re.search(r"\d", t)), None)
             return precis or f"{base}{suite[0]}"

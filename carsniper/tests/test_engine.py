@@ -1252,5 +1252,61 @@ check("mais « joint de culasse hs » en est une",
 check("et « 2 pneus hs » aussi", _actif("2 pneus hs tel 0495/577436", "tyres"))
 
 
+print("\n[28] MÊME CONFIGURATION — deux gammes ne se mélangent jamais")
+
+def _k(titre, annee=2016, carb=None, boite=None, site_model=None, site_body=None):
+    return normalize_vehicle(titre, "", annee, carb, boite,
+                             site_model=site_model, site_body=site_body).key()
+
+def _melange(a, b, **kw):
+    return _compat_ok(_k(a, **kw), _k(b, **kw))
+
+for a, b in [("BMW Serie 1 118d", "BMW Serie 3 318d"),
+             ("BMW 1 reeks 118i", "BMW 3 reeks 320i"),
+             ("Mercedes Classe A 180", "Mercedes Classe B 180"),
+             ("Mercedes Classe C 220", "Mercedes Classe E 220"),
+             ("VW Golf 1.6 TDI", "VW Polo 1.6 TDI"),
+             ("Peugeot 208 1.2", "Peugeot 2008 1.2"),
+             ("Renault Clio 1.5 dci", "Renault Captur 1.5 dci"),
+             ("Audi A3 1.6 tdi", "Audi A4 1.6 tdi"),
+             ("Fiat 500 1.2", "Fiat 500L 1.2"),
+             ("VW Golf 1.6 TDI", "VW Golf 1.4 TSI")]:
+    check(f"{a} ≠ {b}", not _melange(a, b))
+
+# Le site distingue Yaris et Yaris Cross, Golf et Golf Plus : la carrosserie
+# et le modèle déclarés priment sur le titre.
+check("Yaris ≠ Yaris Cross",
+      not _compat_ok(_k("Toyota Yaris 1.5", site_model="Yaris", site_body="Berline"),
+                     _k("Toyota Yaris Cross 1.5", site_model="Yaris Cross",
+                        site_body="SUV")))
+check("Golf ≠ Golf Plus",
+      not _compat_ok(_k("VW Golf 1.4", site_model="Golf"),
+                     _k("VW Golf Plus 1.4", site_model="Golf Plus")))
+check("Aygo ≠ Aygo X",
+      not _compat_ok(_k("Toyota Aygo 1.0", site_model="Aygo"),
+                     _k("Toyota Aygo X 1.0", site_model="Aygo X")))
+
+# Titre et site doivent produire la MÊME clé, sinon la même voiture ne se
+# compare jamais à elle-même : "Classe A" (titre) = "A-Klasse" (site).
+check("« Classe A » du titre = « A-Klasse » du site",
+      _k("Mercedes Classe A 180") == _k("Mercedes 180", site_model="A-Klasse"))
+check("« Serie 3 » du titre = « 3-reeks » du site",
+      _k("BMW Serie 3 320d") == _k("BMW 320d", site_model="3-reeks"))
+
+# Le fourre-tout du site n'est pas un modèle : mieux vaut renoncer que
+# retenir une finition.
+check("« Overige modellen » → véhicule non identifié",
+      not vehicle_usable(normalize_vehicle(
+          "Peugeot Overige modellen Allure 1.2", "", 2018, None, None)))
+check("mais un vrai modèle reste identifié",
+      vehicle_usable(normalize_vehicle("Peugeot 208 Allure 1.2", "", 2018,
+                                       None, None)))
+
+# Et la carrosserie sépare bien deux versions du même modèle.
+check("Golf berline ≠ Golf break",
+      not _compat_ok(_k("VW Golf 1.6 TDI", site_body="Berline"),
+                     _k("VW Golf 1.6 TDI", site_body="Break")))
+
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)
