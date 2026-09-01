@@ -2493,5 +2493,49 @@ _vh3 = value_market(_cible_ab, _homogene)
 check("sans aberrant haut, rien n'est écarté", not _vh3.exclus_hauts)
 
 
+print("\n[40] DÉPLOIEMENT — sauvegarde avant retraitement")
+
+# `reprocess.py` réécrit la base EN PLACE. Sans copie préalable, une
+# interruption ou une régression du parser laissait l'utilisateur sans
+# retour arrière possible.
+import shutil as _sh
+import importlib.util as _ilu
+
+_spec = _ilu.spec_from_file_location(
+    "_reproc_mod", Path(__file__).resolve().parent.parent / "reprocess.py")
+_srcrp = (Path(__file__).resolve().parent.parent / "reprocess.py").read_text(
+    encoding="utf-8")
+check("reprocess.py sauvegarde avant d'écrire",
+      "_sauvegarder(BASE)" in _srcrp and "shutil.copy2" in _srcrp)
+check("et affiche la commande de retour arrière",
+      "retour arriere" in _srcrp)
+
+# Comportement réel de la fonction de sauvegarde, sans lancer tout le
+# retraitement : une base existante est copiée, une base absente non.
+_ns = {}
+exec(_srcrp[_srcrp.index("def _sauvegarder"):
+            _srcrp.index("_sauve = _sauvegarder(BASE)")],
+     {"Path": Path, "datetime": _dt, "shutil": _sh}, _ns)
+_sauvegarder = _ns["_sauvegarder"]
+
+_bsrc = _tmp("depl_source.db")
+_dbm.init(_bsrc).close()
+_copie = _sauvegarder(_bsrc)
+check(f"une base existante est copiée avant retraitement",
+      _copie is not None and _os3.path.exists(_copie))
+check("la copie est bien horodatée et distincte de l'original",
+      _copie != _bsrc and "AVANT-REPROCESS-" in _copie)
+check("la copie a le même contenu que l'original",
+      _os3.path.getsize(_copie) == _os3.path.getsize(_bsrc))
+_os3.remove(_copie)
+_os3.remove(_bsrc)
+
+_absente = _tmp("depl_inexistante.db")
+if _os3.path.exists(_absente):
+    _os3.remove(_absente)
+check("une base inexistante ne déclenche pas de copie inutile",
+      _sauvegarder(_absente) is None)
+
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)

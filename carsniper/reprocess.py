@@ -19,7 +19,9 @@ A lancer apres chaque correction du parser, du lexique ou du scoring.
   python reprocess.py [chemin_base]
 """
 import json
+import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -30,6 +32,31 @@ from carsniper.storage import db
 import run
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else str(db.DB_PATH)
+
+
+def _sauvegarder(chemin: str) -> str | None:
+    """Copie horodatee AVANT toute reecriture.
+
+    Le retraitement modifie la base EN PLACE : il reecrit les annonces
+    depuis les payloads bruts, recalcule toutes les cles, efface et
+    reconstruit les defauts et les evaluations. Sans copie prealable, une
+    interruption au mauvais moment ou une regression du parser laissait
+    l'utilisateur sans retour arriere possible.
+    """
+    src = Path(chemin)
+    if not src.exists() or src.stat().st_size == 0:
+        return None                      # base neuve : rien a sauvegarder
+    horo = datetime.now().strftime("%Y%m%d-%H%M%S")
+    dest = src.with_name(f"{src.stem}.AVANT-REPROCESS-{horo}{src.suffix}")
+    shutil.copy2(src, dest)
+    return str(dest)
+
+
+_sauve = _sauvegarder(BASE)
+if _sauve:
+    print(f"Sauvegarde avant retraitement : {Path(_sauve).name}")
+    print(f"   retour arriere : cp '{_sauve}' '{BASE}'\n")
+
 con = db.init(BASE)
 _, LEX = engine.load_config()
 db.load_defects(con, LEX)
