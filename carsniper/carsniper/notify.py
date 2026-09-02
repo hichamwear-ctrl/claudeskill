@@ -421,6 +421,14 @@ def poll_feedback(con) -> int:
     con.execute("INSERT INTO meta(key,value) VALUES('tg_offset',?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (str(offset),))
+    # `tg_offset` ne bouge QUE si quelqu'un a clique : il reste a 0 tant
+    # qu'aucun bouton n'a ete presse, meme apres des centaines de cycles.
+    # Le prendre pour une panne faisait crier `check.py` au probleme et
+    # conseiller de relancer le radar — ce qui n'y changeait rien. On note
+    # donc separement que le SONDAGE, lui, a bien eu lieu.
+    con.execute("INSERT INTO meta(key,value) VALUES('tg_dernier_sondage',?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (now(),))
     con.commit()
     return n
 

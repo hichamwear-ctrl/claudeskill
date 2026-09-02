@@ -219,11 +219,18 @@ if sans_mid:
        f"feedback ne pourront jamais etre rattaches")
 row = con.execute("SELECT value FROM meta WHERE key='tg_offset'").fetchone()
 offset = int(row["value"]) if row else 0
-if tok and cid and al and offset == 0:
-    ko("aucun update Telegram n'a jamais ete lu (tg_offset=0) : les clics "
-       "sur les boutons ne sont pas traites -> lancer 'python run.py fast'")
-elif offset:
+sond = con.execute(
+    "SELECT value FROM meta WHERE key='tg_dernier_sondage'").fetchone()
+if offset:
     ok(f"boucle de feedback active (dernier update lu : {offset})")
+elif sond:
+    # Le sondage tourne, le compteur est a zero simplement parce que
+    # personne n'a encore clique. Ce n'est PAS une panne.
+    ok(f"boucle de feedback active — aucun clic a ce jour "
+       f"(dernier sondage : {sond['value'][:16].replace('T', ' ')})")
+elif tok and cid and al:
+    ko("le sondage Telegram n'a jamais tourne : les clics sur les boutons "
+       "ne seraient pas traites -> lancer 'python run.py fast'")
 
 # ── 7bis. RADAR DU JOUR ──
 print("\n7b) RADAR DES NOUVELLES ANNONCES")
