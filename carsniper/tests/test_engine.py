@@ -746,17 +746,20 @@ def _base_neuve(chemin=None):
 
 # ── 16a. l'amorçage n'alerte pas, mais enregistre tout ─────
 con = _base_neuve()
-site = _FauxSite([_annonce(prix=4000 + i * 50) for i in range(12)])
+# 24 annonces, pas 12 : sous 20 identifiants, la mesure du tri n'a plus
+# de valeur statistique (une suite descendante longue arrive par hasard) et
+# le détecteur refuse de conclure. Le site en renvoie 100 par page.
+site = _FauxSite([_annonce(prix=4000 + i * 50) for i in range(24)])
 envois = []
 _vrai_send = runmod.notify.envoyer_strict
 runmod.notify.envoyer_strict = lambda msg, url=None: (envois.append(msg), 1)[1]
 try:
     raws, diag = runmod._collecte_du_jour(con, site, verbose=False)
-    check("l'amorçage lit bien tout le flux du jour", len(raws) == 12)
+    check("l'amorçage lit bien tout le flux du jour", len(raws) == 24)
     check("le tri par date est reconnu", diag["tri_date"] is True)
     seen, new = runmod._ingest(con, site, raws, "amorcage",
                                seller_known="particulier", alerter=False)
-    check("les 12 annonces sont enregistrées", new == 12)
+    check("les 24 annonces sont enregistrées", new == 24)
     check("l'amorçage n'envoie AUCUNE alerte", len(envois) == 0)
     runmod._set_watermark(con, diag["filigrane_apres"], "fast")
     con.commit()
@@ -2592,7 +2595,10 @@ from carsniper.sources.twoememain import TweedehandsSource as _TS  # noqa: E402
 _srcx = _TS()
 
 
-def _annonce(**attrs):
+def _brut(**attrs):
+    """Payload minimal pour tester l'extraction des attributs. Nommé
+    autrement que `_annonce` : une redéfinition masquait la fabrique du
+    haut du fichier pour toutes les sections suivantes."""
     return {"itemId": "m1", "title": "test",
             "priceInfo": {"priceCents": 500000, "priceType": "FIXED"},
             "attributes": [{"key": k, "value": v} for k, v in attrs.items()]}
@@ -2600,25 +2606,25 @@ def _annonce(**attrs):
 
 # Les clés du site sont `mileage` et `constructionYear` — mesurées sur
 # 20 000 réponses brutes réelles : aucune autre variante n'existe.
-_d = _srcx.parse(_annonce(mileage="149000", constructionYear="2017"))
+_d = _srcx.parse(_brut(mileage="149000", constructionYear="2017"))
 check("le kilométrage est lu sous la clé `mileage`", _d["mileage_km"] == 149000)
 check("l'année est lue sous la clé `constructionYear`", _d["year"] == 2017)
 
 # 999 999 est la valeur SENTINELLE « kilométrage non communiqué ».
 check("le kilométrage sentinelle 999 999 est refusé, pas stocké",
-      _srcx.parse(_annonce(mileage="999999"))["mileage_km"] is None)
+      _srcx.parse(_brut(mileage="999999"))["mileage_km"] is None)
 
 # La puissance : les clés lues jusqu'ici (`power`, `vermogen`) n'existent
 # dans AUCUN payload réel. La colonne `power_kw` était vide pour les
 # 53 599 annonces de la base — une donnée publiée, stockée nulle part.
 check("la puissance est lue sous `enginePowerKW`, unité collée comprise",
-      _srcx.parse(_annonce(enginePowerKW="135 kW"))["power_kw"] == 135)
+      _srcx.parse(_brut(enginePowerKW="135 kW"))["power_kw"] == 135)
 check("à défaut, les chevaux `engineHorsepowerBE` sont convertis en kW",
-      _srcx.parse(_annonce(engineHorsepowerBE="116 pk"))["power_kw"] == 85)
+      _srcx.parse(_brut(engineHorsepowerBE="116 pk"))["power_kw"] == 85)
 check("l'ancienne clé inventée `power` ne renvoie plus une valeur fantôme",
-      _srcx.parse(_annonce(power="150"))["power_kw"] is None)
+      _srcx.parse(_brut(power="150"))["power_kw"] is None)
 check("sans attribut de puissance, la colonne reste vide",
-      _srcx.parse(_annonce(mileage="10000"))["power_kw"] is None)
+      _srcx.parse(_brut(mileage="10000"))["power_kw"] is None)
 
 print("\n[42] REJEU — une annonce a plusieurs réponses brutes")
 
@@ -2699,6 +2705,91 @@ check("sans kilométrage, aucune évaluation n'est possible",
 check("sans année non plus",
       value_market({"year": None, "mileage_km": 149000, "vkey": "a|b|c|d|1.0|e"},
                    []).method == "insufficient_data")
+
+# ═══════════════════════════════════════════════════════════
+#  ÉTAPE 43 — DÉTECTION DU TRI ET ARRÊT AU FILIGRANE
+# ═══════════════════════════════════════════════════════════
+print("\n[43] TRI — reconnaître un flux chronologique réel")
+
+
+def _lot(ids):
+    return [{"itemId": f"m{i}"} for i in ids]
+
+
+# Un flux parfait est évidemment reconnu.
+check("un flux strictement décroissant est chronologique",
+      runmod._ordre_par_date(_lot(range(2000, 1900, -1))))
+
+# LE CAS QUI CASSAIT TOUT : le site place ses annonces mises en avant en
+# tête de page, et les republications gardent leur ancien identifiant. Le
+# flux reste chronologique, mais l'ancien critère — au plus 5 inversions
+# entre voisins sur 100 — basculait à « pas trié » une page sur trois.
+# Conséquence mesurée par l'utilisateur : 8 pages relues à chaque cycle,
+# 43 s au lieu de 3 s.
+_flux_reel = list(range(2000, 1900, -1))
+for _pos, _vieux in ((0, 1500), (3, 1502), (17, 1509), (41, 1505),
+                     (58, 1501), (73, 1507), (90, 1503)):
+    _flux_reel[_pos] = _vieux
+_anciennes_inversions = sum(1 for a, b in zip(_flux_reel, _flux_reel[1:]) if b > a)
+check("un flux réel comporte plus d'inversions que l'ancien seuil n'en tolérait",
+      _anciennes_inversions > 5)
+check("et il est malgré tout reconnu comme chronologique",
+      runmod._ordre_par_date(_lot(_flux_reel)))
+
+# La contrepartie doit tenir : un tri par PERTINENCE ne doit jamais passer
+# pour chronologique, sinon on s'arrête trop tôt et on rate des annonces.
+_hasard = list(range(2000, 1900, -1))
+_rnd.Random(7).shuffle(_hasard)
+check("un flux mélangé n'est PAS pris pour un flux chronologique",
+      not runmod._ordre_par_date(_lot(_hasard)))
+_faux = sum(1 for _g in range(300)
+            if (lambda v: (_rnd.Random(_g).shuffle(v), runmod._ordre_par_date(_lot(v)))[1])
+            (list(range(2000, 1900, -1))))
+check("sur 300 flux mélangés, aucun n'est pris pour un flux trié", _faux == 0)
+
+check("un flux trié à l'envers est refusé",
+      not runmod._ordre_par_date(_lot(range(1900, 2000))))
+check("sous 20 annonces, on refuse de conclure plutôt que de deviner",
+      not runmod._ordre_par_date(_lot(range(2000, 1985, -1))))
+
+print("\n[44] RADAR — l'arrêt au filigrane évite la relecture du jour")
+
+# Preuve par le comportement, pas par la lecture du code : avec un
+# filigrane posé et un flux chronologique, le radar doit lire quelques
+# pages, pas tout le jour.
+_cs = _base_neuve(_tmp("carsniper_tri.db"))
+_stock = [_annonce(prix=4000 + i) for i in range(500)]
+_site_tri = _FauxSite(_stock)
+_site_tri.limit = 100
+_r0, _d0 = runmod._collecte_du_jour(_cs, _site_tri, verbose=False)
+check("sans filigrane, le premier passage lit tout le flux", len(_r0) == 500)
+runmod._set_watermark(_cs, _d0["filigrane_apres"], "fast")
+_cs.commit()
+
+# Trois nouveautés arrivent : elles sont en tête du flux trié.
+_site_tri.publier(*[_annonce(prix=3000 + i) for i in range(3)])
+_r1, _d1 = runmod._collecte_du_jour(_cs, _site_tri, verbose=False)
+check("le flux est reconnu comme chronologique", _d1["tri_date"] is True)
+check("le radar s'arrête au filigrane au lieu de relire le jour",
+      _d1["arret"] == "filigrane atteint")
+check("il ne lit que quelques pages, pas les six du flux", _d1["pages"] <= 3)
+check("et les trois nouveautés sont bien dedans",
+      len([r for r in _r1
+           if runmod._numid(r["itemId"]) > _d0["filigrane_apres"]]) == 3)
+
+# Le garde-fou reste actif : flux non trié -> relecture complète.
+_cs2 = _base_neuve(_tmp("carsniper_tri2.db"))
+_stock2 = [_annonce(prix=4000 + i) for i in range(300)]
+_site_mel = _FauxSite(_stock2, trie_par_date=False)
+_rnd.Random(3).shuffle(_site_mel.stock)
+_site_mel.limit = 100
+_r2, _d2 = runmod._collecte_du_jour(_cs2, _site_mel, verbose=False)
+runmod._set_watermark(_cs2, _d2["filigrane_apres"], "fast")
+_cs2.commit()
+_r3, _d3 = runmod._collecte_du_jour(_cs2, _site_mel, verbose=False)
+check("un flux non trié n'est jamais interrompu par le filigrane",
+      _d3["arret"] != "filigrane atteint")
+check("dans ce cas tout le flux est relu, rien n'est raté", len(_r3) == 300)
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)
