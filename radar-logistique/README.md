@@ -84,6 +84,18 @@ score pondéré à la baisse, et jamais mélangé aux appels d'offres.
 
 ## Utilisation
 
+### Étape 0 — collecter de vraies réponses
+
+À lancer depuis une machine ayant un accès réseau. Le collecteur ne connaît pas
+la forme des réponses et n'a pas à la connaître : il enregistre le brut.
+
+```bash
+python3 outils/collecter_ted.py --pages 20 --sortie reponses-ted.json
+```
+
+Il s'arrête franchement en cas d'échec — code de sortie non nul, réponse exacte
+du serveur affichée — plutôt que d'écrire un fichier vide en annonçant un succès.
+
 ```bash
 # 1. MESURER avant de construire — c'est l'étape qui décide de tout
 python -m radar.cli recenser --source ted --echantillon reponses-reelles.json
@@ -104,7 +116,7 @@ Tous les fichiers `sources/*.yaml` portent **`verifie: false`**. Les chemins de
 champs y sont **plausibles, PAS MESURÉS** : aucun accès réseau depuis
 l'environnement de développement, donc aucune réponse réelle n'a été observée.
 
-`recenser` mesure le taux de présence réel de chaque champ ; tout champ à 0 %
+`outils/collecter_ted.py` récupère les réponses, puis `recenser` mesure le taux de présence réel de chaque champ ; tout champ à 0 %
 désigne une clé qui n'existe pas, à corriger **dans le YAML, jamais dans le
 code**. `sonder` produit les dix mesures du marché — volumes, statuts, familles,
 montants, zones, exigences — et marque `NON MESURÉ` tout ce qu'il ne peut pas
