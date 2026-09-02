@@ -1,0 +1,53 @@
+# Correspondance des champs — TED (marchés européens).
+#
+# ATTENTION : verifie = false. Ces chemins sont PLAUSIBLES, pas mesurés : aucun
+# accès réseau depuis l'environnement de développement, donc aucune réponse
+# réelle n'a été observée. Ils sont ici pour être corrigés par la mesure, pas
+# pour être crus.
+#
+#   python -m radar.cli recenser --source ted --echantillon reponses.json
+#
+# La commande affiche le taux de présence réel de chaque champ. Tout champ à
+# 0 % désigne une clé qui n'existe pas : on la corrige ICI, sans toucher au code.
+# Une fois le recensement fait, passer verifie à true.
+
+source: ted
+verifie: false
+
+champs:
+  identifiant:      [publication-number, notice-id]
+  intitule:         [title.fra, title.eng, title]
+  type_avis:        [notice-type, form-type]
+  acheteur:         [buyer.name.fra, buyer.name, contracting-party.name]
+  contact_email:    [buyer.contact.email, contact-email]
+  objet:            [description.fra, description.eng, short-description]
+  montant:          [estimated-value.amount, value-estimated]
+  devise:           [estimated-value.currency, currency]
+  echeance:         [deadline-receipt-tender, submission-deadline, date-deadline]
+  plateforme:       [submission-url, procedure-url]
+  lien_documents:   [documents-url, access-url]
+  lien_avis:        [links.self, uri]
+  cpv:              [classification-cpv, cpv-main]
+  lieu:             [place-of-performance.fra, nuts-code]
+  publie_le:        [publication-date, dispatch-date]
+
+# --- Exigences de sélection -------------------------------------------------
+# Ce sont elles qui décident de l'éligibilité, donc elles doivent venir de
+# champs NORMÉS. Une exigence lue dans un texte libre ne peut produire qu'une
+# réserve, jamais un blocage (voir radar/eligibilite.py).
+  exige_afsca:      [exige_afsca, requirements.afsca]
+  exige_licence:    [exige_licence, requirements.transport-licence]
+  exige_froid:      [exige_froid, requirements.temperature-controlled]
+  exige_tri:        [exige_tri, requirements.sorting-capacity]
+  surface_min_m2:   [surface_min_m2, requirements.min-surface-m2]
+  vehicules_min:    [vehicules_min, requirements.min-vehicles]
+  reference_exigee: [reference_exigee, requirements.similar-reference]
+
+# Codes CPV à cibler — à confirmer au recensement, en comptant les codes
+# réellement présents sur douze mois plutôt qu'en les supposant.
+cpv_cibles:
+  - "60000000"   # services de transport
+  - "60100000"   # transport routier
+  - "60160000"   # transport postal par route
+  - "64120000"   # services de messagerie
+  - "63100000"   # manutention et entreposage

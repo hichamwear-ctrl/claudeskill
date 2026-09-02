@@ -1,0 +1,37 @@
+[
+ {"publication-number":"BDA/2026-514882","notice-type":"appel-offres",
+  "title":{"fra":"Distribution de médicaments et transport d'échantillons — 3 lots"},
+  "buyer":{"name":{"fra":"Réseau hospitalier bruxellois"},"contact":{"email":"achats@exemple.be"}},
+  "description":{"fra":"Tournées quotidiennes entre 4 sites et officines, température dirigée, traçabilité."},
+  "estimated-value":{"amount":610000,"currency":"EUR"},
+  "deadline-receipt-tender":"2026-10-15T11:00:00+02:00",
+  "submission-url":"https://exemple.be/e-tendering/BDA-514882",
+  "documents-url":"https://exemple.be/csc/514882.pdf",
+  "exige_afsca":true,"exige_licence":true,"exige_froid":true,"surface_min_m2":300},
+
+ {"publication-number":"BDA/2026-514901","notice-type":"appel-offres",
+  "title":{"fra":"Portage de repas à domicile — 3 CPAS groupés"},
+  "buyer":{"name":{"fra":"CPAS groupés"}},
+  "description":{"fra":"180 bénéficiaires/jour, 6j/7, liaison froide."},
+  "estimated-value":{"amount":180000,"currency":"EUR"},
+  "deadline-receipt-tender":"2026-09-08T11:00:00+02:00",
+  "submission-url":"https://exemple.be/e-tendering/BDA-514901",
+  "exige_afsca":true,"exige_licence":true},
+
+ {"publication-number":"BDA/2026-514777","notice-type":"attribution",
+  "title":{"fra":"Distribution régionale — marché attribué"},
+  "estimated-value":{"amount":2400000,"currency":"EUR"}},
+
+ {"publication-number":"BDA/2026-513002","notice-type":"appel-offres",
+  "title":{"fra":"Transport de palettes — clôturé"},
+  "deadline-receipt-tender":"2026-08-20T11:00:00+02:00"},
+
+ {"publication-number":"BDA/2026-515010","notice-type":"appel-offres",
+  "title":{"fra":"Logistique interne — échéance non publiée"},
+  "buyer":{"name":{"fra":"Institution européenne"}},
+  "submission-url":"https://exemple.eu/etendering/515010"},
+
+ {"publication-number":"BDA/2026-515044","notice-type":"appel-offres",
+  "title":{"fra":"Plateforme logistique régionale 2 500 m²"},
+  "deadline-receipt-tender":"2026-11-30T11:00:00+01:00","surface_min_m2":2500}
+]
