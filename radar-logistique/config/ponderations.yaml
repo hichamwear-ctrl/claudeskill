@@ -1,0 +1,41 @@
+# Pondérations du score. Configurables : changer un chiffre ici suffit, aucune
+# ligne de code à toucher.
+#
+# Le score CLASSE, il n'écarte pas. Une opportunité à 30/100 reste livrée si
+# elle est postulable — elle arrive simplement en bas de liste.
+
+criteres:
+  activite:              30    # correspondance avec une famille active
+  zone:                  20    # corridor Europe -> dépôt BE -> livraison BE
+  capacite:              15    # flotte, chauffeurs, dépôt — extensibilité comprise
+  experience_similaire:  15    # référence déjà exécutée du même type
+  montant:               10
+  echeance:               5    # délai confortable pour monter le dossier
+  exigences_inconnues:  -10    # pénalité par bloc d'exigences non confirmées
+
+# Bonus au-delà des critères principaux.
+bonus:
+  corridor_eprouve:       8    # le trajet exact a déjà été exécuté
+  contrat_recurrent:      6    # tournée régulière plutôt que ponctuelle
+  duree_longue_mois:     36    # seuil à partir duquel on considère « longue »
+  duree_longue_points:    5
+
+# Barème du montant, en euros.
+montant_paliers:
+  - {min: 500000, points: 10}
+  - {min: 150000, points: 8}
+  - {min:  50000, points: 6}
+  - {min:      0, points: 3}
+montant_non_publie_points: 5     # neutre : ne pas pénaliser l'absence de donnée
+
+# Barème de l'échéance, en jours restants.
+echeance_paliers:
+  - {min: 30, points: 5}
+  - {min: 12, points: 4}
+  - {min:  5, points: 2}
+  - {min:  0, points: 0}
+echeance_inconnue_points: 2      # neutre-bas : incertain, pas disqualifiant
+
+# Un SIGNAL_COMMERCIAL est plus incertain qu'un appel d'offres : son score est
+# multiplié par ce facteur, pour qu'il ne domine jamais une opportunité directe.
+facteur_signal_commercial: 0.7

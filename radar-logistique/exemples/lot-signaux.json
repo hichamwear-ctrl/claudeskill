@@ -1,0 +1,13 @@
+[
+ {"id":"SIG-001","signal":"recrutement_massif",
+  "titre":"Recrutement de 15 chauffeurs livreurs en Région bruxelloise",
+  "entreprise":"Réseau colis national",
+  "description":"Distribution de colis, tournées urbaines, livraison à domicile.",
+  "pays":"BE","date":"2026-08-28","url":"https://exemple.be/emploi/SIG-001"},
+
+ {"id":"SIG-002","signal":"ouverture_site",
+  "titre":"Ouverture d'un centre de tri de colis à Bruxelles",
+  "entreprise":"Opérateur e-commerce",
+  "description":"Nouveau centre de tri et de distribution urbaine de marchandises.",
+  "pays":"BE","date":"2026-08-30","url":"https://exemple.be/presse/SIG-002"}
+]

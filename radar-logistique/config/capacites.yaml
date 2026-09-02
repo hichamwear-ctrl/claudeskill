@@ -1,0 +1,146 @@
+# Ontologie métier : ce que l'entreprise sait faire, et COMMENT les acheteurs
+# le disent réellement.
+#
+# C'est la réponse à « l'acheteur ne dit pas dernier kilomètre, il dit
+# distribution urbaine de marchandises ». Le moteur ne cherche pas mes mots,
+# il cherche les leurs. Multilingue parce que les avis belges paraissent en
+# FR et NL, et les avis européens en anglais.
+#
+# Ajouter un synonyme se fait ICI, jamais dans le code.
+
+familles:
+
+  logistique_entrepot:
+    libelle: "Logistique et traitement en dépôt"
+    mots:
+      fr: [logistique, entreposage, cross-dock, "plateforme logistique", tri,
+           "préparation de commandes", manutention, "réception de marchandises",
+           "gestion des flux", "stockage temporaire", éclatement, reconditionnement]
+      nl: [logistiek, opslag, sortering, orderpicking, goederenbehandeling, overslag]
+      en: [logistics, warehousing, "cross-dock", sorting, "order picking", handling, fulfilment]
+    cpv: ["63100000", "63110000", "63120000", "63121100"]
+
+  transport_national:
+    libelle: "Transport routier national"
+    mots:
+      fr: ["transport routier", "transport de marchandises", "transport national",
+           acheminement, "affrètement", camionnage]
+      nl: ["wegvervoer", "goederenvervoer", "nationaal transport"]
+      en: ["road transport", "freight transport", "goods transport", haulage]
+    cpv: ["60000000", "60100000", "60180000", "60181000"]
+
+  transport_international:
+    libelle: "Transport international et collecte européenne"
+    mots:
+      fr: ["transport international", "transport transfrontalier", "collecte à l'étranger",
+           "import", "acheminement depuis", "ramasse", "transport européen"]
+      nl: ["internationaal transport", "grensoverschrijdend vervoer", "ophaling"]
+      en: ["international transport", "cross-border", "collection", inbound, "line haul"]
+    cpv: ["60000000", "60100000"]
+
+  dernier_kilometre:
+    libelle: "Dernier kilomètre et distribution"
+    mots:
+      fr: ["dernier kilomètre", "distribution urbaine", "livraison à domicile",
+           "distribution de colis", "livraison de colis", "tournées de distribution",
+           "distribution de marchandises", "livraison finale", "service de messagerie",
+           "distribution postale", coursier, "livraison aux particuliers"]
+      nl: ["laatste kilometer", "stadsdistributie", "thuislevering", "pakketlevering",
+           "distributie", "koeriersdienst", bedeling]
+      en: ["last mile", "urban distribution", "home delivery", "parcel delivery",
+           "courier services", "final delivery", "delivery rounds"]
+    cpv: ["64120000", "64121100", "64121200", "60160000"]
+
+  alimentaire:
+    libelle: "Chaîne alimentaire"
+    mots:
+      fr: ["denrées alimentaires", "produits alimentaires", "liaison froide",
+           "portage de repas", "repas à domicile", "distribution alimentaire",
+           "transport frigorifique", "chaîne du froid", "produits frais"]
+      nl: ["voedingsmiddelen", "maaltijden aan huis", "koelketen", "gekoeld vervoer"]
+      en: ["foodstuffs", "food distribution", "chilled transport", "cold chain", "meal delivery"]
+    cpv: ["60000000", "15000000", "55521100"]
+    exigences_typiques: [afsca, froid, haccp]
+
+  pharmaceutique:
+    libelle: "Produits de santé et pharmaceutiques"
+    mots:
+      fr: ["produits pharmaceutiques", "médicaments", "échantillons biologiques",
+           "transport médical", "dispositifs médicaux", "prélèvements",
+           "température dirigée", "transport sous température contrôlée"]
+      nl: ["geneesmiddelen", "farmaceutische producten", "medische monsters", "labostalen"]
+      en: ["pharmaceutical", "medicinal products", "biological samples", "medical transport"]
+    cpv: ["60000000", "33600000", "85100000"]
+    # JAMAIS supposées acquises : elles ressortent toujours en A_VERIFIER.
+    exigences_typiques: [gdp, froid, tracabilite, securite, autorisation_transport_medicament]
+
+  transfert_vehicules:
+    libelle: "Convoyage et transfert de véhicules"
+    mots:
+      fr: [convoyage, "transfert de véhicules", "déplacement de véhicules",
+           "restitution de véhicules", "livraison de véhicules", "jockeyage",
+           "rapatriement de véhicules", "mise à disposition de chauffeurs"]
+      nl: ["voertuigtransfer", "wagenpark verplaatsing", "chauffeurs ter beschikking"]
+      en: ["vehicle transfer", "vehicle movement", "jockeying", "driver provision", "car delivery"]
+    cpv: ["60170000", "60181000", "50110000", "79620000"]
+    exigences_typiques: [rc_vehicules_confies, plaque_marchand, anciennete_permis]
+
+  lavage_vehicules:
+    libelle: "Lavage et préparation de véhicules"
+    mots:
+      fr: ["lavage de véhicules", "nettoyage de véhicules", "préparation esthétique",
+           "entretien de flotte", "nettoyage de flotte"]
+      nl: ["voertuigreiniging", "wagenwas", "vlootonderhoud"]
+      en: ["vehicle cleaning", "vehicle washing", "fleet cleaning", "valeting"]
+    cpv: ["50112300", "90917000"]
+
+  volumineux:
+    libelle: "Livraison de volumineux et mobilier"
+    mots:
+      fr: ["livraison de mobilier", "livraison de meubles", "produits volumineux",
+           "électroménager", "livraison à l'étage", "deux hommes",
+           "transport de mobilier", "installation à domicile"]
+      nl: ["meubellevering", "levering van meubilair", "witgoed", "volumineuze goederen"]
+      en: ["furniture delivery", "bulky goods", "white goods", "two-man delivery"]
+    cpv: ["60000000", "39100000", "98392000"]
+
+  gestion_flotte:
+    libelle: "Gestion et mise à disposition de flotte"
+    mots:
+      fr: ["gestion de flotte", "location avec chauffeur", "mise à disposition de véhicules",
+           "véhicules avec conducteur", "gestion de parc automobile"]
+      nl: ["vlootbeheer", "verhuur met chauffeur", "wagenparkbeheer"]
+      en: ["fleet management", "hire with driver", "vehicle provision"]
+    cpv: ["60170000", "60171000", "34100000"]
+
+# ------------------------------------------------------------ exclusions --
+# Vocabulaire qui disqualifie, même si une famille active a matché par ailleurs.
+exclusions:
+  fr: ["matières dangereuses", "ADR", "transport de personnes", "transport scolaire",
+       "ambulance", "déménagement de particuliers", "transport de fonds",
+       "déchets dangereux", "transport maritime", "transport aérien", "transport ferroviaire"]
+  nl: ["gevaarlijke stoffen", "personenvervoer", "leerlingenvervoer", "ziekenwagen"]
+  en: ["dangerous goods", "hazardous", "passenger transport", "school transport",
+       "cash in transit", "maritime", "air freight", "rail freight"]
+
+# --------------------------------------------------- exigences connues --
+# Comment nommer une exigence quand on la rencontre, et à quelle capacité du
+# profil elle se compare. `jamais_supposee: true` = toujours A_VERIFIER si la
+# capacité n'est pas explicitement confirmée.
+exigences:
+  afsca:        {libelle: "agrément AFSCA",              capacite: qualifications.agrement_afsca}
+  gdp:          {libelle: "certification GDP",           capacite: qualifications.gdp_pharmaceutique, jamais_supposee: true}
+  froid:        {libelle: "température contrôlée",       capacite: depot.froid_positif, jamais_supposee: true}
+  tracabilite:  {libelle: "traçabilité",                 capacite: null, jamais_supposee: true}
+  securite:     {libelle: "exigence de sécurité",        capacite: null, jamais_supposee: true}
+  autorisation_transport_medicament:
+                {libelle: "autorisation transport de médicaments", capacite: null, jamais_supposee: true}
+  haccp:        {libelle: "HACCP",                       capacite: null, jamais_supposee: true}
+  licence:      {libelle: "licence de transport",        capacite: qualifications.licences_transport_spf}
+  rc_vehicules_confies:
+                {libelle: "RC véhicules confiés",        capacite: qualifications.rc_vehicules_confies, jamais_supposee: true}
+  plaque_marchand: {libelle: "plaque marchand",          capacite: null, jamais_supposee: true}
+  anciennete_permis: {libelle: "ancienneté de permis",   capacite: null, jamais_supposee: true}
+  surface_min_m2:  {libelle: "surface de dépôt",         capacite: depot.surface_m2}
+  vehicules_min:   {libelle: "nombre de véhicules",      capacite: flotte}
+  anciennete_min_annees: {libelle: "ancienneté de l'entreprise", capacite: entreprise.anciennete_annees}

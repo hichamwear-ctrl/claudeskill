@@ -1,4 +1,4 @@
-# Adaptateur TED — marchés européens.
+# Adaptateur BDA / e-Procurement — marchés belges, y compris sous le seuil européen.
 #
 # verifie: false  →  ces chemins sont PLAUSIBLES, PAS MESURÉS. Aucun accès
 # réseau depuis l'environnement de développement : aucune réponse réelle n'a été
@@ -9,7 +9,7 @@
 # Tout champ à 0 % désigne une clé inexistante. On la corrige ICI, jamais dans
 # le code. Puis on passe verifie à true.
 
-source: ted
+source: bda
 verifie: false
 secteur_par_defaut: public
 

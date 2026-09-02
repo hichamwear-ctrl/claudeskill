@@ -1,19 +1,21 @@
-"""La fiche d'action : ce que l'exploitant reçoit, et rien d'autre.
+"""La fiche : comprendre l'opportunité en quelques secondes.
 
-Sept champs obligatoires. Un champ absent est écrit « NON PUBLIÉ » — jamais
-comblé par une valeur plausible. Une fiche qui invente un montant ou une
-plateforme de dépôt est pire qu'une fiche incomplète.
+Un champ absent est écrit A_VERIFIER ou NON PUBLIÉ — jamais comblé par une
+valeur plausible. Une fiche qui invente un montant est pire qu'une fiche
+incomplète.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .modele import Nature
+
 ABSENT = "NON PUBLIÉ"
 
 
-def _ou_absent(v):
-    return ABSENT if v in (None, "", []) else v
+def _ou(v, defaut=ABSENT):
+    return defaut if v in (None, "", [], "A_VERIFIER") else v
 
 
 def _montant(v, devise="EUR"):
@@ -27,76 +29,72 @@ def _montant(v, devise="EUR"):
 
 @dataclass
 class Fiche:
-    reference: str
-    intitule: str
+    statut_emoji: str
+    statut: str
+    titre: str
+    nature: Nature
+    nature_libelle: str
     acheteur: str | None
+    secteur: str | None
     contact: str | None
-    objet: str | None
-    montant: float | None
-    devise: str
-    echeance_texte: str
-    jours_restants: int | None
-    plateforme: str | None
-    lien_depot: str | None
-    lien_documents: str | None
-    conditions: list[str] = field(default_factory=list)
-    atouts: list[str] = field(default_factory=list)
-    reserves: list[str] = field(default_factory=list)
-    signalements: list[str] = field(default_factory=list)
+    collecte: list[str] = field(default_factory=list)
+    livraison: list[str] = field(default_factory=list)
+    lieu_texte: str | None = None
+    echeance: str = ABSENT
+    jours_restants: int | None = None
+    montant: float | None = None
+    devise: str = "EUR"
+    duree_mois: int | None = None
+    pourquoi: list[str] = field(default_factory=list)
+    a_verifier: list[str] = field(default_factory=list)
     score: int = 0
+    detail_score: list[str] = field(default_factory=list)
+    lien: str | None = None
+    plateforme: str | None = None
     source: str = ""
+    reference: str = ""
 
-    def en_texte(self) -> str:
-        """Rendu destiné à la notification. Ordre imposé par l'exploitant."""
-        L = []
-        urgence = ""
-        if self.jours_restants is not None:
-            urgence = f"  ·  {self.jours_restants} j restants" if self.jours_restants >= 0 else ""
-        L.append(f"[{self.score}/100] {self.intitule}")
-        L.append("")
-        L.append(f"CLÔTURE      {self.echeance_texte}{urgence}")
-        L.append(f"MONTANT      {_montant(self.montant, self.devise)}")
-        L.append(f"ACHETEUR     {_ou_absent(self.acheteur)}")
+    def en_texte(self, avec_detail_score: bool = False) -> str:
+        L = [f"{self.statut_emoji} {self.nature_libelle.upper()} — {self.titre}", ""]
+        L.append(f"Acheteur      : {_ou(self.acheteur)}")
+        L.append(f"Type          : {_ou(self.secteur, 'A_VERIFIER')}")
+        if self.collecte:
+            L.append(f"Collecte      : {', '.join(self.collecte)}")
+        if self.livraison:
+            L.append(f"Livraison     : {', '.join(self.livraison)}")
+        elif self.lieu_texte:
+            L.append(f"Localisation  : {self.lieu_texte}")
+        reste = f"  ({self.jours_restants} j restants)" if self.jours_restants is not None else ""
+        L.append(f"Date limite   : {self.echeance}{reste}")
+        L.append(f"Valeur estimée: {_montant(self.montant, self.devise)}")
+        if self.duree_mois:
+            L.append(f"Durée         : {self.duree_mois} mois")
         if self.contact:
-            L.append(f"CONTACT      {self.contact}")
-        L.append("")
-        L.append("CE QUI EST DEMANDÉ")
-        L.append(f"  {_ou_absent(self.objet)}")
-        L.append("")
-        L.append("CONDITIONS POUR RÉPONDRE")
-        if self.conditions:
-            L += [f"  · {c}" for c in self.conditions]
+            L.append(f"Contact       : {self.contact}")
+
+        L += ["", "Pourquoi c'est intéressant pour moi :"]
+        L += [f"  · {p}" for p in self.pourquoi] or ["  · A_VERIFIER — aucune correspondance établie automatiquement"]
+
+        if self.a_verifier:
+            L += ["", "Points à vérifier :"]
+            L += [f"  · {v}" for v in self.a_verifier]
+
+        L += ["", f"Score : {self.score}/100"]
+        if avec_detail_score:
+            L += [f"    {d}" for d in self.detail_score]
+
+        L += ["", "Action :"]
+        if self.nature is Nature.SIGNAL_COMMERCIAL:
+            L.append("  👉 prise de contact directe — aucun dossier à déposer")
+            if self.lien:
+                L.append(f"     {self.lien}")
+        elif self.lien:
+            L.append(f"  👉 {self.lien}")
+            if self.plateforme and self.plateforme != self.lien:
+                L.append(f"     plateforme : {self.plateforme}")
         else:
-            L.append(f"  {ABSENT} — à lire dans le cahier des charges")
-        L.append("")
-        L.append("POURQUOI TU CORRESPONDS")
-        if self.atouts:
-            L += [f"  + {a}" for a in self.atouts]
-        else:
-            L.append("  aucune correspondance établie automatiquement — à juger toi-même")
-        if self.reserves:
-            L += [f"  ~ {r}" for r in self.reserves]
-        L.append("")
-        L.append("OÙ DÉPOSER")
-        L.append(f"  {_ou_absent(self.plateforme)}")
-        if self.lien_depot and self.lien_depot != self.plateforme:
-            L.append(f"  {self.lien_depot}")
-        if self.lien_documents:
-            L.append(f"  Cahier des charges : {self.lien_documents}")
-        if self.signalements:
-            L.append("")
-            L += [f"  /!\\ {s}" for s in self.signalements]
+            L.append("  👉 lien de dépôt NON PUBLIÉ — à retrouver sur la plateforme de l'acheteur")
+
         L.append("")
         L.append(f"  réf. {self.reference} · source {self.source}")
         return "\n".join(L)
-
-    def champs_manquants(self) -> list[str]:
-        """Sert au diagnostic de couverture, pas à masquer la fiche."""
-        manquants = []
-        for nom, v in (("montant", self.montant), ("acheteur", self.acheteur),
-                       ("objet", self.objet), ("plateforme", self.plateforme)):
-            if v in (None, ""):
-                manquants.append(nom)
-        if not self.conditions:
-            manquants.append("conditions")
-        return manquants

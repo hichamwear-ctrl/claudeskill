@@ -31,13 +31,14 @@ def ouvrir(chemin, lecture_seule: bool = False) -> sqlite3.Connection:
     return cx
 
 
-def enregistrer_reponse(cx, source: str, ref: str, charge: dict) -> int:
+def enregistrer_reponse(cx, source: str, ref: str, charge: dict, empreinte: str = "") -> int:
     """Écrit la réponse brute. N'écrase jamais rien : elle s'ajoute."""
     t = maintenant()
     cx.execute(
-        "INSERT INTO avis(source, ref_source, premiere_vue, derniere_vue) VALUES(?,?,?,?) "
-        "ON CONFLICT(source, ref_source) DO UPDATE SET derniere_vue=excluded.derniere_vue",
-        (source, ref, t, t))
+        "INSERT INTO avis(source, ref_source, empreinte, premiere_vue, derniere_vue) "
+        "VALUES(?,?,?,?,?) ON CONFLICT(source, ref_source) DO UPDATE SET "
+        "derniere_vue=excluded.derniere_vue, empreinte=excluded.empreinte",
+        (source, ref, empreinte, t, t))
     avis_id = cx.execute(
         "SELECT id FROM avis WHERE source=? AND ref_source=?", (source, ref)).fetchone()["id"]
     cx.execute(

@@ -1,93 +1,84 @@
-# Profil de l'exploitant — pilote le tri, le score et le recensement des sources.
+# Profil de l'entreprise — pilote TOUT le moteur. Séparé du code, modifiable
+# sans toucher à une ligne de Python.
 #
-# Ce fichier est la seule chose que le code ne peut pas deviner. Tout ce qui est
-# marqué « À CONFIRMER » doit être vérifié auprès de l'exploitant : une valeur
-# plausible inventée ici fausserait tout le reste, silencieusement.
+# Règle : ne JAMAIS inventer une certification, une référence ou une capacité.
+# Ce qui n'est pas confirmé porte « A_VERIFIER » — et « A_VERIFIER » ne vaut
+# jamais « NON_ELIGIBLE ». Ne pas savoir n'est pas ne pas pouvoir.
 
-exploitant:
+entreprise:
+  pays: BE
   base: Bruxelles
-  forme: sous-traitant logistique
+  anciennete_annees: 1          # jeune : certains marchés exigent 3 ans de comptes
+  en_ordre_administratif: true
 
-# ------------------------------------------------------------------ capacité --
-capacite:
-  depot:
-    surface_m2: 400
-    localisation: Bruxelles           # actif le plus rare du profil
-    usage: cross-dock urbain          # transit et tri, PAS entreposage longue durée
-    tri_colis: true
-    quai_de_dechargement: À CONFIRMER # sans quai, le volume traitable chute fortement
-    hauteur_libre_m: À CONFIRMER
-    froid_positif: À CONFIRMER        # décisif pour pharma, repas, denrées
-    capacite_colis_jour: À CONFIRMER  # chiffre clé pour répondre aux réseaux
+# ------------------------------------------------------------- capacité --
+# Distinction centrale : ce que je possède AUJOURD'HUI n'est pas ce que je peux
+# exploiter. Une exigence au-dessus de l'actuel mais sous le maximum mobilisable
+# n'est pas un blocage — c'est une réserve.
+flotte:
+  actuelle:
+    - {type: "3.5t",  nombre: 4}
+    - {type: "20m3",  nombre: 2}
+  extensible_par_location: true
+  vehicules_mobilisables_max: 20      # plafond raisonnable sur contrat signé
+  delai_mobilisation_jours: 30
 
-  vehicules:
-    possedes: 4
-    detail: À CONFIRMER               # PTAC, volume, froid, conformité ZBE
-    location_sur_contrat: true        # extensible si marché signé
-    conforme_zbe_bruxelles: À CONFIRMER
+chauffeurs:
+  actuels: A_VERIFIER
+  extensibles: true
+  permis: [B]
+  chauffeurs_mobilisables_max: 25
 
-  chauffeurs:
-    nombre_actuel: À CONFIRMER
-    permis: [B]
-    extensible: true
-    nuit_weekend: À CONFIRMER         # ouvre ou ferme tout le segment colis
+depot:
+  pays: BE
+  ville: Bruxelles
+  surface_m2: 400
+  tri_colis: true
+  stockage_temporaire: true
+  froid_positif: A_VERIFIER
+  quai_de_dechargement: A_VERIFIER
 
-# ------------------------------------------------------------- qualifications --
-# Ce sont les barrières à l'entrée. Chacune EXCLUT des concurrents : c'est là que
-# se trouve la marge, pas dans le prix.
+# ------------------------------------------------------ qualifications --
+# Seul ce qui est explicitement confirmé vaut true.
 qualifications:
   licences_transport_spf: 2
-  agrement_afsca: true                # CONFIRMÉ — ouvre tout le volet alimentaire public
-                                      # (repas CPAS, logistique hospitalière, denrées)
-  assurance_marchandises: À CONFIRMER # plafond de valeur couverte
-  rc_vehicules_confies: À CONFIRMER
-  onss_tva_en_ordre: À CONFIRMER      # pièce systématiquement exigée en marché public
+  agrement_afsca: true
+  gdp_pharmaceutique: A_VERIFIER
+  assurance_marchandises: A_VERIFIER
+  rc_vehicules_confies: A_VERIFIER
+  iso: A_VERIFIER
 
-# --------------------------------------------------------------- références --
-# En marché public il faut prouver des prestations SIMILAIRES. Ce sont les pièces
-# maîtresses du dossier ; elles valent plus que la flotte.
-references:
-  - segment: livraison de volumineux à domicile
-    detail: meubles, client final, donneur d'ordre de dimension mondiale
+# --------------------------------------------------------- expérience --
+# Sert de preuve de référence en marché public. Jamais gonflée.
+experience:
+  - id: collecte_nl
+    intitule: "Collecte quotidienne aux Pays-Bas, acheminement et livraison depuis Bruxelles"
+    familles: [transport_international, logistique_entrepot, dernier_kilometre, alimentaire]
+    corridor: {collecte: [NL], livraison: [BE]}
     active: true
-  - segment: alimentaire transfrontalier + dernier kilomètre
-    detail: enlèvement Pays-Bas, livraison Bruxelles
+  - id: meubles
+    intitule: "Livraison de meubles à domicile pour un acteur mondial"
+    familles: [volumineux, dernier_kilometre]
+    corridor: {collecte: [BE], livraison: [BE]}
     active: true
-  - segment: distribution pharmaceutique
-    active: À CONFIRMER               # toujours en cours ?
-  - segment: distribution florale
-    active: À CONFIRMER
 
-# ------------------------------------------------------------------ ciblage --
-segments_prioritaires:
-  - volumineux et mobilier à domicile
-  - alimentaire et froid, corridor NL -> BE
-  - dernier kilomètre colis sur Bruxelles
-  - logistique interne et courrier (institutions, hôpitaux, communes)
+# ------------------------------------------------------------ ciblage --
+# Familles d'activité déclarées faisables. Le détail du vocabulaire et des
+# exigences typiques vit dans config/capacites.yaml.
+familles_actives:
+  - logistique_entrepot
+  - transport_national
+  - transport_international
+  - dernier_kilometre
+  - alimentaire
+  - pharmaceutique          # intéressé, mais exigences à vérifier systématiquement
+  - transfert_vehicules
+  - lavage_vehicules
+  - volumineux
+  - gestion_flotte
 
-zone:
-  coeur: Bruxelles + 19 communes
-  rayon_confortable_km: À CONFIRMER
-  international_regulier: [NL]
-
-# ------------------------------------------------------- limites assumées --
-# Ce qu'il ne faut PAS remonter comme faisable : mieux vaut l'absence que le faux.
-limites:
-  pas_d_entreposage_longue_duree: true   # 400 m² = transit
-  surface_max_exigible_m2: 400
-  pas_de_flotte_lourde_en_propre: À CONFIRMER
-
-# ------------------------------------------------------------------- score --
-# Rappel de la règle métier : RIEN n'est écarté. Le score ne filtre pas, il TRIE
-# et il annote. L'exploitant décide seul de ce qu'il prend.
-score:
-  mode: tri_et_annotation
-  filtre_dur: false
-  poids:
-    rarete_de_la_combinaison: 40   # « qui d'autre peut le faire ? » = la marge
-    adequation_segment: 25
-    proximite_geographique: 15
-    duree_et_recurrence: 10
-    creux_de_charge: 10            # un contrat qui remplit un trou vaut plus
-  urgence:
-    relance_si_echeance_sous_jours: 5
+# Ce qu'on ne prétend pas savoir faire — évite les faux positifs.
+familles_exclues:
+  - transport_matieres_dangereuses
+  - transport_de_personnes
+  - demenagement_international_particuliers

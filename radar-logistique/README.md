@@ -1,67 +1,114 @@
-# Radar de contrats logistiques
+# Radar commercial logistique
 
-Trouve des marchés **sur lesquels on peut encore déposer une offre**. Ce n'est
-pas une veille informative : un avis clôturé, attribué ou purement informatif
-n'apparaît jamais dans les opportunités à traiter.
+Pas un agrégateur d'appels d'offres. Un commercial numérique qui surveille le
+marché européen pour trouver des contrats compatibles avec des capacités
+précises, ne retenir que ceux auxquels on peut encore répondre, expliquer
+pourquoi ils correspondent, et donner le chemin pour déposer l'offre.
 
-## Le critère unique
+La question posée à chaque étage :
 
-> Est-ce que je peux encore postuler aujourd'hui ?
+> Quelles opportunités commerciales actuellement accessibles pourraient être
+> remportées **et exécutées** par mon entreprise ?
 
-Le filtre porte sur l'**actionnabilité** — des faits vérifiables : une date de
-clôture, un type d'avis, une exigence de sélection. Il ne porte jamais sur le
-jugement : « est-ce une bonne affaire » reste la décision de l'exploitant, et le
-score ne fait que trier et annoter.
+## Architecture
 
-| Statut | Notifié | Pourquoi |
+```
+SOURCES → COLLECTE → NORMALISATION → DÉDUPLICATION → STATUT
+        → ÉLIGIBILITÉ → MATCH PROFIL → SCORING → CLASSIFICATION → NOTIFICATION
+```
+
+Aucun étage après la collecte ne sait de quelle source vient l'opportunité.
+Ajouter une source, c'est écrire **un fichier YAML**, jamais du code.
+
+| Fichier | Rôle |
+|---|---|
+| `profil.yaml` | l'entreprise : flotte, dépôt, qualifications, expérience, extensibilité |
+| `config/capacites.yaml` | ontologie métier — 10 familles, 168 termes FR/NL/EN, exigences |
+| `config/geographie.yaml` | la logique de corridor |
+| `config/ponderations.yaml` | les poids du score |
+| `sources/*.yaml` | un adaptateur par source |
+
+## Ce que le moteur comprend
+
+**Le vocabulaire de l'acheteur, pas le mien.** « Distribution urbaine de
+marchandises », « stadsdistributie », « last mile » désignent la même famille.
+Ajouter un synonyme se fait dans `capacites.yaml`.
+
+**Un corridor, pas un pays.** `COLLECTE EUROPE → DÉPÔT BELGE → LIVRAISON BE`.
+Collecte NL + livraison BE est le cœur du modèle ; Lyon → Marseille est hors
+modèle même si c'est du transport routier parfaitement exécutable.
+
+**Capacité actuelle ≠ capacité maximale.** 6 véhicules en propre, 20
+mobilisables par location. Un marché exigeant 12 véhicules est une **réserve**,
+pas un blocage. À 40, c'est un blocage.
+
+## Les trois statuts
+
+| | Notifié | Quand |
 |---|---|---|
-| `ouvert` | oui | échéance à venir |
-| `echeance_inconnue` | **oui** | date illisible — livré par précaution, signalé |
-| `cloture` | non | échéance dépassée |
-| `attribue` | non | marché déjà attribué — mais **conservé** pour le calendrier |
-| `informatif` | non | aucun dépôt attendu |
+| 🟢 `POSTULABLE` | oui | ouvert, éligible, dans la zone |
+| 🟠 `A_VERIFIER` | oui | intéressant mais une information manque |
+| 🔴 `NON_POSTULABLE` | **non** | attribué, clôturé, activité, zone ou exigence incompatible |
 
-### Les deux garde-fous
+### Les garde-fous
 
-**Une échéance illisible ne fait jamais disparaître une annonce.** Rater un
-marché ouvert coûte un contrat ; recevoir un marché clôturé coûte trente
-secondes. Les coûts sont asymétriques : en cas de doute, ça part.
+**Aucune date n'est jamais inventée.** Absente, illisible ou contradictoire →
+`A_VERIFIER`. Ne pas pouvoir confirmer qu'un marché est ouvert n'est pas la
+preuve qu'il est fermé.
 
-**Seule une exigence structurée peut bloquer.** Une exigence lue dans un texte
-libre ne produit qu'une réserve, et une capacité non vérifiée au profil ne
-bloque jamais — « je ne sais pas » n'est pas « je ne peux pas ».
+**Seule une exigence structurée et obligatoire peut bloquer.** Lue en texte
+libre, elle ne produit qu'un `A_VERIFIER`.
 
-## La fiche d'action
+**`A_VERIFIER` dans le profil ne vaut jamais `NON_ELIGIBLE`.** Ne pas savoir
+n'est pas ne pas pouvoir. Les certifications pharmaceutiques ne sont **jamais**
+supposées acquises.
 
-Sept champs, dans cet ordre. Un champ absent est écrit `NON PUBLIÉ`, jamais
-comblé par une valeur plausible :
+**Le score classe, il n'écarte pas.** Une opportunité à 30/100 reste livrée si
+elle est postulable. Chaque point est justifié.
 
-date limite · montant estimé · organisme acheteur · ce qui est demandé ·
-conditions pour répondre · où déposer · **pourquoi tu corresponds**
+## Attributions et calendrier
+
+Un marché attribué ne sort **jamais** dans les opportunités, mais il est
+mémorisé : acheteur, titulaire, montant, durée, date. Le système en déduit la
+remise en concurrence — un contrat de 36 mois conclu en 09/2026 revient vers
+08/2029. Aucune source ne publie ce calendrier : il se calcule.
+
+Sans durée publiée, l'échéance n'est pas estimée : elle sort en `A_VERIFIER`.
+
+## Opportunités et signaux, séparés
+
+`OPPORTUNITE_DIRECTE` — un dossier, une date, une plateforme.
+`SIGNAL_COMMERCIAL` — recrutement massif de chauffeurs, ouverture d'entrepôt,
+changement de prestataire, cessation d'un concurrent. Plus incertain, donc
+score pondéré à la baisse, et jamais mélangé aux appels d'offres.
 
 ## Utilisation
 
 ```bash
-# 1. Mesurer les clés RÉELLES d'une source avant de lui faire confiance
+# 1. MESURER avant de construire — c'est l'étape qui décide de tout
 python -m radar.cli recenser --source ted --echantillon reponses-reelles.json
+python -m radar.cli sonder   --source ted --entree   reponses-reelles.json
 
-# 2. Traiter un lot de réponses
+# 2. Traiter
 python -m radar.cli --base radar.sqlite3 traiter --source ted --entree lot.json
 
-# 3. Voir ce sur quoi on peut encore déposer (base ouverte en LECTURE SEULE)
+# 3. Consulter (base ouverte en LECTURE SEULE, incapable d'écrire)
 python -m radar.cli --base radar.sqlite3 opportunites --complet
+python -m radar.cli --base radar.sqlite3 opportunites --signaux
+python -m radar.cli --base radar.sqlite3 calendrier
 ```
 
 ## État — à lire avant de s'en servir
 
-`sources/ted.yaml` porte `verifie: false`. Les chemins de champs y sont
-**plausibles, pas mesurés** : aucun accès réseau depuis l'environnement de
-développement, donc aucune réponse réelle n'a été observée. La commande
-`recenser` existe pour les corriger par la mesure ; tout champ à 0 % désigne une
-clé qui n'existe pas. On la corrige **dans le fichier de source, jamais dans le
-code**.
+Tous les fichiers `sources/*.yaml` portent **`verifie: false`**. Les chemins de
+champs y sont **plausibles, PAS MESURÉS** : aucun accès réseau depuis
+l'environnement de développement, donc aucune réponse réelle n'a été observée.
 
-Tant que le recensement n'a pas eu lieu, `traiter` affiche un avertissement.
+`recenser` mesure le taux de présence réel de chaque champ ; tout champ à 0 %
+désigne une clé qui n'existe pas, à corriger **dans le YAML, jamais dans le
+code**. `sonder` produit les dix mesures du marché — volumes, statuts, familles,
+montants, zones, exigences — et marque `NON MESURÉ` tout ce qu'il ne peut pas
+observer. Sous 30 avis, il refuse de publier des pourcentages.
 
 ## Tests
 
@@ -69,8 +116,7 @@ Tant que le recensement n'a pas eu lieu, `traiter` affiche un avertissement.
 python -m unittest discover -s tests
 ```
 
-26 tests, tous de comportement. Aucun ne vérifie qu'une ligne de code existe :
-ils posent les questions qui comptent — « est-ce que ça peut disparaître de mes
-opportunités ? », « est-ce que ça peut partir deux fois ? ».
+45 tests, tous de comportement, un par règle du cahier des charges. Aucun ne
+vérifie qu'une ligne de code existe.
 
 Zéro dépendance hors PyYAML.

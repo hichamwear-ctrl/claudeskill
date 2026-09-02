@@ -1,14 +1,14 @@
-"""Croise les exigences publiées avec le profil de l'exploitant.
+"""ELIGIBLE · A_VERIFIER · NON_ELIGIBLE
 
-Produit la réponse à « pourquoi je corresponds à ce marché », et le cas échéant
-ce qui manque pour y répondre.
+Trois garde-fous, parce qu'un blocage à tort supprime un contrat :
 
-Deux garde-fous, parce qu'un blocage à tort fait disparaître un contrat :
-
-  1. Seule une exigence STRUCTURÉE (lue dans un champ normé) peut bloquer. Une
-     exigence déduite d'un texte libre ne produit qu'une réserve.
-  2. Une capacité NON VÉRIFIÉE du profil ne bloque jamais. « Je ne sais pas »
-     n'est pas « je ne peux pas ».
+  1. Seule une exigence STRUCTURÉE et obligatoire peut bloquer. Une exigence
+     lue en texte libre ne produit qu'un A_VERIFIER.
+  2. « A_VERIFIER » dans le profil ne vaut jamais NON_ELIGIBLE.
+     Ne pas savoir n'est pas ne pas pouvoir.
+  3. La capacité ACTUELLE n'est pas la capacité MAXIMALE. Une exigence de
+     10 véhicules face à 6 possédés mais 20 mobilisables est une réserve, pas
+     un blocage.
 """
 
 from __future__ import annotations
@@ -16,17 +16,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-INCONNU = {"À CONFIRMER", "A CONFIRMER", None, ""}
+INCONNU = {"A_VERIFIER", "À CONFIRMER", "A CONFIRMER", None, ""}
 
 
 class Statut(Enum):
-    ELIGIBLE = "éligible"
-    SOUS_RESERVE = "éligible sous réserve"
-    BLOQUE = "non éligible"
-
-    @property
-    def peut_deposer(self) -> bool:
-        return self is not Statut.BLOQUE
+    ELIGIBLE = "ELIGIBLE"
+    A_VERIFIER = "A_VERIFIER"
+    NON_ELIGIBLE = "NON_ELIGIBLE"
 
 
 @dataclass
@@ -34,124 +30,112 @@ class Exigence:
     code: str
     valeur: object = True
     texte: str = ""
-    structuree: bool = True     # False = déduite d'un texte libre -> ne bloque pas
+    structuree: bool = True
+    obligatoire: bool = True
 
 
 @dataclass
 class Resultat:
-    statut: Statut
-    atouts: list[str] = field(default_factory=list)     # « pourquoi ça correspond »
-    reserves: list[str] = field(default_factory=list)
-    blocages: list[str] = field(default_factory=list)
-
-    @property
-    def peut_deposer(self) -> bool:
-        return self.statut.peut_deposer
+    statut: Statut = Statut.ELIGIBLE
+    atouts: list[str] = field(default_factory=list)
+    a_verifier: list[str] = field(default_factory=list)
+    bloquants: list[str] = field(default_factory=list)
+    inconnues: int = 0
 
 
-def _connu(v):
-    return v not in INCONNU
+def _flotte_totale(profil) -> int:
+    return sum(v.get("nombre", 0) for v in profil.get("flotte", {}).get("actuelle", []))
 
 
-def _profil_capacites(profil: dict) -> dict:
-    """Aplatit le profil YAML en capacités comparables aux exigences."""
-    cap = profil.get("capacite", {})
-    qual = profil.get("qualifications", {})
-    dep, veh, ch = cap.get("depot", {}), cap.get("vehicules", {}), cap.get("chauffeurs", {})
+def _capacites(profil: dict) -> dict:
+    q = profil.get("qualifications", {})
+    d = profil.get("depot", {})
+    f = profil.get("flotte", {})
     return {
-        "afsca":            qual.get("agrement_afsca"),
-        "licences":         qual.get("licences_transport_spf"),
-        "surface_m2":       dep.get("surface_m2"),
-        "froid":            dep.get("froid_positif"),
-        "tri_colis":        dep.get("tri_colis"),
-        "vehicules":        veh.get("possedes"),
-        "vehicules_locables": veh.get("location_sur_contrat"),
-        "chauffeurs_extensibles": ch.get("extensible"),
-        "segments":         [r.get("segment", "") for r in profil.get("references", [])
-                             if r.get("active") is True],
+        "afsca": q.get("agrement_afsca"),
+        "gdp": q.get("gdp_pharmaceutique"),
+        "licence": q.get("licences_transport_spf"),
+        "rc_vehicules_confies": q.get("rc_vehicules_confies"),
+        "froid": d.get("froid_positif"),
+        "surface_min_m2": d.get("surface_m2"),
+        "vehicules_actuels": _flotte_totale(profil),
+        "vehicules_max": f.get("vehicules_mobilisables_max", _flotte_totale(profil)),
+        "extensible": bool(f.get("extensible_par_location")),
+        "anciennete_min_annees": profil.get("entreprise", {}).get("anciennete_annees"),
     }
 
 
-def evaluer(exigences: list[Exigence], profil: dict) -> Resultat:
-    cap = _profil_capacites(profil)
-    atouts: list[str] = []
-    reserves: list[str] = []
-    blocages: list[str] = []
-
-    def tranche(code, ok, atout, manque, detail=""):
-        """Répartit une exigence entre atout, réserve et blocage."""
-        exi = next(e for e in exigences if e.code == code)
-        if ok is True:
-            atouts.append(atout)
-        elif ok is None:
-            reserves.append(f"{manque} — capacité non vérifiée au profil")
-        elif exi.structuree:
-            blocages.append(f"{manque}{detail}")
-        else:
-            reserves.append(f"{manque} — exigence lue en texte libre, à confirmer{detail}")
+def evaluer(exigences: list[Exigence], profil: dict, ontologie_exigences: dict) -> Resultat:
+    cap = _capacites(profil)
+    r = Resultat()
 
     for e in exigences:
-        if e.code == "afsca_requis" and e.valeur:
-            v = cap["afsca"]
-            tranche("afsca_requis", True if v is True else (None if not _connu(v) else False),
-                    "agrément AFSCA exigé — tu l'as, la plupart des transporteurs non",
-                    "agrément AFSCA exigé et non détenu")
+        spec = ontologie_exigences.get(e.code, {})
+        libelle = spec.get("libelle", e.code.replace("_", " "))
+        jamais_supposee = bool(spec.get("jamais_supposee"))
 
-        elif e.code == "licence_transport_requise" and e.valeur:
-            n = cap["licences"]
-            ok = True if (_connu(n) and n) else (None if not _connu(n) else False)
-            tranche("licence_transport_requise", ok,
-                    f"licence de transport exigée — tu en as {n}, ça élimine les non-licenciés",
-                    "licence de transport exigée et non détenue")
-
-        elif e.code == "surface_min_m2":
-            s, besoin = cap["surface_m2"], e.valeur
-            ok = None if not _connu(s) else (s >= besoin)
-            tranche("surface_min_m2", ok,
-                    f"site de {besoin} m² exigé — ton dépôt fait {s} m² à Bruxelles",
-                    f"surface exigée {besoin} m²",
-                    f" — ton dépôt fait {s} m²" if _connu(s) else "")
-
-        elif e.code == "froid_requis" and e.valeur:
-            v = cap["froid"]
-            tranche("froid_requis", True if v is True else (None if not _connu(v) else False),
-                    "température dirigée exigée — capacité froid disponible",
-                    "température dirigée exigée")
-
-        elif e.code == "vehicules_min":
-            n, besoin = cap["vehicules"], e.valeur
-            if _connu(n) and n >= besoin:
-                atouts.append(f"{besoin} véhicules exigés — tu en as {n}")
-            elif cap["vehicules_locables"]:
-                reserves.append(
-                    f"{besoin} véhicules exigés, tu en as {n} — complément par location "
-                    "sur contrat signé ; vérifie si une flotte en propre est imposée")
+        # --- exigences numériques de capacité, avec extensibilité ---
+        if e.code == "vehicules_min":
+            besoin = int(e.valeur or 0)
+            if cap["vehicules_actuels"] >= besoin:
+                r.atouts.append(f"{besoin} véhicules exigés — {cap['vehicules_actuels']} en flotte")
+            elif cap["extensible"] and besoin <= cap["vehicules_max"]:
+                r.a_verifier.append(
+                    f"{besoin} véhicules exigés, {cap['vehicules_actuels']} en propre — "
+                    f"complément par location (jusqu'à {cap['vehicules_max']}) ; "
+                    "vérifier si une flotte en propre est imposée")
+            elif e.structuree and e.obligatoire:
+                r.bloquants.append(
+                    f"{besoin} véhicules exigés — au-delà du maximum mobilisable "
+                    f"({cap['vehicules_max']})")
             else:
-                tranche("vehicules_min", False, "", f"{besoin} véhicules exigés, tu en as {n}")
+                r.a_verifier.append(f"{besoin} véhicules exigés — à confirmer")
+            continue
 
-        elif e.code == "reference_segment":
-            besoin = str(e.valeur).lower()
-            trouve = [s for s in cap["segments"] if any(m in s.lower() for m in besoin.split())]
-            if trouve:
-                atouts.append(f"référence « {besoin} » exigée — tu as : {trouve[0]}")
-            elif e.structuree:
-                blocages.append(f"référence « {besoin} » exigée et absente du profil")
+        if e.code == "surface_min_m2":
+            besoin = float(e.valeur or 0)
+            surface = cap["surface_min_m2"]
+            if surface in INCONNU:
+                r.a_verifier.append(f"{libelle} de {besoin:g} m² — surface du dépôt non renseignée")
+                r.inconnues += 1
+            elif surface >= besoin:
+                r.atouts.append(f"{libelle} de {besoin:g} m² exigée — dépôt de {surface:g} m² à Bruxelles")
+            elif e.structuree and e.obligatoire:
+                r.bloquants.append(f"{libelle} de {besoin:g} m² exigée — dépôt de {surface:g} m²")
             else:
-                reserves.append(f"référence « {besoin} » attendue — à vérifier dans le cahier des charges")
+                r.a_verifier.append(f"{libelle} de {besoin:g} m² — exigence lue en texte libre")
+            continue
 
-        elif e.code == "tri_colis_requis" and e.valeur:
-            if cap["tri_colis"] is True:
-                atouts.append("capacité de tri exigée — ton dépôt trie déjà")
+        if e.code == "anciennete_min_annees":
+            besoin = float(e.valeur or 0)
+            ans = cap["anciennete_min_annees"]
+            if ans in INCONNU:
+                r.a_verifier.append(f"{besoin:g} ans d'ancienneté exigés — à confirmer")
+                r.inconnues += 1
+            elif ans >= besoin:
+                r.atouts.append(f"{besoin:g} ans d'ancienneté exigés — {ans} an(s) d'existence")
             else:
-                reserves.append("capacité de tri exigée — à confirmer")
+                # Souvent contournable par références ou garantie : jamais bloquant seul.
+                r.a_verifier.append(
+                    f"{besoin:g} ans d'ancienneté ou de comptes exigés — l'entreprise a {ans} an(s) ; "
+                    "vérifier si des références équivalentes sont acceptées")
+            continue
 
+        # --- exigences binaires (certifications, agréments, assurances) ---
+        detenue = cap.get(e.code)
+        if detenue is True or (isinstance(detenue, (int, float)) and detenue and not jamais_supposee):
+            r.atouts.append(f"{libelle} exigé — détenu")
+        elif detenue in INCONNU or jamais_supposee:
+            # Jamais supposée acquise : c'est la règle du pharmaceutique.
+            r.a_verifier.append(f"{libelle} exigé — non confirmé au profil, à vérifier")
+            r.inconnues += 1
+        elif e.structuree and e.obligatoire:
+            r.bloquants.append(f"{libelle} exigé et non détenu")
         else:
-            # Exigence non modélisée : jamais bloquante, toujours signalée.
-            if e.texte:
-                reserves.append(f"exigence non évaluée automatiquement : {e.texte}")
+            r.a_verifier.append(f"{libelle} exigé — exigence lue en texte libre, à confirmer")
 
-    if blocages:
-        return Resultat(Statut.BLOQUE, atouts, reserves, blocages)
-    if reserves:
-        return Resultat(Statut.SOUS_RESERVE, atouts, reserves, blocages)
-    return Resultat(Statut.ELIGIBLE, atouts, reserves, blocages)
+    if r.bloquants:
+        r.statut = Statut.NON_ELIGIBLE
+    elif r.a_verifier:
+        r.statut = Statut.A_VERIFIER
+    return r

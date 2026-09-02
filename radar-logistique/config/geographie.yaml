@@ -1,0 +1,32 @@
+# Logique géographique — ce n'est PAS un filtre « Belgique ».
+#
+# Le modèle opérationnel est un corridor :
+#   COLLECTE EUROPE -> TRANSPORT -> DÉPÔT BELGE -> TRI -> LIVRAISON BELGIQUE
+#
+# Donc « collecte NL + livraison BE » vaut mieux que « livraison BE » seul,
+# et « Lyon -> Marseille » ne vaut rien même si c'est du transport routier.
+
+depot:
+  pays: BE
+  ville: Bruxelles
+
+# La livraison doit toucher la Belgique : c'est le point d'ancrage du modèle.
+livraison_requise: [BE]
+
+# La collecte peut avoir lieu partout en Europe. Ordre = intérêt décroissant,
+# fondé sur la distance au dépôt et sur l'expérience déjà réalisée.
+collecte_possible:
+  prioritaires: [NL, BE, DE, FR, LU]     # corridor court, rotation quotidienne possible
+  acceptables:  [AT, CH, CZ, DK, ES, IT, PL, PT, GB, IE, SE, SK, SI, HU, RO]
+
+# Corridors déjà exécutés : preuve de référence, pas seulement préférence.
+corridors_eprouves:
+  - {collecte: NL, livraison: BE, reference: collecte_nl}
+
+# Un marché dont NI la collecte NI la livraison ne touche la Belgique est hors
+# modèle. Ce n'est pas un blocage d'éligibilité : c'est une incompatibilité de
+# zone, et elle rend l'opportunité NON_POSTULABLE.
+regles:
+  hors_zone_si_aucun_point_en: [BE]
+  # Un lieu absent ou illisible ne fait jamais disparaître l'opportunité.
+  lieu_inconnu: A_VERIFIER

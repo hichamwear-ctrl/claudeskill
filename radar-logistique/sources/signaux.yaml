@@ -1,0 +1,24 @@
+# Adaptateur des SIGNAUX COMMERCIAUX — ni appel d'offres, ni dossier à déposer.
+#
+# Recrutement massif de chauffeurs, ouverture d'entrepôt, changement de
+# prestataire, cessation d'un concurrent. Ces opportunités se traitent par prise
+# de contact, pas par dépôt d'offre : elles sont classées à part et leur score
+# est pondéré à la baisse.
+#
+# verifie: false — aucune source réelle observée.
+
+source: signaux
+verifie: false
+nature: signal
+secteur_par_defaut: prive
+
+champs:
+  identifiant:      [id, url]
+  intitule:         [titre, title]
+  type_avis:        [signal, type]        # recrutement_massif, ouverture_site, ...
+  acheteur:         [entreprise, company]
+  objet:            [description, resume]
+  publie_le:        [date, published_at]
+  pays_livraison:   [pays, country]
+  lieu:             [lieu, location]
+  plateforme:       [url, lien]
