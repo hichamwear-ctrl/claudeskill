@@ -68,61 +68,44 @@ def parse_date(valeur, defaut_tz=BRUXELLES) -> tuple[datetime | None, str | None
     return (dt if dt.tzinfo else dt.replace(tzinfo=defaut_tz)), None
 
 
-def evaluer(opp, *, zone_compatible=True, zone_raison="", activite_compatible=True,
-            activite_raison="", eligibilite=None, maintenant=None) -> Verdict:
-    """Combine les faits vérifiables. L'ordre compte : un marché attribué reste
-    fermé même si sa date de clôture est future."""
+def evaluer(opp, *, maintenant=None) -> Verdict:
+    """N'évalue plus que des FAITS DE DATE et de type d'avis.
+
+    La compatibilité métier, la zone et les capacités sont jugées ailleurs, et
+    c'est classification.py qui recompose le tout : un même fait ne doit être
+    interprété qu'à un seul endroit.
+    """
     maintenant = maintenant or datetime.now(timezone.utc)
-    a_verifier: list[str] = []
     cle = (opp.type_avis or "").strip().lower().replace("_", "-")
 
-    # 1. Faits qui ferment définitivement.
     if opp.attribue or cle in TYPES_ATTRIBUTION:
         return Verdict(Statut.NON_POSTULABLE, "marché déjà attribué",
                        bloquants=["marché déjà attribué"])
     if cle in TYPES_INFORMATIFS:
         return Verdict(Statut.NON_POSTULABLE, "avis informatif — aucun dépôt attendu",
                        bloquants=["avis purement informatif"])
-    if not activite_compatible:
-        return Verdict(Statut.NON_POSTULABLE, activite_raison or "activité incompatible",
-                       bloquants=[activite_raison or "activité incompatible"])
-    if not zone_compatible:
-        return Verdict(Statut.NON_POSTULABLE, zone_raison or "zone incompatible",
-                       bloquants=[zone_raison or "zone incompatible"])
-    if eligibilite is not None and eligibilite.bloquants:
-        return Verdict(Statut.NON_POSTULABLE,
-                       "exigence obligatoire impossible à remplir",
-                       bloquants=list(eligibilite.bloquants))
 
-    # 2. La date.
     dt, echec = parse_date(opp.echeance_brute)
     if dt is None:
-        a_verifier.append(f"date limite : {echec} — à confirmer sur la plateforme")
-        statut = Statut.A_VERIFIER
-        jours = None
-        motif = "échéance non confirmée"
-    else:
-        reste = dt - maintenant
-        jours = reste.days
-        if reste.total_seconds() <= 0:
-            return Verdict(Statut.NON_POSTULABLE, f"clôturé le {dt:%d/%m/%Y à %H:%M}",
-                           echeance=dt, jours_restants=jours,
-                           bloquants=["date limite dépassée"])
-        # Contradiction : publié après la clôture -> on ne tranche pas.
-        pub, _ = parse_date(opp.publie_le)
-        if pub and pub > dt:
-            a_verifier.append("dates contradictoires (publication postérieure à la clôture)")
-            statut = Statut.A_VERIFIER
-            motif = "dates contradictoires"
-        else:
-            statut = Statut.POSTULABLE
-            motif = f"ouvert jusqu'au {dt:%d/%m/%Y à %H:%M}"
+        # Ne JAMAIS écarter sur une date illisible : rater un marché ouvert coûte
+        # un contrat, recevoir un marché clos coûte trente secondes.
+        return Verdict(Statut.A_VERIFIER, "échéance non confirmée",
+                       a_verifier=[f"date limite : {echec} — à confirmer sur la plateforme"])
 
-    # 3. Ce qui n'empêche pas de déposer mais doit être vérifié.
-    if eligibilite is not None and eligibilite.a_verifier:
-        a_verifier += eligibilite.a_verifier
-        if statut is Statut.POSTULABLE:
-            statut = Statut.A_VERIFIER
-            motif += " — points à vérifier"
+    reste = dt - maintenant
+    if reste.total_seconds() <= 0:
+        return Verdict(Statut.NON_POSTULABLE, f"clôturé le {dt:%d/%m/%Y à %H:%M}",
+                       echeance=dt, jours_restants=reste.days,
+                       bloquants=["date limite dépassée"])
 
-    return Verdict(statut, motif, echeance=dt, jours_restants=jours, a_verifier=a_verifier)
+    pub, _ = parse_date(opp.publie_le)
+    if pub and pub > dt:
+        return Verdict(Statut.A_VERIFIER, "dates contradictoires", echeance=dt,
+                       jours_restants=reste.days,
+                       a_verifier=["publication postérieure à la clôture — dates à confirmer"])
+
+    a_verifier = []
+    if reste.days < 7:
+        a_verifier.append(f"délai court : {reste.days} j pour monter le dossier")
+    return Verdict(Statut.POSTULABLE, f"ouvert jusqu'au {dt:%d/%m/%Y à %H:%M}",
+                   echeance=dt, jours_restants=reste.days, a_verifier=a_verifier)

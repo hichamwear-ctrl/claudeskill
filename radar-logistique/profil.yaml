@@ -1,84 +1,111 @@
-# Profil de l'entreprise — pilote TOUT le moteur. Séparé du code, modifiable
-# sans toucher à une ligne de Python.
+# Profil de référence de l'entreprise. TOUT le moteur part d'ici.
 #
-# Règle : ne JAMAIS inventer une certification, une référence ou une capacité.
-# Ce qui n'est pas confirmé porte « A_VERIFIER » — et « A_VERIFIER » ne vaut
-# jamais « NON_ELIGIBLE ». Ne pas savoir n'est pas ne pas pouvoir.
+# Règle absolue : ne jamais inventer une capacité, une certification ou une
+# référence. Ce qui n'est pas confirmé vaut A_VERIFIER — et A_VERIFIER ne vaut
+# JAMAIS « non éligible ». Ne pas savoir n'est pas ne pas pouvoir.
 
 entreprise:
   pays: BE
   base: Bruxelles
-  anciennete_annees: 1          # jeune : certains marchés exigent 3 ans de comptes
+  anciennete_annees: 1
+  taille: PME
   en_ordre_administratif: true
+  chiffre_affaires_annuel: A_VERIFIER
+  contrats_similaires_realises: 2
 
-# ------------------------------------------------------------- capacité --
-# Distinction centrale : ce que je possède AUJOURD'HUI n'est pas ce que je peux
-# exploiter. Une exigence au-dessus de l'actuel mais sous le maximum mobilisable
-# n'est pas un blocage — c'est une réserve.
-flotte:
-  actuelle:
+# ═══════════════════════════════════════════════ LES TROIS NIVEAUX DE CAPACITÉ
+# Distinction centrale du moteur. Une exigence se compare successivement aux
+# trois : disponible tout de suite, mobilisable rapidement, ou hors d'atteinte.
+# Rien n'est jamais présumé mobilisable « parce que techniquement possible ».
+
+capacite_actuelle:
+  vehicules:
     - {type: "3.5t",  nombre: 4}
     - {type: "20m3",  nombre: 2}
-  extensible_par_location: true
-  vehicules_mobilisables_max: 20      # plafond raisonnable sur contrat signé
-  delai_mobilisation_jours: 30
-
-chauffeurs:
-  actuels: A_VERIFIER
-  extensibles: true
-  permis: [B]
-  chauffeurs_mobilisables_max: 25
-
-depot:
-  pays: BE
-  ville: Bruxelles
-  surface_m2: 400
-  tri_colis: true
-  stockage_temporaire: true
-  froid_positif: A_VERIFIER
-  quai_de_dechargement: A_VERIFIER
-
-# ------------------------------------------------------ qualifications --
-# Seul ce qui est explicitement confirmé vaut true.
-qualifications:
+  vehicules_total: 6
+  chauffeurs: A_VERIFIER
+  depot:
+    pays: BE
+    ville: Bruxelles
+    surface_m2: 400
+    tri_colis: true
+    stockage_temporaire: true
+    quai_de_dechargement: A_VERIFIER
+    froid_positif: A_VERIFIER
   licences_transport_spf: 2
   agrement_afsca: true
-  gdp_pharmaceutique: A_VERIFIER
+
+capacite_mobilisable:
+  # Rapidement accessible par location, partenaire ou sous-traitance.
+  vehicules_supplementaires: 10          # → 16 véhicules au total
+  vehicules_total_max: 16
+  chauffeurs_supplementaires: A_VERIFIER
+  delai_mobilisation_jours: 30
+  moyens: [location de véhicules, renfort de chauffeurs, partenaire, sous-traitance]
+  # Ce qui NE se mobilise pas en louant : une qualification se passe, pas se loue.
+  ne_couvre_pas: [certifications, licences, agréments, infrastructure fixe]
+
+capacite_non_disponible:
+  # Explicitement hors d'atteinte pour un contrat donné. Bloquant.
+  - flotte au-delà de 16 véhicules
+  - entrepôt de plus de 400 m²
+  - implantation hors Belgique
+  - transport de matières dangereuses (ADR)
+  - transport de personnes
+  - fourniture de marchandises (l'entreprise vend une PRESTATION, pas un produit)
+
+# ═══════════════════════════════════════════════════════════ QUALIFICATIONS
+# true = confirmé. A_VERIFIER = inconnu, jamais présumé ni dans un sens ni
+# dans l'autre.
+qualifications:
+  licence_transport: true
+  afsca: true
+  gdp: A_VERIFIER
+  adr: false                    # explicitement NON — capacité non disponible
+  chaine_du_froid: A_VERIFIER
   assurance_marchandises: A_VERIFIER
   rc_vehicules_confies: A_VERIFIER
   iso: A_VERIFIER
 
-# --------------------------------------------------------- expérience --
-# Sert de preuve de référence en marché public. Jamais gonflée.
+# ═══════════════════════════════════════════════════════════════ EXPÉRIENCE
 experience:
-  - id: collecte_nl
-    intitule: "Collecte quotidienne aux Pays-Bas, acheminement et livraison depuis Bruxelles"
+  - id: corridor_nl
+    intitule: "Collecte quotidienne aux Pays-Bas, acheminement, tri en dépôt belge, livraison Bruxelles"
     familles: [transport_international, logistique_entrepot, dernier_kilometre, alimentaire]
     corridor: {collecte: [NL], livraison: [BE]}
+    recurrent: true
     active: true
-  - id: meubles
-    intitule: "Livraison de meubles à domicile pour un acteur mondial"
+  - id: mobilier
+    intitule: "Livraison de mobilier à domicile pour un acteur mondial"
     familles: [volumineux, dernier_kilometre]
     corridor: {collecte: [BE], livraison: [BE]}
     active: true
 
-# ------------------------------------------------------------ ciblage --
-# Familles d'activité déclarées faisables. Le détail du vocabulaire et des
-# exigences typiques vit dans config/capacites.yaml.
+# ═══════════════════════════════════════════════════════════════════ CIBLAGE
 familles_actives:
-  - logistique_entrepot
   - transport_national
   - transport_international
   - dernier_kilometre
+  - logistique_entrepot
+  - volumineux
   - alimentaire
-  - pharmaceutique          # intéressé, mais exigences à vérifier systématiquement
+  - pharmaceutique          # intéressé — exigences TOUJOURS à vérifier
   - transfert_vehicules
   - lavage_vehicules
-  - volumineux
   - gestion_flotte
+  - demenagement_manutention
 
-# Ce qu'on ne prétend pas savoir faire — évite les faux positifs.
 familles_exclues:
-  - transport_matieres_dangereuses
+  - matieres_dangereuses
   - transport_de_personnes
-  - demenagement_international_particuliers
+  - fourniture_de_marchandises
+
+# ══════════════════════════════════════════════════ TAILLE DE CONTRAT VISÉE
+# Un contrat de 8 000 €/mois sur 2 ans vaut mieux qu'un marché de 5 M€ qui
+# exige une structure absente. Le score suit cette réalité, pas le montant.
+cible_economique:
+  montant_mensuel_ideal: {min: 5000, max: 60000}
+  montant_total_confortable_max: 1500000
+  au_dela_probablement_hors_gabarit: 3000000
+  recurrence_preferee: true
+  demarrage_rapide_valorise: true

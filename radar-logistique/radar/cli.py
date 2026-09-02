@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from . import envoi, sondage as sondage_mod
+from . import apprentissage as appr, envoi, sondage as sondage_mod
 from .adaptateur import Adaptateur, vers_opportunite
 from .base import ouvrir
 from .chaine import Moteur, traiter
@@ -27,7 +27,8 @@ def _cfg(nom):
 
 def _moteur() -> Moteur:
     return Moteur(_cfg("profil.yaml"), _cfg("config/capacites.yaml"),
-                  _cfg("config/geographie.yaml"), _cfg("config/ponderations.yaml"))
+                  _cfg("config/geographie.yaml"), _cfg("config/ponderations.yaml"),
+                  _cfg("config/roles.yaml"))
 
 
 def _source(nom):
@@ -44,7 +45,7 @@ def _charger(adaptateur, cfg, chemin, source):
     if not isinstance(charges, list) or not charges:
         print("entrée vide ou mal formée — rien à traiter", file=sys.stderr)
         raise SystemExit(2)
-    defauts = {"nature": cfg.get("nature"), "secteur": cfg.get("secteur_par_defaut")}
+    defauts = {"signal": cfg.get("signal"), "secteur": cfg.get("secteur_par_defaut")}
     return [vers_opportunite(adaptateur, c, source, defauts) for c in charges], charges
 
 
@@ -91,12 +92,11 @@ def cmd_traiter(a) -> int:
     if repris:
         print(f"{repris} envoi(s) interrompu(s) marqué(s) ambigus — non réémis.")
     b = traiter(cx, _moteur(), opportunites)
-    print(f"lus {b.lus} · doublons {b.doublons} · "
-          f"🟢 {b.postulables} · 🟠 {b.a_verifier} · 🔴 {b.non_postulables} · "
-          f"notifiés {b.notifies}")
-    if b.attributions_memorisees:
-        print(f"{b.attributions_memorisees} attribution(s) mémorisée(s) pour le calendrier "
-              "(non notifiées)")
+    print(f"lus {b.lus} · doublons {b.doublons} · 🟢 {b.direct} direct · "
+          f"🟡 {b.sous_traitance} sous-traitance · 🔵 {b.prospect} prospect · "
+          f"🔴 {b.rejet} rejet · notifiés {b.notifies}")
+    if b.attributions:
+        print(f"{b.attributions} attribution(s) mémorisée(s) pour le calendrier")
     if b.motifs_rejet:
         print("rejets : " + " · ".join(f"{k} ×{v}" for k, v in
                                        sorted(b.motifs_rejet.items(), key=lambda x: -x[1])[:5]))
@@ -105,13 +105,9 @@ def cmd_traiter(a) -> int:
 
 def cmd_opportunites(a) -> int:
     cx = ouvrir(a.base, lecture_seule=True)          # incapable d'écrire
-    where = "statut IN ('POSTULABLE','A_VERIFIER')"
-    if a.postulables_seulement:
-        where = "statut='POSTULABLE'"
-    if a.signaux:
-        where += " AND nature='SIGNAL_COMMERCIAL'"
-    elif not a.tout:
-        where += " AND nature='OPPORTUNITE_DIRECTE'"
+    where = "type <> 'REJET'"
+    if a.type:
+        where = f"type = '{a.type.upper()}'"
     lignes = cx.execute(
         f"SELECT o.*, a.ref_source FROM opportunites o JOIN avis a ON a.id=o.avis_id "
         f"WHERE {where} ORDER BY o.score DESC, o.echeance ASC").fetchall()
@@ -122,7 +118,7 @@ def cmd_opportunites(a) -> int:
         if a.complet:
             print(l["fiche"]); print("\n" + "─" * 66 + "\n")
         else:
-            emoji = {"POSTULABLE": "🟢", "A_VERIFIER": "🟠"}.get(l["statut"], "·")
+            emoji = {"DIRECT": "🟢", "SOUS_TRAITANCE": "🟡", "PROSPECT": "🔵"}.get(l["type"], "·")
             print(f"{emoji} [{l['score']:3}] {(l['echeance'] or 'A_VERIFIER')[:10]:<11} "
                   f"{(l['intitule'] or '')[:52]}")
     print(f"\n{len(lignes)} opportunité(s).")
@@ -142,6 +138,13 @@ def cmd_calendrier(a) -> int:
         quand = (l["renouvellement"] or "")[:7] or "A_VERIFIER"
         print(f"  {quand:<12} {(l['prestation'] or '')[:44]}")
         print(f"  {'':<12} titulaire : {l['titulaire'] or 'A_VERIFIER'} · {l['commentaire']}")
+    return 0
+
+
+def cmd_apprendre(a) -> int:
+    """Ce que le radar a appris — calculé sur la base, jamais estimé."""
+    cx = ouvrir(a.base, lecture_seule=True)
+    print(appr.apprendre(cx).rapport())
     return 0
 
 
@@ -177,10 +180,12 @@ def principal(argv=None) -> int:
 
     o = s.add_parser("opportunites", help="ce sur quoi on peut candidater")
     o.add_argument("--complet", action="store_true")
-    o.add_argument("--postulables-seulement", action="store_true")
-    o.add_argument("--signaux", action="store_true", help="uniquement les signaux commerciaux")
-    o.add_argument("--tout", action="store_true", help="opportunités et signaux ensemble")
+    o.add_argument("--type", choices=["direct", "sous_traitance", "prospect"],
+                   help="filtrer sur une catégorie")
     o.set_defaults(fn=cmd_opportunites)
+
+    ap = s.add_parser("apprendre", help="ce que le radar a appris du marché")
+    ap.set_defaults(fn=cmd_apprendre)
 
     c = s.add_parser("calendrier", help="remises en concurrence calculées")
     c.set_defaults(fn=cmd_calendrier)

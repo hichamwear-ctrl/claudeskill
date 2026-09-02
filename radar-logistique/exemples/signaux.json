@@ -1,0 +1,8 @@
+[
+ {"id":"SIG-001","signal":"recrutement_massif",
+  "titre":"Recrutement de 15 chauffeurs livreurs en Région bruxelloise",
+  "entreprise":"Réseau colis national",
+  "description":"Distribution urbaine de marchandises et livraison à domicile, tournées quotidiennes.",
+  "pays":"BE","cadence":"quotidienne","date":"2026-08-28",
+  "url":"https://exemple.be/emploi/SIG-001"}
+]

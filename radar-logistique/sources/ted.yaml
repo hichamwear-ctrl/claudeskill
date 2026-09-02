@@ -46,6 +46,10 @@ champs:
   vehicules_min:    [requirements.min-vehicles]
   anciennete_min_annees: [requirements.min-years-activity]
   exigences_texte:  [selection-criteria-text]
+  chiffre_affaires_min: [requirements.min-turnover]
+  references_min:   [requirements.min-references]
+  cadence:          [frequency, recurrence]
+  lots:             [lots, lot, division-into-lots]
 
 cpv_cibles:
   - "60000000"

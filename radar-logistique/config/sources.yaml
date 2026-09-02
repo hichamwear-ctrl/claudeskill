@@ -1,0 +1,116 @@
+# CATALOGUE DES SOURCES — étape 1 et 2 de la refonte.
+#
+# Principe : TED n'est PAS la source par défaut. Une source vaut ce qu'elle
+# produit d'ACCESSIBLE à cette entreprise, pas ce qu'elle publie en volume.
+# La priorité se recalcule sur les résultats observés (voir apprentissage.py) :
+# celles déclarées ici ne sont qu'un point de départ, explicitement provisoire.
+#
+# Chaque source déclare : pourquoi elle est pertinente, ce qu'elle apporte,
+# comment elle est filtrée, classée et dédupliquée.
+
+categories:
+
+  marches_publics_gros:
+    libelle: "Marchés publics au-dessus du seuil européen"
+    sources: [ted]
+    pourquoi: >
+      Volume important et données très structurées, mais souvent calibré pour
+      des entreprises à plusieurs années de références et grosse capacité
+      financière. Utile surtout par ses LOTS et ses avis d'attribution.
+    apporte: [DIRECT sur les petits lots, SOUS_TRAITANCE via les attributions]
+    filtre: "rôle prestataire obligatoire · lot par lot · exigences financières vérifiées"
+    classement: "pénalisé si le montant dépasse le gabarit ou si la concurrence est lourde"
+    deduplication: "empreinte acheteur + objet + échéance ; recouvre largement le BDA"
+    priorite_initiale: 3
+    verifie: false
+
+  marches_publics_locaux:
+    libelle: "Marchés publics belges, y compris sous le seuil"
+    sources: [bda]
+    pourquoi: >
+      C'est ici que vivent les lots à taille de PME : communes, CPAS, provinces,
+      intercommunales, hôpitaux, écoles, universités. Beaucoup ne paraissent
+      jamais sur TED. Source prioritaire pour une entreprise récente.
+    apporte: [DIRECT]
+    filtre: "rôle prestataire · zone belge · exigences d'ancienneté signalées, jamais bloquantes seules"
+    classement: "bonifié quand le montant entre dans la cible économique"
+    deduplication: "même empreinte que TED — les doublons inter-sources sont fusionnés"
+    priorite_initiale: 1
+    verifie: false
+
+  sous_traitance_publique:
+    libelle: "Titulaires de marchés publics cherchant des sous-traitants"
+    sources: [attributions]
+    pourquoi: >
+      Un marché de plusieurs millions est hors gabarit en titulaire direct, mais
+      son gagnant devra exécuter et cherchera des bras localement. L'avis
+      d'attribution nomme le gagnant, la zone, la durée — avant tout recrutement.
+    apporte: [SOUS_TRAITANCE]
+    filtre: "zone d'exécution compatible · prestation dans les familles actives"
+    classement: "bonifié quand le volume dépasse manifestement la flotte du titulaire"
+    deduplication: "clé titulaire + marché ; un même gagnant ne remonte qu'une fois par marché"
+    priorite_initiale: 2
+    verifie: false
+
+  plateformes_privees:
+    libelle: "Plateformes de sous-traitance et de fret"
+    sources: [plateformes]
+    pourquoi: >
+      Marché privé où se traitent réellement les tournées récurrentes. Souvent
+      sous abonnement : à activer seulement si l'accès est pris.
+    apporte: [DIRECT, SOUS_TRAITANCE]
+    filtre: "récurrence exigée · corridor compatible"
+    classement: "forte bonification de la récurrence"
+    deduplication: "identifiant de plateforme"
+    priorite_initiale: 2
+    verifie: false
+
+  pages_fournisseurs:
+    libelle: "Pages « devenir transporteur / partenaire » des entreprises"
+    sources: [entreprises]
+    pourquoi: >
+      Chaque réseau colis, retailer et logisticien en a une. Détection de
+      modification sur une liste choisie par l'exploitant : peu de code, aucune
+      zone grise, signal fort quand un référencement s'ouvre.
+    apporte: [PROSPECT, SOUS_TRAITANCE]
+    filtre: "liste blanche d'entreprises · changement réel de contenu"
+    classement: "bonifié si l'entreprise achète du transport de façon récurrente (mémoire)"
+    deduplication: "URL + empreinte du contenu"
+    priorite_initiale: 1
+    verifie: false
+
+  signaux_entreprises:
+    libelle: "Signaux d'activité : embauche, ouverture, expansion"
+    sources: [signaux]
+    pourquoi: >
+      Une entreprise qui recrute quinze chauffeurs sur une zone est en tension
+      capacitaire MAINTENANT. Elle cherche des salariés ; on lui propose une
+      équipe et un dépôt. Signal public, daté, géolocalisé, que personne ne lit
+      comme un signal commercial.
+    apporte: [PROSPECT]
+    filtre: "grappes seulement — une annonce isolée n'est pas un signal"
+    classement: "score pondéré à la baisse : c'est une inférence, pas un fait"
+    deduplication: "entreprise + zone + fenêtre de 30 jours"
+    priorite_initiale: 1
+    verifie: false
+
+  demandes_directes:
+    libelle: "Demandes de devis et consultations privées"
+    sources: [consultations]
+    pourquoi: >
+      Le canal le plus court : une entreprise qui publie un besoin de transport
+      sans passer par un marché formel. Volume faible, taux de transformation
+      élevé.
+    apporte: [DIRECT]
+    filtre: "rôle prestataire · délai de réponse réaliste"
+    classement: "bonification du démarrage rapide"
+    deduplication: "empreinte acheteur + objet"
+    priorite_initiale: 1
+    verifie: false
+
+# Recalcul de priorité : une source qui ne produit rien d'accessible descend,
+# quelle que soit sa notoriété. Mesuré, jamais décrété.
+regle_de_priorite: >
+  priorite = opportunités DIRECT ou SOUS_TRAITANCE réellement postulables
+             produites sur 90 jours, rapportées au volume lu.
+  Une source à fort volume et zéro opportunité accessible est déclassée.

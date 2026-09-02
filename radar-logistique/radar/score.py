@@ -1,18 +1,19 @@
-"""Le score CLASSE, il n'écarte jamais.
+"""Score adapté à une PME de transport récente.
 
-Une opportunité à 30/100 reste livrée si elle est postulable : elle arrive en
-bas de liste. Chaque point est tracé — on doit toujours pouvoir répondre à
-« pourquoi ce score ? ».
+Il ne mesure pas la taille du marché, il mesure la probabilité d'aller le
+chercher et d'en vivre. Un contrat de 8 000 €/mois sur deux ans bat un marché
+de 5 M€ qui exige une structure absente.
 
-Toutes les pondérations viennent de config/ponderations.yaml.
+Il CLASSE, il n'élimine pas : les exigences bloquantes vivent dans capacite.py,
+séparément. Chaque point est justifié.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .classification import Type
 from .geographie import Zone
-from .modele import Nature
 
 
 @dataclass
@@ -34,95 +35,129 @@ class Score:
 class Bareme:
     def __init__(self, config: dict):
         self.c = config["criteres"]
-        self.b = config.get("bonus", {})
-        self.cfg = config
+        self.pen = config["penalites"]
+        self.taille = config["taille"]
+        self.rec = config["recurrence"]
+        self.conc = config["concurrence"]
+        self.facteurs = config["facteurs"]
 
-    def _palier(self, paliers, valeur, defaut):
-        if valeur is None:
-            return defaut
-        for p in paliers:
-            if valeur >= p["min"]:
-                return p["points"]
-        return defaut
+    # ------------------------------------------------------------- taille --
+    def _taille(self, montant, duree_mois) -> tuple[float, str]:
+        t = self.taille
+        if not montant:
+            return t["points_non_publie"], "montant non publié — neutre, jamais pénalisant"
+        if montant > t["hors_gabarit_au_dela"]:
+            return t["points_hors_gabarit"], (
+                f"{montant:,.0f} € — hors gabarit en titulaire direct".replace(",", " "))
+        mois = duree_mois or 12
+        mensuel = montant / max(mois, 1)
+        if t["mensuel_ideal_min"] <= mensuel <= t["mensuel_ideal_max"]:
+            return t["points_dans_la_cible"], (
+                f"{mensuel:,.0f} €/mois — dans la cible économique".replace(",", " "))
+        if montant <= t["total_confortable_max"]:
+            return t["points_proche"], (
+                f"{mensuel:,.0f} €/mois — proche de la cible".replace(",", " "))
+        return t["points_hors_cible"], (
+            f"{montant:,.0f} € — au-dessus du confortable".replace(",", " "))
 
-    def calculer(self, *, correspondance, zone, eligibilite, opp, jours_restants) -> Score:
-        lignes: list[Ligne] = []
-        maxi = self.c
+    # --------------------------------------------------------- récurrence --
+    def _recurrence(self, cadence) -> tuple[float, str]:
+        cle = (cadence or "inconnue").lower()
+        pts = self.rec.get(cle, self.rec["inconnue"])
+        libelle = {"quotidienne": "tournée quotidienne", "hebdomadaire": "flux hebdomadaire",
+                   "mensuelle": "besoin mensuel", "pluriannuelle": "contrat pluriannuel",
+                   "ponctuelle": "prestation ponctuelle"}.get(cle, "cadence non publiée")
+        return pts, libelle
 
-        # --- activité : le critère le plus lourd ---
+    # -------------------------------------------------------- concurrence --
+    def _concurrence(self, montant, exigences) -> tuple[float, str]:
+        indices = []
+        if montant and montant >= self.conc["seuil_montant_gros_acteurs"]:
+            indices.append(f"montant de {montant:,.0f} €".replace(",", " "))
+        if exigences.get("chiffre_affaires_min", 0) >= self.conc["seuil_ca_exige"]:
+            indices.append("chiffre d'affaires minimum élevé")
+        if exigences.get("anciennete_min_annees", 0) >= self.conc["seuil_anciennete_exigee"]:
+            indices.append("ancienneté élevée exigée")
+        if not indices:
+            return 0, ""
+        return self.pen["concurrence_grands_acteurs"], (
+            "marché probablement disputé par de grands acteurs : " + ", ".join(indices))
+
+    # ------------------------------------------------------------ calcul --
+    def calculer(self, *, correspondance, zone, bilan, opp, type_opp: Type,
+                 cadence=None, jours_restants=None) -> Score:
+        L: list[Ligne] = []
+        c = self.c
+
+        # 1. Sais-je faire ?
         if correspondance.familles:
             part = min(len(correspondance.familles) / 2, 1.0)
-            pts = maxi["activite"] * part
-            preuves = [t for v in correspondance.preuves.values() for t in v][:3]
-            raison = f"{len(correspondance.familles)} famille(s) reconnue(s)"
-            if preuves:
-                raison += f" via « {' / '.join(preuves)} »"
-            elif correspondance.par_cpv:
-                raison += f" via CPV {', '.join(correspondance.par_cpv[:2])}"
-            lignes.append(Ligne("activité", round(pts, 1), raison))
+            preuves = [t for v in correspondance.preuves.values() for t in v][:2]
+            L.append(Ligne("adéquation opérationnelle", round(c["adequation_operationnelle"] * part, 1),
+                           f"{len(correspondance.familles)} famille(s) reconnue(s)"
+                           + (f" via « {' / '.join(preuves)} »" if preuves else "")))
         else:
-            lignes.append(Ligne("activité", 0, "aucune famille d'activité reconnue"))
+            L.append(Ligne("adéquation opérationnelle", 0, "aucune famille reconnue"))
 
-        # --- zone : le corridor vaut le maximum ---
-        bareme_zone = {Zone.CORRIDOR: 1.0, Zone.NATIONAL: 0.7, Zone.A_VERIFIER: 0.4,
-                       Zone.HORS_ZONE: 0.0}
-        pts = maxi["zone"] * bareme_zone[zone.zone]
-        lignes.append(Ligne("zone", round(pts, 1), zone.raisons[0] if zone.raisons else zone.zone.value))
+        # 2. Une PME récente peut-elle concourir ?
+        if bilan.bloquants:
+            acces, raison = 0, "exigence hors capacité"
+        elif not bilan.a_verifier and not bilan.mobilisations:
+            acces, raison = c["accessibilite_pme"], "toutes les exigences couvertes en l'état"
+        elif bilan.mobilisations and not bilan.a_verifier:
+            acces, raison = c["accessibilite_pme"] * 0.8, "accessible après mobilisation de moyens"
+        else:
+            acces = c["accessibilite_pme"] * 0.55
+            raison = f"{len(bilan.a_verifier)} exigence(s) à confirmer"
+        L.append(Ligne("accessibilité PME", round(acces, 1), raison))
+
+        # 3. Géographie
+        bareme = {Zone.CORRIDOR: 1.0, Zone.NATIONAL: 0.75, Zone.A_VERIFIER: 0.4,
+                  Zone.HORS_ZONE: 0.0}
+        L.append(Ligne("géographie", round(c["geographie"] * bareme[zone.zone], 1),
+                       zone.raisons[0] if zone.raisons else zone.zone.value))
         if zone.corridor_eprouve:
-            lignes.append(Ligne("corridor éprouvé", self.b.get("corridor_eprouve", 0),
-                                "trajet déjà exécuté — référence directe"))
+            L.append(Ligne("corridor éprouvé", 5, "trajet déjà exécuté — référence directe"))
 
-        # --- capacité ---
-        if eligibilite.bloquants:
-            lignes.append(Ligne("capacité", 0, "exigence hors capacité"))
-        elif not eligibilite.a_verifier:
-            lignes.append(Ligne("capacité", maxi["capacite"], "toutes les exigences couvertes"))
+        # 4. Taille adaptée
+        pts, raison = self._taille(opp.montant, opp.duree_mois)
+        L.append(Ligne("taille adaptée", pts, raison))
+
+        # 5. Récurrence
+        pts, raison = self._recurrence(cadence)
+        L.append(Ligne("récurrence", pts, raison))
+
+        # 6. Rapidité de démarrage
+        if bilan.mobilisations:
+            L.append(Ligne("rapidité de démarrage", round(c["rapidite_demarrage"] * 0.4, 1),
+                           "démarrage conditionné à une location de matériel"))
         else:
-            lignes.append(Ligne("capacité", maxi["capacite"] * 0.6,
-                                f"{len(eligibilite.a_verifier)} point(s) à confirmer"))
+            L.append(Ligne("rapidité de démarrage", c["rapidite_demarrage"],
+                           "exécutable avec les moyens en place"))
 
-        # --- expérience similaire ---
-        if zone.corridor_eprouve or any(f in ("volumineux", "dernier_kilometre",
-                                              "transport_international", "alimentaire")
-                                        for f in correspondance.familles):
-            lignes.append(Ligne("expérience similaire", maxi["experience_similaire"],
-                                "prestation proche de références déjà exécutées"))
+        # 7. Rentabilité potentielle — neutre si le montant n'est pas publié.
+        if opp.montant and opp.duree_mois:
+            L.append(Ligne("rentabilité potentielle", c["rentabilite_potentielle"],
+                           "montant et durée publiés — chiffrage possible"))
         else:
-            lignes.append(Ligne("expérience similaire", 0, "pas de référence directe"))
+            L.append(Ligne("rentabilité potentielle", round(c["rentabilite_potentielle"] * 0.5, 1),
+                           "montant ou durée non publiés — chiffrage à faire"))
 
-        # --- montant ---
-        if opp.montant:
-            pts = self._palier(self.cfg["montant_paliers"], opp.montant, 0)
-            lignes.append(Ligne("montant", pts, f"{opp.montant:,.0f} {opp.devise}".replace(",", " ")))
-        else:
-            lignes.append(Ligne("montant", self.cfg["montant_non_publie_points"],
-                                "montant non publié — score neutre, pas de pénalité"))
+        # 8. Pénalités
+        if bilan.mobilisations:
+            L.append(Ligne("complexité", self.pen["complexite_investissement"],
+                           f"{len(bilan.mobilisations)} moyen(s) à mobiliser avant de démarrer"))
+        if bilan.a_verifier:
+            L.append(Ligne("exigences non confirmées", self.pen["exigences_non_confirmees"],
+                           f"{len(bilan.a_verifier)} point(s) à vérifier"))
+        pts, raison = self._concurrence(opp.montant, opp.exigences or {})
+        if pts:
+            L.append(Ligne("concurrence", pts, raison))
 
-        # --- échéance ---
-        if jours_restants is None:
-            lignes.append(Ligne("échéance", self.cfg["echeance_inconnue_points"],
-                                "échéance non confirmée"))
-        else:
-            pts = self._palier(self.cfg["echeance_paliers"], jours_restants, 0)
-            lignes.append(Ligne("échéance", pts, f"{jours_restants} jour(s) pour déposer"))
-
-        # --- durée et récurrence ---
-        if opp.duree_mois and opp.duree_mois >= self.b.get("duree_longue_mois", 36):
-            lignes.append(Ligne("durée", self.b.get("duree_longue_points", 0),
-                                f"contrat de {opp.duree_mois} mois"))
-        if opp.recurrent:
-            lignes.append(Ligne("récurrence", self.b.get("contrat_recurrent", 0),
-                                "prestation récurrente, pas ponctuelle"))
-
-        # --- pénalité d'incertitude ---
-        if eligibilite.inconnues:
-            lignes.append(Ligne("exigences inconnues", maxi["exigences_inconnues"],
-                                f"{eligibilite.inconnues} exigence(s) non confirmée(s)"))
-
-        total = sum(l.points for l in lignes)
-        if opp.nature is Nature.SIGNAL_COMMERCIAL:
-            facteur = self.cfg.get("facteur_signal_commercial", 1.0)
+        total = sum(l.points for l in L)
+        facteur = self.facteurs.get(type_opp.value, 1.0)
+        if facteur != 1.0:
             total *= facteur
-            lignes.append(Ligne("signal commercial", 0,
-                                f"score pondéré ×{facteur} — moins certain qu'un appel d'offres"))
-        return Score(max(0, min(100, round(total))), lignes)
+            L.append(Ligne("type d'opportunité", 0,
+                           f"{type_opp.value} — score pondéré ×{facteur}"))
+        return Score(max(0, min(100, round(total))), L)

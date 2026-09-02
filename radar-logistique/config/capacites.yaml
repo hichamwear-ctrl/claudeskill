@@ -43,7 +43,8 @@ familles:
     mots:
       fr: ["dernier kilomètre", "distribution urbaine", "livraison à domicile",
            "distribution de colis", "livraison de colis", "tournées de distribution",
-           "distribution de marchandises", "livraison finale", "service de messagerie",
+           "distribution de marchandises", "livraison de marchandises",
+           "distribution et livraison", "livraison finale", "service de messagerie",
            "distribution postale", coursier, "livraison aux particuliers"]
       nl: ["laatste kilometer", "stadsdistributie", "thuislevering", "pakketlevering",
            "distributie", "koeriersdienst", bedeling]

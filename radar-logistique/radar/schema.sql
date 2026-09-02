@@ -24,11 +24,13 @@ CREATE TABLE IF NOT EXISTS reponses (
 -- Données calculées, séparées des données reçues.
 CREATE TABLE IF NOT EXISTS opportunites (
     avis_id       INTEGER PRIMARY KEY REFERENCES avis(id) ON DELETE CASCADE,
-    nature        TEXT NOT NULL,      -- OPPORTUNITE_DIRECTE | SIGNAL_COMMERCIAL
-    statut        TEXT NOT NULL,      -- POSTULABLE | A_VERIFIER | NON_POSTULABLE
-    eligibilite   TEXT,               -- ELIGIBLE | A_VERIFIER | NON_ELIGIBLE
+    type          TEXT NOT NULL,      -- DIRECT | SOUS_TRAITANCE | PROSPECT | REJET
+    role          TEXT,               -- PRESTATAIRE | FOURNISSEUR | A_VERIFIER
+    statut        TEXT NOT NULL,
     zone          TEXT,
     familles      TEXT,
+    lots_retenus  TEXT,
+    journal       TEXT,               -- les 16 questions et leurs réponses
     intitule      TEXT,
     acheteur      TEXT,
     montant       REAL,
@@ -42,7 +44,7 @@ CREATE TABLE IF NOT EXISTS opportunites (
     etat          TEXT NOT NULL DEFAULT 'non_vu',
     etat_maj      TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_opp_statut ON opportunites(statut, score DESC);
+CREATE INDEX IF NOT EXISTS idx_opp_type ON opportunites(type, score DESC);
 
 -- Marchés attribués : jamais notifiés, gardés pour le calendrier.
 CREATE TABLE IF NOT EXISTS attributions (

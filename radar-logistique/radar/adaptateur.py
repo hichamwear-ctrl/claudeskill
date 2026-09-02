@@ -90,30 +90,70 @@ def _liste(v):
     return [str(x).strip().upper() for x in (v if isinstance(v, (list, tuple)) else [v]) if x]
 
 
+def _codes(v):
+    if v in (None, "", []):
+        return []
+    return [str(x).strip() for x in (v if isinstance(v, (list, tuple)) else [v]) if x]
+
+
+def _exigences_de(champs: dict) -> dict:
+    """Ne retient que ce qui vient d'un champ NORMÉ : une exigence structurée
+    peut bloquer, une exigence lue en texte libre ne le peut jamais."""
+    sortie = {}
+    for cle, valeur in champs.items():
+        if cle.startswith("exige_") and valeur:
+            sortie[cle[len("exige_"):]] = valeur
+        elif cle in ("surface_min_m2", "vehicules_min", "anciennete_min_annees",
+                     "chiffre_affaires_min", "references_min") and valeur:
+            sortie[cle] = valeur
+    return sortie
+
+
+def _lots_de(charge: dict, adaptateur) -> list:
+    """Extrait les lots. Un marché sans lot déclaré en aura un : lui-même."""
+    from .modele import LotBrut
+
+    chemin = (adaptateur.champs.get("lots") or ["lots"])[0]
+    brut = lire_chemin(charge, chemin)
+    if not isinstance(brut, list):
+        return []
+    sortie = []
+    for i, lot in enumerate(brut, 1):
+        if not isinstance(lot, dict):
+            continue
+        champs = {c: lot.get(c) for c in lot}
+        sortie.append(LotBrut(
+            numero=str(lot.get("numero") or lot.get("lot-number") or i),
+            intitule=str(lot.get("intitule") or lot.get("title") or ""),
+            texte=str(lot.get("description") or lot.get("objet") or ""),
+            cpv=_codes(lot.get("cpv") or lot.get("classification-cpv")),
+            montant=lot.get("montant") or lot.get("estimated-value"),
+            duree_mois=lot.get("duree_mois") or lot.get("duration-months"),
+            exigences=_exigences_de(champs),
+            pays_collecte=_liste(lot.get("pays_collecte")),
+            pays_livraison=_liste(lot.get("pays_livraison"))))
+    return sortie
+
+
 def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None = None):
-    """Traduit une réponse brute en Opportunite. C'est le SEUL endroit qui
-    connaît la forme d'une source ; tout l'aval ignore d'où vient l'annonce."""
-    from .modele import Nature, Opportunite
+    """Traduit une réponse brute en Opportunite. SEUL endroit qui connaît la
+    forme d'une source ; tout l'aval ignore d'où vient l'annonce."""
+    from .modele import Opportunite
 
     c = adaptateur.extraire(charge)
     d = defauts or {}
-    nature = Nature.SIGNAL_COMMERCIAL if d.get("nature") == "signal" else Nature.OPPORTUNITE_DIRECTE
-
-    exigences = {}
-    for cle, valeur in c.items():
-        if cle.startswith("exige_") and valeur:
-            exigences[cle[len("exige_"):]] = valeur
-        elif cle in ("surface_min_m2", "vehicules_min", "anciennete_min_annees") and valeur:
-            exigences[cle] = valeur
+    est_signal = bool(d.get("signal")) or bool(c.get("signal_code"))
 
     texte = " ".join(str(c.get(k, "")) for k in ("objet", "intitule", "lieu", "conditions"))
     return Opportunite(
         source=source,
         ref_source=str(c.get("identifiant") or charge.get("id") or ""),
         intitule=str(c.get("intitule") or "(sans intitulé)"),
-        nature=nature,
+        lots=_lots_de(charge, adaptateur),
         texte=texte,
         type_avis=c.get("type_avis") or d.get("type_avis"),
+        est_signal=est_signal,
+        signal_code=c.get("signal_code") or (c.get("type_avis") if est_signal else None),
         acheteur=c.get("acheteur"),
         contact=c.get("contact_email"),
         secteur_acheteur=c.get("secteur") or d.get("secteur"),
@@ -122,14 +162,14 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         montant=c.get("montant"),
         devise=c.get("devise") or "EUR",
         duree_mois=c.get("duree_mois"),
-        recurrent=c.get("recurrent"),
+        cadence=c.get("cadence"),
         pays_collecte=_liste(c.get("pays_collecte")),
         pays_livraison=_liste(c.get("pays_livraison")) or _liste(c.get("pays")),
         lieu_texte=c.get("lieu"),
-        cpv=[str(x) for x in (c.get("cpv") if isinstance(c.get("cpv"), list) else [c.get("cpv")]) if x],
-        exigences=exigences,
+        cpv=_codes(c.get("cpv")),
+        exigences=_exigences_de(c),
         exigences_texte=[t for t in (c.get("exigences_texte") or []) if t],
-        lien_dossier=c.get("lien_documents"),
+        lien_dossier=c.get("lien_documents") or c.get("plateforme"),
         lien_depot=c.get("plateforme"),
         plateforme=c.get("plateforme"),
         attribue=bool(c.get("attribue")),

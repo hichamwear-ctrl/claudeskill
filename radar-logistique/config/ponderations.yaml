@@ -1,41 +1,59 @@
-# Pondérations du score. Configurables : changer un chiffre ici suffit, aucune
-# ligne de code à toucher.
+# SCORE ADAPTÉ À UNE PME DE TRANSPORT RÉCENTE.
 #
-# Le score CLASSE, il n'écarte pas. Une opportunité à 30/100 reste livrée si
-# elle est postulable — elle arrive simplement en bas de liste.
+# Le score ne dit PAS « plus le marché est gros, mieux c'est ». Il dit
+# « quelle est ma probabilité d'aller chercher ce contrat et d'en vivre ».
+#
+# Il CLASSE, il n'élimine pas : les exigences bloquantes sont traitées ailleurs
+# (capacite.py), séparément, exactement comme demandé.
 
 criteres:
-  activite:              30    # correspondance avec une famille active
-  zone:                  20    # corridor Europe -> dépôt BE -> livraison BE
-  capacite:              15    # flotte, chauffeurs, dépôt — extensibilité comprise
-  experience_similaire:  15    # référence déjà exécutée du même type
-  montant:               10
-  echeance:               5    # délai confortable pour monter le dossier
-  exigences_inconnues:  -10    # pénalité par bloc d'exigences non confirmées
+  adequation_operationnelle: 25   # est-ce que je sais faire ?
+  accessibilite_pme:         20   # une entreprise récente peut-elle concourir ?
+  geographie:                15   # compatible avec le modèle Europe → dépôt BE → BE
+  taille_adaptee:            15   # à ma capacité — PAS au montant le plus élevé
+  recurrence:                10   # un flux régulier vaut mieux qu'une course
+  rapidite_demarrage:         8
+  rentabilite_potentielle:    7
 
-# Bonus au-delà des critères principaux.
-bonus:
-  corridor_eprouve:       8    # le trajet exact a déjà été exécuté
-  contrat_recurrent:      6    # tournée régulière plutôt que ponctuelle
-  duree_longue_mois:     36    # seuil à partir duquel on considère « longue »
-  duree_longue_points:    5
+penalites:
+  complexite_investissement: -10  # matériel à louer, personnel à recruter
+  concurrence_grands_acteurs: -12 # marché probablement verrouillé
+  exigences_non_confirmees:   -8  # par bloc d'inconnues
 
-# Barème du montant, en euros.
-montant_paliers:
-  - {min: 500000, points: 10}
-  - {min: 150000, points: 8}
-  - {min:  50000, points: 6}
-  - {min:      0, points: 3}
-montant_non_publie_points: 5     # neutre : ne pas pénaliser l'absence de donnée
+# ─────────────────────────────────────────────────── taille de contrat visée
+# Une cloche, pas une pente : trop petit ne nourrit pas, trop gros exige une
+# structure absente. Le sommet est dans la cible économique du profil.
+taille:
+  mensuel_ideal_min: 5000
+  mensuel_ideal_max: 60000
+  total_confortable_max: 1500000
+  hors_gabarit_au_dela: 3000000
+  points_dans_la_cible: 15
+  points_proche: 9
+  points_hors_cible: 3
+  points_hors_gabarit: 0
+  points_non_publie: 7            # neutre — jamais pénalisant
 
-# Barème de l'échéance, en jours restants.
-echeance_paliers:
-  - {min: 30, points: 5}
-  - {min: 12, points: 4}
-  - {min:  5, points: 2}
-  - {min:  0, points: 0}
-echeance_inconnue_points: 2      # neutre-bas : incertain, pas disqualifiant
+# ──────────────────────────────────────────────────────────────── récurrence
+recurrence:
+  quotidienne: 10
+  hebdomadaire: 8
+  mensuelle: 6
+  pluriannuelle: 8
+  ponctuelle: 2
+  inconnue: 4
 
-# Un SIGNAL_COMMERCIAL est plus incertain qu'un appel d'offres : son score est
-# multiplié par ce facteur, pour qu'il ne domine jamais une opportunité directe.
-facteur_signal_commercial: 0.7
+# ────────────────────────────────────────────────────── concurrence probable
+# Estimée sur des faits publiés : montant, exigences financières, ancienneté.
+concurrence:
+  seuil_montant_gros_acteurs: 2000000
+  seuil_ca_exige: 1000000
+  seuil_anciennete_exigee: 5
+
+# ───────────────────────────────────────── pondération par type d'opportunité
+# Un prospect est une inférence, une sous-traitance une hypothèse : ni l'un ni
+# l'autre ne doit dominer un marché auquel on peut réellement soumissionner.
+facteurs:
+  DIRECT: 1.0
+  SOUS_TRAITANCE: 0.85
+  PROSPECT: 0.7

@@ -18,12 +18,20 @@ def _plat(t: str) -> str:
 
 
 def empreinte(opp) -> str:
-    """Empreinte métier : acheteur + intitulé + échéance.
+    """Empreinte métier : acheteur + intitulé + échéance + montant + CPV principal.
 
-    Volontairement indépendante de l'identifiant de source — c'est justement ce
-    qui permet de reconnaître le même marché vu ailleurs.
+    Volontairement indépendante de l'identifiant de source — c'est ce qui permet
+    de reconnaître le même marché vu ailleurs. Le montant et le CPV servent de
+    départage : sans eux, deux marchés réellement distincts d'un même acheteur,
+    publiés le même jour sous un intitulé voisin, fusionnaient à tort.
     """
-    parts = [_plat(opp.acheteur), _plat(opp.intitule)[:120], str(opp.echeance_brute or "")]
+    parts = [
+        _plat(opp.acheteur),
+        _plat(opp.intitule)[:120],
+        str(opp.echeance_brute or ""),
+        f"{float(opp.montant):.0f}" if opp.montant else "",
+        (sorted(str(c) for c in (opp.cpv or []))[:1] or [""])[0],
+    ]
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:20]
 
 

@@ -1,0 +1,77 @@
+# QUI FOURNIT LE PRODUIT, QUI RÉALISE LA PRESTATION ?
+#
+# Le piège le plus coûteux du marché public : « Fourniture et livraison de
+# poissons » contient le mot « livraison » et n'est PAS un marché de transport.
+# L'acheteur veut du poisson. Le transport est accessoire et inclus dans le prix
+# du produit.
+#
+# L'entreprise vend une PRESTATION, jamais un PRODUIT. Elle ne doit donc être
+# détectée que lorsque la prestation logistique est l'objet même du marché — ou
+# d'un lot du marché.
+
+# ─────────────────────────────────────────────── signaux par code CPV (forts)
+# Le CPV est structuré, donc c'est le signal le plus fiable.
+cpv:
+  prestation:            # services de transport et de logistique
+    - "60"               # transport
+    - "63"               # services auxiliaires de transport, manutention, entreposage
+    - "64"               # postal et messagerie
+    - "98392"            # services de relocalisation / déménagement
+    - "79620"            # mise à disposition de personnel
+    - "50112300"         # lavage de véhicules
+    - "90917"            # nettoyage de matériel de transport
+  fourniture:            # l'acheteur achète un BIEN
+    - "03"   # agricole    - "15" alimentaire   - "16" machines agricoles
+    - "15"
+    - "16"
+    - "18"   # habillement
+    - "22"   # imprimés
+    - "24"   # chimie
+    - "30"   # bureautique
+    - "31"   # électrique
+    - "32"   # télécom
+    - "33"   # médical, pharmaceutique (PRODUIT)
+    - "34"   # véhicules (comme bien, pas comme prestation)
+    - "37"
+    - "38"
+    - "39"   # mobilier (PRODUIT)
+    - "42"   # machines
+    - "43"
+    - "44"   # matériaux de construction
+    - "48"   # logiciels
+  travaux:
+    - "45"
+
+# ──────────────────────────────────────────── signaux lexicaux (plus faibles)
+lexique:
+  fourniture:
+    fr: ["fourniture et livraison", "fourniture, livraison", "fourniture de",
+         "acquisition de", "achat de", "fournitures de", "approvisionnement en",
+         "fourniture et installation", "livraison et installation de"]
+    nl: ["levering van", "leveren van", "aankoop van", "aanschaf van",
+         "levering en installatie"]
+    en: ["supply of", "supply and delivery", "purchase of", "procurement of goods"]
+  prestation:
+    fr: ["marché de services de transport", "prestations de transport",
+         "services de transport", "prestation logistique", "services logistiques",
+         "transport de", "acheminement de", "enlèvement et transport",
+         "collecte et transport", "distribution pour compte de tiers",
+         "pour le compte de", "location de véhicules avec chauffeur",
+         "mise à disposition de chauffeurs", "tournées de", "déménagement",
+         "manutention", "transfert de véhicules", "convoyage",
+         "services de messagerie", "affrètement", "lavage de véhicules"]
+    nl: ["vervoersdiensten", "transportdiensten", "logistieke dienstverlening",
+         "vervoer van", "ophaling en vervoer", "verhuizing", "goederenbehandeling"]
+    en: ["transport services", "logistics services", "haulage", "freight services",
+         "courier services", "removal services", "vehicle transfer"]
+
+# ─────────────────────────────────────────────────────────────────── arbitrage
+# Comment trancher quand les signaux se contredisent.
+regles:
+  # Un CPV de fourniture + le mot « livraison » = piège classique : l'acheteur
+  # veut le bien. Rejeté SAUF si un lot isole explicitement la prestation.
+  cpv_fourniture_domine: true
+  # Aucun signal exploitable : on ne tranche pas, on marque A_VERIFIER.
+  sans_signal: A_VERIFIER
+  # Signaux contradictoires : A_VERIFIER, et l'analyse descend au niveau du lot.
+  contradictoire: A_VERIFIER

@@ -9,7 +9,7 @@
 
 source: signaux
 verifie: false
-nature: signal
+signal: true
 secteur_par_defaut: prive
 
 champs:
@@ -22,3 +22,5 @@ champs:
   pays_livraison:   [pays, country]
   lieu:             [lieu, location]
   plateforme:       [url, lien]
+  signal_code:      [signal, type]
+  cadence:          [cadence]
