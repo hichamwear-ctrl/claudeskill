@@ -1,0 +1,389 @@
+<title>Sniper Logistique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+  :root{
+    --paper:#EDF0F1; --surface:#FBFCFC; --surface2:#E2E8EA;
+    --ink:#17242E; --muted:#55656F; --rule:#C2CCD2;
+    --accent:#BF4210; --accent-soft:#F7E3DA;
+    --stamp:#1D6549; --stamp-soft:#DBEAE3;
+    --display:"Barlow Condensed","Haettenschweiler","Arial Narrow",sans-serif;
+    --body:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#111A20; --surface:#18232A; --surface2:#223038;
+      --ink:#DFE7EB; --muted:#92A4AE; --rule:#31414B;
+      --accent:#FF7A45; --accent-soft:#3B2417;
+      --stamp:#5CBE96; --stamp-soft:#16302A;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#111A20; --surface:#18232A; --surface2:#223038;
+    --ink:#DFE7EB; --muted:#92A4AE; --rule:#31414B;
+    --accent:#FF7A45; --accent-soft:#3B2417;
+    --stamp:#5CBE96; --stamp-soft:#16302A;
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--body);
+       font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 96px}
+  p{max-width:66ch}
+  a{color:var(--accent)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+  /* ---------------------------------------------------------- en-tête -- */
+  header.masthead{border-bottom:2px solid var(--ink);padding:56px 0 22px;margin-bottom:8px}
+  .stamp{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);
+         font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+         border:1px solid var(--rule);padding:5px 11px;margin-bottom:22px}
+  .stamp b{color:var(--accent);font-weight:600}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(46px,8.4vw,86px);
+     line-height:.94;letter-spacing:-.005em;margin:0;text-transform:uppercase;text-wrap:balance}
+  .kicker{font-family:var(--body);font-size:19px;color:var(--muted);max-width:60ch;
+          margin:18px 0 0;font-style:italic}
+
+  /* ------------------------------------------------------------ règle -- */
+  .rule-card{background:var(--surface);border:1px solid var(--rule);
+             border-left:4px solid var(--accent);padding:24px 26px;margin:34px 0 8px}
+  .rule-card h2{font-family:var(--display);text-transform:uppercase;font-size:26px;
+                letter-spacing:.01em;margin:0 0 8px;font-weight:600}
+  .rule-card p{margin:0;max-width:68ch}
+  .rule-card strong{font-weight:600;box-shadow:inset 0 -.45em 0 var(--accent-soft)}
+
+  /* --------------------------------------------------------- sections -- */
+  section{margin-top:64px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+           color:var(--muted);display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--rule)}
+  h2.sec{font-family:var(--display);text-transform:uppercase;font-weight:600;
+         font-size:clamp(28px,4vw,40px);line-height:1.04;margin:0 0 18px;text-wrap:balance}
+  h3{font-family:var(--display);text-transform:uppercase;font-weight:600;font-size:22px;
+     letter-spacing:.02em;margin:34px 0 8px}
+
+  /* --------------------------------------------------------- figures -- */
+  figure{margin:26px 0 0;background:var(--surface);border:1px solid var(--rule);padding:22px 20px 16px}
+  figure .scroll{overflow-x:auto}
+  figure svg{display:block;width:100%;height:auto;min-width:520px;color:var(--ink)}
+  figcaption{font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--muted);
+             margin-top:16px;padding-top:12px;border-top:1px solid var(--rule)}
+
+  /* --------------------------------------------------------- tableaux -- */
+  .tbl{overflow-x:auto;margin-top:22px;border:1px solid var(--rule);background:var(--surface)}
+  table{border-collapse:collapse;width:100%;min-width:560px;font-size:15px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+  thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+           color:var(--muted);background:var(--surface2);font-weight:500}
+  tbody tr:last-child td{border-bottom:none}
+  td.src{font-family:var(--display);text-transform:uppercase;font-size:18px;font-weight:600;
+         letter-spacing:.02em;white-space:nowrap}
+  td.num{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* ---------------------------------------------------------- étapes -- */
+  ol.steps{list-style:none;counter-reset:s;padding:0;margin:24px 0 0;
+           display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+  ol.steps li{counter-increment:s;background:var(--surface);padding:20px 22px 20px 74px;position:relative}
+  ol.steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:22px;top:18px;
+       font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent)}
+  ol.steps h4{font-family:var(--display);text-transform:uppercase;font-size:21px;font-weight:600;
+              margin:0 0 5px;letter-spacing:.02em}
+  ol.steps p{margin:0;font-size:15.5px;color:var(--muted);max-width:70ch}
+  ol.steps .out{display:inline-block;margin-top:9px;font-family:var(--mono);font-size:11px;
+       letter-spacing:.06em;text-transform:uppercase;color:var(--stamp);
+       background:var(--stamp-soft);padding:3px 9px;border:1px solid var(--stamp)}
+
+  /* ---------------------------------------------------------- ouvert -- */
+  .open{border-top:2px solid var(--ink);margin-top:64px;padding-top:26px}
+  .open ul{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:14px}
+  .open li{padding-left:22px;position:relative;max-width:72ch}
+  .open li::before{content:"?";position:absolute;left:0;top:0;font-family:var(--mono);
+                   font-weight:600;color:var(--accent)}
+  .open b{font-weight:600}
+
+  @media (max-width:640px){
+    body{font-size:16px}
+    .wrap{padding:0 16px 72px}
+    ol.steps li{padding:18px 16px 18px 16px}
+    ol.steps li::before{position:static;display:block;margin-bottom:6px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <span class="stamp">Radar de contrats · Bruxelles &nbsp;·&nbsp; <b>règle n°1 : rien n'est écarté</b></span>
+  <h1>Sniper<br>Logistique</h1>
+  <p class="kicker">Comment le bot est construit : sept sources, cinq étages, et la garantie que
+     chaque annonce lue produit une notification — exactement une.</p>
+</header>
+
+<div class="rule-card">
+  <h2>La contrainte qui commande tout le reste</h2>
+  <p>Tu veux <strong>recevoir chaque annonce</strong> et décider seul de ce que tu prends. Ce n'est pas
+  un réglage, c'est la contrainte de conception : le score ne filtre rien, il ordonne et il annote.
+  Ce qui entre dans le radar en ressort. Le seul cas où le bot décide à ta place, c'est pour
+  <em>ne pas</em> t'envoyer deux fois la même chose.</p>
+</div>
+
+<section>
+  <div class="eyebrow">Vue d'ensemble</div>
+  <h2 class="sec">Le chemin d'une annonce, de sa publication à ton téléphone</h2>
+  <p>Chaque étage ne parle qu'à son voisin et peut être rejoué seul. Un seul est propre à la source :
+     l'adaptateur de collecte. Les quatre autres ignorent d'où vient l'annonce — c'est ce qui permet
+     d'ajouter une source sans toucher au reste.</p>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 800 966" role="img" aria-label="Chaîne de traitement : sept sources en trois familles alimentent la collecte, puis le stockage brut, la qualification, le score de tri et la file d'envoi durable, qui produit une notification par annonce plus un flux consultable. Le compte reste identique de bout en bout.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon points="0,1 9,5 0,9" fill="currentColor"></polygon>
+        </marker>
+        <marker id="ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon points="0,1 9,5 0,9" fill="var(--accent)"></polygon>
+        </marker>
+      </defs>
+
+      <!-- ============ SOURCES ============ -->
+      <text x="24" y="22" font-family="var(--mono)" font-size="11" letter-spacing="2.4" fill="var(--muted)">SEPT SOURCES · TROIS FAMILLES</text>
+
+      <g font-family="var(--mono)" font-size="11.5">
+        <rect x="24" y="34" width="240" height="128" fill="var(--surface2)" stroke="var(--rule)"></rect>
+        <text x="38" y="56" font-size="10.5" letter-spacing="1.6" fill="var(--muted)">STRUCTURÉ · FLUX DATÉ</text>
+        <text x="38" y="82" fill="currentColor">TED — marchés européens</text>
+        <text x="38" y="102" fill="var(--muted)" font-size="10.5">institutions à Bruxelles</text>
+        <text x="38" y="126" fill="currentColor">BDA — marchés belges</text>
+        <text x="38" y="146" fill="var(--muted)" font-size="10.5">communes, CPAS, hôpitaux</text>
+
+        <rect x="280" y="34" width="240" height="128" fill="var(--surface2)" stroke="var(--rule)"></rect>
+        <text x="294" y="56" font-size="10.5" letter-spacing="1.6" fill="var(--muted)">TENSION · MARCHÉ PRIVÉ</text>
+        <text x="294" y="82" fill="currentColor">Actiris · VDAB · Forem</text>
+        <text x="294" y="102" fill="var(--muted)" font-size="10.5">grappes d'annonces chauffeur</text>
+        <text x="294" y="126" fill="currentColor">Pages « partenaire »</text>
+        <text x="294" y="146" fill="var(--muted)" font-size="10.5">30 à 50 sites surveillés</text>
+
+        <rect x="536" y="34" width="240" height="128" fill="var(--surface2)" stroke="var(--rule)"></rect>
+        <text x="550" y="56" font-size="10.5" letter-spacing="1.6" fill="var(--muted)">ÉVÉNEMENTS</text>
+        <text x="550" y="82" fill="currentColor">BCE · Moniteur belge</text>
+        <text x="550" y="102" fill="var(--muted)" font-size="10.5">cessations, zones libérées</text>
+        <text x="550" y="126" fill="currentColor">Enquêtes publiques</text>
+        <text x="550" y="146" fill="var(--muted)" font-size="10.5">nouveaux centres de tri</text>
+      </g>
+
+      <line x1="144" y1="162" x2="144" y2="196" stroke="currentColor" stroke-width="1.4"></line>
+      <line x1="400" y1="162" x2="400" y2="196" stroke="currentColor" stroke-width="1.4"></line>
+      <line x1="656" y1="162" x2="656" y2="196" stroke="currentColor" stroke-width="1.4"></line>
+      <line x1="144" y1="196" x2="656" y2="196" stroke="currentColor" stroke-width="1.4"></line>
+      <line x1="400" y1="196" x2="400" y2="222" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+      <!-- ============ ÉTAGES ============ -->
+      <!-- 1 collecte -->
+      <rect x="24" y="228" width="752" height="82" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"></rect>
+      <text x="44" y="256" font-family="var(--mono)" font-size="11" font-weight="600" fill="var(--accent)">01</text>
+      <text x="76" y="257" font-family="var(--display)" font-size="23" font-weight="600" letter-spacing="1" fill="currentColor">COLLECTE</text>
+      <text x="76" y="280" font-family="var(--body)" font-size="13.5" fill="var(--muted)">Un adaptateur par source. Traduit la réponse en dictionnaire, refuse une valeur invraisemblable</text>
+      <text x="76" y="298" font-family="var(--body)" font-size="13.5" fill="var(--muted)">plutôt que de l'inventer. Le seul étage à réécrire quand on ajoute une source.</text>
+      <text x="756" y="256" text-anchor="end" font-family="var(--mono)" font-size="12" font-weight="600" fill="var(--accent)">38 lues</text>
+
+      <line x1="400" y1="310" x2="400" y2="336" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+      <!-- 2 stockage -->
+      <rect x="24" y="342" width="752" height="82" fill="var(--surface)" stroke="var(--rule)"></rect>
+      <text x="44" y="370" font-family="var(--mono)" font-size="11" font-weight="600" fill="var(--muted)">02</text>
+      <text x="76" y="371" font-family="var(--display)" font-size="23" font-weight="600" letter-spacing="1" fill="currentColor">STOCKAGE BRUT</text>
+      <text x="76" y="394" font-family="var(--body)" font-size="13.5" fill="var(--muted)">La réponse de la source est écrite telle quelle et n'est jamais modifiée. Tout le reste —</text>
+      <text x="76" y="412" font-family="var(--body)" font-size="13.5" fill="var(--muted)">qualification, score, fiche d'action — est recalculable à partir d'elle, sans re-collecter.</text>
+      <text x="756" y="370" text-anchor="end" font-family="var(--mono)" font-size="12" fill="currentColor">38 stockées</text>
+
+      <line x1="400" y1="424" x2="400" y2="450" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+      <!-- 3 qualification -->
+      <rect x="24" y="456" width="752" height="82" fill="var(--surface)" stroke="var(--rule)"></rect>
+      <text x="44" y="484" font-family="var(--mono)" font-size="11" font-weight="600" fill="var(--muted)">03</text>
+      <text x="76" y="485" font-family="var(--display)" font-size="23" font-weight="600" letter-spacing="1" fill="currentColor">QUALIFICATION</text>
+      <text x="76" y="508" font-family="var(--body)" font-size="13.5" fill="var(--muted)">Croise les exigences publiées avec le profil : dépôt 400 m² Bruxelles, AFSCA, 2 licences SPF,</text>
+      <text x="76" y="526" font-family="var(--body)" font-size="13.5" fill="var(--muted)">références volumineux et alimentaire. Ce qui ne correspond pas est ANNOTÉ, jamais supprimé.</text>
+      <text x="756" y="484" text-anchor="end" font-family="var(--mono)" font-size="12" fill="currentColor">38 qualifiées</text>
+
+      <line x1="400" y1="538" x2="400" y2="564" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+      <!-- 4 score -->
+      <rect x="24" y="570" width="752" height="82" fill="var(--surface)" stroke="var(--rule)"></rect>
+      <text x="44" y="598" font-family="var(--mono)" font-size="11" font-weight="600" fill="var(--muted)">04</text>
+      <text x="76" y="599" font-family="var(--display)" font-size="23" font-weight="600" letter-spacing="1" fill="currentColor">SCORE — TRI, PAS FILTRE</text>
+      <text x="76" y="622" font-family="var(--body)" font-size="13.5" fill="var(--muted)">Poids principal : la rareté de la combinaison exigée — « qui d'autre peut le faire ? ». Le score</text>
+      <text x="76" y="640" font-family="var(--body)" font-size="13.5" fill="var(--muted)">détermine l'ORDRE et les annotations. Il ne détermine jamais ce que tu reçois.</text>
+      <text x="756" y="598" text-anchor="end" font-family="var(--mono)" font-size="12" font-weight="600" fill="var(--stamp)">38 sur 38</text>
+
+      <line x1="400" y1="652" x2="400" y2="678" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+      <!-- 5 file -->
+      <rect x="24" y="684" width="752" height="82" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"></rect>
+      <text x="44" y="712" font-family="var(--mono)" font-size="11" font-weight="600" fill="var(--accent)">05</text>
+      <text x="76" y="713" font-family="var(--display)" font-size="23" font-weight="600" letter-spacing="1" fill="currentColor">FILE D'ENVOI DURABLE</text>
+      <text x="76" y="736" font-family="var(--body)" font-size="13.5" fill="var(--muted)">L'intention d'alerter est écrite en base avant tout envoi, indexée sur l'identifiant de la SOURCE.</text>
+      <text x="76" y="754" font-family="var(--body)" font-size="13.5" fill="var(--muted)">Le seul étage aux effets irréversibles : un message parti ne se rattrape pas.</text>
+      <text x="756" y="712" text-anchor="end" font-family="var(--mono)" font-size="12" font-weight="600" fill="var(--accent)">38 envois</text>
+
+      <line x1="212" y1="766" x2="212" y2="800" stroke="currentColor" stroke-width="1.4"></line>
+      <line x1="588" y1="766" x2="588" y2="800" stroke="currentColor" stroke-width="1.4"></line>
+      <line x1="212" y1="800" x2="588" y2="800" stroke="currentColor" stroke-width="1.4"></line>
+      <line x1="212" y1="800" x2="212" y2="826" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ara)"></line>
+      <line x1="588" y1="800" x2="588" y2="826" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+      <!-- sorties -->
+      <rect x="24" y="832" width="376" height="104" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"></rect>
+      <text x="44" y="860" font-family="var(--display)" font-size="20" font-weight="600" letter-spacing="1" fill="currentColor">NOTIFICATION</text>
+      <text x="44" y="884" font-family="var(--mono)" font-size="11.5" font-weight="600" fill="var(--accent)">1 annonce = 1 notification</text>
+      <text x="44" y="906" font-family="var(--body)" font-size="13" fill="var(--muted)">Fiche d'action complète : qui, quoi,</text>
+      <text x="44" y="923" font-family="var(--body)" font-size="13" fill="var(--muted)">clôture, où déposer, pièces à fournir.</text>
+
+      <rect x="400" y="832" width="376" height="104" fill="var(--surface2)" stroke="var(--rule)"></rect>
+      <text x="420" y="860" font-family="var(--display)" font-size="20" font-weight="600" letter-spacing="1" fill="currentColor">FLUX CONSULTABLE</text>
+      <text x="420" y="884" font-family="var(--mono)" font-size="11.5" fill="var(--muted)">non vu · vu · à creuser · écarté · déposé</text>
+      <text x="420" y="906" font-family="var(--body)" font-size="13" fill="var(--muted)">Historique complet, triable. Écarter</text>
+      <text x="420" y="923" font-family="var(--body)" font-size="13" fill="var(--muted)">n'efface pas : ça reste consultable.</text>
+    </svg>
+    </div>
+    <figcaption>Le compte ne bouge pas d'un étage à l'autre : 38 annonces lues produisent 38 notifications.
+    Le score agit sur l'ordre et les annotations, jamais sur la quantité. Les deux sorties portent les
+    mêmes données — l'une pousse, l'autre archive et se consulte.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="eyebrow">Garantie de livraison</div>
+  <h2 class="sec">Exactement une notification par annonce</h2>
+  <p>« Chaque annonce arrive » impose autant de ne rien perdre que de ne rien doubler. Les deux pannes
+     ont la même cause : envoyer depuis l'intérieur d'une transaction. Un rollback annule alors
+     l'enregistrement mais pas le message déjà parti.</p>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 800 250" role="img" aria-label="Machine à états de la file d'envoi : à envoyer, puis en cours, puis délivrée, chaque transition validée séparément. Si le programme meurt pendant l'appel réseau, l'état devient ambigu et n'est jamais renvoyé.">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon points="0,1 9,5 0,9" fill="currentColor"></polygon>
+        </marker>
+        <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon points="0,1 9,5 0,9" fill="var(--accent)"></polygon>
+        </marker>
+      </defs>
+
+      <rect x="16" y="46" width="184" height="60" fill="var(--surface2)" stroke="var(--rule)"></rect>
+      <text x="108" y="72" text-anchor="middle" font-family="var(--mono)" font-size="13" font-weight="600" fill="currentColor">À ENVOYER</text>
+      <text x="108" y="92" text-anchor="middle" font-family="var(--body)" font-size="12.5" fill="var(--muted)">écrit en base</text>
+
+      <line x1="200" y1="76" x2="292" y2="76" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar2)"></line>
+      <text x="246" y="66" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">commit 1</text>
+
+      <rect x="300" y="46" width="184" height="60" fill="var(--surface2)" stroke="var(--rule)"></rect>
+      <text x="392" y="72" text-anchor="middle" font-family="var(--mono)" font-size="13" font-weight="600" fill="currentColor">EN COURS</text>
+      <text x="392" y="92" text-anchor="middle" font-family="var(--body)" font-size="12.5" fill="var(--muted)">verrou pris</text>
+
+      <line x1="484" y1="76" x2="576" y2="76" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar2)"></line>
+      <text x="530" y="66" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">commit 2</text>
+
+      <rect x="584" y="46" width="184" height="60" fill="var(--stamp-soft)" stroke="var(--stamp)" stroke-width="1.6"></rect>
+      <text x="676" y="72" text-anchor="middle" font-family="var(--mono)" font-size="13" font-weight="600" fill="currentColor">DÉLIVRÉE</text>
+      <text x="676" y="92" text-anchor="middle" font-family="var(--body)" font-size="12.5" fill="var(--muted)">jamais réémise</text>
+
+      <text x="392" y="132" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">l'appel réseau a lieu ICI — hors de toute transaction</text>
+
+      <line x1="392" y1="106" x2="392" y2="168" stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar3)"></line>
+
+      <rect x="252" y="174" width="280" height="58" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"></rect>
+      <text x="392" y="198" text-anchor="middle" font-family="var(--mono)" font-size="13" font-weight="600" fill="currentColor">AMBIGUË</text>
+      <text x="392" y="218" text-anchor="middle" font-family="var(--body)" font-size="12.5" fill="var(--muted)">mort pendant l'appel · tracée, jamais renvoyée</text>
+    </svg>
+    </div>
+    <figcaption>Chaque transition est validée séparément, et l'envoi n'a jamais lieu à l'intérieur d'une
+    transaction. La file est indexée sur l'identifiant de la source, jamais sur l'identifiant interne de
+    la base — celui-ci change après un rollback, et les mêmes annonces repartaient. Reste la fenêtre
+    d'ambiguïté : si le programme meurt pendant l'appel réseau, on ne peut pas savoir si le message est
+    parti. Choix retenu : ne pas renvoyer, et le tracer.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="eyebrow">Sources</div>
+  <h2 class="sec">Ce que chacune apporte, et ce qu'elle coûte</h2>
+  <p>Volumes estimés, à remplacer par une mesure. Le filigrane ne fonctionne nativement que sur les
+     sources à flux daté ; ailleurs, la reprise se fait par empreinte de contenu.</p>
+
+  <div class="tbl">
+  <table>
+    <thead><tr><th>Source</th><th>Ce qu'elle apporte</th><th class="num">Volume estimé</th><th>Reprise</th></tr></thead>
+    <tbody>
+      <tr><td class="src">TED</td><td>Marchés européens, dont les institutions bruxelloises : courrier interne, mobilier, logistique.</td><td class="num">1–2 / jour</td><td>filigrane</td></tr>
+      <tr><td class="src">BDA</td><td>Marchés belges sous le seuil européen. Communes, CPAS, hôpitaux, intercommunales.</td><td class="num">1–2 / jour</td><td>filigrane</td></tr>
+      <tr><td class="src">Emploi</td><td>Grappes d'annonces chauffeur chez un même employeur : signal de tension capacitaire.</td><td class="num">2–6 / sem.</td><td>empreinte</td></tr>
+      <tr><td class="src">Pages partenaire</td><td>Ouverture d'un référencement chez un réseau colis, avant toute communication.</td><td class="num">1–4 / mois</td><td>empreinte</td></tr>
+      <tr><td class="src">BCE · Moniteur</td><td>Cessation d'un transporteur : zone libérée, donneur d'ordre à réaffecter sous 72 h.</td><td class="num">1–3 / sem.</td><td>filigrane</td></tr>
+      <tr><td class="src">Enquêtes publiques</td><td>Permis pour un nouveau centre de tri : six à douze mois avant l'ouverture.</td><td class="num">1–2 / mois</td><td>empreinte</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Plan de construction</div>
+  <h2 class="sec">Dans quel ordre, et ce que chaque étape rend utilisable</h2>
+  <p>Chaque étape produit quelque chose d'exploitable seul. Si le projet s'arrête après la deuxième,
+     ce qui a été construit sert quand même.</p>
+
+  <ol class="steps">
+    <li>
+      <h4>Sondage de la source</h4>
+      <p>Avant toute ligne d'adaptateur : combien d'avis transport réellement publiés sur douze mois,
+         combien correspondent au profil, combien d'offres reçues en moyenne sur ces lots. C'est ce qui
+         dit s'il y a un marché — et ça se mesure, ça ne se suppose pas.</p>
+      <span class="out">Rend : la décision de construire ou non</span>
+    </li>
+    <li>
+      <h4>Noyau générique + première source</h4>
+      <p>Les quatre étages indépendants de la source, les huit mécanismes, et l'adaptateur TED écrit
+         sur des clés mesurées. Notification par fiche d'action complète.</p>
+      <span class="out">Rend : un radar qui tourne sur les marchés publics</span>
+    </li>
+    <li>
+      <h4>Deuxième source : le BDA</h4>
+      <p>Là où vivent les lots à taille d'exploitant. Déduplication inter-sources : le même avis
+         paraît souvent aux deux endroits.</p>
+      <span class="out">Rend : la couverture publique complète</span>
+    </li>
+    <li>
+      <h4>Signaux privés</h4>
+      <p>Grappes d'embauche, pages partenaire, cessations. C'est ce qui ouvre le marché privé —
+         la part que les marchés publics ne couvrent pas.</p>
+      <span class="out">Rend : la prospection outillée</span>
+    </li>
+    <li>
+      <h4>Mémoire et calendrier</h4>
+      <p>Les avis d'attribution conservés donnent les durées, donc les dates de remise en concurrence.
+         Un calendrier des renouvellements que personne ne publie : il se calcule.</p>
+      <span class="out">Rend : douze mois d'avance</span>
+    </li>
+  </ol>
+</section>
+
+<div class="open">
+  <div class="eyebrow">Honnêteté</div>
+  <h2 class="sec">Ce qui n'est pas encore décidé par la mesure</h2>
+  <ul>
+    <li><b>Les volumes du tableau sont déduits, pas mesurés.</b> Aucun accès réseau depuis
+    l'environnement de développement : rien n'a été observé en direct. C'est l'objet de l'étape 01.</li>
+    <li><b>Le BDA n'a pas été sondé.</b> API, flux ou page à parser : inconnu. Ça change le coût de
+    l'étape 03, pas sa faisabilité.</li>
+    <li><b>Les enquêtes publiques restent à qualifier.</b> Si le signal est exploitable, c'est le plus
+    précoce du marché. Sinon, la source saute — et rien d'autre ne bouge.</li>
+    <li><b>La fenêtre d'ambiguïté ne se referme pas.</b> Aucun mécanisme ne la supprime ; on décide
+    seulement quoi en faire. Ici : ne pas renvoyer, et le tracer.</li>
+  </ul>
+</div>
+
+</div>
