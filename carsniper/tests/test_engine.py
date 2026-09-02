@@ -2582,5 +2582,123 @@ for _f in _os3.listdir(_os3.path.dirname(_bvide)):
 _os3.remove(_bvide)
 
 
+# ═══════════════════════════════════════════════════════════
+#  ÉTAPE 41 — CLÉS D'ATTRIBUTS DU SITE ET REJEU DES PAYLOADS
+# ═══════════════════════════════════════════════════════════
+print("\n[41] EXTRACTION — les clés réellement publiées par 2ememain")
+
+from carsniper.sources.twoememain import TweedehandsSource as _TS  # noqa: E402
+
+_srcx = _TS()
+
+
+def _annonce(**attrs):
+    return {"itemId": "m1", "title": "test",
+            "priceInfo": {"priceCents": 500000, "priceType": "FIXED"},
+            "attributes": [{"key": k, "value": v} for k, v in attrs.items()]}
+
+
+# Les clés du site sont `mileage` et `constructionYear` — mesurées sur
+# 20 000 réponses brutes réelles : aucune autre variante n'existe.
+_d = _srcx.parse(_annonce(mileage="149000", constructionYear="2017"))
+check("le kilométrage est lu sous la clé `mileage`", _d["mileage_km"] == 149000)
+check("l'année est lue sous la clé `constructionYear`", _d["year"] == 2017)
+
+# 999 999 est la valeur SENTINELLE « kilométrage non communiqué ».
+check("le kilométrage sentinelle 999 999 est refusé, pas stocké",
+      _srcx.parse(_annonce(mileage="999999"))["mileage_km"] is None)
+
+# La puissance : les clés lues jusqu'ici (`power`, `vermogen`) n'existent
+# dans AUCUN payload réel. La colonne `power_kw` était vide pour les
+# 53 599 annonces de la base — une donnée publiée, stockée nulle part.
+check("la puissance est lue sous `enginePowerKW`, unité collée comprise",
+      _srcx.parse(_annonce(enginePowerKW="135 kW"))["power_kw"] == 135)
+check("à défaut, les chevaux `engineHorsepowerBE` sont convertis en kW",
+      _srcx.parse(_annonce(engineHorsepowerBE="116 pk"))["power_kw"] == 85)
+check("l'ancienne clé inventée `power` ne renvoie plus une valeur fantôme",
+      _srcx.parse(_annonce(power="150"))["power_kw"] is None)
+check("sans attribut de puissance, la colonne reste vide",
+      _srcx.parse(_annonce(mileage="10000"))["power_kw"] is None)
+
+print("\n[42] REJEU — une annonce a plusieurs réponses brutes")
+
+# Le site renvoie l'annonce à chaque passage du radar et son contenu
+# évolue : le vendeur complète le kilométrage, baisse le prix. Le
+# retraitement doit repartir de l'état LE PLUS RÉCENT, sans perdre ce que
+# le site avait donné plus tôt et qu'il ne renvoie plus.
+_p1 = {"itemId": "m9", "title": "Opel Astra 2017",
+       "priceInfo": {"priceCents": 575000, "priceType": "FIXED"},
+       "attributes": [{"key": "constructionYear", "value": "2017"}]}
+_p2 = {"itemId": "m9", "title": "Opel Astra 2017",
+       "priceInfo": {"priceCents": 475000, "priceType": "FIXED"},
+       "attributes": [{"key": "constructionYear", "value": "2017"},
+                      {"key": "mileage", "value": "149000"}]}
+_p3 = {"itemId": "m9", "title": "Opel Astra 2017",
+       "priceInfo": {"priceCents": 475000, "priceType": "FIXED"},
+       "attributes": [{"key": "constructionYear", "value": "2017"}]}
+
+
+def _fusion(payloads):
+    """Reproduit la fusion chronologique de `reprocess.py`."""
+    cumul = {}
+    for pl in payloads:
+        for k, v in _srcx.parse(pl).items():
+            if v is None and k in _dbm.JAMAIS_EFFACER and cumul.get(k) is not None:
+                continue
+            cumul[k] = v
+    return cumul
+
+
+_f = _fusion([_p1, _p2])
+check("le rejeu retient le prix de la réponse LA PLUS RÉCENTE",
+      _f["price_eur"] == 4750)
+check("et le kilométrage apparu dans cette réponse",
+      _f["mileage_km"] == 149000)
+
+# Le cœur du bug corrigé : `GROUP BY external_id` avec deux agrégats
+# contradictoires livrait la colonne nue `payload_text` de la PREMIÈRE
+# réponse. Chaque retraitement ramenait donc l'annonce à sa version
+# initiale : kilométrage effacé, prix remis à l'ancien.
+check("le rejeu ne ramène PAS l'annonce à sa première version",
+      _f["price_eur"] != 5750 and _f["mileage_km"] is not None)
+
+# Et l'inverse : une réponse plus récente qui OMET un attribut ne doit
+# pas effacer ce que le site avait déjà donné.
+_f3 = _fusion([_p1, _p2, _p3])
+check("un attribut absent d'une réponse récente n'efface pas la valeur connue",
+      _f3["mileage_km"] == 149000)
+check("mais le prix, lui, suit bien la dernière réponse", _f3["price_eur"] == 4750)
+
+# Une valeur INVALIDE reste effacée : elle n'est retenue dans aucune
+# réponse, donc la fusion ne peut pas la ressusciter.
+_p4 = dict(_p2, attributes=[{"key": "constructionYear", "value": "2017"},
+                            {"key": "mileage", "value": "999999"}])
+check("une valeur invalide n'est ressuscitée par aucune réponse",
+      _fusion([_p4])["mileage_km"] is None)
+
+# La requête fautive elle-même, rejouée sur une vraie base : deux agrégats
+# contradictoires dans un GROUP BY ne désignent aucune ligne.
+_cx = _base_neuve(_tmp("carsniper_rejeu.db"))
+_sidx = _dbm.source_id(_cx, "2ememain")
+_dbm.store_raw(_cx, _sidx, "m9", None, _p1)
+_dbm.store_raw(_cx, _sidx, "m9", None, _p2)
+_cx.commit()
+_rows = _cx.execute(
+    "SELECT external_id, fetched_at, payload_text FROM raw_payloads "
+    "WHERE source_id=? ORDER BY external_id, id", (_sidx,)).fetchall()
+check("la lecture chronologique rend bien les DEUX réponses", len(_rows) == 2)
+check("la fusion de ces deux lignes donne le prix courant",
+      _fusion([_json.loads(r["payload_text"]) for r in _rows])["price_eur"] == 4750)
+
+# `value_market` refuse d'évaluer sans année ni kilométrage : c'est ce
+# refus qui met le score à 0 et la confiance à 0 %. Perdre le kilométrage
+# au retraitement suffit donc à faire taire le radar.
+check("sans kilométrage, aucune évaluation n'est possible",
+      value_market({"year": 2017, "mileage_km": None, "vkey": "a|b|c|d|1.0|e"},
+                   []).method == "insufficient_data")
+check("sans année non plus",
+      value_market({"year": None, "mileage_km": 149000, "vkey": "a|b|c|d|1.0|e"},
+                   []).method == "insufficient_data")
+
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")
 sys.exit(1 if fail else 0)

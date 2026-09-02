@@ -11,6 +11,7 @@ arrêt propre en cas de blocage. Aucun contournement.
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -352,6 +353,36 @@ class TweedehandsSource(SourceAdapter):
         except ValueError:
             return None
 
+    @staticmethod
+    def _nombre(v) -> int | None:
+        """Premier entier d'une valeur d'attribut. Le site ecrit "135 kW",
+        "116 pk", "1984 cc" : `_int` echouait sur l'unite collee."""
+        if v is None:
+            return None
+        m = re.search(r"\d[\d\s.]*", str(v))
+        if not m:
+            return None
+        try:
+            return int(m.group(0).replace(".", "").replace(" ", ""))
+        except ValueError:
+            return None
+
+    @classmethod
+    def _puissance_kw(cls, raw: dict) -> int | None:
+        """Le site publie la puissance sous `enginePowerKW` ("135 kW") ou
+        `engineHorsepowerBE` ("116 pk").
+
+        Les cles lues jusqu'ici — "power", "vermogen" — n'apparaissent dans
+        AUCUN des 20 000 payloads mesures sur la base reelle. La colonne
+        `power_kw` etait donc vide pour les 53 599 annonces : une donnee
+        publiee par le site, stockee nulle part.
+        """
+        kw = cls._nombre(cls._attr(raw, "enginePowerKW"))
+        if kw:
+            return _borne(kw, 1, 2000)
+        ch = cls._nombre(cls._attr(raw, "engineHorsepowerBE", "enginePowerHP"))
+        return _borne(int(ch * 0.7355), 1, 2000) if ch else None
+
     LEASE_WORDS = ("leasing", "renting", "lease", "huur", "location longue",
                    "par mois", "/maand", "per maand", "p/m", "mensualite")
 
@@ -376,7 +407,7 @@ class TweedehandsSource(SourceAdapter):
                                                 "bouwjaar")), 1900, ANNEE_MAX),
             "fuel": self._attr(raw, "fuel", "brandstof"),
             "transmission": self._attr(raw, "transmission", "transmissie"),
-            "power_kw": self._int(self._attr(raw, "power", "vermogen")),
+            "power_kw": self._puissance_kw(raw),
             # Le site fournit `model` (56 % des annonces) et `body` (46 %).
             # Les ignorer obligeait a deviner le modele depuis le titre —
             # d'ou les cles fourre-tout et le classement en "utilitaire" des

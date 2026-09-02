@@ -90,28 +90,88 @@ def titre(n, texte):
 
 # ═══ 1. RE-PARSING ═══
 titre(1, "RE-PARSING DES DONNEES BRUTES")
-raws = con.execute(
-    "SELECT external_id, MAX(id) AS rid, payload_text, MIN(fetched_at) AS vu "
-    "FROM raw_payloads WHERE source_id=? GROUP BY external_id", (sid,)).fetchall()
-print(f"{len(raws)} payloads a relire...")
-maj = err = 0
-for i, r in enumerate(raws, 1):
-    try:
-        data = src.parse(json.loads(r["payload_text"]), fetched_at=r["vu"])
-        if not data.get("external_id") or not data.get("price_eur"):
+# Une annonce a PLUSIEURS reponses brutes : le site la renvoie a chaque
+# passage du radar, et le contenu evolue (le vendeur complete le
+# kilometrage, baisse le prix). L'ancienne requete les regroupait avec
+#     SELECT external_id, MAX(id), payload_text, MIN(fetched_at)
+#         ... GROUP BY external_id
+# Deux agregats CONTRADICTOIRES dans le meme GROUP BY : SQLite ne garantit
+# alors plus de quelle ligne vient la colonne nue `payload_text`. En
+# pratique il livrait celle de MIN(fetched_at) — la PREMIERE reponse. Avec
+# `reconstruire=True`, qui a le droit d'ecrire NULL, chaque retraitement
+# ramenait donc l'annonce a sa toute premiere version : kilometrage
+# complete plus tard -> efface, prix baisse -> remis a l'ancien.
+#
+# On relit desormais TOUTES les reponses, de la plus ancienne a la plus
+# recente, et on les fusionne : la valeur la plus recente gagne, mais un
+# attribut absent d'une reponse n'efface pas ce que le site avait deja
+# donne. Une valeur INVALIDE (999 999 km) reste effacee : elle n'est
+# retenue dans aucune reponse.
+lect = db.connect(BASE)
+n_annonces = con.execute(
+    "SELECT COUNT(DISTINCT external_id) FROM raw_payloads WHERE source_id=?",
+    (sid,)).fetchone()[0]
+n_payloads = con.execute(
+    "SELECT COUNT(*) FROM raw_payloads WHERE source_id=?", (sid,)).fetchone()[0]
+print(f"{n_payloads} reponses brutes pour {n_annonces} annonces...")
+
+
+def _fusionner(cumul: dict, data: dict) -> dict:
+    for k, v in data.items():
+        if v is None and k in db.JAMAIS_EFFACER and cumul.get(k) is not None:
             continue
-        # Retraitement DELIBERE depuis les payloads bruts : on reconstruit,
-        # donc on a le droit d'effacer une valeur devenue invalide.
-        db.upsert_listing(con, sid, data["external_id"], data,
-                          reconstruire=True)
-        maj += 1
+        if k == "published_at" and cumul.get(k) and v and v > cumul[k]:
+            # Une annonce remontee par le site reaffiche "Vandaag". La
+            # redater effacerait sa vraie anciennete et la ferait passer
+            # pour une nouveaute.
+            continue
+        cumul[k] = v
+    return cumul
+
+
+maj = err = 0
+courant = None
+cumul: dict = {}
+i = 0
+
+
+def _ecrire(c: dict) -> int:
+    if not c.get("external_id") or not c.get("price_eur"):
+        return 0
+    db.upsert_listing(con, sid, c["external_id"], c, reconstruire=True)
+    return 1
+
+
+for r in lect.execute(
+        "SELECT external_id, fetched_at, payload_text FROM raw_payloads "
+        "WHERE source_id=? ORDER BY external_id, id", (sid,)):
+    if r["external_id"] != courant:
+        if courant is not None:
+            try:
+                maj += _ecrire(cumul)
+            except Exception as e:
+                err += 1
+                if err <= 3:
+                    print(f"  ! {e}")
+            i += 1
+            if i % 10000 == 0:
+                con.commit()
+                print(f"  {i}/{n_annonces}")
+        courant, cumul = r["external_id"], {}
+    try:
+        cumul = _fusionner(
+            cumul, src.parse(json.loads(r["payload_text"]),
+                             fetched_at=r["fetched_at"]))
     except Exception as e:
         err += 1
         if err <= 3:
             print(f"  ! {e}")
-    if i % 10000 == 0:
-        con.commit()
-        print(f"  {i}/{len(raws)}")
+if courant is not None:
+    try:
+        maj += _ecrire(cumul)
+    except Exception as e:
+        err += 1
+lect.close()
 con.commit()
 print(f"{maj} annonces mises a jour, {err} erreurs\n")
 
