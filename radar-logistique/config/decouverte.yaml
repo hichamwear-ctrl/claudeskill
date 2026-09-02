@@ -1,0 +1,168 @@
+# NIVEAU 1 — DÉCOUVERTE INTERNET
+#
+# Google ne sert pas à trouver des appels d'offres : il sert à découvrir des
+# BESOINS COMMERCIAUX, surtout privés et locaux, que personne ne publie sur un
+# portail de marchés.
+#
+# Les requêtes sont GÉNÉRÉES : modèle × prestation × zone × langue. Elles ne
+# sont pas écrites une par une ici, sinon la liste serait figée.
+
+langues: [fr, nl, en]
+
+# ─────────────────────────────────────────────── ce qu'on cherche à faire dire
+modeles:
+
+  besoin_explicite:
+    # Une entreprise qui exprime un besoin de capacité. Le cas le plus direct.
+    poids: 10
+    fr:
+      - '"recherche transporteur" {zone}'
+      - '"recherche sous-traitant" {prestation} {zone}'
+      - '"recherche prestataire logistique" {zone}'
+      - '"recherche partenaire" {prestation} {zone}'
+      - '"recherche société de livraison" {zone}'
+      - '"cherche transporteur" {zone}'
+      - '"besoin de capacité" transport {zone}'
+      - '"externalisation" {prestation} {zone}'
+      - '"appel à partenariat" logistique {zone}'
+      - '"recherche chauffeur avec véhicule" {zone}'
+      - '"tournée à reprendre" {zone}'
+    nl:
+      - '"zoekt transporteur" {zone}'
+      - '"zoekt onderaannemer" transport {zone}'
+      - '"logistieke partner gezocht" {zone}'
+      - '"vervoerder gezocht" {zone}'
+    en:
+      - '"looking for a carrier" Belgium'
+      - '"logistics partner wanted" Belgium'
+      - '"subcontractor wanted" transport Belgium'
+
+  referencement:
+    # Les pages permanentes qui ouvrent un référencement fournisseur.
+    poids: 9
+    fr:
+      - '"devenir transporteur partenaire" {zone}'
+      - '"devenir partenaire" livraison {zone}'
+      - '"devenir fournisseur" transport {zone}'
+      - '"devenir sous-traitant" {prestation} {zone}'
+      - '"transporteurs partenaires" {zone}'
+    nl:
+      - '"word partner" transport {zone}'
+      - '"word leverancier" logistiek {zone}'
+    en:
+      - '"become a carrier partner" Belgium'
+      - '"become a supplier" logistics Belgium'
+
+  signal_indirect:
+    # Aucun besoin exprimé, mais un événement qui en crée un.
+    poids: 7
+    fr:
+      - '"nouvel entrepôt" {zone}'
+      - '"nouveau centre logistique" {zone}'
+      - '"ouvre une nouvelle agence" {zone}'
+      - '"s''implante" {zone} logistique'
+      - '"remporte un contrat" {prestation} {zone}'
+      - '"change de prestataire" logistique {zone}'
+      - '"recrute" "chauffeurs" {zone}'
+      - '"augmente sa capacité" livraison {zone}'
+    nl:
+      - '"nieuw magazijn" {zone}'
+      - '"nieuw distributiecentrum" {zone}'
+      - '"werft chauffeurs aan" {zone}'
+    en:
+      - '"opens new warehouse" Belgium'
+      - '"expands into Belgium" logistics'
+
+  metier_a_construire:
+    # Les 🟣 : un donneur d'ordre qui FORME ses partenaires. Sans mention écrite
+    # d'une formation, il n'y a pas de 🟣 — d'où ces requêtes dédiées.
+    poids: 6
+    fr:
+      - '"formation complète" "techniciens" partenaire {zone}'
+      - '"nous formons nos partenaires" {zone}'
+      - '"accompagnement au démarrage" partenaire {zone}'
+      - '"formation assurée" sous-traitant {zone}'
+      - '"recherche partenaire" installation "formation" {zone}'
+      - '"recherche entreprise" dépannage "formation" {zone}'
+    nl:
+      - '"opleiding voorzien" partner {zone}'
+    en:
+      - '"full training provided" partner Belgium'
+
+  entreprise_ciblee:
+    # Déclenché APRÈS qu'une entreprise a été découverte. {domaine} est injecté.
+    poids: 8
+    fr:
+      - 'site:{domaine} (partenaire OR fournisseur OR transporteur OR sous-traitant)'
+      - 'site:{domaine} (recrutement OR emploi) chauffeur'
+      - '"{entreprise}" (transporteur OR logistique OR livraison)'
+      - '"{entreprise}" "nouvel entrepôt" OR "nouvelle agence"'
+
+  secteur_zone:
+    # Secteurs qui achètent réellement de la logistique, croisés avec la zone.
+    poids: 5
+    fr:
+      - '{secteur} {zone} "livraison" (partenaire OR prestataire OR transporteur)'
+      - '{secteur} {zone} "logistique" externalisation'
+
+# ───────────────────────────────────────────────────────── ce qu'on y injecte
+prestations:
+  - livraison
+  - "dernier kilomètre"
+  - distribution
+  - transport
+  - "tournées"
+  - messagerie
+  - logistique
+  - manutention
+  - "transfert de véhicules"
+  - déménagement
+
+secteurs:
+  - hôpital
+  - "maison de repos"
+  - laboratoire
+  - "grossiste pharmaceutique"
+  - pharmacie
+  - "grande distribution"
+  - "commerce de gros"
+  - e-commerce
+  - imprimerie
+  - "pièces automobiles"
+  - garage
+  - meubles
+  - électroménager
+  - "matériaux de construction"
+  - industrie
+  - alimentaire
+
+# ────────────────────────────────────────────────────────── zones, en cascade
+# Du plus proche au plus large : c'est ce qui fait remonter les PME locales
+# plutôt que les grands groupes nationaux.
+zones:
+  - {nom: "Bruxelles",        rayon_km: 25,  poids: 10}
+  - {nom: "Brabant wallon",   rayon_km: 50,  poids: 9}
+  - {nom: "Brabant flamand",  rayon_km: 50,  poids: 9}
+  - {nom: "Hainaut",          rayon_km: 100, poids: 7}
+  - {nom: "Namur",            rayon_km: 100, poids: 7}
+  - {nom: "Anvers",           rayon_km: 100, poids: 7}
+  - {nom: "Flandre orientale",rayon_km: 100, poids: 6}
+  - {nom: "Liège",            rayon_km: 100, poids: 6}
+  - {nom: "Limbourg",         rayon_km: 100, poids: 5}
+  - {nom: "Luxembourg",       rayon_km: 150, poids: 4}
+  - {nom: "Wallonie",         rayon_km: null, poids: 6}
+  - {nom: "Flandre",          rayon_km: null, poids: 6}
+  - {nom: "Belgique",         rayon_km: null, poids: 5}
+  # Corridors : on cherche dans la langue du pays d'origine.
+  - {nom: "Pays-Bas",         rayon_km: null, poids: 6, corridor: NL}
+  - {nom: "Nord France",      rayon_km: null, poids: 4, corridor: FR}
+  - {nom: "Rhénanie",         rayon_km: null, poids: 4, corridor: DE}
+  - {nom: "Luxembourg pays",  rayon_km: null, poids: 4, corridor: LU}
+
+# ──────────────────────────────────────────────────────────────── exécution
+quota:
+  requetes_par_jour: 100        # palier gratuit de l'API Custom Search
+  resultats_par_requete: 10
+  # Au-delà, l'API plafonne de toute façon vers 100 résultats par requête :
+  # la couverture vient du NOMBRE de requêtes, pas de la pagination.
+  pages_max_par_requete: 1

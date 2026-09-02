@@ -92,9 +92,11 @@ def cmd_traiter(a) -> int:
     if repris:
         print(f"{repris} envoi(s) interrompu(s) marqué(s) ambigus — non réémis.")
     b = traiter(cx, _moteur(), opportunites)
-    print(f"lus {b.lus} · doublons {b.doublons} · 🟢 {b.direct} direct · "
-          f"🟡 {b.sous_traitance} sous-traitance · 🔵 {b.prospect} prospect · "
-          f"🔴 {b.rejet} rejet · notifiés {b.notifies}")
+    print(f"lus {b.lus} · lots éclatés {b.lots_eclates} · doublons {b.doublons}")
+    print(f"🟢 {b.direct} direct · 🟡 {b.renforcement} renforcement · "
+          f"🟣 {b.a_construire} à construire · 🔵 {b.prospect} prospect · "
+          f"🔴 {b.rejet} rejet")
+    print(f"CAPTER {b.capter} · DÉVELOPPER {b.developper} · notifiés {b.notifies}")
     if b.attributions:
         print(f"{b.attributions} attribution(s) mémorisée(s) pour le calendrier")
     if b.motifs_rejet:
@@ -108,6 +110,8 @@ def cmd_opportunites(a) -> int:
     where = "type <> 'REJET'"
     if a.type:
         where = f"type = '{a.type.upper()}'"
+    if a.moteur:
+        where += f" AND moteur = '{a.moteur.upper()}'"
     lignes = cx.execute(
         f"SELECT o.*, a.ref_source FROM opportunites o JOIN avis a ON a.id=o.avis_id "
         f"WHERE {where} ORDER BY o.score DESC, o.echeance ASC").fetchall()
@@ -118,9 +122,10 @@ def cmd_opportunites(a) -> int:
         if a.complet:
             print(l["fiche"]); print("\n" + "─" * 66 + "\n")
         else:
-            emoji = {"DIRECT": "🟢", "SOUS_TRAITANCE": "🟡", "PROSPECT": "🔵"}.get(l["type"], "·")
-            print(f"{emoji} [{l['score']:3}] {(l['echeance'] or 'A_VERIFIER')[:10]:<11} "
-                  f"{(l['intitule'] or '')[:52]}")
+            emoji = {"DIRECT": "🟢", "RENFORCEMENT": "🟡", "A_CONSTRUIRE": "🟣",
+                     "PROSPECT": "🔵"}.get(l["type"], "·")
+            print(f"{emoji} [{l['score']:3}] {(l['echeance'] or 'NON PUBLIÉ')[:10]:<11} "
+                  f"{(l['action'] or ''):<24} {(l['intitule'] or '')[:44]}")
     print(f"\n{len(lignes)} opportunité(s).")
     return 0
 
@@ -138,6 +143,39 @@ def cmd_calendrier(a) -> int:
         quand = (l["renouvellement"] or "")[:7] or "A_VERIFIER"
         print(f"  {quand:<12} {(l['prestation'] or '')[:44]}")
         print(f"  {'':<12} titulaire : {l['titulaire'] or 'A_VERIFIER'} · {l['commentaire']}")
+    return 0
+
+
+def cmd_sources(a) -> int:
+    """Le registre : qui a été consulté, quand, et avec quel rendement."""
+    import yaml as _y
+    from .decouverte import charger_connecteur
+    from .registre import Registre
+
+    reg = Registre()
+    cat = _cfg("config/sources.yaml")["categories"]
+    for famille, spec in cat.items():
+        for nom in spec.get("sources", []):
+            reg.declarer(nom, famille, "fichier")
+    google = reg.declarer("google", "decouverte", "moteur_recherche")
+    c = charger_connecteur()
+    if not c.disponible:
+        google.indisponible(c.motif_indisponibilite)
+    for nom in ("bourses_de_fret",):
+        reg.declarer(nom, "transport", "api").indisponible("aucun abonnement fourni")
+    print(reg.rapport())
+    return 0
+
+
+def cmd_requetes(a) -> int:
+    """Les requêtes de découverte réellement générées."""
+    from .decouverte import Generateur
+    g = Generateur(_cfg("config/decouverte.yaml"))
+    reqs = g.generer()
+    print(f"{len(reqs)} requêtes générées · {a.limite} affichées, par priorité\n")
+    for q in reqs[:a.limite]:
+        print(f"  [{q.priorite():5.1f}] {q.famille:20} {q.zone:18} {q.texte[:60]}")
+    print("\nAucune n'a été exécutée : le connecteur Google est indisponible.")
     return 0
 
 
@@ -180,9 +218,18 @@ def principal(argv=None) -> int:
 
     o = s.add_parser("opportunites", help="ce sur quoi on peut candidater")
     o.add_argument("--complet", action="store_true")
-    o.add_argument("--type", choices=["direct", "sous_traitance", "prospect"],
+    o.add_argument("--type", choices=["direct", "renforcement", "a_construire", "prospect"],
                    help="filtrer sur une catégorie")
+    o.add_argument("--moteur", choices=["capter", "developper"],
+                   help="CAPTER = agir maintenant · DEVELOPPER = action commerciale")
     o.set_defaults(fn=cmd_opportunites)
+
+    so2 = s.add_parser("sources", help="registre des sources et leur état réel")
+    so2.set_defaults(fn=cmd_sources)
+
+    rq = s.add_parser("requetes", help="requêtes de découverte générées")
+    rq.add_argument("--limite", type=int, default=20)
+    rq.set_defaults(fn=cmd_requetes)
 
     ap = s.add_parser("apprendre", help="ce que le radar a appris du marché")
     ap.set_defaults(fn=cmd_apprendre)

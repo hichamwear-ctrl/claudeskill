@@ -14,6 +14,15 @@ NON_MESURE = "NON MESURÉ"
 
 
 @dataclass
+class Provenance:
+    """D'où vient cette opportunité, et quand elle a été RÉELLEMENT consultée."""
+    source: str
+    url: str | None = None
+    consulte_le: str | None = None
+    requete: str | None = None
+
+
+@dataclass
 class LotBrut:
     """Un lot tel que la source le publie."""
     numero: str = ""
@@ -51,6 +60,15 @@ class Opportunite:
     devise: str = "EUR"
     duree_mois: int | None = None
     cadence: str | None = None            # quotidienne, hebdomadaire, ponctuelle...
+    date_demarrage: object = None
+
+    # Effort réel — ce qui distingue un bon contrat d'un gros contrat.
+    km_annuels: float | None = None
+    distance_depot_km: float | None = None
+    travail_nuit: bool | None = None
+    travail_weekend: bool | None = None
+    vehicules_requis: int | None = None
+    chauffeurs_requis: int | None = None
 
     pays_collecte: list[str] = field(default_factory=list)
     pays_livraison: list[str] = field(default_factory=list)
@@ -67,5 +85,12 @@ class Opportunite:
     attribue: bool = False
     titulaire: str | None = None
     attribue_le: datetime | None = None
+
+    # Lien vers le marché parent quand l'opportunité est un LOT isolé.
+    marche_ref: str | None = None
+    lot_numero: str | None = None
+
+    # Provenances : un même besoin peut venir de Google ET du BDA.
+    provenances: list = field(default_factory=list)   # [{source, url, consulte_le, requete}]
 
     brut: dict = field(default_factory=dict)

@@ -15,10 +15,33 @@ criteres:
   rapidite_demarrage:         8
   rentabilite_potentielle:    7
 
+criteres_supplementaires:
+  proximite_depot:            10   # moins de kilomètres = plus de marge
+  demarrage_rapide:            5
+
 penalites:
   complexite_investissement: -10  # matériel à louer, personnel à recruter
   concurrence_grands_acteurs: -12 # marché probablement verrouillé
   exigences_non_confirmees:   -8  # par bloc d'inconnues
+  kilometrage_lourd:          -8
+  horaires_contraignants:     -6  # nuit, week-end
+  risque_operationnel:        -6
+
+# ─────────────────────────────────────────────────────── effort et proximité
+# Le montant ne dit rien de la rentabilité. L'effort, si.
+effort:
+  km_annuels_lourds: 60000        # au-delà, pénalité
+  km_annuels_confortables: 20000  # en deçà, bonus de proximité
+  distance_depot_confortable_km: 50
+  distance_depot_lointaine_km: 150
+
+# ──────────────────────────────────────────────────────────────────── marge
+# Calculable UNIQUEMENT si les coûts d'exploitation sont renseignés au profil.
+# Sinon : NON MESURÉE. Jamais estimée, jamais inventée.
+marge:
+  calculable_si: [cout_km, cout_chauffeur_jour, cout_location_3t5_mois]
+  points_si_bonne: 10
+  points_si_non_mesuree: 5        # neutre — l'absence de donnée ne pénalise pas
 
 # ─────────────────────────────────────────────────── taille de contrat visée
 # Une cloche, pas une pente : trop petit ne nourrit pas, trop gros exige une
@@ -55,5 +78,6 @@ concurrence:
 # l'autre ne doit dominer un marché auquel on peut réellement soumissionner.
 facteurs:
   DIRECT: 1.0
-  SOUS_TRAITANCE: 0.85
-  PROSPECT: 0.7
+  RENFORCEMENT: 0.95
+  A_CONSTRUIRE: 0.8      # un métier à bâtir reste plus incertain qu'un métier tenu
+  PROSPECT: 0.7          # une inférence ne domine jamais un marché ouvert

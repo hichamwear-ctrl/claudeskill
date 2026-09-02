@@ -24,12 +24,16 @@ CREATE TABLE IF NOT EXISTS reponses (
 -- Données calculées, séparées des données reçues.
 CREATE TABLE IF NOT EXISTS opportunites (
     avis_id       INTEGER PRIMARY KEY REFERENCES avis(id) ON DELETE CASCADE,
-    type          TEXT NOT NULL,      -- DIRECT | SOUS_TRAITANCE | PROSPECT | REJET
+    type          TEXT NOT NULL,      -- DIRECT|RENFORCEMENT|A_CONSTRUIRE|PROSPECT|REJET
+    moteur        TEXT,               -- CAPTER | DEVELOPPER
+    action        TEXT,               -- POSTULER | CONTACTER LE TITULAIRE | ...
     role          TEXT,               -- PRESTATAIRE | FOURNISSEUR | A_VERIFIER
-    statut        TEXT NOT NULL,
+    statut        TEXT NOT NULL,      -- OUVERT|BIENTOT_FERME|DEPASSE|ATTRIBUE|INCONNUE
     zone          TEXT,
     familles      TEXT,
-    lots_retenus  TEXT,
+    marche_ref    TEXT,               -- marché parent quand l'opportunité est un lot
+    lot_numero    TEXT,
+    marge         TEXT,               -- valeur ou « NON MESURÉE »
     journal       TEXT,               -- les 16 questions et leurs réponses
     intitule      TEXT,
     acheteur      TEXT,
@@ -45,6 +49,51 @@ CREATE TABLE IF NOT EXISTS opportunites (
     etat_maj      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_opp_type ON opportunites(type, score DESC);
+CREATE INDEX IF NOT EXISTS idx_opp_moteur ON opportunites(moteur, score DESC);
+CREATE INDEX IF NOT EXISTS idx_opp_marche ON opportunites(marche_ref);
+
+-- Registre des sources : une source n'est jamais dite consultée sans trace.
+CREATE TABLE IF NOT EXISTS sources (
+    nom          TEXT PRIMARY KEY,
+    famille      TEXT NOT NULL,
+    methode      TEXT NOT NULL,
+    etat         TEXT NOT NULL DEFAULT 'JAMAIS CONSULTÉE',
+    cycle        TEXT,
+    derniere_consultation TEXT,
+    derniere_erreur TEXT,
+    motif_indisponible TEXT,
+    lues         INTEGER NOT NULL DEFAULT 0,
+    retenues     INTEGER NOT NULL DEFAULT 0,
+    contacts     INTEGER NOT NULL DEFAULT 0,
+    contrats     INTEGER NOT NULL DEFAULT 0
+);
+
+-- Rendement par requête de découverte : ce qui fait monter ou descendre une
+-- recherche Google. Visible et réversible — jamais une boîte noire.
+CREATE TABLE IF NOT EXISTS requetes (
+    texte      TEXT PRIMARY KEY,
+    famille    TEXT,
+    zone       TEXT,
+    langue     TEXT,
+    poids      REAL NOT NULL DEFAULT 0,
+    lancee     INTEGER NOT NULL DEFAULT 0,
+    resultats  INTEGER NOT NULL DEFAULT 0,
+    retenues   INTEGER NOT NULL DEFAULT 0,
+    contacts   INTEGER NOT NULL DEFAULT 0,
+    contrats   INTEGER NOT NULL DEFAULT 0,
+    derniere_execution TEXT
+);
+
+-- Provenances : un même besoin vu sur Google ET au BDA garde ses deux origines.
+CREATE TABLE IF NOT EXISTS provenances (
+    id          INTEGER PRIMARY KEY,
+    avis_id     INTEGER NOT NULL REFERENCES avis(id) ON DELETE CASCADE,
+    source      TEXT NOT NULL,
+    url         TEXT,
+    requete     TEXT,
+    consulte_le TEXT,
+    UNIQUE (avis_id, source, url)
+);
 
 -- Marchés attribués : jamais notifiés, gardés pour le calendrier.
 CREATE TABLE IF NOT EXISTS attributions (

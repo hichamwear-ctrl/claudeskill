@@ -60,23 +60,68 @@ couvre du matériel et des bras — pas un agrément.
 
 ---
 
-## Les quatre catégories
+## Les cinq catégories
 
-| | Notifié | Quand |
+| | Sens | Moteur |
 |---|---|---|
-| 🟢 **DIRECT** | oui | ouvert, compatible, capacités disponibles ou mobilisables |
-| 🟡 **SOUS-TRAITANCE** | oui | trop grand pour être porté seul, ou déjà attribué |
-| 🔵 **PROSPECT** | oui | signal d'un besoin, pas de dossier à déposer |
-| 🔴 **REJET** | **non** | fourniture, hors métier, hors zone, clôturé, qualification absente |
+| 🟢 **DIRECT** | exécutable avec la structure actuelle | CAPTER |
+| 🟡 **RENFORCEMENT** | titulaire possible après location, recrutement, réorganisation | CAPTER |
+| 🟣 **À CONSTRUIRE** | métier nouveau, formation réellement offerte, leviers existants | CAPTER |
+| 🔵 **PROSPECT** | trop gros seul, signal privé, ou marché fermé à démarcher | CAPTER / DÉVELOPPER |
+| 🔴 **REJET** | **jamais notifié** — seulement sur raison objective | — |
 
 **La règle qui compte** : ce que je ne peux pas porter seul, un autre le portera
-— et il lui faudra des bras, donc 🟡. Ce que je ne sais pas faire, personne ne
-me le sous-traitera, donc 🔴.
+— il lui faudra des bras, donc 🔵. Ce que je ne sais pas faire, personne ne me
+le sous-traitera, donc 🔴.
 
 ```
-30 véhicules exigés  → 🟡 SOUS-TRAITANCE
-ADR exigé            → 🔴 REJET
+12 véhicules exigés  → 🟡 RENFORCEMENT  (6 à louer)
+30 véhicules exigés  → 🔵 PROSPECT      (proposer une sous-traitance)
+ADR exigé            → 🔴 REJET         (une qualification ne se loue pas)
 ```
+
+### 🟣 — le test à six conditions
+
+Un métier inconnu n'est jamais rejeté, mais une formation offerte ne suffit pas.
+Les six conditions sont toutes obligatoires : levier d'actif réel, activité de
+terrain, **formation écrite dans la source**, délai suffisant, aucune obligation
+légale préalable manquante, cohérence économique.
+
+```
+Portes sectionnelles + formation 2 semaines   → 🟣
+Portes sectionnelles sans formation           → non
+Comptabilité + formation                      → hors périmètre
+Installation + agrément obligatoire           → 🔴
+```
+
+## Deux moteurs
+
+**CAPTER** — POSTULER · CONTACTER L'ACHETEUR · CONTACTER L'ENTREPRISE · PROPOSER
+SOUS-TRAITANCE · PROPOSER PARTENARIAT.
+**DÉVELOPPER** — CONTACTER LE TITULAIRE · SURVEILLER. Une attribution ne porte
+jamais l'action POSTULER.
+
+## Découverte Internet — niveau 1
+
+Google cherche des **besoins**, pas des appels d'offres. Les requêtes sont
+générées par croisement modèle × prestation × zone × langue — près de 2 000,
+dont les locales passent en premier pour faire remonter les PME.
+
+Sans clé : `NON DISPONIBLE — CLÉ ABSENTE`. Aucune simulation, aucun scraping des
+pages de résultats.
+
+```bash
+export GOOGLE_API_KEY=...  GOOGLE_CSE_ID=...
+python -m radar.cli requetes --limite 20
+python -m radar.cli sources
+```
+
+## Un lot = une opportunité
+
+Un marché à 20 lots produit une opportunité **par lot compatible**, chacune avec
+sa référence, son montant, sa date, son score et son action. Le lien vers le
+marché parent est conservé pour éviter les doublons. Un lot sans montant propre
+n'hérite pas de celui du marché : ce serait inventer une valeur.
 
 ---
 
@@ -191,7 +236,7 @@ l'observation manque. Sous 30 opportunités il refuse de publier un pourcentage.
 python -m unittest discover -s tests
 ```
 
-60 tests de comportement, un par règle du cahier des charges. Aucun ne vérifie
+67 tests de comportement, un par règle du cahier des charges. Aucun ne vérifie
 qu'une ligne de code existe.
 
 Zéro dépendance hors PyYAML.

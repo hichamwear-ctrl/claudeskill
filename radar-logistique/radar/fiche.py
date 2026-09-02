@@ -1,8 +1,9 @@
-"""Trois formats de notification, un par type d'opportunité.
+"""La fiche. Comprendre en quelques secondes si ça vaut le temps.
 
-Court et concret : savoir en quelques secondes si ça vaut le coup de lire la
-suite. Un champ absent est écrit NON PUBLIÉ ou A_VERIFIER — jamais comblé par
-une valeur plausible.
+CHANGEMENT : ajout des blocs Source (avec date de consultation réelle),
+Raisons de la catégorie, Économie, et une action unique.
+
+Un champ absent s'écrit NON PUBLIÉ, A_VERIFIER ou INCONNU — jamais comblé.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from .classification import Type
 ABSENT = "NON PUBLIÉ"
 
 
-def _montant(v, devise="EUR"):
+def _m(v, devise="EUR"):
     if v in (None, "", 0):
         return ABSENT
     try:
@@ -30,106 +31,94 @@ def _ou(v, defaut=ABSENT):
 @dataclass
 class Fiche:
     type: Type
+    moteur: str
+    action: str
     titre: str
-    acheteur: str | None = None
+    client: str | None = None
     secteur: str | None = None
     contact: str | None = None
-    lots_retenus: list[str] = field(default_factory=list)
+    marche_parent: str | None = None
+    lot: str | None = None
+    provenances: list = field(default_factory=list)
     zone: str = ""
-    collecte: list[str] = field(default_factory=list)
-    livraison: list[str] = field(default_factory=list)
+    corridor: str = ""
+    statut_date: str = ""
     echeance: str = ABSENT
+    demarrage: str = ABSENT
     jours_restants: int | None = None
-    montant: float | None = None
-    devise: str = "EUR"
     duree_mois: int | None = None
     cadence: str | None = None
-    compatible: list[str] = field(default_factory=list)      # « pourquoi c'est compatible »
-    a_verifier: list[str] = field(default_factory=list)
-    a_mobiliser: list[str] = field(default_factory=list)
+    montant: float | None = None
+    devise: str = "EUR"
+    objet: str | None = None
+    pourquoi: list[str] = field(default_factory=list)
+    j_ai_deja: list[str] = field(default_factory=list)
+    il_me_manque: list[str] = field(default_factory=list)
+    comment_combler: list[str] = field(default_factory=list)
+    raisons_categorie: list[str] = field(default_factory=list)
+    marge: str = "NON MESURÉE"
     score: int = 0
     detail_score: list[str] = field(default_factory=list)
-    action: str = ""
-    lien_dossier: str | None = None
-    lien_depot: str | None = None
-    titulaire: str | None = None
-    signal: str | None = None
+    lien: str | None = None
     source: str = ""
     reference: str = ""
 
-    # ------------------------------------------------------------ rendu --
     def en_texte(self, avec_detail_score=False) -> str:
-        if self.type is Type.SOUS_TRAITANCE:
-            corps = self._sous_traitance()
-        elif self.type is Type.PROSPECT:
-            corps = self._prospect()
-        else:
-            corps = self._direct()
-        if avec_detail_score:
-            corps += "\n" + "\n".join(f"    {d}" for d in self.detail_score)
-        return corps + f"\n\n  réf. {self.reference} · source {self.source}"
+        L = [f"{self.type.emoji} {self.type.value} — {self.titre}"]
+        if self.lot:
+            L.append(f"   (LOT {self.lot} du marché {self.marche_parent})")
+        L.append("")
 
-    # ------------------------------------------------------------ 🟢 --
-    def _direct(self) -> str:
-        L = [f"🟢 OPPORTUNITÉ À POSTULER", self.titre, ""]
-        L.append(f"📍 {self.zone or _ou(None, 'A_VERIFIER')}")
+        L.append(f"CLIENT        {_ou(self.client, 'A_VERIFIER')}"
+                 + (f"  ({self.secteur})" if self.secteur else ""))
+        L.append(f"SOURCE        {self._provenances()}")
+        L.append(f"ZONE          {self.zone or 'A_VERIFIER'}"
+                 + (f"   [{self.corridor}]" if self.corridor else ""))
         reste = f"  ({self.jours_restants} j restants)" if self.jours_restants is not None else ""
-        L.append(f"📅 Deadline : {self.echeance}{reste}")
-        L.append(f"💰 Valeur estimée : {_montant(self.montant, self.devise)}")
-        if self.duree_mois:
-            L.append(f"⏱️ Durée : {self.duree_mois} mois")
+        L.append(f"DATE          {self.statut_date} · limite {self.echeance}{reste}")
+        if self.demarrage != ABSENT:
+            L.append(f"DÉMARRAGE     {self.demarrage}")
+        L.append(f"DURÉE         {self.duree_mois} mois" if self.duree_mois
+                 else f"DURÉE         {ABSENT}")
         if self.cadence:
-            L.append(f"🔁 Cadence : {self.cadence}")
-        if self.acheteur:
-            L.append(f"🏢 Acheteur : {self.acheteur}"
-                     + (f" ({self.secteur})" if self.secteur else ""))
-        if self.lots_retenus:
-            L += ["", "Lots compatibles :"] + [f"  · {l}" for l in self.lots_retenus]
-        L += ["", "Pourquoi c'est compatible :"]
-        L += [f"  · {c} ✔️" for c in self.compatible] or ["  · A_VERIFIER"]
-        if self.a_mobiliser:
-            L += ["", "À mobiliser :"] + [f"  🔧 {m}" for m in self.a_mobiliser]
-        if self.a_verifier:
-            L += ["", "Points à vérifier :"] + [f"  🟠 {v}" for v in self.a_verifier]
-        L += ["", f"Score : {self.score}/100", "", "Action :"]
-        L.append(f"  → {self.lien_dossier}" if self.lien_dossier else "  → dossier NON PUBLIÉ")
-        if self.lien_depot and self.lien_depot != self.lien_dossier:
-            L.append(f"  → déposer l'offre : {self.lien_depot}")
+            L.append(f"CADENCE       {self.cadence}")
+        L.append(f"VALEUR        {_m(self.montant, self.devise)}")
+        if self.contact:
+            L.append(f"CONTACT       {self.contact}")
+
+        L += ["", "CE QU'IL FAUT FAIRE", f"  {_ou(self.objet, 'A_VERIFIER')}"]
+
+        L += ["", "POURQUOI C'EST INTÉRESSANT POUR MOI"]
+        L += [f"  · {p}" for p in self.pourquoi] or ["  · A_VERIFIER"]
+
+        L += ["", "CE QUE J'AI DÉJÀ"]
+        L += [f"  ✔️ {a}" for a in self.j_ai_deja] or ["  · rien de confirmé automatiquement"]
+
+        if self.il_me_manque:
+            L += ["", "CE QUI ME MANQUE"] + [f"  ✗ {m}" for m in self.il_me_manque]
+        if self.comment_combler:
+            L += ["", "COMMENT COMBLER LE MANQUE"] + [f"  🔧 {c}" for c in self.comment_combler]
+
+        L += ["", f"NIVEAU        {self.type.emoji} {self.type.value}  ·  moteur {self.moteur}"]
+        if self.raisons_categorie:
+            L += [f"  → {r}" for r in self.raisons_categorie]
+
+        L += ["", f"ÉCONOMIE      score {self.score}/100 · marge {self.marge}"]
+        if avec_detail_score:
+            L += [f"    {d}" for d in self.detail_score]
+
+        L += ["", f"ACTION        👉 {self.action}"]
+        if self.lien:
+            L.append(f"              {self.lien}")
+        L.append("")
+        L.append(f"  réf. {self.reference}")
         return "\n".join(L)
 
-    # ------------------------------------------------------------ 🟡 --
-    def _sous_traitance(self) -> str:
-        L = ["🟡 OPPORTUNITÉ DE SOUS-TRAITANCE", ""]
-        L.append(f"Entreprise : {_ou(self.titulaire, 'titulaire A_VERIFIER')}")
-        L.append(f"Contrat : {self.titre}")
-        L.append(f"📍 {self.zone or 'A_VERIFIER'}")
-        if self.montant:
-            L.append(f"💰 {_montant(self.montant, self.devise)}"
-                     + (f" sur {self.duree_mois} mois" if self.duree_mois else ""))
-        L += ["", "Pourquoi cela peut m'intéresser :"]
-        L += [f"  · {c}" for c in self.compatible] or ["  · activité proche de mon savoir-faire"]
-        if self.a_verifier:
-            L += ["", "Points à vérifier :"] + [f"  🟠 {v}" for v in self.a_verifier]
-        L += ["", f"Score : {self.score}/100", "", "Action recommandée :"]
-        L.append(f"  → {self.action or 'contacter le titulaire comme transporteur sous-traitant'}")
-        if self.lien_dossier:
-            L.append(f"  → détail du marché : {self.lien_dossier}")
-        return "\n".join(L)
-
-    # ------------------------------------------------------------ 🔵 --
-    def _prospect(self) -> str:
-        L = ["🔵 PROSPECT COMMERCIAL", ""]
-        L.append(f"Entreprise : {_ou(self.acheteur, 'A_VERIFIER')}")
-        L.append(f"Signal détecté : {_ou(self.signal, self.titre)}")
-        L.append(f"📍 {self.zone or 'A_VERIFIER'}")
-        L += ["", "Pourquoi intéressant :"]
-        L += [f"  · {c}" for c in self.compatible] or ["  · activité compatible"]
-        if self.a_verifier:
-            L += ["", "Points à vérifier :"] + [f"  🟠 {v}" for v in self.a_verifier]
-        L += ["", f"Score : {self.score}/100", "", "Action :"]
-        L.append("  → contacter l'entreprise")
-        L.append("  → identifier le responsable logistique")
-        L.append("  → proposer mes services")
-        if self.lien_dossier:
-            L.append(f"  → source : {self.lien_dossier}")
-        return "\n".join(L)
+    def _provenances(self) -> str:
+        """Ne montre QUE ce qui a réellement été consulté, avec la date."""
+        if not self.provenances:
+            return f"{self.source} · date de consultation NON ENREGISTRÉE"
+        return " + ".join(
+            f"{p.get('source')}" + (f" ({p.get('consulte_le', '')[:10]})"
+                                    if p.get("consulte_le") else "")
+            for p in self.provenances)

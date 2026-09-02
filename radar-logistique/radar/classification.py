@@ -1,11 +1,15 @@
-"""🟢 DIRECT · 🟡 SOUS-TRAITANCE · 🔵 PROSPECT · 🔴 REJET
+"""🟢 DIRECT · 🟡 RENFORCEMENT · 🟣 À CONSTRUIRE · 🔵 PROSPECT · 🔴 REJET
 
-La règle qui compte : un marché hors gabarit par sa TAILLE n'est pas un rejet,
-c'est une opportunité de sous-traitance. Un marché hors gabarit par son OBJET,
-sa ZONE ou une QUALIFICATION manquante en est un.
+CHANGEMENT par rapport à la version précédente : 🟡 signifiait « sous-traitance »
+et signifie désormais « je suis titulaire mais je dois me renforcer ». La
+sous-traitance descend en 🔵, et 🟣 est nouveau.
 
-Autrement dit : ce que je ne peux pas porter seul, un autre le portera — et il
-lui faudra des bras. Ce que je ne sais pas faire, personne ne me le sous-traitera.
+Deux règles gouvernent tout :
+
+  · ce que je ne peux pas porter seul, un autre le portera — il lui faudra des
+    bras, donc 🔵 et jamais 🔴 ;
+  · l'absence de vocabulaire connu n'est JAMAIS un motif de rejet. Un métier
+    inconnu passe par le test 🟣 avant toute conclusion.
 """
 
 from __future__ import annotations
@@ -18,13 +22,14 @@ from .role import Role
 
 class Type(Enum):
     DIRECT = "DIRECT"
-    SOUS_TRAITANCE = "SOUS_TRAITANCE"
+    RENFORCEMENT = "RENFORCEMENT"
+    A_CONSTRUIRE = "A_CONSTRUIRE"
     PROSPECT = "PROSPECT"
     REJET = "REJET"
 
     @property
     def emoji(self) -> str:
-        return {"DIRECT": "🟢", "SOUS_TRAITANCE": "🟡",
+        return {"DIRECT": "🟢", "RENFORCEMENT": "🟡", "A_CONSTRUIRE": "🟣",
                 "PROSPECT": "🔵", "REJET": "🔴"}[self.value]
 
     @property
@@ -32,72 +37,116 @@ class Type(Enum):
         return self is not Type.REJET
 
 
-# Motifs de blocage qui n'interdisent PAS la sous-traitance : ils disent que le
-# marché est trop gros pour être porté seul, pas qu'on ne sait pas le faire.
-BLOCAGES_DE_TAILLE = ("véhicules exigés", "chiffre d'affaires", "m² exigés")
+class Moteur(Enum):
+    CAPTER = "CAPTER"          # je peux agir : postuler, contacter, proposer
+    DEVELOPPER = "DEVELOPPER"  # fermé, mais action commerciale possible
+
+
+class Action(Enum):
+    POSTULER = "POSTULER"
+    CONTACTER_ACHETEUR = "CONTACTER L'ACHETEUR"
+    CONTACTER_ENTREPRISE = "CONTACTER L'ENTREPRISE"
+    CONTACTER_TITULAIRE = "CONTACTER LE TITULAIRE"
+    PROPOSER_SOUS_TRAITANCE = "PROPOSER SOUS-TRAITANCE"
+    PROPOSER_PARTENARIAT = "PROPOSER PARTENARIAT"
+    SURVEILLER = "SURVEILLER"
+    ABANDONNER = "ABANDONNER"
+
+
+# Blocages qui disent « trop gros pour moi », pas « je ne sais pas faire ».
+# Ceux-là mènent en 🔵, jamais en 🔴.
+BLOCAGES_DE_TAILLE = ("véhicules exigés", "chiffre d'affaires", "m² exigés",
+                      "chauffeurs exigés")
 
 
 @dataclass
 class Classement:
     type: Type
+    moteur: Moteur
+    action: Action
     motif: str
-    action: str = ""
+    raisons: list[str] = field(default_factory=list)
     raisons_rejet: list[str] = field(default_factory=list)
-    sous_traitance_possible: bool = False
 
 
-def _est_blocage_de_taille(message: str) -> bool:
-    return any(marque in message for marque in BLOCAGES_DE_TAILLE)
+def _de_taille(message: str) -> bool:
+    return any(m in message for m in BLOCAGES_DE_TAILLE)
 
 
-def classer(*, role, activite_ok, activite_motif, zone_ok, zone_motif,
+def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
             deadline_ouverte, deadline_motif, attribue, informatif,
-            bilan_capacite, est_signal=False) -> Classement:
-    """Décide de la catégorie. L'ordre des tests est celui du raisonnement."""
+            bilan_capacite, construction=None, est_signal=False,
+            source_privee=False) -> Classement:
+    """Décide de la catégorie, du moteur et de l'action unique."""
 
-    # ── 1. Ce qui disqualifie l'objet même, quelle que soit la suite ──
+    # ── 1. Impossibilités objectives sur l'objet ──
     if role is Role.FOURNISSEUR:
-        return Classement(Type.REJET, "marché de fourniture — l'acheteur veut un bien",
+        return Classement(Type.REJET, Moteur.CAPTER, Action.ABANDONNER,
+                          "marché de fourniture — l'acheteur veut un bien",
                           raisons_rejet=["l'entreprise vend une prestation, pas un produit"])
-    if not activite_ok:
-        return Classement(Type.REJET, activite_motif or "activité hors métier",
-                          raisons_rejet=[activite_motif or "activité hors métier"])
+    if exclusion:
+        return Classement(Type.REJET, Moteur.CAPTER, Action.ABANDONNER,
+                          f"activité juridiquement inaccessible ({exclusion})",
+                          raisons_rejet=[f"activité exclue : {exclusion}"])
     if not zone_ok:
-        return Classement(Type.REJET, zone_motif or "zone incompatible",
+        return Classement(Type.REJET, Moteur.CAPTER, Action.ABANDONNER,
+                          zone_motif or "zone incompatible",
                           raisons_rejet=[zone_motif or "zone incompatible"])
 
-    # ── 2. Un signal n'est jamais un marché : c'est un prospect ──
+    # ── 2. Signal privé : un prospect, jamais un contrat ──
     if est_signal:
-        return Classement(Type.PROSPECT, "signal d'un besoin logistique",
-                          action="contacter l'entreprise et identifier le responsable logistique")
+        return Classement(Type.PROSPECT, Moteur.CAPTER, Action.CONTACTER_ENTREPRISE,
+                          "signal d'un besoin logistique — à qualifier",
+                          raisons=["inférence, pas un marché ouvert"])
 
-    # ── 3. Marché attribué : plus de dépôt possible, mais le gagnant recrutera ──
+    # ── 3. Marché attribué : moteur DÉVELOPPER ──
     if attribue:
-        return Classement(
-            Type.SOUS_TRAITANCE, "marché déjà attribué — le titulaire devra exécuter",
-            action="contacter le titulaire comme transporteur sous-traitant",
-            sous_traitance_possible=True)
+        return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.CONTACTER_TITULAIRE,
+                          "marché déjà attribué — le titulaire devra exécuter",
+                          raisons=["le titulaire aura besoin de capacité locale"])
 
     if informatif:
-        return Classement(Type.REJET, "avis informatif — aucun dépôt attendu",
-                          raisons_rejet=["avis purement informatif"])
+        return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.SURVEILLER,
+                          "avis informatif — aucun dépôt attendu",
+                          raisons=["surveiller la publication du marché réel"])
+
     if not deadline_ouverte:
-        return Classement(Type.REJET, deadline_motif or "date limite dépassée",
-                          raisons_rejet=[deadline_motif or "date limite dépassée"])
+        # Une échéance dépassée ferme le dépôt, pas la relation commerciale.
+        return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.SURVEILLER,
+                          deadline_motif or "date limite dépassée",
+                          raisons=["hors délai pour déposer — surveiller le renouvellement"])
+
+    action_defaut = Action.CONTACTER_ENTREPRISE if source_privee else Action.POSTULER
 
     # ── 4. Blocages de capacité : taille ou nature ? ──
     if bilan_capacite.bloquants:
-        de_taille = [b for b in bilan_capacite.bloquants if _est_blocage_de_taille(b)]
-        autres = [b for b in bilan_capacite.bloquants if not _est_blocage_de_taille(b)]
+        de_taille = [b for b in bilan_capacite.bloquants if _de_taille(b)]
+        autres = [b for b in bilan_capacite.bloquants if not _de_taille(b)]
         if autres:
-            # Qualification ou infrastructure manquante : personne ne sous-traite ça.
-            return Classement(Type.REJET, autres[0], raisons_rejet=autres)
-        return Classement(
-            Type.SOUS_TRAITANCE,
-            f"trop grand pour être porté seul — {de_taille[0]}",
-            action="se positionner comme sous-traitant auprès des candidats probables",
-            sous_traitance_possible=True)
+            return Classement(Type.REJET, Moteur.CAPTER, Action.ABANDONNER, autres[0],
+                              raisons_rejet=autres)
+        return Classement(Type.PROSPECT, Moteur.CAPTER, Action.PROPOSER_SOUS_TRAITANCE,
+                          f"trop grand pour être porté seul — {de_taille[0]}",
+                          raisons=["prestation dans mon savoir-faire",
+                                   "entrée possible par sous-traitance ou partenariat"])
 
-    # ── 5. Reste le cas normal ──
-    motif = "postulable" if role is Role.PRESTATAIRE else "postulable — rôle à confirmer"
-    return Classement(Type.DIRECT, motif, action="déposer une offre")
+    # ── 5. Métier reconnu ou non ──
+    if not activite_reconnue:
+        # L'absence de vocabulaire ne rejette RIEN : on passe par le test 🟣.
+        if construction is not None and construction.eligible:
+            return Classement(Type.A_CONSTRUIRE, Moteur.CAPTER, action_defaut,
+                              construction.motif, raisons=construction.leviers)
+        raisons = (construction.manques if construction else
+                   ["prestation non reconnue et aucune formation mentionnée"])
+        return Classement(Type.PROSPECT, Moteur.CAPTER, Action.SURVEILLER,
+                          "métier hors périmètre actuel — à qualifier manuellement",
+                          raisons=raisons)
+
+    # ── 6. Reste le cas normal : direct ou renforcement ──
+    if bilan_capacite.mobilisations:
+        return Classement(Type.RENFORCEMENT, Moteur.CAPTER, action_defaut,
+                          "titulaire possible après mobilisation de moyens",
+                          raisons=list(bilan_capacite.mobilisations))
+    return Classement(Type.DIRECT, Moteur.CAPTER, action_defaut,
+                      "exécutable avec la structure actuelle",
+                      raisons=list(bilan_capacite.atouts))

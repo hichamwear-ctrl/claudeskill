@@ -39,7 +39,8 @@ class Reponse:
 @dataclass
 class Bilan:
     atouts: list[str] = field(default_factory=list)
-    mobilisations: list[str] = field(default_factory=list)
+    mobilisations: list[str] = field(default_factory=list)   # CE QUI MANQUE
+    remedes: list[str] = field(default_factory=list)         # COMMENT LE COMBLER
     a_verifier: list[str] = field(default_factory=list)
     bloquants: list[str] = field(default_factory=list)
     investissement_requis: bool = False
@@ -48,7 +49,10 @@ class Bilan:
         if r.niveau is Niveau.ACTUELLE:
             self.atouts.append(r.message)
         elif r.niveau is Niveau.MOBILISABLE:
+            # Un moyen mobilisable est d'abord un MANQUE, puis un remède chiffré.
             self.mobilisations.append(r.message)
+            if r.cout:
+                self.remedes.append(r.cout)
             self.investissement_requis = True
         elif r.niveau is Niveau.A_VERIFIER:
             self.a_verifier.append(r.message)
@@ -67,6 +71,64 @@ class Capacites:
         self.libelles = libelles or {}
         self.mobilisation_ne_couvre_pas = set(
             self.mobilisable.get("ne_couvre_pas", []))
+
+    # ------------------------------------------------------------ chauffeurs --
+    def chauffeurs(self, besoin: int) -> Reponse:
+        """Un besoin supérieur à l'effectif n'est jamais bloquant : le
+        recrutement est possible. Il devient une mobilisation, chiffrée."""
+        actuel = self.actuelle.get("chauffeurs")
+        if actuel in INCONNU:
+            return Reponse(Niveau.A_VERIFIER, f"{besoin} chauffeurs exigés — effectif non renseigné")
+        if besoin <= actuel:
+            return Reponse(Niveau.ACTUELLE, f"{besoin} chauffeurs exigés — {actuel} en poste")
+        manque = besoin - actuel
+        if not self.mobilisable.get("recrutement_possible"):
+            return Reponse(Niveau.NON_DISPONIBLE,
+                           f"{besoin} chauffeurs exigés — {actuel} en poste, recrutement exclu")
+        return Reponse(Niveau.MOBILISABLE,
+                       f"{besoin} chauffeurs exigés — {actuel} en poste, {manque} à recruter",
+                       cout=f"recrutement de {manque} chauffeur(s)")
+
+    # ------------------------------------------------------ parc par type --
+    def vehicules_par_type(self, type_demande: str, besoin: int) -> Reponse:
+        """Le parc n'est pas un total : 4 utilitaires de 3,5 t et 2 de 20 m³ ne
+        répondent pas aux mêmes exigences."""
+        parc = {str(v.get("type")): v for v in self.actuelle.get("parc", [])}
+        ligne = parc.get(str(type_demande))
+        if ligne is None:
+            dispo = ", ".join(parc) or "aucun"
+            return Reponse(Niveau.A_VERIFIER,
+                           f"{besoin} véhicule(s) « {type_demande} » exigé(s) — "
+                           f"parc connu : {dispo} ; correspondance à vérifier")
+        possede = ligne["nombre"]
+        if possede >= besoin:
+            return Reponse(Niveau.ACTUELLE,
+                           f"{besoin} véhicule(s) « {type_demande} » exigé(s) — "
+                           f"{possede} au parc")
+        # Le type manque, pas le total : la location doit porter sur CE type.
+        manque = besoin - possede
+        maxi = self.mobilisable.get("vehicules_total_max",
+                                    self.actuelle.get("vehicules_total", 0))
+        if besoin <= maxi:
+            return Reponse(
+                Niveau.MOBILISABLE,
+                f"{besoin} véhicule(s) « {type_demande} » exigé(s) — {possede} au parc, "
+                f"{manque} à louer de ce type",
+                cout=f"location de {manque} véhicule(s) « {type_demande} », "
+                     f"{self.mobilisable.get('delai_mobilisation_jours', '?')} j")
+        return Reponse(Niveau.NON_DISPONIBLE,
+                       f"{besoin} véhicules exigés — au-delà du maximum mobilisable ({maxi})")
+
+    # -------------------------------------------------------- tonnage --
+    def tonnage(self, seuil_t: float) -> Reponse:
+        """Le tonnage des 20 m³ n'est pas confirmé : quand une exigence
+        réglementaire en dépend, on le SIGNALE au lieu de trancher."""
+        inconnu = self.actuelle.get("tonnage_20m3") in INCONNU
+        if inconnu:
+            return Reponse(Niveau.A_VERIFIER,
+                           f"exigence liée au seuil de {seuil_t} t — le tonnage des "
+                           "véhicules 20 m³ n'est pas confirmé au profil")
+        return Reponse(Niveau.ACTUELLE, f"seuil de {seuil_t} t couvert par le parc")
 
     # ------------------------------------------------------------ véhicules --
     def vehicules(self, besoin: int) -> Reponse:

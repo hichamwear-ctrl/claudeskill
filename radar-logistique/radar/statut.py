@@ -1,9 +1,13 @@
-"""🟢 POSTULABLE · 🟠 A_VERIFIER · 🔴 NON_POSTULABLE
+"""États de date. CHANGEMENT : quatre états au lieu de trois.
 
-Règle absolue sur les dates : ne JAMAIS en inventer une. Absente, illisible ou
-contradictoire → A_VERIFIER, jamais POSTULABLE et jamais NON_POSTULABLE.
-Ne pas pouvoir confirmer qu'un marché est ouvert n'est pas la preuve qu'il est
-fermé.
+  🟢 OUVERT        échéance à venir
+  🟠 BIENTOT_FERME échéance proche — moins de 7 jours
+  🔴 DEPASSE       échéance passée : plus aucun dépôt possible
+  🔵 ATTRIBUE      marché conclu : moteur DÉVELOPPER
+  ⚪ INCONNUE      rien de publié — conservé et signalé, JAMAIS écarté
+
+Règle absolue : aucune date n'est jamais inventée. Absente, illisible ou
+contradictoire → INCONNUE.
 """
 
 from __future__ import annotations
@@ -14,21 +18,25 @@ from enum import Enum
 from zoneinfo import ZoneInfo
 
 BRUXELLES = ZoneInfo("Europe/Brussels")
+JOURS_BIENTOT_FERME = 7
 
 
 class Statut(Enum):
-    POSTULABLE = "POSTULABLE"
-    A_VERIFIER = "A_VERIFIER"
-    NON_POSTULABLE = "NON_POSTULABLE"
+    OUVERT = "OUVERT"
+    BIENTOT_FERME = "BIENTOT_FERME"
+    DEPASSE = "DEPASSE"
+    ATTRIBUE = "ATTRIBUE"
+    INCONNUE = "INCONNUE"
 
     @property
     def emoji(self) -> str:
-        return {"POSTULABLE": "🟢", "A_VERIFIER": "🟠", "NON_POSTULABLE": "🔴"}[self.value]
+        return {"OUVERT": "🟢", "BIENTOT_FERME": "🟠", "DEPASSE": "🔴",
+                "ATTRIBUE": "🔵", "INCONNUE": "⚪"}[self.value]
 
     @property
-    def notifiable(self) -> bool:
-        """Les 🔴 ne partent jamais comme opportunités."""
-        return self is not Statut.NON_POSTULABLE
+    def depot_possible(self) -> bool:
+        """Une date inconnue n'interdit pas de déposer : elle interdit d'affirmer."""
+        return self in (Statut.OUVERT, Statut.BIENTOT_FERME, Statut.INCONNUE)
 
 
 TYPES_ATTRIBUTION = {"attribution", "resultat", "avis-attribution", "award",
@@ -49,7 +57,7 @@ class Verdict:
 
 def parse_date(valeur, defaut_tz=BRUXELLES) -> tuple[datetime | None, str | None]:
     """Renvoie (date, raison_d_echec). Aucune date de repli n'est jamais forgée."""
-    if valeur in (None, "", "None", "A_VERIFIER"):
+    if valeur in (None, "", "None", "A_VERIFIER", "INCONNU"):
         return None, "aucune date publiée"
     if isinstance(valeur, datetime):
         return (valeur if valeur.tzinfo else valeur.replace(tzinfo=defaut_tz)), None
@@ -69,43 +77,35 @@ def parse_date(valeur, defaut_tz=BRUXELLES) -> tuple[datetime | None, str | None
 
 
 def evaluer(opp, *, maintenant=None) -> Verdict:
-    """N'évalue plus que des FAITS DE DATE et de type d'avis.
-
-    La compatibilité métier, la zone et les capacités sont jugées ailleurs, et
-    c'est classification.py qui recompose le tout : un même fait ne doit être
-    interprété qu'à un seul endroit.
-    """
+    """N'évalue que des FAITS DE DATE et de type d'avis. Le métier, la zone et
+    les capacités sont jugés ailleurs : un fait ne s'interprète qu'à un endroit."""
     maintenant = maintenant or datetime.now(timezone.utc)
     cle = (opp.type_avis or "").strip().lower().replace("_", "-")
 
     if opp.attribue or cle in TYPES_ATTRIBUTION:
-        return Verdict(Statut.NON_POSTULABLE, "marché déjà attribué",
+        return Verdict(Statut.ATTRIBUE, "marché déjà attribué",
                        bloquants=["marché déjà attribué"])
-    if cle in TYPES_INFORMATIFS:
-        return Verdict(Statut.NON_POSTULABLE, "avis informatif — aucun dépôt attendu",
-                       bloquants=["avis purement informatif"])
 
     dt, echec = parse_date(opp.echeance_brute)
     if dt is None:
-        # Ne JAMAIS écarter sur une date illisible : rater un marché ouvert coûte
-        # un contrat, recevoir un marché clos coûte trente secondes.
-        return Verdict(Statut.A_VERIFIER, "échéance non confirmée",
-                       a_verifier=[f"date limite : {echec} — à confirmer sur la plateforme"])
+        return Verdict(Statut.INCONNUE, "échéance NON PUBLIÉE",
+                       a_verifier=[f"date limite : {echec} — à confirmer à la source"])
 
     reste = dt - maintenant
     if reste.total_seconds() <= 0:
-        return Verdict(Statut.NON_POSTULABLE, f"clôturé le {dt:%d/%m/%Y à %H:%M}",
+        return Verdict(Statut.DEPASSE, f"clôturé le {dt:%d/%m/%Y à %H:%M}",
                        echeance=dt, jours_restants=reste.days,
                        bloquants=["date limite dépassée"])
 
     pub, _ = parse_date(opp.publie_le)
     if pub and pub > dt:
-        return Verdict(Statut.A_VERIFIER, "dates contradictoires", echeance=dt,
+        return Verdict(Statut.INCONNUE, "dates contradictoires", echeance=dt,
                        jours_restants=reste.days,
                        a_verifier=["publication postérieure à la clôture — dates à confirmer"])
 
-    a_verifier = []
-    if reste.days < 7:
-        a_verifier.append(f"délai court : {reste.days} j pour monter le dossier")
-    return Verdict(Statut.POSTULABLE, f"ouvert jusqu'au {dt:%d/%m/%Y à %H:%M}",
-                   echeance=dt, jours_restants=reste.days, a_verifier=a_verifier)
+    if reste.days < JOURS_BIENTOT_FERME:
+        return Verdict(Statut.BIENTOT_FERME, f"ferme le {dt:%d/%m/%Y à %H:%M}",
+                       echeance=dt, jours_restants=reste.days,
+                       a_verifier=[f"délai court : {reste.days} j pour monter le dossier"])
+    return Verdict(Statut.OUVERT, f"ouvert jusqu'au {dt:%d/%m/%Y à %H:%M}",
+                   echeance=dt, jours_restants=reste.days)

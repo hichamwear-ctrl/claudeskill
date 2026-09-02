@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .classification import Type
+from .classification import Action, Type
 from .role import Role
 
 A_VERIFIER = "A_VERIFIER"
@@ -54,11 +54,20 @@ def interroger(*, opp, role, correspondance, zone, bilan, classement, verdict,
     r["10. y a-t-il une exigence bloquante ?"] = (
         "; ".join(bilan.bloquants) if bilan.bloquants else "aucune détectée")
     r["11. la deadline est-elle ouverte ?"] = verdict.motif or A_VERIFIER
-    r["12. puis-je être titulaire ?"] = (
-        "oui" if classement.type is Type.DIRECT else "non")
-    r["13. sinon, sous-traitant ?"] = (
-        "oui" if classement.sous_traitance_possible else
-        ("sans objet" if classement.type is Type.DIRECT else A_VERIFIER))
+    r["12. puis-je être titulaire ?"] = {
+        Type.DIRECT: "oui, avec la structure actuelle",
+        Type.RENFORCEMENT: "oui, après location ou recrutement",
+        Type.A_CONSTRUIRE: "oui, après montée en compétence",
+        Type.PROSPECT: "non",
+        Type.REJET: "non",
+    }[classement.type]
+    r["13. sinon, sous-traitant ou partenaire ?"] = (
+        "oui — " + classement.action.value
+        if classement.action in (Action.PROPOSER_SOUS_TRAITANCE,
+                                 Action.PROPOSER_PARTENARIAT,
+                                 Action.CONTACTER_TITULAIRE)
+        else ("sans objet" if classement.type in (Type.DIRECT, Type.RENFORCEMENT,
+                                                  Type.A_CONSTRUIRE) else A_VERIFIER))
     r["14. sinon, prospect commercial ?"] = (
         "oui" if classement.type is Type.PROSPECT else "sans objet")
     r["15. quel potentiel économique ?"] = (

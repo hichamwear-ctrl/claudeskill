@@ -19,11 +19,17 @@ entreprise:
 # Rien n'est jamais présumé mobilisable « parce que techniquement possible ».
 
 capacite_actuelle:
-  vehicules:
-    - {type: "3.5t",  nombre: 4}
-    - {type: "20m3",  nombre: 2}
+  # Le parc n'est PAS une capacité unique : une exigence se confronte au type
+  # de véhicule demandé, pas seulement à un total.
+  parc:
+    - {type: "3.5t", nombre: 4, ptac_t: 3.5,        volume_m3: 12}
+    - {type: "20m3", nombre: 2, ptac_t: A_VERIFIER, volume_m3: 20}
   vehicules_total: 6
-  chauffeurs: A_VERIFIER
+  # Le tonnage des 20 m³ n'est pas confirmé : chaque fois qu'une exigence
+  # réglementaire en dépend (licence au-delà de 3,5 t), le moteur le signale
+  # au lieu de trancher.
+  tonnage_20m3: A_VERIFIER
+  chauffeurs: 10
   depot:
     pays: BE
     ville: Bruxelles
@@ -39,7 +45,10 @@ capacite_mobilisable:
   # Rapidement accessible par location, partenaire ou sous-traitance.
   vehicules_supplementaires: 10          # → 16 véhicules au total
   vehicules_total_max: 16
+  # Le recrutement est possible : un besoin de chauffeurs supérieur à l'effectif
+  # actuel est une mobilisation, jamais un blocage.
   chauffeurs_supplementaires: A_VERIFIER
+  recrutement_possible: true
   delai_mobilisation_jours: 30
   moyens: [location de véhicules, renfort de chauffeurs, partenaire, sous-traitance]
   # Ce qui NE se mobilise pas en louant : une qualification se passe, pas se loue.

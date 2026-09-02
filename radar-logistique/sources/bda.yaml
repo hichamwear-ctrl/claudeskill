@@ -17,6 +17,7 @@ champs:
   identifiant:      [publication-number, notice-id]
   intitule:         [title.fra, title.nld, title.eng, title]
   type_avis:        [notice-type, form-type]
+  secteur:          [secteur, buyer.type]
   acheteur:         [buyer.name.fra, buyer.name.nld, buyer.name, contracting-party.name]
   contact_email:    [buyer.contact.email, contact-email]
   objet:            [description.fra, description.nld, description.eng, short-description]
@@ -50,6 +51,14 @@ champs:
   references_min:   [requirements.min-references]
   cadence:          [frequency, recurrence]
   lots:             [lots, lot, division-into-lots]
+  date_demarrage:   [start-date, date-demarrage]
+  km_annuels:       [annual-km, km_annuels]
+  distance_depot_km: [distance_depot_km]
+  travail_nuit:     [night-work, travail_nuit]
+  travail_weekend:  [weekend-work, travail_weekend]
+  vehicules_requis: [vehicles-required, vehicules_requis]
+  chauffeurs_requis: [drivers-required, chauffeurs_requis]
+  exige_chauffeurs_min: [requirements.min-drivers]
 
 cpv_cibles:
   - "60000000"

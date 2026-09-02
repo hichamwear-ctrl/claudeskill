@@ -60,3 +60,37 @@ def lots_de(opp) -> list[Lot]:
             pays_collecte=lot.pays_collecte or list(opp.pays_collecte),
             pays_livraison=lot.pays_livraison or list(opp.pays_livraison)))
     return sortie
+
+
+def eclater(opp) -> list:
+    """CHANGEMENT : un marché à plusieurs lots produit une opportunité PAR LOT.
+
+    Chaque lot obtient sa propre référence, son propre montant, sa propre
+    échéance et sera analysé, classé et noté seul. Le lien vers le marché parent
+    est conservé — c'est lui qui évite de compter deux fois le même besoin.
+    """
+    import copy
+
+    if not opp.lots:
+        return [opp]
+
+    sortie = []
+    for lot in lots_de(opp):
+        enfant = copy.copy(opp)
+        enfant.lots = []                       # un lot ne se re-découpe pas
+        enfant.marche_ref = opp.ref_source
+        enfant.lot_numero = lot.numero
+        enfant.ref_source = f"{opp.ref_source}#L{lot.numero}"
+        enfant.intitule = lot.libelle
+        enfant.texte = lot.texte
+        enfant.cpv = lot.cpv
+        enfant.exigences = lot.exigences
+        enfant.pays_collecte = lot.pays_collecte
+        enfant.pays_livraison = lot.pays_livraison
+        # Un lot sans montant propre n'HÉRITE PAS de celui du marché : ce serait
+        # inventer une valeur. Il reste NON PUBLIÉ.
+        enfant.montant = lot.montant
+        enfant.duree_mois = lot.duree_mois
+        enfant.provenances = list(opp.provenances)
+        sortie.append(enfant)
+    return sortie
