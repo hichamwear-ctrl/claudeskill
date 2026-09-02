@@ -707,15 +707,40 @@ class _FauxSite(_TS):
         return {"listings": lot[off:off + lim], "totalResultCount": len(lot)}
 
 
+# Connexions remises par `_base_neuve`, pour pouvoir les refermer.
+# Sous Linux on peut supprimer un fichier encore ouvert ; sous Windows non,
+# et la suite s'arretait sur PermissionError [WinError 32] des la section
+# [16e] — c'est-a-dire avant les trois quarts des tests, y compris tous
+# ceux des defaillances.
+_BASES_OUVERTES = {}
+
+
 def _base_neuve(chemin=None):
     chemin = chemin or _tmp("carsniper_radar.db")
-    if _os2.path.exists(chemin):
-        _os2.remove(chemin)
-    for suf in ("-wal", "-shm"):
-        if _os2.path.exists(chemin + suf):
-            _os2.remove(chemin + suf)
+
+    ancienne = _BASES_OUVERTES.pop(chemin, None)
+    if ancienne is not None:
+        try:
+            ancienne.close()
+        except Exception:
+            pass
+
+    for cible in (chemin, chemin + "-wal", chemin + "-shm"):
+        if not _os2.path.exists(cible):
+            continue
+        try:
+            _os2.remove(cible)
+        except PermissionError:
+            # Un autre handle tient encore le fichier : plutot que d'echouer,
+            # on travaille sur un nom neuf. Le test reste valide, seul le
+            # fichier temporaire change.
+            base, ext = _os2.path.splitext(chemin)
+            chemin = f"{base}-{_os2.getpid()}-{len(_BASES_OUVERTES)}{ext}"
+            break
+
     c = _db2.init(chemin)
     _db2.load_defects(c, lexicon)
+    _BASES_OUVERTES[chemin] = c
     return c
 
 
@@ -2535,6 +2560,26 @@ if _os3.path.exists(_absente):
     _os3.remove(_absente)
 check("une base inexistante ne déclenche pas de copie inutile",
       _sauvegarder(_absente) is None)
+
+# Une base VIDE traversait les quatre passes en affichant « 0 » partout,
+# sans jamais dire que rien n'avait été fait — le cas exact d'un chemin
+# erroné. Le retraitement doit REFUSER, pas faire semblant.
+_bvide = _tmp("depl_vide.db")
+for _sfx in ("", "-wal", "-shm"):
+    if _os3.path.exists(_bvide + _sfx):
+        _os3.remove(_bvide + _sfx)
+_dbm.init(_bvide).close()
+_rv = _sp.run([sys.executable,
+               str(Path(__file__).resolve().parent.parent / "reprocess.py"),
+               _bvide], capture_output=True, text=True)
+check("une base vide fait ÉCHOUER le retraitement au lieu d'afficher des zéros",
+      _rv.returncode != 0)
+check("et le message dit explicitement qu'il n'y a rien à retraiter",
+      "AUCUNE annonce" in _rv.stdout)
+for _f in _os3.listdir(_os3.path.dirname(_bvide)):
+    if _f.startswith("depl_vide.AVANT-REPROCESS-"):
+        _os3.remove(_os3.path.join(_os3.path.dirname(_bvide), _f))
+_os3.remove(_bvide)
 
 
 print(f"\n{'═'*54}\n  {ok} tests réussis, {fail} échecs\n{'═'*54}")

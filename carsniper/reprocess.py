@@ -58,6 +58,23 @@ if _sauve:
     print(f"   retour arriere : cp '{_sauve}' '{BASE}'\n")
 
 con = db.init(BASE)
+
+# Une base VIDE traversait les quatre passes en affichant "0" partout, sans
+# jamais dire que rien n'avait ete fait. C'est exactement ce qui arrive
+# quand on se trompe de chemin (un argument colle par erreur, un dossier
+# `data` pas encore rempli) : le retraitement semble avoir reussi, et le
+# radar tourne ensuite sur une base non normalisee.
+_n = con.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
+if _n == 0:
+    print(f"Base : {BASE}\n")
+    print("ARRET : cette base ne contient AUCUNE annonce.")
+    print("        Il n'y a rien a retraiter. Verifie le chemin :")
+    print(f"        -> {Path(BASE).resolve()}")
+    print("\n  Si tu voulais retraiter la base du bot, lance simplement :")
+    print("        python reprocess.py")
+    print("  (sans argument). Un argument colle par erreur cree une base vide.")
+    sys.exit(1)
+
 _, LEX = engine.load_config()
 db.load_defects(con, LEX)
 src = TweedehandsSource()
