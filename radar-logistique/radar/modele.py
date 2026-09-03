@@ -90,6 +90,10 @@ class Opportunite:
     marche_ref: str | None = None
     lot_numero: str | None = None
 
+    # Doublon POSSIBLE : relié, jamais fusionné.
+    doublon_possible: str | None = None
+    doublon_motif: str | None = None
+
     # Provenances : un même besoin peut venir de Google ET du BDA.
     provenances: list = field(default_factory=list)   # [{source, url, consulte_le, requete}]
 

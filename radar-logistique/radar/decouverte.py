@@ -111,82 +111,22 @@ class Generateur:
         return sorties
 
 
-# ─────────────────────────────────────────────────────────── connecteur Google
+# ────────────────────────────────────── moteurs de recherche : voir le module
+# radar/moteurs_recherche.py. La découverte ne connaît AUCUN moteur en
+# particulier : elle reçoit un objet qui sait « rechercher », et c'est tout.
 
-class ConnecteurIndisponible(Exception):
-    """Levée quand aucune recherche ne PEUT avoir lieu. Jamais silencieuse,
-    jamais remplacée par des résultats fabriqués."""
+from .moteurs_recherche import (  # noqa: E402
+    Brave, Google, RechercheIndisponible, Registre as RegistreMoteurs, Resultat,
+    depuis_environnement,
+)
 
-
-@dataclass
-class Resultat:
-    titre: str
-    url: str
-    extrait: str
-    requete: str
-    source: str = "google"
-    consulte_le: str | None = None
+# Noms conservés pour ne rien casser en amont.
+ConnecteurIndisponible = RechercheIndisponible
+ConnecteurGoogle = Google
 
 
-@dataclass
-class ConnecteurGoogle:
-    """Google Programmable Search Engine — API officielle uniquement.
-
-    Sans clé : NON DISPONIBLE — CLÉ ABSENTE. Le connecteur ne simule aucune
-    recherche et ne renvoie jamais de résultat inventé.
-    """
-    cle_api: str | None = None
-    moteur_id: str | None = None
-    resultats_par_requete: int = 10
-    journal: list = field(default_factory=list)
-
-    @property
-    def disponible(self) -> bool:
-        return bool(self.cle_api and self.moteur_id)
-
-    @property
-    def motif_indisponibilite(self) -> str | None:
-        if self.disponible:
-            return None
-        manque = []
-        if not self.cle_api:
-            manque.append("clé API")
-        if not self.moteur_id:
-            manque.append("identifiant de moteur")
-        return "CLÉ ABSENTE — " + " et ".join(manque) + " non fournis"
-
-    def rechercher(self, requete: Requete) -> list[Resultat]:
-        if not self.disponible:
-            raise ConnecteurIndisponible(self.motif_indisponibilite)
-
-        params = urllib.parse.urlencode({
-            "key": self.cle_api, "cx": self.moteur_id, "q": requete.texte,
-            "num": min(self.resultats_par_requete, 10)})
-        try:
-            with urllib.request.urlopen(f"{POINT_ACCES}?{params}", timeout=30) as r:
-                charge = json.loads(r.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            raise ConnecteurIndisponible(
-                f"HTTP {e.code} — {e.read().decode('utf-8', 'replace')[:200]}") from e
-        except urllib.error.URLError as e:
-            raise ConnecteurIndisponible(f"réseau injoignable : {e.reason}") from e
-
-        from datetime import datetime, timezone
-        quand = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        sorties = [Resultat(titre=i.get("title", ""), url=i.get("link", ""),
-                            extrait=i.get("snippet", ""), requete=requete.texte,
-                            consulte_le=quand)
-                   for i in charge.get("items", [])]
-        requete.lancee += 1
-        requete.resultats += len(sorties)
-        self.journal.append((requete.texte, len(sorties), quand))
-        return sorties
-
-
-def charger_connecteur(env: dict | None = None) -> ConnecteurGoogle:
-    """Lit la clé dans l'environnement. Absente : le connecteur existe quand
-    même, et dit pourquoi il ne peut rien faire."""
-    import os
-    env = env if env is not None else os.environ
-    return ConnecteurGoogle(cle_api=env.get("GOOGLE_API_KEY") or None,
-                            moteur_id=env.get("GOOGLE_CSE_ID") or None)
+def charger_connecteur(env: dict | None = None):
+    """Le premier moteur disponible, ou Google (indisponible) pour qu'on
+    puisse toujours lire son motif d'indisponibilité."""
+    registre = depuis_environnement(env)
+    return registre.disponible() or registre.moteurs[0]

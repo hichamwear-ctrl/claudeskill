@@ -18,6 +18,8 @@ import json
 from dataclasses import dataclass, field
 
 from . import construction, deduplication, envoi, memoire, questions, statut as st
+from .comptes import Livre
+from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
 from .entreprises import Registre as RegistreEntreprises
 from .activite import Ontologie
 from .base import enregistrer_reponse, maintenant
@@ -46,6 +48,8 @@ class Resultat:
 
 @dataclass
 class BilanCycle:
+    mode: object = None
+    livre: Livre = field(default_factory=Livre)
     lus: int = 0
     lots_eclates: int = 0
     doublons: int = 0
@@ -208,24 +212,51 @@ class Moteur:
             reference=opp.ref_source)
 
 
-def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None) -> BilanCycle:
-    bilan = BilanCycle()
+def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
+            mode: Mode = Mode.DEMO) -> BilanCycle:
+    """Traite un lot. En mode RÉEL, refuse toute ligne sans preuve de collecte.
+
+    Le livre de comptes suit chaque ligne : si les totaux ne se réconcilient
+    pas en fin de cycle, l'exécution échoue au lieu de continuer.
+    """
+    bilan = BilanCycle(mode=mode)
+    livre = bilan.livre
     index = deduplication.Index()
 
     for brut in opportunites:
         bilan.lus += 1
+        livre.brutes += 1
+
+        # Contrôle d'entrée : une fixture ne peut pas entrer en mode RÉEL.
+        try:
+            verifier_collecte(brut.brut or {}, mode)
+        except CollecteInvalide as e:
+            livre.illisible(str(e).split(" (")[0])
+            continue
+
         enfants = eclater(brut)
+        livre.normalisees += 1
+        livre.lots_ajoutes += max(len(enfants) - 1, 0)
         if len(enfants) > 1:
             bilan.lots_eclates += len(enfants)
 
         for opp in enfants:
             # Trois empreintes : identique, même page, ou même besoin formulé
             # autrement. C'est ce qui fusionne un avis BDA et une page Google.
-            deja = index.chercher(opp)
-            if deja is not None:
-                deduplication.fusionner(deja, opp)
+            rapp = index.rapprocher(opp)
+            if rapp is not None and rapp.confiance.fusionne:
+                deduplication.fusionner(rapp.opportunite, opp)
                 bilan.doublons += 1
+                if rapp.confiance is deduplication.Confiance.CERTAIN:
+                    livre.doublons_certains += 1
+                else:
+                    livre.doublons_probables += 1
                 continue
+            if rapp is not None:
+                # POSSIBLE : on ne fusionne PAS. Les deux fiches vivent, reliées.
+                livre.doublons_possibles += 1
+                opp.doublon_possible = rapp.opportunite.ref_source
+                opp.doublon_motif = rapp.motif
             index.ajouter(opp)
             emp = deduplication.empreinte(opp)
             if cx.execute("SELECT 1 FROM avis WHERE empreinte=? AND ref_source<>?",
@@ -276,8 +307,10 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None) -> BilanCycle:
             t = r.classement.type
             if t is Type.REJET:
                 bilan.rejet += 1
-                bilan.rejeter(r.classement.raisons_rejet[0] if r.classement.raisons_rejet
-                              else r.classement.motif)
+                motif = (r.classement.raisons_rejet[0] if r.classement.raisons_rejet
+                         else r.classement.motif)
+                bilan.rejeter(motif)
+                livre.rejeter(motif)
                 continue
 
             for typ, attr in ((Type.DIRECT, "direct"), (Type.RENFORCEMENT, "renforcement"),
@@ -286,11 +319,15 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None) -> BilanCycle:
                     setattr(bilan, attr, getattr(bilan, attr) + 1)
             if r.classement.moteur is MoteurSortie.CAPTER:
                 bilan.capter += 1
+                livre.capter += 1
             else:
                 bilan.developper += 1
+                livre.developper += 1
 
             if envoi.mettre_en_file(cx, opp.source, opp.ref_source, r.fiche.en_texte()):
                 bilan.notifies += 1
 
     cx.commit()
+    # Aucune disparition sans motif : si ça ne tombe pas juste, on échoue.
+    livre.verifier()
     return bilan

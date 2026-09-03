@@ -20,12 +20,16 @@ from radar.base import ouvrir
 from radar.capacite import Capacites, Niveau
 from radar.chaine import Moteur, traiter
 from radar.classification import Action, Moteur as MoteurSortie, Type
-from radar.decouverte import ConnecteurGoogle, ConnecteurIndisponible, Generateur
+from radar.decouverte import Generateur
+from radar.moteurs_recherche import (
+    Brave, Google, RechercheIndisponible, depuis_environnement)
 from radar.geographie import Geographie, Zone
 from radar.lots import eclater
 from radar.modele import LotBrut, Opportunite
 from radar.boucle import Boucle
-from radar.deduplication import Index, fusionner, libelle_provenances
+from radar.comptes import Livre, ReconciliationImpossible
+from radar.deduplication import Confiance, Index, fusionner, libelle_provenances
+from radar.mode import CollecteInvalide, Mode, estampiller, verifier as verifier_collecte
 from radar.entreprises import Etat as EtatEnt, Registre as RegistreEnt, nom_probable
 from radar.memoire import memoriser
 from radar.registre import Etat, Registre
@@ -361,12 +365,29 @@ class DecouverteGoogle(unittest.TestCase):
         reqs = self.g.pour_entreprise("Transports Dupont", "dupont.be")
         self.assertTrue(any("site:dupont.be" in q.texte for q in reqs))
 
-    def test_sans_cle_le_connecteur_est_indisponible_et_ne_simule_rien(self):
-        c = ConnecteurGoogle()
-        self.assertFalse(c.disponible)
-        self.assertIn("CLÉ ABSENTE", c.motif_indisponibilite)
-        with self.assertRaises(ConnecteurIndisponible):
-            c.rechercher(self.g.generer(1)[0])
+    def test_sans_cle_aucun_moteur_ne_simule_une_recherche(self):
+        for moteur in (Google(), Brave()):
+            with self.subTest(moteur=moteur.nom):
+                self.assertFalse(moteur.disponible)
+                self.assertIn("CLÉ ABSENTE", moteur.motif_indisponibilite)
+                with self.assertRaises(RechercheIndisponible):
+                    moteur.rechercher(self.g.generer(1)[0])
+
+    def test_le_metier_ne_depend_d_aucun_moteur_particulier(self):
+        """Brave remplace Google sans qu'une ligne du moteur métier change."""
+        registre = depuis_environnement({"BRAVE_API_KEY": "x"})
+        self.assertEqual(registre.disponible().nom, "brave")
+
+    def test_aucun_moteur_disponible_est_dit_explicitement(self):
+        registre = depuis_environnement({})
+        self.assertIsNone(registre.disponible())
+        self.assertIn("Aucun moteur disponible", registre.rapport())
+
+    def test_le_radar_fonctionne_sans_aucun_moteur_de_recherche(self):
+        """Aucune source n'est indispensable : sans Google, le reste tourne."""
+        cx = ouvrir(":memory:")
+        b = traiter(cx, moteur(), [opp()], maintenant_dt=MAINTENANT)
+        self.assertEqual(b.capter, 1)
 
 
 # ══════════════ §21 et §22 — le registre ne ment jamais
@@ -523,7 +544,8 @@ class FusionMultiSources(unittest.TestCase):
         base.update(kw)
         return Opportunite(**base)
 
-    def test_le_meme_besoin_formule_autrement_est_fusionne(self):
+    def test_le_meme_besoin_sans_date_commune_reste_un_doublon_possible(self):
+        """Similarité sémantique SEULE : on relie, on ne fusionne pas."""
         idx = Index()
         a = self._o(source="bda", ref_source="B1", acheteur="Commune de Namur",
                     intitule="Transport et distribution de colis",
@@ -532,7 +554,22 @@ class FusionMultiSources(unittest.TestCase):
         b = self._o(source="google", ref_source="G1", acheteur="Commune de Namur",
                     intitule="Distribution, transport de colis — commune",
                     provenances=[{"source": "google", "url": "https://y.be/2"}])
-        self.assertIsNotNone(idx.chercher(b))
+        r = idx.rapprocher(b)
+        self.assertIs(r.confiance, Confiance.POSSIBLE)
+        self.assertFalse(r.confiance.fusionne)
+        self.assertIsNone(idx.chercher(b), "aucune fusion sur la similarité seule")
+
+    def test_le_meme_besoin_avec_meme_echeance_est_un_doublon_probable(self):
+        idx = Index()
+        idx.ajouter(self._o(source="bda", ref_source="B1", acheteur="Commune de Namur",
+                            intitule="Transport et distribution de colis",
+                            echeance_brute="2026-11-25"))
+        r = idx.rapprocher(self._o(source="google", ref_source="G1",
+                                   acheteur="Commune de Namur",
+                                   intitule="Transport, distribution de colis",
+                                   echeance_brute="2026-11-25"))
+        self.assertIs(r.confiance, Confiance.PROBABLE)
+        self.assertTrue(r.confiance.fusionne)
 
     def test_un_autre_acheteur_n_est_jamais_fusionne(self):
         idx = Index()
@@ -657,3 +694,77 @@ class ReferenceManquante(unittest.TestCase):
         b = traiter(cx, moteur(), [marche], maintenant_dt=MAINTENANT)
         self.assertEqual(b.doublons, 0)
         self.assertEqual(cx.execute("SELECT count(*) c FROM envois").fetchone()["c"], 2)
+
+
+# ══════════════ §13 — DEMO et RÉEL impossibles à confondre
+class ModeReel(unittest.TestCase):
+    FIXTURE = {"title": "Marché fictif", "id": "DEMO-1"}
+
+    def test_une_fixture_passe_en_demo(self):
+        self.assertIsNone(verifier_collecte(self.FIXTURE, Mode.DEMO))
+
+    def test_une_fixture_est_refusee_en_reel(self):
+        """C'est le verrou : les dix faux avis BDA n'auraient pas pu entrer."""
+        with self.assertRaises(CollecteInvalide):
+            verifier_collecte(self.FIXTURE, Mode.REEL)
+
+    def test_une_ligne_reellement_collectee_passe_en_reel(self):
+        vrai = estampiller({"id": "2026/S-1"}, source="ted",
+                           reference="https://ted.europa.eu/notice/1")
+        self.assertEqual(verifier_collecte(vrai, Mode.REEL).source, "ted")
+
+    def test_une_ligne_modifiee_apres_collecte_est_refusee(self):
+        vrai = estampiller({"id": "2026/S-1"}, source="ted", reference="https://x/1")
+        with self.assertRaises(CollecteInvalide):
+            verifier_collecte({**vrai, "id": "TRAFIQUÉ"}, Mode.REEL)
+
+    def test_les_deux_modes_n_utilisent_jamais_la_meme_base(self):
+        self.assertNotEqual(Mode.DEMO.base_par_defaut, Mode.REEL.base_par_defaut)
+
+    def test_la_chaine_refuse_les_fixtures_en_mode_reel(self):
+        cx = ouvrir(":memory:")
+        b = traiter(cx, moteur(), [opp()], maintenant_dt=MAINTENANT, mode=Mode.REEL)
+        self.assertEqual(b.capter + b.developper, 0)
+        self.assertTrue(b.livre.illisibles)
+
+
+# ══════════════ §14 — le livre de comptes
+class LivreDeComptes(unittest.TestCase):
+    def _livre(self, **kw):
+        base = dict(brutes=97, normalisees=95, lots_ajoutes=20, doublons_certains=8,
+                    doublons_probables=4, capter=40, developper=15)
+        base.update(kw)
+        l = Livre(**base)
+        l.illisible("date illisible"); l.illisible("date illisible")
+        for _ in range(48):
+            l.rejeter("marché de fourniture")
+        return l
+
+    def test_un_cycle_coherent_se_reconcilie(self):
+        self._livre().verifier()
+
+    def test_une_disparition_sans_motif_fait_echouer_le_cycle(self):
+        """Le bug des sept opportunités perdues serait maintenant impossible."""
+        with self.assertRaises(ReconciliationImpossible) as ctx:
+            self._livre(capter=33).verifier()
+        self.assertIn("7 opportunité", str(ctx.exception))
+
+    def test_des_brutes_non_ventilees_font_echouer_le_cycle(self):
+        with self.assertRaises(ReconciliationImpossible):
+            Livre(brutes=100, normalisees=95, capter=95).verifier()
+
+    def test_un_doublon_possible_ne_se_soustrait_pas_du_total(self):
+        """Il n'est pas fusionné : il ne doit donc pas manquer à l'arrivée."""
+        l = self._livre(doublons_possibles=6)
+        l.verifier()
+        self.assertEqual(l.total_fusionnes, 12)
+
+    def test_le_cycle_reel_se_reconcilie_sur_donnees_estampillees(self):
+        cx = ouvrir(":memory:")
+        charges = [estampiller({"id": f"R{i}"}, source="ted", reference=f"https://x/{i}")
+                   for i in range(3)]
+        lot = [opp(ref_source=f"R{i}", intitule=f"Transport de colis {i}", brut=c)
+               for i, c in enumerate(charges)]
+        b = traiter(cx, moteur(), lot, maintenant_dt=MAINTENANT, mode=Mode.REEL)
+        b.livre.verifier()
+        self.assertEqual(b.capter + b.developper, 3)

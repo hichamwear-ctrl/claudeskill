@@ -23,7 +23,34 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
+from dataclasses import dataclass
+from enum import Enum
 from urllib.parse import urlparse
+
+
+class Confiance(Enum):
+    """Trois niveaux, parce que fusionner à tort fait DISPARAÎTRE un contrat.
+
+    Deux fiches en double coûtent trente secondes de lecture. Une opportunité
+    fusionnée à tort ne revient jamais.
+    """
+    CERTAIN = "CERTAIN"      # identifiant, référence ou URL identiques
+    PROBABLE = "PROBABLE"    # organisation + objet + date très proches
+    POSSIBLE = "POSSIBLE"    # similarité sémantique seule
+    AUCUN = "AUCUN"
+
+    @property
+    def fusionne(self) -> bool:
+        """Un doublon POSSIBLE n'est jamais fusionné : il est seulement relié."""
+        return self in (Confiance.CERTAIN, Confiance.PROBABLE)
+
+
+@dataclass
+class Rapprochement:
+    opportunite: object
+    confiance: Confiance
+    motif: str
+    score: float = 0.0
 
 # Mots qui ne portent pas de sens distinctif dans un intitulé de marché.
 VIDES = {
@@ -110,7 +137,11 @@ def signature_objet(texte: str, garder: int = 6) -> str:
 # Un hachage exige une égalité EXACTE : deux formulations du même besoin qui
 # diffèrent d'un mot ne se rapprochent jamais. Le besoin se compare donc par
 # SIMILARITÉ, à l'intérieur d'une même organisation.
-SIMILARITE_MINIMALE = 0.55
+#
+# Deux seuils, pas un : au-dessus du premier on fusionne en le traçant, entre
+# les deux on relie sans fusionner.
+SIMILARITE_PROBABLE = 0.75
+SIMILARITE_POSSIBLE = 0.50
 
 
 def mots_besoin(opp) -> set:
@@ -128,6 +159,13 @@ def similarite(a: set, b: set) -> float:
     return len(a & b) / len(a | b)
 
 
+def meme_date(x, y) -> bool:
+    """Deux marchés du même acheteur publiés à la même échéance sont
+    probablement le même. Sans date des deux côtés, on ne conclut pas."""
+    a, b = str(x.echeance_brute or ""), str(y.echeance_brute or "")
+    return bool(a) and bool(b) and a[:10] == b[:10]
+
+
 def meme_besoin(x, y) -> tuple[bool, float]:
     """Même organisation ET vocabulaire d'objet largement commun.
 
@@ -142,7 +180,7 @@ def meme_besoin(x, y) -> tuple[bool, float]:
     if not ox or not oy or ox != oy:
         return False, 0.0
     s = similarite(mots_besoin(x), mots_besoin(y))
-    return s >= SIMILARITE_MINIMALE, s
+    return s >= SIMILARITE_POSSIBLE, s
 
 
 # ------------------------------------------------------------------ index --
@@ -168,20 +206,39 @@ class Index:
         self._par_empreinte: dict[str, object] = {}
         self._par_organisation: dict[str, list] = {}
 
-    def chercher(self, opp):
-        # 1. Égalité exacte : même avis, ou même page.
-        for valeur in empreintes(opp).values():
+    def rapprocher(self, opp) -> Rapprochement | None:
+        """Cherche un doublon et dit avec QUELLE confiance."""
+        # 1. CERTAIN — même identifiant officiel, ou même page.
+        for nom, valeur in empreintes(opp).items():
             trouve = self._par_empreinte.get(valeur)
             if trouve is not None:
-                return trouve
-        # 2. Similarité de besoin, à organisation égale. C'est ce qui rapproche
-        #    un avis BDA d'une page trouvée par Google.
+                motif = ("référence officielle identique" if nom == "stricte"
+                         else "URL identique")
+                return Rapprochement(trouve, Confiance.CERTAIN, motif, 1.0)
+
+        # 2. PROBABLE ou POSSIBLE — même organisation, objet proche.
         meilleur, meilleur_score = None, 0.0
         for candidat in self._par_organisation.get(organisation(opp), []):
             ok, score = meme_besoin(candidat, opp)
             if ok and score > meilleur_score:
                 meilleur, meilleur_score = candidat, score
-        return meilleur
+        if meilleur is None:
+            return None
+
+        if meilleur_score >= SIMILARITE_PROBABLE and meme_date(meilleur, opp):
+            return Rapprochement(
+                meilleur, Confiance.PROBABLE,
+                f"même acheteur, objet à {meilleur_score:.0%}, même échéance",
+                meilleur_score)
+        return Rapprochement(
+            meilleur, Confiance.POSSIBLE,
+            f"même acheteur, objet à {meilleur_score:.0%} — NON FUSIONNÉ, à vérifier",
+            meilleur_score)
+
+    def chercher(self, opp):
+        """Compatibilité : ne renvoie que ce qui doit réellement être fusionné."""
+        r = self.rapprocher(opp)
+        return r.opportunite if r and r.confiance.fusionne else None
 
     def ajouter(self, opp):
         for valeur in empreintes(opp).values():

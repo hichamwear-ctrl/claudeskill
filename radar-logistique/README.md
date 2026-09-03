@@ -192,6 +192,75 @@ absolue et consigne le journal en base. Ce qui ne peut pas être répondu vaut
 
 ---
 
+## Trois garde-fous d'intégrité
+
+### DEMO ≠ RÉEL — structurellement
+
+Deux bases distinctes (`radar-demo.sqlite3` / `radar-reel.sqlite3`), un bandeau
+sur chaque sortie, et surtout : **en mode RÉEL, une ligne sans preuve de collecte
+est refusée**. La preuve — source, URL ou identifiant réel, horodatage, empreinte
+du contenu — n'est posée que par les collecteurs, au moment où la donnée arrive
+du réseau. Une fixture n'en porte pas.
+
+```
+$ radar --reel traiter --source ted --entree exemples/marches.json
+  brutes                         9
+    dont illisibles         -9     MODE RÉEL : enregistrement sans preuve de collecte
+  = CAPTER                       0
+```
+
+Ce que ça garantit : la **confusion** est impossible. Ce que ça ne garantit pas :
+quelqu'un qui fabriquerait délibérément un bloc de collecte complet passerait.
+
+### Le livre de comptes
+
+Aucune opportunité ne disparaît en silence. Les totaux doivent se réconcilier,
+sinon le cycle **échoue** :
+
+```
+brutes 9 → normalisées 9 → +2 lots → 11 → -4 rejets (ventilés) → CAPTER 6 + DÉVELOPPER 1
+réconciliation ✔ exacte
+```
+
+Le bug des sept opportunités perdues déclencherait aujourd'hui :
+`ERREUR — 7 opportunité(s) perdue(s) sans motif`.
+
+### Déduplication à trois niveaux
+
+| Niveau | Déclencheur | Effet |
+|---|---|---|
+| **CERTAIN** | référence officielle ou URL identiques | fusion automatique |
+| **PROBABLE** | même acheteur + objet ≥ 75 % + même échéance | fusion tracée |
+| **POSSIBLE** | similarité sémantique seule | **aucune fusion** — relié, `À VÉRIFIER` |
+
+Deux fiches en double coûtent trente secondes. Une opportunité fusionnée à tort
+ne revient jamais.
+
+## Moteurs de recherche interchangeables
+
+Le métier ne connaît aucun moteur en particulier :
+
+```
+SEARCH_PROVIDER → RÉSULTATS WEB → NORMALISATION → ANALYSE
+```
+
+Google et Brave implémentent le même contrat ; un moteur futur s'ajoute sans
+qu'une ligne du moteur commercial change. Sans clé, chacun dit pourquoi il ne
+peut rien faire — et **le radar tourne quand même sur ses autres sources**.
+
+## Rendement par source — NON MESURÉE ≠ 0
+
+```
+SOURCE                 OBSERVÉ   PERTINENTES    CAPTER  DÉVELOPPER
+ted                  NON MESURÉE   (JAMAIS CONSULTÉE)
+bda                  NON MESURÉE   (JAMAIS CONSULTÉE)
+google               NON MESURÉE   (NON DISPONIBLE — CLÉ ABSENTE)
+```
+
+Une source non consultée n'est pas classée dernière : son rendement est
+**inconnu**. La priorité se recalcule ensuite sur ce qui est observé, jamais sur
+la notoriété.
+
 ## Utilisation
 
 ```bash

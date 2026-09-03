@@ -14,11 +14,23 @@ from pathlib import Path
 import yaml
 
 from . import apprentissage as appr, envoi, sondage as sondage_mod
+from .mode import Mode
 from .adaptateur import Adaptateur, vers_opportunite
 from .base import ouvrir
 from .chaine import Moteur, traiter
 
 RACINE = Path(__file__).resolve().parent.parent
+
+
+def _mode(a) -> Mode:
+    return Mode.REEL if getattr(a, "reel", False) else Mode.DEMO
+
+
+def _base(a) -> str:
+    """Deux fichiers distincts : une fixture ne peut pas atterrir dans la base réelle."""
+    if a.base:
+        return a.base
+    return _mode(a).base_par_defaut
 
 
 def _cfg(nom):
@@ -82,16 +94,17 @@ def cmd_sonder(a) -> int:
 
 
 def cmd_traiter(a) -> int:
+    print(_mode(a).bandeau())
     adaptateur, cfg = _source(a.source)
     if not cfg.get("verifie"):
         print(f"AVERTISSEMENT : adaptateur « {a.source} » non vérifié — lance `recenser`.\n",
               file=sys.stderr)
     opportunites, _ = _charger(adaptateur, cfg, a.entree, a.source)
-    cx = ouvrir(a.base)
+    cx = ouvrir(_base(a))
     repris = envoi.reprendre_interrompus(cx)
     if repris:
         print(f"{repris} envoi(s) interrompu(s) marqué(s) ambigus — non réémis.")
-    b = traiter(cx, _moteur(), opportunites)
+    b = traiter(cx, _moteur(), opportunites, mode=_mode(a))
     print(f"lus {b.lus} · lots éclatés {b.lots_eclates} · doublons {b.doublons}")
     print(f"🟢 {b.direct} direct · 🟡 {b.renforcement} renforcement · "
           f"🟣 {b.a_construire} à construire · 🔵 {b.prospect} prospect · "
@@ -102,11 +115,13 @@ def cmd_traiter(a) -> int:
     if b.motifs_rejet:
         print("rejets : " + " · ".join(f"{k} ×{v}" for k, v in
                                        sorted(b.motifs_rejet.items(), key=lambda x: -x[1])[:5]))
+    print()
+    print(b.livre.rapport())
     return 0
 
 
 def cmd_opportunites(a) -> int:
-    cx = ouvrir(a.base, lecture_seule=True)          # incapable d'écrire
+    cx = ouvrir(_base(a), lecture_seule=True)          # incapable d'écrire
     where = "type <> 'REJET'"
     if a.type:
         where = f"type = '{a.type.upper()}'"
@@ -132,7 +147,7 @@ def cmd_opportunites(a) -> int:
 
 def cmd_calendrier(a) -> int:
     """Ce qui va revenir sur le marché — calculé depuis les attributions."""
-    cx = ouvrir(a.base, lecture_seule=True)
+    cx = ouvrir(_base(a), lecture_seule=True)
     lignes = cx.execute(
         "SELECT * FROM attributions ORDER BY renouvellement IS NULL, renouvellement").fetchall()
     if not lignes:
@@ -149,7 +164,7 @@ def cmd_calendrier(a) -> int:
 def cmd_entreprises(a) -> int:
     """Le registre des entreprises découvertes et surveillées."""
     from .entreprises import Registre as RegistreEnt
-    cx = ouvrir(a.base, lecture_seule=True)
+    cx = ouvrir(_base(a), lecture_seule=True)
     reg = RegistreEnt()
     for l in cx.execute("SELECT * FROM entreprises"):
         e = reg.decouvrir(l["nom"], domaine=l["domaine"], origine=l["origine"])
@@ -168,7 +183,7 @@ def cmd_surveiller(a) -> int:
     """« surveille cette entreprise » — ajout manuel au registre."""
     from .entreprises import Motif, Registre as RegistreEnt
     from .decouverte import Generateur
-    cx = ouvrir(a.base)
+    cx = ouvrir(_base(a))
     reg = RegistreEnt()
     e = reg.surveiller(a.nom, domaine=a.domaine, motif=Motif.MANUEL)
     cx.execute(
@@ -227,6 +242,8 @@ def cmd_sources(a) -> int:
     for nom in ("bourses_de_fret",):
         reg.declarer(nom, "transport", "api").indisponible("aucun abonnement fourni")
     print(reg.rapport())
+    print()
+    print(reg.rendement())
     return 0
 
 
@@ -244,13 +261,13 @@ def cmd_requetes(a) -> int:
 
 def cmd_apprendre(a) -> int:
     """Ce que le radar a appris — calculé sur la base, jamais estimé."""
-    cx = ouvrir(a.base, lecture_seule=True)
+    cx = ouvrir(_base(a), lecture_seule=True)
     print(appr.apprendre(cx).rapport())
     return 0
 
 
 def cmd_notifier(a) -> int:
-    cx = ouvrir(a.base)
+    cx = ouvrir(_base(a))
     envoi.reprendre_interrompus(cx)
     if a.pour_de_vrai:
         print("aucun transport configuré dans cet environnement", file=sys.stderr)
@@ -264,7 +281,10 @@ def cmd_notifier(a) -> int:
 
 def principal(argv=None) -> int:
     p = argparse.ArgumentParser(prog="radar", description="Radar commercial logistique")
-    p.add_argument("--base", default="radar.sqlite3")
+    p.add_argument("--base", default=None,
+                   help="par défaut : radar-demo.sqlite3 ou radar-reel.sqlite3 selon le mode")
+    p.add_argument("--reel", action="store_true",
+                   help="MODE RÉEL : refuse toute donnée sans preuve de collecte")
     s = p.add_subparsers(dest="cmd", required=True)
 
     r = s.add_parser("recenser", help="mesurer les clés réelles d'une source")

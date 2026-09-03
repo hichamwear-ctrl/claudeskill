@@ -28,6 +28,9 @@ class Cycle(Enum):
     ECARTEE = "ÉCARTÉE"
 
 
+NON_MESUREE = "NON MESURÉE"
+
+
 @dataclass
 class Rendement:
     """Ce qu'une source produit RÉELLEMENT. C'est ça qui fixe sa priorité —
@@ -38,6 +41,8 @@ class Rendement:
     renforcement: int = 0
     a_construire: int = 0
     prospect: int = 0
+    capter: int = 0
+    developper: int = 0
     contacts: int = 0
     contrats: int = 0
 
@@ -120,4 +125,41 @@ class Registre:
         L.append(f"  {jamais} source(s) sur {len(self.sources)} n'ont JAMAIS été consultées.")
         if jamais:
             L.append("  Aucun chiffre de marché ne peut en être tiré.")
+        return "\n".join(L)
+
+    def rendement(self) -> str:
+        """Chaque source mesurée SÉPARÉMENT.
+
+        Une source non consultée affiche NON MESURÉE — jamais 0. On ne connaît
+        pas encore son rendement, ce n'est pas la même chose que n'en avoir
+        aucun.
+        """
+        entetes = ("SOURCE", "OBSERVÉ", "PERTINENTES", "CAPTER", "DÉVELOPPER",
+                   "CONTACTS", "CONTRATS")
+        L = ["RENDEMENT PAR SOURCE", "=" * 92, ""]
+        L.append(f"  {entetes[0]:<20} {entetes[1]:>9}  {entetes[2]:>12}  "
+                 f"{entetes[3]:>8}  {entetes[4]:>10}  {entetes[5]:>8}  {entetes[6]:>8}")
+        L.append("  " + "-" * 88)
+
+        mesurees, non_mesurees = [], []
+        for src in self.par_priorite():
+            (non_mesurees if src.rendement.lues == 0 else mesurees).append(src)
+
+        for src in mesurees:
+            r = src.rendement
+            L.append(f"  {src.nom[:20]:<20} {r.lues:>9}  {r.retenues:>12}  "
+                     f"{r.capter:>8}  {r.developper:>10}  {r.contacts:>8}  {r.contrats:>8}")
+        for src in non_mesurees:
+            detail = src.motif_indisponible or ""
+            L.append(f"  {src.nom[:20]:<20} {NON_MESUREE:>9}"
+                     + (f"   ({src.etat.value}{' — ' + detail[:32] if detail else ''})"
+                        if src.etat is not Etat.JAMAIS_CONSULTEE else
+                        f"   ({src.etat.value})"))
+        L.append("")
+        L.append(f"  NON MESURÉE ≠ 0 : {len(non_mesurees)} source(s) dont le rendement")
+        L.append("  est encore inconnu. Aucune conclusion ne peut en être tirée.")
+        if mesurees:
+            L.append("")
+            L.append("  Priorité recalculée sur le rendement observé, jamais sur la")
+            L.append("  notoriété de la source.")
         return "\n".join(L)
