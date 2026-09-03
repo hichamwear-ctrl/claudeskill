@@ -64,10 +64,14 @@ class Fiche:
     reference: str = ""
     nature: object = None          # FAIT · SIGNAL · HYPOTHÈSE
     etat: object = None            # POSTULABLE · ATTRIBUÉ · FERMÉ · …
+    etat_libelle: str = ""
     confiance_etat: str = ""
     type_information: str = ""
     preuves_etat: list = field(default_factory=list)
     contradictions: list = field(default_factory=list)
+    fiabilite: str = ""
+    fiabilite_motif: str = ""
+    fil_de_vie: list = field(default_factory=list)
 
     def en_texte(self, avec_detail_score=False) -> str:
         L = [f"{self.type.emoji} {self.type.value} — {self.titre}"]
@@ -76,9 +80,8 @@ class Fiche:
         L.append("")
 
         # Quatre dimensions, quatre lignes. Jamais mélangées.
-        if self.etat is not None:
-            L.append(f"ÉTAT          {self.etat.emoji} {self.etat.value}"
-                     f" — {self.etat.libelle_long}")
+        if self.etat is not None and self.etat_libelle:
+            L.append(f"ÉTAT          {self.etat_libelle}")
             if self.type_information:
                 L.append(f"TYPE (source) {self.type_information}")
             if self.confiance_etat:
@@ -87,9 +90,17 @@ class Fiche:
                 L.append(f"PREUVE        {preuve}")
             for c in self.contradictions[:2]:
                 L.append(f"CONTRADICTION {c}")
+        if self.fil_de_vie:
+            L.append(f"HISTORIQUE    {self.fil_de_vie[0]}")
+            for etape in self.fil_de_vie[1:]:
+                L.append(f"              {etape}")
         if self.nature is not None:
             L.append(f"NATURE        {self.nature.emoji} {self.nature.value}"
                      f" — {self.nature.libelle}")
+        if self.fiabilite:
+            # La fiabilité dit à quel point c'est PROUVÉ. Elle ne dit rien de ce
+            # que ça peut rapporter : le score s'en charge, et il l'ignore.
+            L.append(f"FIABILITÉ     {self.fiabilite} — {self.fiabilite_motif}")
         L.append(f"CLIENT        {_ou(self.client, 'A_VERIFIER')}"
                  + (f"  ({self.secteur})" if self.secteur else ""))
         # La source dit d'où vient l'information. Elle ne dit rien de sa valeur

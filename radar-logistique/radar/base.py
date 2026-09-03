@@ -21,14 +21,50 @@ def maintenant() -> str:
 
 # Colonnes ajoutées après coup. `CREATE TABLE IF NOT EXISTS` ne les poserait
 # pas sur une base existante : on les ajoute explicitement, sans rien effacer.
-AJOUTS = (("opportunites", "distance_km", "REAL"),)
+AJOUTS = (
+    ("opportunites", "distance_km", "REAL"),
+    ("opportunites", "etat_procedure", "TEXT"),
+    ("opportunites", "confiance_etat", "TEXT"),
+    ("opportunites", "type_information", "TEXT"),
+    ("opportunites", "fiabilite", "TEXT"),
+    ("opportunites", "fiabilite_motif", "TEXT"),
+    ("vocabulaire", "langue", "TEXT"),
+    ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
+    ("vocabulaire_historique", "version", "INTEGER"),
+)
+
+# Contraintes UNIQUE qui ont changé. SQLite ne sait pas les modifier en place :
+# on reconstruit la table en conservant les lignes. Une clé d'envoi trop étroite
+# empêchait toute nouvelle notification sur un changement d'état.
+REFONTES = {
+    "envois": {
+        "declencheur": "motif",         # colonne absente = ancienne version
+        "colonnes": "id, source, ref_source, corps, etat, tentatives, erreur,"
+                    " cree_le, maj_le",
+    },
+}
 
 
 def _completer(cx) -> None:
     for table, colonne, type_ in AJOUTS:
         connues = {l[1] for l in cx.execute(f"PRAGMA table_info({table})")}
-        if colonne not in connues:
+        if connues and colonne not in connues:
             cx.execute(f"ALTER TABLE {table} ADD COLUMN {colonne} {type_}")
+
+
+def _refondre(cx, schema: str) -> None:
+    """Reconstruit les tables dont la clé unique a changé, sans perdre de ligne."""
+    for table, spec in REFONTES.items():
+        connues = {l[1] for l in cx.execute(f"PRAGMA table_info({table})")}
+        if not connues or spec["declencheur"] in connues:
+            continue
+        cx.execute("PRAGMA foreign_keys = OFF")
+        cx.execute(f"ALTER TABLE {table} RENAME TO {table}_ancien")
+        cx.executescript(schema)
+        cx.execute(f"INSERT INTO {table}({spec['colonnes']})"
+                   f" SELECT {spec['colonnes']} FROM {table}_ancien")
+        cx.execute(f"DROP TABLE {table}_ancien")
+        cx.execute("PRAGMA foreign_keys = ON")
 
 
 def ouvrir(chemin, lecture_seule: bool = False) -> sqlite3.Connection:
@@ -37,7 +73,9 @@ def ouvrir(chemin, lecture_seule: bool = False) -> sqlite3.Connection:
         cx = sqlite3.connect(uri, uri=True)
     else:
         cx = sqlite3.connect(chemin)
-        cx.executescript(SCHEMA.read_text(encoding="utf-8"))
+        schema = SCHEMA.read_text(encoding="utf-8")
+        cx.executescript(schema)
+        _refondre(cx, schema)
         _completer(cx)
     cx.row_factory = sqlite3.Row
     cx.execute("PRAGMA foreign_keys = ON")

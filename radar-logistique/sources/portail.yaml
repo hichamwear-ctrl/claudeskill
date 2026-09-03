@@ -76,7 +76,7 @@ procedure:
     "Avis de préinformation":
       # SURTOUT PAS un appel d'offres ouvert. C'est un besoin annoncé : rien à
       # déposer aujourd'hui, une très bonne raison d'appeler l'acheteur.
-      interpretation: informatif
+      interpretation: annonce
       confiance: elevee
       normalise: "avis de préinformation"
       note: >

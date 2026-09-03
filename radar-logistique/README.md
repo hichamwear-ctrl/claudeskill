@@ -52,7 +52,7 @@ confondre produit les erreurs les plus coûteuses du radar.
 | | | |
 |---|---|---|
 | **A · TYPE D'INFORMATION** | ce que le portail appelle l'objet | « Marchés en cours », « Avis de préinformation », « Appels à projets », « Résultats » |
-| **B · ÉTAT DE PROCÉDURE** | où en est la procédure | `POSTULABLE` `ATTRIBUÉ` `FERMÉ` `ANNULÉ` `INFRUCTUEUX` `INFORMATIF` `INCONNU` |
+| **B · ÉTAT DE PROCÉDURE** | où en est la procédure | `POSTULABLE` `ANNONCÉ` `ATTRIBUÉ` `FERMÉ` `ANNULÉ` `INFRUCTUEUX` `INFORMATIF` `INCONNU` — et `HORS PROCÉDURE` quand il n'y en a pas |
 | **C · NATURE** | ce que vaut l'information | `FAIT` `SIGNAL` `HYPOTHÈSE` |
 | **D · ACTION** | ce que je fais demain matin | POSTULER · CONTACTER L'ACHETEUR · CONTACTER LE TITULAIRE · SURVEILLER · VÉRIFIER L'ÉTAT |
 
@@ -84,14 +84,40 @@ leur composition : négation, futur, attente.
 | « aucun soumissionnaire n'a encore été désigné » | ni ATTRIBUÉ, ni POSTULABLE |
 | « sélection en cours » | ni ATTRIBUÉ, ni POSTULABLE |
 | date limite dépassée, rien d'autre | FERMÉ — **attribution NON PUBLIÉE** |
+| « les soumissions peuvent encore être introduites » | POSTULABLE |
+| « avis de préinformation » | **ANNONCÉ** — le besoin existe, la procédure pas encore |
 | « phase gamma » | INCONNU, mémorisé pour être tranché |
 
-### La hiérarchie des preuves
+### La hiérarchie des preuves — et sa limite
 
 ```
 statut officiel déclaré  >  état explicite  >  rubrique du portail
                          >  formulation indirecte  >  dates  >  inférence
 ```
+
+**Configurable par source** : un portail dont les rubriques sont notoirement en
+retard peut les rétrograder sous les dates, dans son seul adaptateur, sans que
+le moteur connaisse ce portail.
+
+```yaml
+procedure:
+  hierarchie:
+    rubrique: 0      # ce portail met ses listings à jour trop tard
+```
+
+**Sa limite — la zone de force égale.** La hiérarchie départage des preuves
+*non contradictoires*. Elle ne fait pas gagner un champ structuré périmé contre
+une phrase qui dit l'inverse :
+
+```
+statut structuré = POSTULABLE  +  texte « la procédure est clôturée »
+→ INCONNU · CONTRADICTION À VÉRIFIER
+```
+
+Deux preuves de confiance ÉLEVÉE qui s'excluent ne produisent **aucun**
+gagnant, quel que soit leur rang. Un portail n'est pas la vérité : sa rubrique
+peut être en retard, son champ mal renseigné, sa page de résultat mise à jour
+après coup.
 
 Une annonce rangée dans « Marchés en cours » dont le texte dit « la procédure
 est clôturée » ressort **FERMÉ** : la rubrique est un classement de listing,
@@ -129,15 +155,89 @@ python -m radar.cli vocabulaire --trancher portail statut "phase gamma" ferme \
     --motif "vérifié sur le portail" --par hicham
 ```
 
-Une révision **archive** l'ancienne lecture au lieu de l'effacer : les fiches
-produites avec la version fausse doivent rester retrouvables. Et ce qu'un
-humain écrit dans le YAML prime toujours sur ce que la mémoire a retenu.
+Une révision **archive** l'ancienne lecture au lieu de l'effacer, et
+**incrémente une version** : les fiches produites avec la version fausse
+doivent rester retrouvables. Ce qu'un humain écrit dans le YAML prime toujours
+sur ce que la mémoire a retenu.
+
+**Le recalcul est contrôlé, jamais silencieux.** Trancher affiche d'abord les
+opportunités concernées ; `--recalculer` les rejoue depuis le brut conservé et
+montre lesquelles changent d'état :
+
+```
+1 fiche(s) changent d'état :
+  POSTULABLE   → FERMÉ        SURVEILLER   Consultation — reprise des tournées
+
+Ces transitions sont marquées « révision de vocabulaire » :
+le marché n'a pas bougé, c'est notre lecture qui a changé.
+Aucune alerte commerciale n'a été émise.
+```
+
+**Une expression tranchée sur un portail ne se propage jamais à un autre.**
+« phase active » peut vouloir dire POSTULABLE ici et autre chose ailleurs.
 
 ### Lot par lot
 
 Un marché parent `ATTRIBUÉ` dont le lot 3 est encore ouvert produit **trois
 situations distinctes**, pas une seule fiche. Le statut du lot prime sur celui
 du marché.
+
+### Une opportunité, un fil de vie
+
+```
+03/09 POSTULABLE  ·  14/09 FERMÉ  ·  28/09 ATTRIBUÉ
+```
+
+Ce n'est pas trois opportunités : c'est **une** opportunité, trois
+observations, deux transitions. Une collecte qui ne change rien n'écrit rien —
+sinon le fil de vie deviendrait un journal de passages du collecteur.
+
+Chaque transition conserve `ancien → nouveau`, la preuve, la source, la date,
+la confiance, l'origine et la version du vocabulaire.
+
+### Les transitions sont des événements commerciaux
+
+| transition | effet |
+|---|---|
+| POSTULABLE → FERMÉ | annule les alertes POSTULER **en attente** (silencieux) |
+| FERMÉ → ATTRIBUÉ | récupère le titulaire, bascule en DÉVELOPPER |
+| ANNONCÉ → POSTULABLE | ⚡ **LE MARCHÉ EST MAINTENANT OUVERT** |
+| INFRUCTUEUX → POSTULABLE | ⚡ **NOUVELLE CHANCE DE POSTULER** |
+| ANNULÉ → POSTULABLE | ⚡ **RELANCE APRÈS ANNULATION** |
+| → INCONNU | aucune alerte : perdre la certitude n'est pas une occasion |
+
+Le motif de l'alerte fait partie de la clé d'envoi : « je viens de la
+découvrir » et « elle vient de s'ouvrir » sont **deux** événements, pas un
+doublon.
+
+**Et surtout** : une correction de notre vocabulaire n'est **jamais** présentée
+comme un mouvement du marché. Les transitions d'origine `revision_vocabulaire`
+n'émettent aucune alerte commerciale — le rapport les marque `✎` là où un vrai
+changement porte `⚡`.
+
+### Fiabilité de l'information ≠ valeur économique
+
+Deux questions différentes, jamais mélangées :
+
+```
+« Combien ça peut rapporter ? »   → score.py
+« À quel point j'en suis sûr ? »  → fiabilite.py
+```
+
+Une phrase trouvée sur le site d'une PME n'a ni référence, ni date, ni montant.
+Sa fiabilité est faible ; sa valeur peut dépasser celle d'un marché public de
+40 pages. Le radar la fait donc remonter **haut**, avec `FIABILITÉ : FAIBLE` et
+`ACTION : VÉRIFIER` — jamais dévalorisée dans le score :
+
+```
+ score  fiabilité  action                   intitulé
+    80  FAIBLE     CONTACTER L'ENTREPRISE   Tournée Rotterdam → Bruxelles
+    73  FORTE      SURVEILLER               Préinformation — externalisation
+```
+
+`fiabilite.py` ne nomme aucune source — c'est vérifié par l'audit. Un avis TED
+sans acheteur publié est moins fiable qu'une page d'entreprise qui nomme son
+besoin, sa zone et son contact.
 
 ### L'état change l'action, jamais le score
 
@@ -326,7 +426,7 @@ NORMALISATION
    ↓
 DÉTECTION DU BESOIN                role.py · activite.py · lots.py
    ↓
-ÉTAT DU BESOIN / DE LA PROCÉDURE   nature.py · procedure.py
+ÉTAT DU BESOIN / DE LA PROCÉDURE   nature.py · procedure.py · transitions.py
    ↓
 BESOIN COMMERCIAL
    ↓
@@ -518,15 +618,29 @@ concernée, correction, test de non-régression.
 
 ## Le cahier des charges est vérifiable
 
-Vingt-neuf règles ont été validées puis verrouillées. Une règle peut se perdre lors
+Trente-neuf règles ont été validées puis verrouillées. Une règle peut se perdre lors
 d'une réécriture — c'est arrivé une fois, les seize questions ont tourné sans
 test pendant plusieurs versions. L'audit le détecte :
 
 ```bash
-python3 outils/audit_cahier.py     # code non nul si une règle n'est plus couverte
+python3 outils/audit_cahier.py     # code non nul si une règle faiblit
 ```
 
-Il vérifie que chaque règle a un module ET ses tests de comportement.
+Il rend quatre colonnes, pas un compteur :
+
+```
+RÈGLE                                    MÉCANISME               TEST  ÉTAT
+deux preuves fortes contradictoires…     procedure._trancher      2/2  ✅ couvert
+fiabilité ≠ valeur économique            fiabilite.evaluer        3/3  ✅ couvert
+```
+
+Le **mécanisme** nomme un symbole précis (`module.Classe.methode`), pas
+seulement un fichier : un module qui existe mais dont la fonction a été
+renommée lors d'une réécriture ressort ❌, même si des tests passent autour.
+Une règle dont un seul test manque est ⚠️, jamais ✅ arrondi vers le haut.
+
+*« 253 tests, tous verts » ne veut rien dire. Le nombre de tests n'est pas
+l'objectif.*
 
 ## Tests
 
@@ -534,7 +648,7 @@ Il vérifie que chaque règle a un module ET ses tests de comportement.
 python -m unittest discover -s tests
 ```
 
-224 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
+253 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
 chacun pose une question dont la mauvaise réponse coûte un contrat.
 
 Zéro dépendance hors PyYAML.

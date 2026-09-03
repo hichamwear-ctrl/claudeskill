@@ -128,11 +128,20 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
                           "marché déjà attribué — le titulaire devra exécuter",
                           raisons=["le titulaire aura besoin de capacité locale",
                                    "anticiper la remise en concurrence"])
+    if etat is EtatProcedure.ANNONCE:
+        # La meilleure fenêtre commerciale du cycle : le besoin est identifié,
+        # la procédure n'est pas ouverte, et personne n'est encore arrivé.
+        return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.SURVEILLER,
+                          "ANNONCÉ — le besoin est identifié, la procédure n'est "
+                          "pas encore ouverte",
+                          raisons=["potentiel : futur marché",
+                                   "action secondaire : contacter l'acheteur si pertinent",
+                                   "surveiller l'ouverture — la transition déclenchera "
+                                   "une alerte forte"])
     if etat is EtatProcedure.INFORMATIF:
         return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.SURVEILLER,
-                          "préinformation — le besoin est annoncé, rien à déposer encore",
-                          raisons=["potentiel : futur marché",
-                                   "prendre contact avec l'acheteur avant la publication"])
+                          "informatif — aucun besoin identifié, aucune action directe",
+                          raisons=["conservé : le contexte peut servir plus tard"])
     if etat is EtatProcedure.ANNULE:
         return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.SURVEILLER,
                           "procédure annulée — le besoin, lui, n'a pas disparu",

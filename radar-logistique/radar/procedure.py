@@ -58,6 +58,7 @@ from enum import Enum
 # ═══════════════════════════════════════════════════════ B — état de procédure
 class Etat(Enum):
     POSTULABLE = "POSTULABLE"
+    ANNONCE = "ANNONCÉ"          # le besoin existe, la procédure n'est pas ouverte
     ATTRIBUE = "ATTRIBUÉ"
     FERME = "FERMÉ"
     ANNULE = "ANNULÉ"
@@ -67,9 +68,9 @@ class Etat(Enum):
 
     @property
     def emoji(self) -> str:
-        return {"POSTULABLE": "🟢", "ATTRIBUÉ": "🔵", "FERMÉ": "🟠",
-                "ANNULÉ": "⚫", "INFRUCTUEUX": "⚪", "INFORMATIF": "🟣",
-                "INCONNU": "❓"}[self.value]
+        return {"POSTULABLE": "🟢", "ANNONCÉ": "🟡", "ATTRIBUÉ": "🔵",
+                "FERMÉ": "🟠", "ANNULÉ": "⚫", "INFRUCTUEUX": "⚪",
+                "INFORMATIF": "🟣", "INCONNU": "❓"}[self.value]
 
     @property
     def depot_possible(self) -> bool:
@@ -84,11 +85,12 @@ class Etat(Enum):
     def libelle_long(self) -> str:
         return {
             "POSTULABLE": "candidature encore possible",
+            "ANNONCÉ": "besoin identifié — la procédure n'est pas encore ouverte",
             "ATTRIBUÉ": "marché attribué — le titulaire devra exécuter",
             "FERMÉ": "candidature terminée — attribution non publiée",
             "ANNULÉ": "procédure annulée",
             "INFRUCTUEUX": "procédure sans suite",
-            "INFORMATIF": "annonce d'un besoin futur — rien à déposer aujourd'hui",
+            "INFORMATIF": "information sans besoin identifié — aucune action directe",
             "INCONNU": "ÉTAT À VÉRIFIER — la source ne permet pas de conclure",
         }[self.value]
 
@@ -118,6 +120,18 @@ RANG_TEMPOREL = 1           # les dates seules
 RANG_INFERENCE = 0
 
 RANG_EVENEMENT = RANG_ETAT_EXPLICITE   # un fait daté vaut une déclaration
+
+# Noms utilisables dans `procedure.hierarchie` d'un adaptateur. Un portail dont
+# les rubriques sont notoirement en retard peut les rétrograder sous les dates,
+# sans que le moteur ait à connaître ce portail.
+RANGS_CONFIGURABLES = {
+    "statut": RANG_STATUT_DECLARE,
+    "etat_explicite": RANG_ETAT_EXPLICITE,
+    "evenement": RANG_EVENEMENT,
+    "rubrique": RANG_TYPE_INFORMATION,
+    "formulation": RANG_FORMULATION,
+    "date": RANG_TEMPOREL,
+}
 
 NOM_DU_RANG = {
     RANG_STATUT_DECLARE: "statut officiel déclaré par la source",
@@ -167,6 +181,19 @@ class Lecture:
     # Lui coller « ÉTAT À VÉRIFIER » serait une fausse alerte, et pousserait
     # l'utilisateur à vérifier quelque chose qui n'existe pas.
     procedure_detectee: bool = False
+
+    @property
+    def etat_affiche(self) -> str:
+        """Ce qu'on écrit sur la fiche et en base.
+
+        Quand aucune procédure n'existe — une page qui dit « devenez notre
+        transporteur partenaire » n'en est pas une — annoncer « état INCONNU »
+        serait une fausse alerte : on ferait vérifier quelque chose qui n'existe
+        pas. On dit alors ce qui est vrai : il n'y a pas de procédure.
+        """
+        if self.etat is Etat.INCONNU and not self.procedure_detectee:
+            return "HORS PROCÉDURE"
+        return self.etat.value
 
     @property
     def postulable(self) -> bool | None:
@@ -229,7 +256,12 @@ MARQUEURS = {
         "actuel", "actuelle", "actuellement", "recevable", "recevables", "recevabilite",
         "accepte", "acceptees", "acceptes", "possible", "disponible", "en ligne",
         "publie", "publication", "courant", "courante",
+        # « introduire une offre » est la formulation belge standard. Son absence
+        # laissait « les soumissions peuvent encore être introduites » en INCONNU.
         "peuvent etre deposees", "peut etre deposee", "peuvent etre remises",
+        "peuvent etre introduites", "peut etre introduite", "peuvent encore etre",
+        "encore ouvertes", "encore ouvert", "encore possible", "toujours ouvert",
+        "toujours ouverte", "introduire une offre", "introduire votre offre",
         "open", "lopend", "lopende", "mogelijk", "actief", "beschikbaar",
         "kunnen ingediend", "kunnen worden ingediend",
         "can be submitted", "may be submitted", "now accepting",
@@ -456,7 +488,10 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
 
     # 6. Préinformation et appels à projets : des types, pas des états ouverts.
     if preinfo:
-        dire(Etat.INFORMATIF, f"{origine} : « {preinfo[0]} »", Confiance.ELEVEE)
+        # Un avis de préinformation dit qu'un besoin EXISTE et qu'il sera mis en
+        # concurrence. Ce n'est pas « pas utile » : c'est la meilleure fenêtre
+        # commerciale du cycle, avant que tout le monde arrive.
+        dire(Etat.ANNONCE, f"{origine} : « {preinfo[0]} »", Confiance.ELEVEE)
     if projets:
         dire(None, f"{origine} : « {projets[0]} » — objet et conditions à "
                    f"analyser avant de conclure", Confiance.FAIBLE,
@@ -468,6 +503,7 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
 # Interprétations qu'un adaptateur peut déclarer pour ses propres valeurs.
 INTERPRETATIONS = {
     "postulable": Etat.POSTULABLE,
+    "annonce": Etat.ANNONCE,
     "attribue": Etat.ATTRIBUE,
     "ferme": Etat.FERME,
     "annule": Etat.ANNULE,
@@ -493,6 +529,18 @@ class Vocabulaire:
         cfg = (config or {}).get("procedure", {}) or {}
         self.statuts = self._table(cfg.get("statuts", {}))
         self.types = self._table(cfg.get("types_information", {}))
+        self.langue = cfg.get("langue") or (config or {}).get("langue")
+        # Hiérarchie propre à cette source, quand la générale ne convient pas.
+        self.rangs = dict(RANGS_CONFIGURABLES)
+        for nom, rang in (cfg.get("hierarchie") or {}).items():
+            if nom not in RANGS_CONFIGURABLES:
+                raise ValueError(
+                    f"rang inconnu « {nom} » dans la hiérarchie : "
+                    f"attendu parmi {', '.join(sorted(RANGS_CONFIGURABLES))}")
+            self.rangs[nom] = int(rang)
+
+    def rang(self, nom: str) -> int:
+        return self.rangs.get(nom, RANGS_CONFIGURABLES[nom])
 
     @staticmethod
     def _table(brut: dict) -> dict:
@@ -521,7 +569,7 @@ class Vocabulaire:
 def lire(*, statut_source=None, type_information=None, titre="", texte="",
          texte_autour_du_statut="", documents=(), evenements=(), actions_possibles=(),
          echeance=None, date_attribution=None, titulaire=None, maintenant=None,
-         vocabulaire: Vocabulaire | None = None, source="") -> Lecture:
+         vocabulaire: Vocabulaire | None = None, source="", est_signal=False) -> Lecture:
     """Assemble toutes les preuves disponibles et applique la hiérarchie.
 
     `documents` et `actions_possibles` sont volontairement séparés du texte :
@@ -535,7 +583,11 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
 
     plat_global = normaliser(" ".join(str(x) for x in
                                       (titre, texte, texte_autour_du_statut) if x))
-    lecture.procedure_detectee = bool(
+    # Un SIGNAL n'a pas d'état de procédure : « l'entreprise recrute quinze
+    # chauffeurs » n'est pas une consultation dont le dépôt serait ouvert ou
+    # clos. Confondre la dimension C (nature) et la dimension B (état) ferait
+    # afficher « ÉTAT INCONNU · VÉRIFIER » sur un signal parfaitement lisible.
+    lecture.procedure_detectee = (not est_signal) and bool(
         statut_source or type_information or evenements or echeance is not None
         or date_attribution or trouver("procedure", plat_global)
         or trouver("depot", plat_global))
@@ -549,7 +601,7 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
                 f"STATUT SOURCE INCONNU « {statut_source} » — à évaluer ; "
                 f"l'adaptateur « {source or '?'} » ne connaît pas cette valeur")
         elif connu["etat"] not in (None, "ABSENT"):
-            preuves.append(Preuve(RANG_STATUT_DECLARE,
+            preuves.append(Preuve(voc.rang("statut"),
                                   f"statut déclaré « {connu['libelle']} »",
                                   connu["etat"], connu["confiance"]))
         elif connu["etat"] is None:
@@ -571,13 +623,13 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
                 # Rubrique inconnue : on tente de la comprendre, mais elle ne
                 # pèse pas plus qu'une phrase — surtout pas autant qu'une
                 # rubrique réellement déclarée par l'adaptateur.
-                p.rang = RANG_FORMULATION
+                p.rang = voc.rang("formulation")
                 p.confiance = Confiance.FAIBLE
                 preuves.append(p)
         else:
             lecture.type_information = connu["normalise"]
             if connu["etat"] not in (None, "ABSENT"):
-                preuves.append(Preuve(RANG_TYPE_INFORMATION,
+                preuves.append(Preuve(voc.rang("rubrique"),
                                       f"catégorie « {connu['libelle']} »",
                                       connu["etat"], connu["confiance"]))
             elif connu["etat"] is None:
@@ -591,25 +643,32 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
         quand = ev.get("date") if isinstance(ev, dict) else None
         for p in interpreter_formulation(nom, origine="événement de procédure"):
             if p.conclusion is not None:
-                p.rang = RANG_EVENEMENT
+                p.rang = voc.rang("evenement")
                 p.observation += f" (le {quand})" if quand else ""
                 preuves.append(p)
     if date_attribution or titulaire:
         detail = " · ".join(filter(None, [f"titulaire {titulaire}" if titulaire else "",
                                           f"attribué le {date_attribution}"
                                           if date_attribution else ""]))
-        preuves.append(Preuve(RANG_EVENEMENT, detail, Etat.ATTRIBUE, Confiance.ELEVEE))
+        preuves.append(Preuve(voc.rang("evenement"), detail, Etat.ATTRIBUE,
+                              Confiance.ELEVEE))
 
     # ── rang 2 : les formulations libres ────────────────────────────────────
+    def _reranger(liste):
+        for p in liste:
+            p.rang = (voc.rang("etat_explicite") if p.confiance is Confiance.ELEVEE
+                      else voc.rang("formulation"))
+        return liste
+
     for morceau, origine in ((texte_autour_du_statut, "texte du statut"),
                              (titre, "intitulé"), (texte, "description")):
         if morceau:
-            preuves += interpreter_formulation(morceau, origine=origine)
+            preuves += _reranger(interpreter_formulation(morceau, origine=origine))
 
     # Les actions offertes par la page valent une formulation, pas plus.
     for action in actions_possibles or ():
-        for p in interpreter_formulation(str(action), origine="action proposée"):
-            preuves.append(p)
+        preuves += _reranger(
+            interpreter_formulation(str(action), origine="action proposée"))
 
     # ── les documents ne concluent JAMAIS ───────────────────────────────────
     for doc in documents or ():
@@ -627,15 +686,26 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
             # Une date limite dépassée ferme le dépôt. Elle ne prouve
             # AUCUNE attribution : c'est la confusion que ce module existe
             # pour empêcher.
-            preuves.append(Preuve(RANG_TEMPOREL,
+            preuves.append(Preuve(voc.rang("date"),
                                   f"date limite dépassée ({echeance:%d/%m/%Y})",
                                   Etat.FERME, Confiance.MOYENNE))
         else:
-            preuves.append(Preuve(RANG_TEMPOREL,
+            preuves.append(Preuve(voc.rang("date"),
                                   f"date limite à venir ({echeance:%d/%m/%Y})",
                                   Etat.POSTULABLE, Confiance.FAIBLE))
 
     return _trancher(lecture, preuves)
+
+
+def _absorber_ferme(etats: set) -> set:
+    """FERMÉ dit « on ne peut plus déposer ». ATTRIBUÉ, ANNULÉ et INFRUCTUEUX
+    disent la même chose ET pourquoi. Ce n'est pas une contradiction : c'est la
+    même réalité, dite avec plus de précision."""
+    if len(etats) > 1 and Etat.FERME in etats:
+        precis = etats - {Etat.FERME}
+        if len(precis) == 1 and precis <= PLUS_PRECIS_QUE_FERME:
+            return precis
+    return etats
 
 
 def _seulement_temporel(preuves) -> bool:
@@ -691,18 +761,37 @@ def _trancher(lecture: Lecture, preuves: list) -> Lecture:
                 "aucune formulation interprétable — état à confirmer à la source")
         return lecture
 
+    # ══ ZONE DE FORCE ÉGALE ══
+    #
+    # La hiérarchie sert à départager des preuves NON CONTRADICTOIRES. Elle ne
+    # sert pas à faire gagner un champ structuré périmé contre une phrase qui
+    # dit le contraire. Deux preuves de confiance ÉLEVÉE qui s'excluent ne
+    # produisent donc aucun gagnant, quel que soit leur rang.
+    #
+    # Un portail n'est pas la vérité : sa rubrique peut être en retard, son
+    # champ mal renseigné, sa page de résultat mise à jour après coup.
+    fortes = [p for p in concluantes if p.confiance is Confiance.ELEVEE]
+    etats_forts = _absorber_ferme({p.conclusion for p in fortes})
+    if len(etats_forts) > 1:
+        lecture.etat = Etat.INCONNU
+        lecture.confiance = Confiance.NULLE
+        detail = " / ".join(
+            f"{p.conclusion.value} ({NOM_DU_RANG.get(p.rang, 'preuve')} : "
+            f"{p.observation})" for p in fortes if p.conclusion in etats_forts)
+        lecture.contradictions.append(f"CONTRADICTION À VÉRIFIER — {detail}")
+        lecture.a_verifier.append(
+            "deux informations de confiance élevée s'excluent : "
+            "état à confirmer à la source avant d'engager du temps")
+        return lecture
+
     meilleur = concluantes[0].rang
     tete = [p for p in concluantes if p.rang == meilleur]
     etats = {p.conclusion for p in tete}
 
-    # FERMÉ dit « on ne peut plus déposer ». ATTRIBUÉ, ANNULÉ et INFRUCTUEUX
-    # disent la même chose ET pourquoi. Ce n'est donc pas une contradiction :
-    # c'est la même réalité, dite avec plus de précision.
-    if len(etats) > 1 and Etat.FERME in etats:
-        precis = etats - {Etat.FERME}
-        if len(precis) == 1 and precis <= PLUS_PRECIS_QUE_FERME:
-            etats = precis
-            tete = [p for p in tete if p.conclusion in precis]
+    absorbes = _absorber_ferme(etats)
+    if absorbes != etats:
+        etats = absorbes
+        tete = [p for p in tete if p.conclusion in etats]
 
     if len(etats) > 1:
         # Deux preuves de même force qui se contredisent : on ne tranche pas.
@@ -734,7 +823,8 @@ def _trancher(lecture: Lecture, preuves: list) -> Lecture:
 
 
 # ═══════════════════════════════════════ mémoire du vocabulaire rencontré
-def memoriser(cx, source: str, lecture: Lecture, contexte: str = "") -> int:
+def memoriser(cx, source: str, lecture: Lecture, contexte: str = "",
+              langue: str | None = None) -> int:
     """Conserve les expressions que l'adaptateur ne connaissait pas.
 
     Rien n'est interprété ici : on enregistre ce qui a été LU, pour qu'un
@@ -746,17 +836,20 @@ def memoriser(cx, source: str, lecture: Lecture, contexte: str = "") -> int:
     n = 0
     for champ, expression in lecture.inconnues:
         cx.execute(
-            "INSERT INTO vocabulaire(source, champ, expression, contexte, vu_le)"
-            " VALUES(?,?,?,?,?)"
+            "INSERT INTO vocabulaire(source, champ, expression, langue, contexte, vu_le)"
+            " VALUES(?,?,?,?,?,?)"
             " ON CONFLICT(source, champ, expression) DO UPDATE SET"
-            " occurrences = occurrences + 1, vu_le = excluded.vu_le",
-            (source, champ, str(expression), contexte[:200], maintenant()))
+            " occurrences = occurrences + 1, vu_le = excluded.vu_le,"
+            " langue = COALESCE(vocabulaire.langue, excluded.langue)",
+            (source, champ, str(expression), langue or "INCONNUE",
+             contexte[:200], maintenant()))
         n += 1
     return n
 
 
 def reviser(cx, source: str, champ: str, expression: str, interpretation: str,
-            *, confiance: str = "moyenne", motif: str = "", par: str = "") -> None:
+            *, confiance: str = "moyenne", motif: str = "", par: str = "",
+            langue: str | None = None) -> int:
     """Tranche — ou corrige — une expression, sans effacer l'ancienne lecture.
 
     Une interprétation fausse découverte plus tard ne doit pas disparaître :
@@ -768,26 +861,63 @@ def reviser(cx, source: str, champ: str, expression: str, interpretation: str,
             f"interprétation inconnue « {interpretation} » — "
             f"attendu : {', '.join(sorted(INTERPRETATIONS))}")
     ligne = cx.execute(
-        "SELECT id, interpretation, confiance FROM vocabulaire"
+        "SELECT id, interpretation, confiance, version FROM vocabulaire"
         " WHERE source=? AND champ=? AND expression=?",
         (source, champ, expression)).fetchone()
     if ligne is None:
         cx.execute(
-            "INSERT INTO vocabulaire(source, champ, expression, interpretation,"
-            " confiance, preuve, vu_le, revise_le, revise_par)"
-            " VALUES(?,?,?,?,?,?,?,?,?)",
-            (source, champ, expression, interpretation, confiance, motif,
-             maintenant(), maintenant(), par or "?"))
-        return
+            "INSERT INTO vocabulaire(source, champ, expression, langue, interpretation,"
+            " confiance, preuve, version, vu_le, revise_le, revise_par)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (source, champ, expression, langue or "INCONNUE", interpretation,
+             confiance, motif, 1, maintenant(), maintenant(), par or "?"))
+        return 1
+    # L'ancienne lecture est ARCHIVÉE avec son numéro de version. Les fiches
+    # produites sous cette version restent retrouvables : sans ça, une
+    # correction effacerait la trace de ce qu'on a cru pendant des semaines.
     cx.execute(
-        "INSERT INTO vocabulaire_historique(vocabulaire_id, interpretation,"
-        " confiance, motif, remplace_le, par) VALUES(?,?,?,?,?,?)",
-        (ligne["id"], ligne["interpretation"], ligne["confiance"], motif,
-         maintenant(), par or "?"))
+        "INSERT INTO vocabulaire_historique(vocabulaire_id, version, interpretation,"
+        " confiance, motif, remplace_le, par) VALUES(?,?,?,?,?,?,?)",
+        (ligne["id"], ligne["version"], ligne["interpretation"], ligne["confiance"],
+         motif, maintenant(), par or "?"))
+    version = (ligne["version"] or 0) + 1
     cx.execute(
-        "UPDATE vocabulaire SET interpretation=?, confiance=?, preuve=?,"
+        "UPDATE vocabulaire SET interpretation=?, confiance=?, preuve=?, version=?,"
         " revise_le=?, revise_par=? WHERE id=?",
-        (interpretation, confiance, motif, maintenant(), par or "?", ligne["id"]))
+        (interpretation, confiance, motif, version, maintenant(), par or "?",
+         ligne["id"]))
+    return version
+
+
+def version_vocabulaire(cx, source: str) -> int:
+    """Somme des versions tranchées d'une source. Elle identifie l'état du
+    vocabulaire au moment où une lecture a été produite."""
+    n = cx.execute("SELECT COALESCE(SUM(version), 0) v FROM vocabulaire"
+                   " WHERE source=?", (source,)).fetchone()
+    return int(n["v"] if hasattr(n, "keys") else n[0])
+
+
+def concerne(cx, source: str, champ: str, expression: str) -> list:
+    """Les opportunités dont la lecture dépend de cette expression.
+
+    Sert au recalcul contrôlé : avant de corriger un mot, on veut savoir
+    combien de fiches vont bouger, et lesquelles.
+    """
+    colonne = "type_information" if champ == "type_information" else None
+    if colonne:
+        return cx.execute(
+            "SELECT o.avis_id, o.intitule, o.etat_procedure FROM opportunites o"
+            " JOIN avis a ON a.id = o.avis_id"
+            " WHERE a.source = ? AND o.type_information = ?",
+            (source, expression)).fetchall()
+    # Pour un statut, la valeur brute n'est pas en colonne : on retrouve les
+    # avis par leur contenu brut conservé, jamais par supposition.
+    return cx.execute(
+        "SELECT DISTINCT o.avis_id, o.intitule, o.etat_procedure"
+        " FROM opportunites o JOIN avis a ON a.id = o.avis_id"
+        " JOIN reponses r ON r.avis_id = a.id"
+        " WHERE a.source = ? AND r.charge LIKE ?",
+        (source, f"%{expression}%")).fetchall()
 
 
 def vocabulaire_appris(cx, source: str) -> Vocabulaire:

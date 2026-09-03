@@ -297,14 +297,30 @@ def cmd_vocabulaire(a) -> int:
     from .procedure import INTERPRETATIONS, reviser
 
     if a.trancher:
+        from .procedure import concerne
         cx = ouvrir(_base(a))
         source, champ, expression, sens = a.trancher
-        reviser(cx, source, champ, expression, sens, motif=a.motif or "",
-                par=a.par or "manuel")
+
+        # AVANT de trancher : qui est concerné, et dans quel état sont-ils.
+        avant = {l["avis_id"]: (l["intitule"], l["etat_procedure"])
+                 for l in concerne(cx, source, champ, expression)}
+        version = reviser(cx, source, champ, expression, sens, motif=a.motif or "",
+                          par=a.par or "manuel")
         cx.commit()
-        print(f"« {expression} » ({source}/{champ}) → {sens}")
+        print(f"« {expression} » ({source}/{champ}) → {sens}  [version {version}]")
         print("L'ancienne lecture est archivée, pas effacée.")
-        return 0
+
+        if not avant:
+            print("\nAucune opportunité en base ne dépend de cette expression.")
+            return 0
+        print(f"\n{len(avant)} opportunité(s) dépendent de cette lecture :")
+        for _, (titre, etat) in list(avant.items())[:20]:
+            print(f"  {etat or 'INCONNU':<12} {(titre or '')[:56]}")
+        if not a.recalculer:
+            print("\nRIEN N'A ÉTÉ RECALCULÉ. Relance avec --recalculer pour les "
+                  "réévaluer\net voir lesquelles changent d'état.")
+            return 0
+        return _recalculer(cx, source, avant)
 
     cx = ouvrir(_base(a), lecture_seule=True)
     lignes = cx.execute(
@@ -330,6 +346,53 @@ def cmd_vocabulaire(a) -> int:
         print(f"  python -m radar.cli vocabulaire --trancher "
               f"{l['source']} {l['champ']} \"{l['expression']}\" postulable")
     return 1 if a_trancher else 0
+
+
+def _recalculer(cx, source: str, avant: dict) -> int:
+    """Rejoue les opportunités concernées depuis le BRUT conservé.
+
+    Rien n'est modifié en silence : la liste des fiches qui changent d'état est
+    affichée avant/après. Et la transition est marquée « révision de
+    vocabulaire », pas « collecte » — sinon on croirait que le marché a bougé
+    alors que c'est notre lecture qui a changé.
+    """
+    from . import transitions as tr
+    from .adaptateur import Adaptateur, vers_opportunite
+    from .base import reponses_fusionnees
+    from .chaine import _ecrire_opportunite
+    from .procedure import version_vocabulaire
+
+    adaptateur, cfg = _source(source)
+    defauts = {"signal": cfg.get("signal"), "secteur": cfg.get("secteur_par_defaut")}
+    mot = _moteur(cx)
+    version = version_vocabulaire(cx, source)
+
+    changements = []
+    for avis_id, (titre, ancien) in avant.items():
+        brut = reponses_fusionnees(cx, avis_id)
+        if not brut:
+            continue
+        opp = vers_opportunite(adaptateur, brut, source, defauts)
+        r = mot.analyser(opp)
+        transition = tr.constater(cx, avis_id, r.lecture, source,
+                                  origine=tr.REVISION, version_vocabulaire=version)
+        _ecrire_opportunite(cx, avis_id, opp, r)
+        if transition is not None:
+            changements.append((titre, ancien, r.lecture.etat.value,
+                                r.classement.action.value))
+    cx.commit()
+
+    if not changements:
+        print("\nAucune fiche ne change d'état.")
+        return 0
+    print(f"\n{len(changements)} fiche(s) changent d'état :")
+    for titre, ancien, nouveau, action in changements:
+        print(f"  {(ancien or 'INCONNU'):<12} → {nouveau:<12} {action:<26} "
+              f"{(titre or '')[:38]}")
+    print("\nCes transitions sont marquées « révision de vocabulaire » :")
+    print("le marché n'a pas bougé, c'est notre lecture qui a changé.")
+    print("Aucune alerte commerciale n'a été émise.")
+    return 0
 
 
 def cmd_incidents(a) -> int:
@@ -461,6 +524,8 @@ def principal(argv=None) -> int:
                     metavar=("SOURCE", "CHAMP", "EXPRESSION", "INTERPRÉTATION"))
     vo.add_argument("--motif", help="pourquoi cette interprétation")
     vo.add_argument("--par", help="qui a tranché")
+    vo.add_argument("--recalculer", action="store_true",
+                    help="réévaluer les opportunités concernées et montrer ce qui change")
     vo.add_argument("--reel", action="store_true")
     vo.add_argument("--base")
     vo.set_defaults(fn=cmd_vocabulaire)

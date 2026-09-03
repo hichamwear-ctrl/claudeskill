@@ -88,11 +88,11 @@ procedure:
       confiance: elevee
       normalise: "avis d'attribution"
     "pin":
-      interpretation: informatif
+      interpretation: annonce
       confiance: elevee
       normalise: "avis de préinformation"
     "pin-only":
-      interpretation: informatif
+      interpretation: annonce
       confiance: elevee
       normalise: "avis de préinformation"
     "corrigendum":

@@ -57,6 +57,10 @@ class Rapport:
     capter: list = field(default_factory=list)        # (score, type, action, source, titre)
     developper: list = field(default_factory=list)
     rendement: dict = field(default_factory=dict)     # source -> compteurs observés
+    etats: dict = field(default_factory=dict)         # état de procédure -> nombre
+    fiabilites: dict = field(default_factory=dict)    # niveau -> nombre
+    croisement: list = field(default_factory=list)    # (fiabilité, score, titre, action)
+    transitions: list = field(default_factory=list)
 
     def _pct(self, n: int) -> str:
         return f"{n:>5}  ({n / self.total:.0%})" if self.total else f"{n:>5}"
@@ -72,20 +76,20 @@ class Rapport:
         L = ["RADAR COMMERCIAL", "=" * 72, ""]
         L.append("CAPTER — ce que je peux attaquer maintenant")
         if self.capter:
-            for score, typ, action, source, titre in self.capter:
+            for score, typ, action, source, titre, etat in self.capter:
                 emoji = EMOJIS.get(typ, "·")
-                L.append(f"  {emoji} [{score:>3}] {titre[:46]:<46} {action[:22]:<24} "
-                         f"vu sur {source}")
+                L.append(f"  {emoji} [{score:>3}] {titre[:42]:<42} {(etat or '?')[:11]:<12}"
+                         f"{action[:22]:<24} vu sur {source}")
         else:
             L.append("  rien à attaquer dans cet échantillon — ce n'est pas une panne,")
             L.append("  c'est une mesure.")
 
         L += ["", "DÉVELOPPER — ce qui demande une relation ou de la préparation"]
         if self.developper:
-            for score, typ, action, source, titre in self.developper:
+            for score, typ, action, source, titre, etat in self.developper:
                 emoji = EMOJIS.get(typ, "·")
-                L.append(f"  {emoji} [{score:>3}] {titre[:46]:<46} {action[:22]:<24} "
-                         f"vu sur {source}")
+                L.append(f"  {emoji} [{score:>3}] {titre[:42]:<42} {(etat or '?')[:11]:<12}"
+                         f"{action[:22]:<24} vu sur {source}")
         else:
             L.append("  aucune piste de développement dans cet échantillon")
         return L
@@ -124,6 +128,25 @@ class Rapport:
                 part = (f"{r['retenues'] / r['lues']:.0%}" if r["lues"] else "NON MESURÉE")
                 L.append(f"  {nom:<16}{r['lues']:>7}{r['retenues']:>10}"
                          f"{r['capter']:>8}{r['developper']:>12}   {part}")
+
+        L += ["", "ÉTAT DES PROCÉDURES"]
+        if self.etats:
+            for etat, n in sorted(self.etats.items(), key=lambda x: -x[1]):
+                L.append(f"  {etat or 'NON LU':<14} {n:>5}")
+            L.append("  Aucun de ces états n'est un rejet : fermé, annulé ou "
+                     "infructueux restent")
+            L.append("  des pistes. Seule l'ACTION change.")
+        else:
+            L.append("  NON MESURÉ")
+
+        if self.transitions:
+            L += ["", "CHANGEMENTS D'ÉTAT — les événements commerciaux du cycle"]
+            for l in self.transitions:
+                marque = "⚡" if l["origine"] == "collecte" else "✎"
+                L.append(f"  {marque} {l['constate_le'][:10]} "
+                         f"{(l['ancien_etat'] or 'découverte'):<12} → "
+                         f"{l['nouvel_etat']:<12} {(l['intitule'] or '')[:40]}")
+            L.append("  ⚡ la source a changé   ·   ✎ nous avons corrigé notre lecture")
 
         L += ["", "LOTS"]
         if self.lots:
@@ -165,6 +188,19 @@ class Rapport:
                 L.append(f"  incident « {etape} » {n:>5}  — avis conservés, consultables")
         else:
             L.append(f"  {'incidents':<20} {0:>5}")
+
+        L += ["", "FIABILITÉ DE L'INFORMATION ≠ VALEUR ÉCONOMIQUE"]
+        for niveau in ("FORTE", "MOYENNE", "FAIBLE", "NULLE"):
+            L.append(f"  {niveau:<10} {self.fiabilites.get(niveau, 0):>5}")
+        L.append("  Une information peu fiable peut être excellente commercialement.")
+        L.append("  Elle remonte donc HAUT, avec « ACTION : VÉRIFIER » — jamais")
+        L.append("  dévalorisée dans le score.")
+        if self.croisement:
+            L.append("")
+            L.append(f"  {'score':>6}  {'fiabilité':<10} {'action':<26} intitulé")
+            for fiab, score, titre, action in self.croisement:
+                L.append(f"  {score:>6}  {(fiab or '—'):<10} {(action or '?')[:24]:<26} "
+                         f"{titre[:34]}")
 
         L += ["", "ÉCONOMIE"]
         L.append(f"  {'MARGE NON MESURÉE':<20} {self.marge_non_mesuree:>5}"
@@ -330,18 +366,42 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
     r.a_verifier = cx.execute(
         "SELECT count(*) c FROM opportunites WHERE fiche LIKE '%A_VERIFIER%'").fetchone()["c"]
 
+    if "etat_procedure" in connues:
+        for l in cx.execute("SELECT etat_procedure e, count(*) n FROM opportunites"
+                            " WHERE type <> 'REJET' GROUP BY etat_procedure"):
+            r.etats[l["e"] or "NON LU"] = l["n"]
+    if "fiabilite" in connues:
+        for l in cx.execute("SELECT fiabilite f, count(*) n FROM opportunites"
+                            " WHERE type <> 'REJET' GROUP BY fiabilite"):
+            r.fiabilites[l["f"] or "NON MESURÉE"] = l["n"]
+        # Le croisement qui prouve la séparation : les meilleurs scores, avec
+        # leur fiabilité à côté. Une ligne FAIBLE tout en haut est normale.
+        for l in cx.execute(
+                "SELECT fiabilite, score, intitule, action FROM opportunites"
+                " WHERE type <> 'REJET' ORDER BY score DESC LIMIT 8"):
+            r.croisement.append((l["fiabilite"], l["score"],
+                                 l["intitule"] or "(sans intitulé)", l["action"]))
+    try:
+        r.transitions = cx.execute(
+            "SELECT h.ancien_etat, h.nouvel_etat, h.origine, h.constate_le, o.intitule"
+            " FROM etats_historique h LEFT JOIN opportunites o ON o.avis_id = h.avis_id"
+            " WHERE h.ancien_etat IS NOT NULL ORDER BY h.id DESC LIMIT 15").fetchall()
+    except Exception:                      # base d'une version antérieure
+        r.transitions = []
+
     r.selections = _selections(cx, connues, cible or {}, proche_km, limite_top)
 
     # Les occasions, moteur par moteur. La source n'est qu'une étiquette de
     # provenance : elle ne trie rien, elle ne bonifie rien.
     for moteur, cible_liste in (("CAPTER", r.capter), ("DEVELOPPER", r.developper)):
         for l in cx.execute(
-                "SELECT o.score, o.type, o.action, o.intitule, a.source"
+                "SELECT o.score, o.type, o.action, o.intitule, o.etat_procedure, a.source"
                 " FROM opportunites o JOIN avis a ON a.id = o.avis_id"
                 " WHERE o.type <> 'REJET' AND o.moteur = ?"
                 " ORDER BY o.score DESC LIMIT ?", (moteur, limite_top)):
             cible_liste.append((l["score"], l["type"], l["action"] or "?",
-                                l["source"], l["intitule"] or "(sans intitulé)"))
+                                l["source"], l["intitule"] or "(sans intitulé)",
+                                l["etat_procedure"]))
 
     # Rendement observé : ce que chaque source produit RÉELLEMENT. Jamais une
     # priorité déclarée d'avance, jamais un zéro pour une source non consultée.

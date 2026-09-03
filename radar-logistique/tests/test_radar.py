@@ -1342,7 +1342,7 @@ class RapportCentreSurLesOccasions(unittest.TestCase):
 
     def test_plusieurs_sources_differentes_apparaissent_dans_capter(self):
         r = self._rapport()
-        sources = {source for _, _, _, source, _ in r.capter}
+        sources = {source for _, _, _, source, _, _ in r.capter}
         self.assertGreaterEqual(len(sources), 4,
                                 f"le radar doit être multi-sources : {sources}")
 
@@ -1690,6 +1690,7 @@ class TaxonomieDunPortail(unittest.TestCase):
         l = self._une("Préinformation")
         self.assertEqual(l["moteur"], "DEVELOPPER")
         self.assertEqual(l["action"], "SURVEILLER")
+        self.assertIn("ANNONCÉ", l["fiche"])
         self.assertIn("futur marché", l["fiche"])
 
     def test_un_appel_a_projets_n_est_ni_postulable_ni_jete(self):
@@ -1881,3 +1882,355 @@ class IndependanceDesCapteurs(unittest.TestCase):
             compte[l["source"]] = compte.get(l["source"], 0) + 1
         part = max(compte.values()) / len(lignes)
         self.assertLess(part, 0.5, f"une source domine le radar : {compte}")
+
+
+# ══════════════ LE FIL DE VIE — une opportunité, plusieurs observations
+from radar import transitions as tr  # noqa: E402
+from radar.fiabilite import Niveau as NiveauFiab  # noqa: E402
+
+
+class FilDeVie(unittest.TestCase):
+    """03/09 POSTULABLE · 14/09 FERMÉ · 28/09 ATTRIBUÉ, ce n'est pas trois
+    opportunités : c'est une opportunité, trois observations, deux transitions."""
+
+    def setUp(self):
+        self.cx = ouvrir(":memory:")
+        self.m = moteur()
+
+    def _collecter(self, **kw):
+        o = opp(ref_source="M1", intitule="Distribution de colis",
+                texte="tournées quotidiennes de distribution", acheteur="Ville",
+                montant=240000, pays_livraison=["BE"], echeance_brute=OUVERT, **kw)
+        return traiter(self.cx, self.m, [o], maintenant_dt=MAINTENANT)
+
+    def _historique(self):
+        return self.cx.execute(
+            "SELECT ancien_etat, nouvel_etat, origine FROM etats_historique"
+            " ORDER BY id").fetchall()
+
+    def test_une_collecte_identique_ne_cree_aucun_evenement(self):
+        self._collecter()
+        avant = len(self._historique())
+        b = self._collecter()
+        self.assertEqual(b.transitions, 0)
+        self.assertEqual(len(self._historique()), avant)
+
+    def test_trois_observations_donnent_une_opportunite_et_deux_transitions(self):
+        self._collecter()
+        self._collecter(texte_statut="la procédure est clôturée")
+        self._collecter(texte_statut="marché attribué à XYZ Logistics")
+        n = self.cx.execute("SELECT count(*) c FROM opportunites").fetchone()["c"]
+        self.assertEqual(n, 1, "le fil de vie ne doit pas dupliquer l'opportunité")
+        hist = self._historique()
+        self.assertEqual([(h["ancien_etat"], h["nouvel_etat"]) for h in hist],
+                         [(None, "POSTULABLE"), ("POSTULABLE", "FERMÉ"),
+                          ("FERMÉ", "ATTRIBUÉ")])
+
+    def test_chaque_transition_conserve_sa_preuve_et_son_origine(self):
+        self._collecter()
+        self._collecter(texte_statut="la procédure est clôturée")
+        l = self._historique()[-1]
+        self.assertEqual(l["origine"], tr.COLLECTE)
+        preuve = self.cx.execute(
+            "SELECT preuve FROM etats_historique ORDER BY id DESC").fetchone()["preuve"]
+        self.assertIn("clotur", preuve)
+
+    def test_moteur_et_action_sont_bien_recalcules(self):
+        """Le bug : `moteur` et `action` n'étaient pas mis à jour. La fiche
+        disait ATTRIBUÉ pendant que la ligne disait POSTULER."""
+        self._collecter()
+        avant = self.cx.execute(
+            "SELECT moteur, action FROM opportunites").fetchone()
+        self._collecter(texte_statut="marché attribué à XYZ Logistics")
+        apres = self.cx.execute(
+            "SELECT moteur, action, etat_procedure FROM opportunites").fetchone()
+        self.assertEqual(avant["action"], "POSTULER")
+        self.assertEqual(apres["moteur"], "DEVELOPPER")
+        self.assertEqual(apres["action"], "CONTACTER LE TITULAIRE")
+        self.assertEqual(apres["etat_procedure"], "ATTRIBUÉ")
+
+    def test_la_fiche_montre_le_fil_de_vie(self):
+        self._collecter()
+        self._collecter(texte_statut="la procédure est clôturée")
+        self._collecter(texte_statut="marché attribué à XYZ Logistics")
+        fiche = self.cx.execute("SELECT fiche FROM opportunites").fetchone()["fiche"]
+        self.assertIn("HISTORIQUE", fiche)
+        self.assertIn("POSTULABLE → FERMÉ", fiche)
+
+
+class TransitionsEtActions(unittest.TestCase):
+    """Un changement d'état est un événement commercial, pas une mise à jour."""
+
+    def setUp(self):
+        self.cx = ouvrir(":memory:")
+        self.m = moteur()
+
+    def _passer(self, **kw):
+        o = opp(ref_source="T1", intitule="Distribution urbaine",
+                texte="tournées quotidiennes de distribution urbaine",
+                acheteur="Ville", montant=240000, pays_livraison=["BE"],
+                echeance_brute=OUVERT, **kw)
+        return traiter(self.cx, self.m, [o], maintenant_dt=MAINTENANT)
+
+    def _envois(self):
+        return {l["motif"]: (l["etat"], l["intensite"]) for l in
+                self.cx.execute("SELECT motif, etat, intensite FROM envois")}
+
+    def test_postulable_vers_ferme_annule_les_alertes_postuler_en_attente(self):
+        self._passer()
+        self.assertEqual(self._envois()["decouverte"][0], "a_envoyer")
+        self._passer(texte_statut="la procédure est clôturée")
+        self.assertEqual(self._envois()["decouverte"][0], "perime")
+
+    def test_ferme_vers_attribue_bascule_en_developper_et_alerte(self):
+        self._passer()
+        self._passer(texte_statut="la procédure est clôturée")
+        self._passer(texte_statut="marché attribué à XYZ Logistics")
+        self.assertIn("FERMÉ->ATTRIBUÉ", self._envois())
+
+    def test_annonce_vers_postulable_est_une_alerte_forte(self):
+        self._passer(type_avis="avis de préinformation",
+                     texte_statut="avis de préinformation")
+        b = self._passer(texte_statut="les offres peuvent encore être introduites")
+        self.assertTrue(b.alertes)
+        motif, (_, intensite) = next(
+            (m, v) for m, v in self._envois().items() if "->" in m)
+        self.assertEqual(intensite, "forte")
+        corps = self.cx.execute(
+            "SELECT corps FROM envois WHERE motif LIKE '%->%'").fetchone()["corps"]
+        self.assertIn("MAINTENANT OUVERT", corps)
+
+    def test_infructueux_vers_postulable_annonce_une_nouvelle_chance(self):
+        self._passer(texte_statut="procédure déclarée sans suite")
+        self._passer(texte_statut="les offres peuvent encore être introduites")
+        corps = self.cx.execute(
+            "SELECT corps FROM envois WHERE motif LIKE '%->%'").fetchone()["corps"]
+        self.assertIn("NOUVELLE CHANCE DE POSTULER", corps)
+
+    def test_annule_vers_postulable_alerte_aussi(self):
+        self._passer(texte_statut="procédure annulée")
+        self._passer(texte_statut="les offres peuvent encore être introduites")
+        corps = self.cx.execute(
+            "SELECT corps FROM envois WHERE motif LIKE '%->%'").fetchone()["corps"]
+        self.assertIn("RELANCE", corps)
+
+    def test_une_transition_vers_inconnu_n_alerte_jamais(self):
+        self._passer()
+        self._passer(statut_source="phase gamma")
+        self.assertFalse([m for m in self._envois() if "->" in m],
+                         "perdre la certitude n'est pas une occasion")
+
+    def test_la_premiere_observation_n_est_pas_une_alerte_de_transition(self):
+        self._passer()
+        self.assertEqual([m for m in self._envois() if "->" in m], [])
+
+    def test_une_correction_de_vocabulaire_ne_fait_pas_croire_a_un_changement(self):
+        """« la source a changé » n'est pas « nous avons changé notre lecture »."""
+        from radar.procedure import Etat as E, Lecture, Confiance as C
+        self._passer()
+        avis_id = self.cx.execute("SELECT id FROM avis").fetchone()["id"]
+        lecture = Lecture(etat=E.FERME, confiance=C.ELEVEE)
+        t = tr.constater(self.cx, avis_id, lecture, "ted",
+                         origine=tr.REVISION, version_vocabulaire=3)
+        self.assertFalse(t.alerte)
+        self.assertEqual(t.origine, tr.REVISION)
+        l = self.cx.execute("SELECT origine, version_vocabulaire FROM etats_historique"
+                            " ORDER BY id DESC").fetchone()
+        self.assertEqual(l["origine"], "revision_vocabulaire")
+        self.assertEqual(l["version_vocabulaire"], 3)
+
+
+class ContradictionsFortes(unittest.TestCase):
+    """La hiérarchie départage des preuves NON contradictoires. Elle ne fait pas
+    gagner un champ structuré périmé contre une phrase qui dit le contraire."""
+
+    def _voc(self):
+        return Vocabulaire({"procedure": {
+            "statuts": {"open": {"interpretation": "postulable", "confiance": "elevee"}},
+            "types_information": {
+                "Marchés en cours": {"interpretation": "postulable", "confiance": "moyenne"},
+                "Résultats": {"interpretation": "attribue", "confiance": "elevee"}}}})
+
+    def test_statut_structuré_ouvert_contre_texte_ferme_donne_inconnu(self):
+        l = lire(statut_source="open", texte="la procédure est clôturée",
+                 vocabulaire=self._voc())
+        self.assertIs(l.etat, EtatProc.INCONNU)
+        self.assertTrue(any("CONTRADICTION À VÉRIFIER" in c for c in l.contradictions))
+
+    def test_rubrique_ouverte_contre_texte_ferme_suit_le_texte(self):
+        """Ici une seule preuve est de confiance élevée : elle tranche."""
+        l = lire(type_information="Marchés en cours",
+                 texte="La procédure est clôturée et les offres ne sont plus acceptées.",
+                 vocabulaire=self._voc())
+        self.assertIs(l.etat, EtatProc.FERME)
+        self.assertTrue(l.contradictions)
+        # La confiance BAISSE parce qu'une preuve dit autre chose. Elle reste
+        # élevée seulement quand rien ne contredit.
+        self.assertIs(l.confiance, ConfProc.MOYENNE)
+        self.assertIs(lire(texte="la procédure est clôturée").confiance,
+                      ConfProc.ELEVEE)
+
+    def test_la_hierarchie_departage_quand_il_n_y_a_pas_de_conflit_fort(self):
+        l = lire(type_information="Résultats",
+                 echeance=datetime(2099, 1, 1, tzinfo=timezone.utc),
+                 maintenant=MAINTENANT, vocabulaire=self._voc())
+        self.assertIs(l.etat, EtatProc.ATTRIBUE)
+
+    def test_la_hierarchie_est_configurable_par_source(self):
+        """Un portail dont les rubriques sont en retard peut les rétrograder."""
+        retard = Vocabulaire({"procedure": {
+            "hierarchie": {"rubrique": 0},
+            "types_information": {
+                "Marchés en cours": {"interpretation": "postulable", "confiance": "moyenne"}}}})
+        l = lire(type_information="Marchés en cours",
+                 echeance=datetime(2020, 1, 1, tzinfo=timezone.utc),
+                 maintenant=MAINTENANT, vocabulaire=retard)
+        self.assertIs(l.etat, EtatProc.FERME, "la date passe devant la rubrique")
+
+    def test_un_rang_inconnu_dans_la_configuration_est_refuse(self):
+        with self.assertRaises(ValueError):
+            Vocabulaire({"procedure": {"hierarchie": {"couleur_du_bouton": 9}}})
+
+
+class EtatsParLot(unittest.TestCase):
+    def test_un_marche_attribue_avec_quatre_lots_donne_quatre_etats(self):
+        marche = opp(ref_source="P", statut_source="attribué",
+                     intitule="Marché de services logistiques",
+                     texte="transport et distribution", acheteur="Province",
+                     pays_livraison=["BE"], echeance_brute=OUVERT,
+                     lots=[LotBrut(numero="1", intitule="Transport de mobilier",
+                                   statut_source="attribué"),
+                           LotBrut(numero="2", intitule="Transport de palettes",
+                                   statut_source="clôturé"),
+                           LotBrut(numero="3", intitule="Distribution urbaine",
+                                   statut_source="en cours"),
+                           LotBrut(numero="4", intitule="Manutention",
+                                   statut_source="infructueux")])
+        cx = ouvrir(":memory:")
+        voc = Vocabulaire(yaml.safe_load(
+            (RACINE / "sources" / "bda.yaml").read_text(encoding="utf-8")))
+        voc.statuts.update(Vocabulaire({"procedure": {"statuts": {
+            "infructueux": {"interpretation": "infructueux", "confiance": "elevee"}}}}).statuts)
+        m = moteur()
+        m.vocabulaires["bda"] = voc
+        traiter(cx, m, [marche], maintenant_dt=MAINTENANT)
+        etats = {l["lot_numero"]: l["etat_procedure"] for l in cx.execute(
+            "SELECT lot_numero, etat_procedure FROM opportunites")}
+        self.assertEqual(etats, {"1": "ATTRIBUÉ", "2": "FERMÉ",
+                                 "3": "POSTULABLE", "4": "INFRUCTUEUX"})
+
+    def test_un_lot_attribue_dans_un_marche_ouvert_reste_attribue(self):
+        marche = opp(ref_source="Q", statut_source="en cours",
+                     intitule="Marché de transport", texte="transport de marchandises",
+                     acheteur="Commune", pays_livraison=["BE"], echeance_brute=OUVERT,
+                     lots=[LotBrut(numero="1", intitule="Transport A"),
+                           LotBrut(numero="2", intitule="Transport B",
+                                   statut_source="attribué")])
+        cx = ouvrir(":memory:")
+        m = moteur()
+        m.vocabulaires["bda"] = Vocabulaire(yaml.safe_load(
+            (RACINE / "sources" / "bda.yaml").read_text(encoding="utf-8")))
+        traiter(cx, m, [marche], maintenant_dt=MAINTENANT)
+        etats = {l["lot_numero"]: (l["etat_procedure"], l["moteur"]) for l in cx.execute(
+            "SELECT lot_numero, etat_procedure, moteur FROM opportunites")}
+        self.assertEqual(etats["1"][0], "POSTULABLE")
+        self.assertEqual(etats["2"], ("ATTRIBUÉ", "DEVELOPPER"))
+
+
+class FiabiliteSeparee(unittest.TestCase):
+    """FIABILITÉ DE L'INFORMATION ≠ VALEUR ÉCONOMIQUE. Jamais mélangées."""
+
+    def _analyser(self, **kw):
+        o = opp(intitule="Distribution urbaine de marchandises",
+                texte="tournées quotidiennes de distribution urbaine",
+                montant=240000, duree_mois=24, cadence="quotidienne",
+                pays_livraison=["BE"], distance_depot_km=20, **kw)
+        return moteur().analyser(o, MAINTENANT)
+
+    def test_une_information_peu_fiable_garde_toute_sa_valeur_economique(self):
+        solide = self._analyser(ref_source="OK-1", acheteur="Ville de Namur",
+                                echeance_brute=OUVERT, plateforme="https://ex.be/1")
+        fragile = self._analyser(ref_source="SANS-REF-abc", acheteur=None,
+                                 echeance_brute=None)
+        self.assertEqual(solide.score.total, fragile.score.total,
+                         "la fiabilité ne doit pas entrer dans le score")
+        self.assertNotEqual(solide.fiabilite.niveau, fragile.fiabilite.niveau)
+
+    def test_la_fiabilite_est_affichee_avec_son_motif(self):
+        r = self._analyser(ref_source="OK-2", acheteur="Ville", echeance_brute=OUVERT)
+        fiche = r.fiche.en_texte()
+        self.assertIn("FIABILITÉ", fiche)
+        self.assertIn(r.fiabilite.niveau.value, fiche)
+
+    def test_une_contradiction_fait_baisser_la_fiabilite_pas_le_score(self):
+        voc = Vocabulaire({"procedure": {"statuts": {
+            "open": {"interpretation": "postulable", "confiance": "elevee"}}}})
+        m = moteur()
+        m.vocabulaires["bda"] = voc
+        propre = m.analyser(opp(ref_source="C1", acheteur="Ville",
+                                echeance_brute=OUVERT), MAINTENANT)
+        trouble = m.analyser(opp(ref_source="C2", acheteur="Ville",
+                                 echeance_brute=OUVERT, statut_source="open",
+                                 texte_statut="la procédure est clôturée"), MAINTENANT)
+        self.assertEqual(propre.score.total, trouble.score.total)
+        self.assertIn("cohérence", trouble.fiabilite.motif())
+
+    def test_le_module_de_fiabilite_ne_nomme_aucune_source(self):
+        source = (RACINE / "radar" / "fiabilite.py").read_text(encoding="utf-8")
+        for nom in ("ted", "google", "bda", "tenderned"):
+            self.assertNotIn(f'"{nom}"', source)
+
+    def test_le_rapport_croise_fiabilite_et_score_sans_les_confondre(self):
+        from outils.radar_commercial import LOTS, charger, _moteur
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        m = _moteur()
+        for fichier, source in LOTS:
+            traiter(cx, m, charger(fichier, source), maintenant_dt=MAINTENANT)
+        texte = construire(cx, Mode.DEMO).en_texte(avec_fiches=False)
+        self.assertIn("FIABILITÉ DE L'INFORMATION ≠ VALEUR ÉCONOMIQUE", texte)
+        self.assertIn("jamais", texte)
+
+
+class VocabulaireVersionne(unittest.TestCase):
+    def test_une_expression_apprise_ne_se_propage_pas_a_une_autre_source(self):
+        from radar.procedure import reviser, vocabulaire_appris
+        cx = ouvrir(":memory:")
+        reviser(cx, "portail_a", "statut", "phase active", "postulable", par="t")
+        a = vocabulaire_appris(cx, "portail_a")
+        b = vocabulaire_appris(cx, "portail_b")
+        self.assertIs(lire(statut_source="phase active", vocabulaire=a).etat,
+                      EtatProc.POSTULABLE)
+        self.assertIs(lire(statut_source="phase active", vocabulaire=b).etat,
+                      EtatProc.INCONNU)
+
+    def test_chaque_revision_incremente_la_version(self):
+        from radar.procedure import reviser
+        cx = ouvrir(":memory:")
+        self.assertEqual(reviser(cx, "p", "statut", "x", "postulable", par="a"), 1)
+        self.assertEqual(reviser(cx, "p", "statut", "x", "ferme", par="b"), 2)
+        l = cx.execute("SELECT version FROM vocabulaire").fetchone()
+        self.assertEqual(l["version"], 2)
+
+    def test_la_langue_est_enregistree_jamais_devinee(self):
+        cx = ouvrir(":memory:")
+        o = opp(source="portail", ref_source="L1", statut_source="phase gamma",
+                intitule="Transport", echeance_brute=OUVERT)
+        traiter(cx, moteur(), [o], maintenant_dt=MAINTENANT)
+        l = cx.execute("SELECT langue FROM vocabulaire").fetchone()
+        self.assertEqual(l["langue"], "INCONNUE",
+                         "une langue non déclarée n'est pas devinée")
+
+    def test_on_sait_quelles_fiches_dependent_d_une_expression(self):
+        from radar.procedure import concerne
+        cx = ouvrir(":memory:")
+        m = moteur()
+        m.vocabulaires["portail"] = Vocabulaire({"procedure": {"types_information": {
+            "Phase gamma": {"interpretation": "postulable", "confiance": "moyenne"}}}})
+        o = opp(source="portail", ref_source="D1", type_information="Phase gamma",
+                intitule="Transport de colis", texte="distribution",
+                acheteur="Ville", pays_livraison=["BE"], echeance_brute=OUVERT)
+        traiter(cx, m, [o], maintenant_dt=MAINTENANT)
+        touchees = concerne(cx, "portail", "type_information", "Phase gamma")
+        self.assertEqual(len(touchees), 1)
+        self.assertEqual(touchees[0]["etat_procedure"], "POSTULABLE")

@@ -46,6 +46,15 @@ CREATE TABLE IF NOT EXISTS opportunites (
     echeance      TEXT,
     jours_restants INTEGER,
     distance_km   REAL,               -- distance publiée au dépôt, NULL = NON PUBLIÉE
+    -- B · l'état NORMALISÉ de la procédure. Colonne, pas texte noyé dans la
+    -- fiche : sans elle, impossible de détecter une transition ni de requêter.
+    etat_procedure TEXT,
+    confiance_etat TEXT,
+    type_information TEXT,            -- A · ce que la source appelle l'objet
+    -- FIABILITÉ DE L'INFORMATION — jamais mélangée à la valeur économique.
+    -- Une information peu fiable peut être excellente commercialement.
+    fiabilite     TEXT,
+    fiabilite_motif TEXT,
     score         INTEGER NOT NULL DEFAULT 0,
     detail_score  TEXT,
     motif         TEXT,
@@ -171,11 +180,12 @@ CREATE TABLE IF NOT EXISTS vocabulaire (
     source        TEXT NOT NULL,
     champ         TEXT NOT NULL,      -- statut | type_information
     expression    TEXT NOT NULL,      -- ce que le portail a écrit, tel quel
-    langue        TEXT,
+    langue        TEXT,               -- déclarée par l'adaptateur, jamais devinée
     contexte      TEXT,               -- l'intitulé où elle est apparue
     interpretation TEXT,              -- NULL = pas encore tranché
     confiance     TEXT,
     preuve        TEXT,
+    version       INTEGER NOT NULL DEFAULT 0,   -- s'incrémente à chaque révision
     occurrences   INTEGER NOT NULL DEFAULT 1,
     vu_le         TEXT NOT NULL,
     revise_le     TEXT,
@@ -191,6 +201,7 @@ CREATE INDEX IF NOT EXISTS idx_voc_a_trancher
 CREATE TABLE IF NOT EXISTS vocabulaire_historique (
     id             INTEGER PRIMARY KEY,
     vocabulaire_id INTEGER NOT NULL REFERENCES vocabulaire(id) ON DELETE CASCADE,
+    version        INTEGER,
     interpretation TEXT,
     confiance      TEXT,
     motif          TEXT,
@@ -203,14 +214,43 @@ CREATE TABLE IF NOT EXISTS filigrane (
     raison TEXT, maj_le TEXT NOT NULL
 );
 
+-- FIL DE VIE D'UNE OPPORTUNITÉ.
+--
+-- 03/09 POSTULABLE · 14/09 FERMÉ · 28/09 ATTRIBUÉ, ce n'est pas trois
+-- opportunités : c'est UNE opportunité, trois observations, deux transitions.
+-- Une collecte qui ne change rien n'écrit RIEN — sinon on fabriquerait un
+-- événement commercial par passage du collecteur.
+CREATE TABLE IF NOT EXISTS etats_historique (
+    id                 INTEGER PRIMARY KEY,
+    avis_id            INTEGER NOT NULL REFERENCES avis(id) ON DELETE CASCADE,
+    ancien_etat        TEXT,               -- NULL = première observation
+    nouvel_etat        TEXT NOT NULL,
+    ancienne_confiance TEXT,
+    nouvelle_confiance TEXT,
+    preuve             TEXT NOT NULL,      -- la preuve qui a fait basculer
+    source             TEXT NOT NULL,
+    -- « le portail a changé » n'est PAS « nous avons changé notre lecture ».
+    -- Les confondre ferait croire à un mouvement du marché là où il n'y a
+    -- qu'une correction de notre côté.
+    origine            TEXT NOT NULL,      -- collecte | revision_vocabulaire
+    version_vocabulaire INTEGER,
+    constate_le        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_hist_avis ON etats_historique(avis_id, id);
+
 CREATE TABLE IF NOT EXISTS envois (
     id         INTEGER PRIMARY KEY,
     source     TEXT NOT NULL, ref_source TEXT NOT NULL,
+    -- Pourquoi on alerte. « La première fois » et « le marché vient de
+    -- s'ouvrir » sont DEUX événements, pas un doublon : sans ce motif dans la
+    -- clé, un changement d'état ne re-notifierait jamais.
+    motif      TEXT NOT NULL DEFAULT 'decouverte',
+    intensite  TEXT NOT NULL DEFAULT 'normale',   -- forte | normale | silencieuse
     corps      TEXT NOT NULL,
     etat       TEXT NOT NULL DEFAULT 'a_envoyer',
     tentatives INTEGER NOT NULL DEFAULT 0, erreur TEXT,
     cree_le    TEXT NOT NULL, maj_le TEXT NOT NULL,
-    UNIQUE (source, ref_source)
+    UNIQUE (source, ref_source, motif)
 );
 CREATE INDEX IF NOT EXISTS idx_envois_etat ON envois(etat, id);
 

@@ -87,7 +87,7 @@ procedure:
                                normalise: "avis de marché"}
     "avis d'attribution":     {interpretation: attribue,   confiance: elevee,
                                normalise: "avis d'attribution"}
-    "avis de préinformation": {interpretation: informatif, confiance: elevee,
+    "avis de préinformation": {interpretation: annonce, confiance: elevee,
                                normalise: "avis de préinformation"}
     "avis rectificatif":      {interpretation: a_evaluer,  confiance: nulle,
                                normalise: "rectificatif",

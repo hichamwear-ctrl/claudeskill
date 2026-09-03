@@ -5,11 +5,19 @@ from __future__ import annotations
 from .base import maintenant
 
 
-def mettre_en_file(cx, source: str, ref: str, corps: str) -> bool:
-    """Écrit l'intention d'alerter. Renvoie False si elle existait déjà."""
+def mettre_en_file(cx, source: str, ref: str, corps: str, *,
+                   motif: str = "decouverte", intensite: str = "normale") -> bool:
+    """Écrit l'intention d'alerter. Renvoie False si elle existait déjà.
+
+    Le MOTIF fait partie de la clé. « Je viens de la découvrir » et « elle vient
+    de s'ouvrir » sont deux événements commerciaux distincts sur la même
+    opportunité : sans le motif, le second serait avalé comme un doublon et le
+    changement d'état ne serait jamais notifié.
+    """
     cur = cx.execute(
-        "INSERT OR IGNORE INTO envois(source, ref_source, corps, cree_le, maj_le) "
-        "VALUES(?,?,?,?,?)", (source, ref, corps, maintenant(), maintenant()))
+        "INSERT OR IGNORE INTO envois(source, ref_source, motif, intensite, corps,"
+        " cree_le, maj_le) VALUES(?,?,?,?,?,?,?)",
+        (source, ref, motif, intensite, corps, maintenant(), maintenant()))
     return cur.rowcount == 1
 
 

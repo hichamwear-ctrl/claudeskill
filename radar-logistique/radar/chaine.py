@@ -22,8 +22,23 @@ from datetime import datetime, timezone
 def _maintenant_utc():
     return datetime.now(timezone.utc)
 
-from . import (construction, deduplication, envoi, memoire, nature as nat,
-               procedure as proc, questions, statut as st)
+
+def _libelle_etat(lecture) -> str:
+    if lecture is None:
+        return ""
+    if not lecture.procedure_detectee and lecture.etat is proc.Etat.INCONNU:
+        return "— aucune procédure : besoin exprimé directement, pas de dépôt à faire"
+    return f"{lecture.etat.emoji} {lecture.etat.value} — {lecture.etat.libelle_long}"
+
+
+def proc_collecte(opp):
+    """La preuve de collecte portée par le brut, si elle existe."""
+    from .mode import lire_collecte
+    return lire_collecte(getattr(opp, "brut", None) or {})
+
+from . import (construction, deduplication, envoi, fiabilite as fia, memoire,
+               nature as nat, procedure as proc, questions, statut as st,
+               transitions as tr)
 from .comptes import Livre
 from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
 from .entreprises import Registre as RegistreEntreprises
@@ -52,6 +67,7 @@ class Resultat:
     construction: object = None
     nature: object = None
     lecture: object = None          # l'état de procédure et ses preuves
+    fiabilite: object = None        # à quel point c'est prouvé — JAMAIS dans le score
 
 
 @dataclass
@@ -70,6 +86,8 @@ class BilanCycle:
     developper: int = 0
     notifies: int = 0
     attributions: int = 0
+    transitions: int = 0
+    alertes: list = field(default_factory=list)   # les changements qui valent un appel
     motifs_rejet: dict = field(default_factory=dict)
 
     def rejeter(self, motif):
@@ -130,7 +148,7 @@ class Moteur:
         return b
 
     # --------------------------------------------------------- analyse --
-    def analyser(self, opp, maintenant_dt=None) -> Resultat:
+    def analyser(self, opp, maintenant_dt=None, fil=None) -> Resultat:
         nature = nat.qualifier(opp)
         role = self.roles.analyser(f"{opp.intitule} {opp.texte}", opp.cpv)
         corr = self.ontologie.analyser(f"{opp.intitule} {opp.texte}", opp.cpv)
@@ -152,7 +170,8 @@ class Moteur:
             echeance=verdict.echeance, maintenant=maintenant_dt or _maintenant_utc(),
             date_attribution=opp.attribue_le,
             titulaire=opp.titulaire if opp.attribue else None,
-            vocabulaire=self.vocabulaire(opp.source), source=opp.source)
+            vocabulaire=self.vocabulaire(opp.source), source=opp.source,
+            est_signal=opp.est_signal)
         if opp.attribue and lecture.etat is not proc.Etat.ATTRIBUE:
             lecture.a_verifier.append(
                 "la source déclare le marché attribué mais l'interprétation "
@@ -208,18 +227,24 @@ class Moteur:
         score = self.bareme.calculer(correspondance=corr, zone=zone, bilan=bilan, opp=opp,
                                      type_opp=type_economique, cadence=opp.cadence,
                                      jours_restants=verdict.jours_restants)
+        # FIABILITÉ — calculée APRÈS le score, et volontairement pas passée au
+        # barème. Une information peu sûre remonte haut si elle vaut de
+        # l'argent ; elle porte alors « FIABILITÉ : FAIBLE · ACTION : VÉRIFIER ».
+        fiab = fia.evaluer(opp, nature=nature, lecture=lecture,
+                           collecte=proc_collecte(opp))
+
         journal = questions.interroger(
             opp=opp, role=role.role, correspondance=corr, zone=zone, bilan=bilan,
             classement=classement, verdict=verdict, score=score,
             lots_retenus=[opp.lot_numero] if opp.lot_numero else [])
         fiche = self._fiche(opp, role, corr, zone, bilan, classement, verdict, score,
-                            constr, nature, lecture)
+                            constr, nature, lecture, fiab, fil)
         return Resultat(classement, score, fiche, journal, role.role, zone, bilan,
-                        corr, verdict, constr, nature, lecture)
+                        corr, verdict, constr, nature, lecture, fiab)
 
     # ----------------------------------------------------------- fiche --
     def _fiche(self, opp, role, corr, zone, bilan, classement, verdict, score, constr,
-               nature=None, lecture=None):
+               nature=None, lecture=None, fiab=None, fil=None):
         pourquoi = []
         for famille in corr.familles:
             libelle = self.ontologie.cfg["familles"][famille]["libelle"]
@@ -279,10 +304,65 @@ class Moteur:
             lien=opp.lien_depot or opp.lien_dossier, source=opp.source,
             reference=opp.ref_source, nature=nature,
             etat=lecture.etat if lecture else None,
+            etat_libelle=_libelle_etat(lecture),
             confiance_etat=lecture.confiance.value if lecture else "",
             type_information=lecture.type_information_source if lecture else "",
             preuves_etat=[str(p) for p in (lecture.preuves[:3] if lecture else [])],
-            contradictions=list(lecture.contradictions) if lecture else [])
+            contradictions=list(lecture.contradictions) if lecture else [],
+            fiabilite=fiab.niveau.value if fiab else "",
+            fiabilite_motif=fiab.motif() if fiab else "",
+            fil_de_vie=list(fil or []))
+
+
+# Colonnes recalculées à chaque passage. Le bug qu'elles corrigent : `moteur`
+# et `action` n'étaient PAS mis à jour, donc une opportunité passée de
+# POSTULABLE à ATTRIBUÉ gardait « POSTULER » en base pendant que sa fiche
+# disait « ATTRIBUÉ ». Une ligne qui se contredit elle-même est pire qu'une
+# ligne absente : on agit dessus.
+RECALCULEES = ("type", "moteur", "action", "role", "statut", "zone", "familles",
+               "etat_procedure", "confiance_etat", "type_information",
+               "fiabilite", "fiabilite_motif", "echeance", "jours_restants",
+               "score", "marge", "detail_score", "journal", "motif", "fiche",
+               "calcule_le")
+
+_COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
+             "familles", "marche_ref", "lot_numero", "intitule", "acheteur",
+             "montant", "devise", "duree_mois", "cadence", "contact", "exigences",
+             "echeance", "jours_restants", "distance_km", "etat_procedure",
+             "confiance_etat", "type_information", "fiabilite", "fiabilite_motif",
+             "score", "marge", "detail_score", "journal", "motif", "fiche",
+             "calcule_le")
+
+
+def _valeurs(avis_id, opp, r) -> tuple:
+    lecture = r.lecture
+    return (avis_id, r.classement.type.value, r.classement.moteur.value,
+            r.classement.action.value, r.role.value, r.verdict.statut.value,
+            r.zone.zone.value, ",".join(r.correspondance.familles),
+            opp.marche_ref, opp.lot_numero, opp.intitule, opp.acheteur, opp.montant,
+            opp.devise, opp.duree_mois, opp.cadence, opp.contact,
+            "; ".join(str(k) for k in (opp.exigences or {})) or None,
+            r.verdict.echeance.isoformat() if r.verdict.echeance else None,
+            r.verdict.jours_restants, opp.distance_depot_km,
+            lecture.etat_affiche if lecture else None,
+            lecture.confiance.value if lecture else None,
+            lecture.type_information_source if lecture else None,
+            r.fiabilite.niveau.value if r.fiabilite else None,
+            r.fiabilite.motif() if r.fiabilite else None,
+            r.score.total, r.score.marge_estimee,
+            json.dumps(r.score.detail(), ensure_ascii=False),
+            json.dumps(r.journal.en_lignes(), ensure_ascii=False),
+            r.classement.motif, r.fiche.en_texte(), maintenant())
+
+
+def _ecrire_opportunite(cx, avis_id: int, opp, r) -> None:
+    """Écrit ou réécrit la ligne. TOUT ce qui est recalculé est réécrit."""
+    maj = ", ".join(f"{c}=excluded.{c}" for c in RECALCULEES)
+    cx.execute(
+        f"INSERT INTO opportunites({', '.join(_COLONNES)})"
+        f" VALUES({', '.join('?' * len(_COLONNES))})"
+        f" ON CONFLICT(avis_id) DO UPDATE SET {maj}",
+        _valeurs(avis_id, opp, r))
 
 
 def _reecrire(cx, avis_id: int, r, opp) -> None:
@@ -388,11 +468,16 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
 
             avis_id = enregistrer_reponse(cx, opp.source, opp.ref_source, opp.brut or {}, emp)
             deja_ecrites[id(opp)] = avis_id
-            r = moteur.analyser(opp, maintenant_dt)
+            # Le fil de vie déjà connu : la fiche doit montrer d'où vient
+            # cette opportunité, pas seulement où elle en est aujourd'hui.
+            fil = [f"{l['constate_le'][:10]} {l['ancien_etat'] or 'découverte'}"
+                   f" → {l['nouvel_etat']}" for l in tr.fil_de_vie(cx, avis_id)]
+            r = moteur.analyser(opp, maintenant_dt, fil=fil)
             # Toute formulation de statut jamais rencontrée est conservée, avec
             # son contexte, pour être tranchée une fois — jamais devinée.
             if r.lecture is not None and r.lecture.inconnues:
-                proc.memoriser(cx, opp.source, r.lecture, opp.intitule or "")
+                proc.memoriser(cx, opp.source, r.lecture, opp.intitule or "",
+                               langue=moteur.vocabulaire(opp.source).langue)
 
             if r.verdict.statut is st.Statut.ATTRIBUE:
                 m = memoire.memoriser(opp)
@@ -415,27 +500,18 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
             else:
                 moteur.entreprises.depuis_opportunite(opp)
 
-            cx.execute(
-                "INSERT INTO opportunites(avis_id, type, moteur, action, role, statut, zone,"
-                " familles, marche_ref, lot_numero, intitule, acheteur, montant, devise,"
-                " duree_mois, cadence, contact, exigences, echeance,"
-                " jours_restants, distance_km,"
-                " score, marge, detail_score, journal, motif, fiche, calcule_le)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-                " ON CONFLICT(avis_id) DO UPDATE SET type=excluded.type, score=excluded.score,"
-                " fiche=excluded.fiche, motif=excluded.motif, calcule_le=excluded.calcule_le",
-                (avis_id, r.classement.type.value, r.classement.moteur.value,
-                 r.classement.action.value, r.role.value, r.verdict.statut.value,
-                 r.zone.zone.value, ",".join(r.correspondance.familles),
-                 opp.marche_ref, opp.lot_numero, opp.intitule, opp.acheteur, opp.montant,
-                 opp.devise, opp.duree_mois, opp.cadence, opp.contact,
-                 "; ".join(str(k) for k in (opp.exigences or {})) or None,
-                 r.verdict.echeance.isoformat() if r.verdict.echeance else None,
-                 r.verdict.jours_restants, opp.distance_depot_km,
-                 r.score.total, r.score.marge_estimee,
-                 json.dumps(r.score.detail(), ensure_ascii=False),
-                 json.dumps(r.journal.en_lignes(), ensure_ascii=False),
-                 r.classement.motif, r.fiche.en_texte(), maintenant()))
+            # L'ordre compte : on compare à l'état DÉJÀ en base, avant de
+            # l'écraser. Constater après la réécriture reviendrait à comparer
+            # la ligne à elle-même — aucune transition ne serait jamais vue.
+            transition = None
+            if r.lecture is not None:
+                transition = tr.constater(cx, avis_id, r.lecture, opp.source)
+                if transition is not None:
+                    bilan.transitions += 1
+                    if transition.alerte:
+                        bilan.alertes.append(
+                            f"{opp.intitule[:48]} — {transition.libelle()}")
+            _ecrire_opportunite(cx, avis_id, opp, r)
 
             t = r.classement.type
             if t is Type.REJET:
@@ -459,6 +535,11 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
 
             if envoi.mettre_en_file(cx, opp.source, opp.ref_source, r.fiche.en_texte()):
                 bilan.notifies += 1
+            # Un seul passage : il annule ce qui est périmé ET met en file
+            # l'alerte quand la transition en mérite une.
+            if transition is not None:
+                if tr.appliquer(cx, transition, opp, r.fiche.en_texte()):
+                    bilan.notifies += 1
 
     cx.commit()
     # Aucune disparition sans motif : si ça ne tombe pas juste, on échoue.
