@@ -3107,3 +3107,86 @@ class LePlafondDuScoreEstUneLimiteConnue(unittest.TestCase):
                                 exigences={"vehicules_min": 12})
         self.assertLess(loin, proche)
         self.assertLess(proche, 100)
+
+
+class AuditDeRealisme(unittest.TestCase):
+    """Le corpus de formulations devient un filet de sécurité permanent.
+
+    Il ne prouve pas que le moteur comprend le monde — il a été écrit puis le
+    moteur corrigé contre lui. Il prouve qu'aucune régression ne repassera sur
+    les 78 formulations dont on sait déjà qu'elles posaient problème.
+    """
+
+    def test_le_corpus_ne_declare_aucune_donnee_reelle(self):
+        corpus = yaml.safe_load((RACINE / "validation" /
+                                 "corpus_formulations.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(corpus["meta"]["pages_reelles_observees"], 0)
+        self.assertEqual(corpus["meta"]["origine_par_defaut"], "invente")
+
+    def test_aucune_formulation_du_corpus_n_est_mal_comprise(self):
+        from outils.audit_realisme import _etat_lu
+        corpus = yaml.safe_load((RACINE / "validation" /
+                                 "corpus_formulations.yaml").read_text(encoding="utf-8"))
+        fautes = []
+        for f in corpus["formulations"]:
+            if f.get("champ") == "statut":
+                lecture = lire(statut_source=f["texte"], source="portail-test")
+            else:
+                lecture = lire(texte=f["texte"])
+            obtenu = _etat_lu(lecture)
+            if obtenu != f["attendu"] and obtenu not in ("INCONNU", "HORS_PROCEDURE"):
+                fautes.append(f"« {f['texte']} » attendu {f['attendu']}, lu {obtenu}")
+        self.assertEqual(fautes, [], "\n".join(fautes))
+
+    def test_offres_non_recevables_n_est_jamais_postulable(self):
+        """Le pire cas trouvé par l'audit : « non » manquait des négations, et
+        « offres non recevables » ressortait POSTULABLE — inviter à monter un
+        dossier sur un marché fermé."""
+        self.assertIsNot(lire(texte="offres non recevables").etat,
+                         EtatProc.POSTULABLE)
+
+    def test_une_date_depassee_bat_la_rubrique_du_portail(self):
+        voc = Vocabulaire({"procedure": {"types_information": {
+            "Marchés en cours": {"interpretation": "postulable", "confiance": "moyenne"}}}})
+        l = lire(type_information="Marchés en cours",
+                 echeance=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                 maintenant=MAINTENANT, vocabulaire=voc)
+        self.assertIs(l.etat, EtatProc.FERME,
+                      "une échéance passée est un fait, la rubrique un classement")
+
+    def test_une_attribution_annoncee_ne_laisse_pas_postuler(self):
+        voc = Vocabulaire({"procedure": {"types_information": {
+            "Marchés en cours": {"interpretation": "postulable", "confiance": "moyenne"}}}})
+        l = lire(type_information="Marchés en cours",
+                 texte="L'attribution sera prononcée prochainement.", vocabulaire=voc)
+        self.assertIsNot(l.etat, EtatProc.POSTULABLE)
+
+    def test_une_echeance_posterieure_au_demarrage_est_illisible(self):
+        """Contradiction dans les données publiées : elle produisait un délai de
+        -25 551 jours, traité comme « insuffisant » au lieu de « illisible »."""
+        o = opp(ref_source="CONTRA", intitule="Installation de bornes",
+                texte="véhicules utilitaires et personnel de terrain, formation "
+                      "complète de trois semaines assurée",
+                echeance_brute="2099-05-15T12:00:00+02:00",
+                date_demarrage="2029-06-01", acheteur="Opérateur")
+        r = moteur().analyser(o, MAINTENANT)
+        manques = " ".join((r.construction.manques if r.construction else []))
+        self.assertNotIn("-", manques, "aucun délai négatif ne doit être affiché")
+
+    def test_les_quatre_lots_gardent_quatre_etats_distincts(self):
+        from outils.audit_realisme import epreuve_lots, Matrice
+        import io
+        import contextlib
+        m = Matrice()
+        with contextlib.redirect_stdout(io.StringIO()):
+            epreuve_lots(m, False)
+        self.assertEqual(m.incorrects, 0)
+
+    def test_les_cent_opportunites_melangees_retrouvent_leur_famille(self):
+        from outils.audit_realisme import epreuve_cent, Matrice
+        import io
+        import contextlib
+        m = Matrice()
+        with contextlib.redirect_stdout(io.StringIO()):
+            epreuve_cent(m, False)
+        self.assertEqual(m.par_dimension["familles retrouvées"]["INCORRECT"], 0)

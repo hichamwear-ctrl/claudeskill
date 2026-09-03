@@ -1,0 +1,131 @@
+# CORPUS DE FORMULATIONS — le banc d'épreuve de la compréhension.
+#
+# ═══ AVERTISSEMENT D'HONNÊTETÉ ═══
+# `origine: invente` signifie : formulation ÉCRITE PAR MOI, plausible, mais
+# JAMAIS OBSERVÉE sur une vraie page. Aucune entrée ne porte `origine: observe`
+# tant qu'aucune page réelle n'a été lue. Ce corpus mesure donc ce que le moteur
+# comprend de formulations vraisemblables — pas ce qu'il comprendra du réel.
+#
+# Chaque entrée déclare ce qu'un opérateur humain conclurait, et le niveau de
+# certitude qu'il aurait. `attendu: INCONNU` n'est PAS un échec : c'est la bonne
+# réponse quand la phrase ne permet pas de trancher.
+#
+# `dimension` dit sur quoi porte l'épreuve :
+#   etat      → B, l'état de procédure
+#   nature    → C, fait / signal / hypothèse
+#   piege     → la formulation ressemble à une procédure sans en être une
+#
+# `champ` dit COMMENT le portail présente la phrase. C'est décisif : la même
+# phrase n'a pas le même poids selon qu'elle est du texte libre ou la valeur
+# d'un champ de statut.
+#   texte     → prose de l'annonce (défaut)
+#   statut    → la valeur que le portail a mise dans son champ « statut »
+# « Sélection en cours » écrit nulle part en particulier n'établit aucune
+# procédure ; la même phrase DANS un champ de statut dit qu'il y en a une, dont
+# on ne sait pas conclure l'état.
+
+meta:
+  origine_par_defaut: invente
+  pages_reelles_observees: 0
+
+formulations:
+
+  # ─────────────────────────────────────────────── POSTULABLE, français
+  - {texte: "les offres sont recevables jusqu'au 30 octobre", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  - {texte: "consultation ouverte", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: moyenne}
+  - {texte: "consultations ouvertes", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: moyenne}
+  - {texte: "procédure en cours", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: faible}
+  - {texte: "marché ouvert aux candidatures", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  - {texte: "appel à concurrence en cours", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: moyenne}
+  - {texte: "demande de prix — remise des offres jusqu'au 15/11", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: moyenne}
+  - {texte: "soumission possible", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: moyenne}
+  - {texte: "dépôt des offres en cours", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  - {texte: "candidatures ouvertes", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  - {texte: "les soumissions peuvent encore être introduites", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  - {texte: "avis publié — procédure ouverte", langue: fr, dimension: etat, attendu: POSTULABLE, certitude: moyenne}
+
+  # ─────────────────────────────────────────────── POSTULABLE, autres langues
+  - {texte: "inschrijvingen zijn mogelijk tot 30 oktober", langue: nl, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  - {texte: "offertes kunnen worden ingediend", langue: nl, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  - {texte: "lopende opdracht", langue: nl, dimension: etat, attendu: POSTULABLE, certitude: faible}
+  - {texte: "open procedure", langue: en, dimension: etat, attendu: POSTULABLE, certitude: moyenne}
+  - {texte: "tenders are currently being accepted", langue: en, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  # Corrigé après mesure : une échéance annoncée SANS date de référence ne
+  # prouve pas que le dépôt est encore ouvert. Mon attente était fausse.
+  - {texte: "submission deadline 30 October", langue: en, dimension: etat, attendu: INCONNU, certitude: elevee, champ: statut}
+  - {texte: "Angebote können bis zum 30. Oktober eingereicht werden", langue: de, dimension: etat, attendu: POSTULABLE, certitude: elevee}
+  - {texte: "laufendes Vergabeverfahren", langue: de, dimension: etat, attendu: POSTULABLE, certitude: faible}
+
+  # ─────────────────────────────────────────────── ATTRIBUÉ
+  - {texte: "marché attribué à Transport National SA", langue: fr, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "marché conclu", langue: fr, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "titulaire désigné", langue: fr, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "contrat attribué", langue: fr, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "le soumissionnaire retenu est XYZ", langue: fr, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "avis d'attribution du marché", langue: fr, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "de opdracht is gegund", langue: nl, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "de winnaar is bekendgemaakt", langue: nl, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "the contract has been awarded", langue: en, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "awarded supplier published", langue: en, dimension: etat, attendu: ATTRIBUE, certitude: moyenne}
+  - {texte: "der Zuschlag wurde erteilt", langue: de, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+  - {texte: "Auftrag vergeben", langue: de, dimension: etat, attendu: ATTRIBUE, certitude: elevee}
+
+  # ─────────────────────────────────────────────── FERMÉ
+  - {texte: "procédure clôturée", langue: fr, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "la remise des offres est clôturée", langue: fr, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "délai expiré", langue: fr, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "offres non recevables", langue: fr, dimension: etat, attendu: FERME, certitude: moyenne}
+  - {texte: "les offres ne sont plus acceptées", langue: fr, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "aucune offre ne peut désormais être déposée", langue: fr, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "la date limite de remise des offres est dépassée", langue: fr, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "de procedure is afgesloten", langue: nl, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "de indieningstermijn is verstreken", langue: nl, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "submissions are closed", langue: en, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "the deadline has passed", langue: en, dimension: etat, attendu: FERME, certitude: elevee}
+  - {texte: "die Frist ist abgelaufen", langue: de, dimension: etat, attendu: FERME, certitude: elevee}
+
+  # ─────────────────────────────────────────────── ANNULÉ / INFRUCTUEUX
+  - {texte: "marché annulé", langue: fr, dimension: etat, attendu: ANNULE, certitude: elevee}
+  - {texte: "procédure retirée", langue: fr, dimension: etat, attendu: ANNULE, certitude: elevee}
+  - {texte: "de opdracht is ingetrokken", langue: nl, dimension: etat, attendu: ANNULE, certitude: elevee}
+  - {texte: "the procedure was cancelled", langue: en, dimension: etat, attendu: ANNULE, certitude: elevee}
+  - {texte: "procédure infructueuse", langue: fr, dimension: etat, attendu: INFRUCTUEUX, certitude: elevee}
+  - {texte: "marché déclaré sans suite", langue: fr, dimension: etat, attendu: INFRUCTUEUX, certitude: elevee}
+  - {texte: "aucune offre reçue, procédure relancée ultérieurement", langue: fr, dimension: etat, attendu: INFRUCTUEUX, certitude: moyenne}
+
+  # ─────────────────────────────────────────────── ANNONCÉ
+  - {texte: "avis de préinformation", langue: fr, dimension: etat, attendu: ANNONCE, certitude: elevee}
+  - {texte: "avis de marché à venir", langue: fr, dimension: etat, attendu: ANNONCE, certitude: moyenne}
+  - {texte: "intention de lancer un marché de transport en 2027", langue: fr, dimension: etat, attendu: ANNONCE, certitude: moyenne}
+  - {texte: "vooraankondiging", langue: nl, dimension: etat, attendu: ANNONCE, certitude: elevee}
+  - {texte: "prior information notice", langue: en, dimension: etat, attendu: ANNONCE, certitude: elevee}
+  - {texte: "Vorinformation", langue: de, dimension: etat, attendu: ANNONCE, certitude: elevee}
+
+  # ─────────────────────────────────────────────── INCONNU — le moteur DOIT douter
+  - {texte: "sélection en cours", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "offres en cours d'analyse", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "décision d'attribution à venir", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "attribution prévue prochainement", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "l'attribution sera annoncée ultérieurement", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "aucun soumissionnaire n'a encore été désigné", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "aucune attribution n'a encore été publiée", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "phase de sélection", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "dossier en traitement", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "phase gamma", langue: fr, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "de beslissing volgt later", langue: nl, dimension: etat, champ: statut, attendu: INCONNU, certitude: moyenne}
+  - {texte: "evaluation in progress", langue: en, dimension: etat, champ: statut, attendu: INCONNU, certitude: elevee}
+  - {texte: "Entscheidung steht noch aus", langue: de, dimension: etat, champ: statut, attendu: INCONNU, certitude: moyenne}
+
+  # ─────────────────────────────────────────────── PIÈGES : ressemble à une procédure
+  - {texte: "appel à sous-traitants transport", langue: fr, dimension: piege, attendu: HORS_PROCEDURE, certitude: elevee}
+  - {texte: "appel à partenaires logistiques", langue: fr, dimension: piege, attendu: HORS_PROCEDURE, certitude: elevee}
+  # AMBIGUÏTÉ NON TRANCHÉE, assumée : « consultation » est le mot d'une
+  # procédure publique ET d'un référencement privé. Le moteur répond INCONNU.
+  # C'est le comportement voulu — douter plutôt qu'affirmer — mais l'entrée
+  # reste ici pour que l'ambiguïté soit visible et mesurée.
+  - {texte: "consultation de fournisseurs — référencement transporteurs", langue: fr, dimension: piege, attendu: INCONNU, certitude: faible, champ: statut}
+  - {texte: "nous disposons d'un dépôt de 400 m² en Belgique", langue: fr, dimension: piege, attendu: HORS_PROCEDURE, certitude: elevee}
+  - {texte: "devenez notre transporteur partenaire", langue: fr, dimension: piege, attendu: HORS_PROCEDURE, certitude: elevee}
+  - {texte: "notre marché est en forte croissance", langue: fr, dimension: piege, attendu: HORS_PROCEDURE, certitude: moyenne}
+  - {texte: "nous ouvrons notre référencement fournisseurs", langue: fr, dimension: piege, attendu: HORS_PROCEDURE, certitude: elevee}
+  - {texte: "capacité recherchée sur la liaison Rotterdam-Bruxelles", langue: fr, dimension: piege, attendu: HORS_PROCEDURE, certitude: elevee}

@@ -257,7 +257,7 @@ MARQUEURS = {
         "appel a candidatures", "en concurrence", "soumissionner",
         "mise en concurrence", "marche public", "marches publics",
         "adjudication", "cahier des charges", "pouvoir adjudicateur",
-        "aanbesteding", "overheidsopdracht", "bestek",
+        "aanbesteding", "overheidsopdracht", "bestek", "lopende opdracht",
         "public procurement", "call for tenders", "contract notice",
         "vergabeverfahren", "ausschreibung",
     ],
@@ -278,14 +278,17 @@ MARQUEURS = {
         "can be submitted", "may be submitted", "now accepting",
         "konnen eingereicht", "eingereicht werden", "kann eingereicht",
         "ongoing", "current", "available", "accepting", "live",
-        "laufend", "offen", "aktuell", "moglich",
+        "currently being accepted", "are being accepted", "now open",
+        "lopend", "lopende opdracht", "demande de prix", "demandes de prix",
+        "laufend", "laufendes", "laufende", "offen", "aktuell", "moglich",
     ],
     "cloture": [
         "cloture", "cloturee", "cloturees", "ferme", "fermee", "termine", "terminee",
         "expire", "expiree", "depasse", "depassee", "echu", "echue", "close", "closes",
         "fin de", "plus de",
         "gesloten", "afgesloten", "beeindigd", "verstreken", "verlopen",
-        "closed", "expired", "ended", "no longer",
+        "closed", "expired", "ended", "no longer", "deadline has passed",
+        "has passed", "past the deadline",
         "abgelaufen", "geschlossen", "beendet",
     ],
     "attribution": [
@@ -340,7 +343,9 @@ MARQUEURS = {
     ],
     # ── modificateurs ─────────────────────────────────────────────────────
     "negation": [
-        "ne", "n", "pas", "plus", "aucun", "aucune", "sans", "jamais", "ni",
+        # « non » manquait. « offres non recevables » ressortait POSTULABLE :
+        # le pire cas possible — affirmer qu'on peut déposer sur un marché fermé.
+        "ne", "n", "pas", "plus", "non", "aucun", "aucune", "sans", "jamais", "ni",
         "niet", "geen", "nooit", "niet meer",
         "no", "not", "none", "without", "cannot", "can no longer", "nor",
         "nicht", "kein", "keine", "ohne", "nie",
@@ -355,9 +360,12 @@ MARQUEURS = {
     "pas_encore": [
         "pas encore", "n a pas encore", "aucun encore", "en attente", "en cours d examen",
         "en cours d analyse", "en cours de selection", "selection en cours",
-        "nog niet", "in behandeling", "in afwachting",
+        "phase de selection", "dossier en traitement", "en traitement",
+        "decision a venir", "sera annoncee", "sera annonce", "annoncee ulterieurement",
+        "nog niet", "in behandeling", "in afwachting", "volgt later", "beslissing volgt",
         "not yet", "pending", "under evaluation", "under review", "being evaluated",
-        "noch nicht", "in prufung", "ausstehend",
+        "evaluation in progress", "decision to follow",
+        "noch nicht", "in prufung", "ausstehend", "steht noch aus", "folgt spater",
     ],
 }
 
@@ -456,10 +464,14 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
             dire(None, f"{origine} : attribution explicitement PAS encore prononcée",
                  Confiance.MOYENNE, exclut=(Etat.ATTRIBUE, Etat.POSTULABLE))
         elif futur:
-            # « le marché sera attribué prochainement » : procédure avancée.
-            # Ni attribuée, ni forcément fermée — on exclut, on ne conclut pas.
+            # « Le marché sera attribué prochainement » : la procédure est
+            # avancée. Elle n'est pas attribuée — mais elle n'est PAS ouverte
+            # non plus : on ne dépose pas une offre sur un marché dont
+            # l'attribution est annoncée. Exclure ATTRIBUÉ sans exclure
+            # POSTULABLE laissait la rubrique du portail conclure « en cours »,
+            # et le radar invitait à monter un dossier pour rien.
             dire(None, f"{origine} : attribution ANNONCÉE mais non prononcée",
-                 Confiance.MOYENNE, exclut=(Etat.ATTRIBUE,))
+                 Confiance.MOYENNE, exclut=(Etat.ATTRIBUE, Etat.POSTULABLE))
         else:
             dire(Etat.ATTRIBUE, f"{origine} : « {attribution_affirmee[0]} »",
                  Confiance.ELEVEE)
@@ -498,10 +510,15 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
                  f"« {(depot or trouver('procedure', plat))[0]} »", Confiance.MOYENNE)
 
     # 6. Préinformation et appels à projets : des types, pas des états ouverts.
-    if preinfo:
+    if preinfo and not attribution:
         # Un avis de préinformation dit qu'un besoin EXISTE et qu'il sera mis en
         # concurrence. Ce n'est pas « pas utile » : c'est la meilleure fenêtre
         # commerciale du cycle, avant que tout le monde arrive.
+        #
+        # Mais « décision d'ATTRIBUTION à venir » n'annonce pas un marché : elle
+        # annonce la fin de celui-ci. Le « à venir » porte sur l'attribution,
+        # pas sur le besoin — et confondre les deux transformait une procédure
+        # qui se termine en occasion qui commence.
         dire(Etat.ANNONCE, f"{origine} : « {preinfo[0]} »", Confiance.ELEVEE)
     if projets:
         dire(None, f"{origine} : « {projets[0]} » — objet et conditions à "
@@ -697,7 +714,11 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
             # Une date limite dépassée ferme le dépôt. Elle ne prouve
             # AUCUNE attribution : c'est la confusion que ce module existe
             # pour empêcher.
-            preuves.append(Preuve(voc.rang("date"),
+            # Une date limite dépassée est un FAIT vérifiable, pas une étiquette
+            # de rangement. Elle doit donc primer sur la rubrique du portail,
+            # qui n'est qu'un classement et se met à jour en retard. L'inverse
+            # laissait « Marchés en cours » l'emporter sur une échéance passée.
+            preuves.append(Preuve(max(voc.rang("date"), voc.rang("rubrique") + 1),
                                   f"date limite dépassée ({echeance:%d/%m/%Y})",
                                   Etat.FERME, Confiance.MOYENNE))
         else:

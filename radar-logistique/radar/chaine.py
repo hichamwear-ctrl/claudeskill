@@ -181,10 +181,19 @@ class Moteur:
         # remplace l'ancien rejet par absence de vocabulaire.
         constr = None
         if not corr.familles and not corr.exclusions:
+            # Combien de jours entre la clôture du dépôt et le démarrage —
+            # c'est ce délai qui décide si une montée en compétence est possible.
+            #
+            # Une échéance POSTÉRIEURE au démarrage est une contradiction dans
+            # les données publiées : on ne dépose pas une offre après le début
+            # du contrat. Elle produisait un nombre de jours négatif — jusqu'à
+            # -25 551 — traité comme « délai insuffisant », et le 🟣 était
+            # refusé sur une donnée absurde plutôt que signalé comme illisible.
             jours = None
             dem, _ = st.parse_date(opp.date_demarrage)
             if dem and verdict.echeance:
-                jours = (dem - verdict.echeance).days
+                ecart = (dem - verdict.echeance).days
+                jours = ecart if ecart >= 0 else None
             elif verdict.jours_restants is not None:
                 jours = verdict.jours_restants
             constr = construction.evaluer(
