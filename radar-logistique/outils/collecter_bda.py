@@ -35,6 +35,7 @@ import yaml                                                    # noqa: E402
 
 from radar import robots                                       # noqa: E402
 from radar.extraction import extraire                          # noqa: E402
+from radar.mode import estampiller                             # noqa: E402
 
 
 def lire(url: str, agent: str) -> tuple[int, str]:
@@ -97,7 +98,12 @@ def principal(argv=None) -> int:
             print(f"page {page} : reçue ({len(contenu)} octets) mais AUCUNE ligne extraite.")
             print("   → les sélecteurs de sources/bda.yaml ne correspondent pas à la page.")
             break
-        neufs = [l for l in lignes if l not in tout]
+        neufs = []
+        for l in lignes:
+            if l in [{k: v for k, v in t.items() if k != "_collecte"} for t in tout]:
+                continue
+            reference = str(l.get("lien_avis") or l.get("identifiant") or url)
+            neufs.append(estampiller(l, source="bda", reference=reference))
         tout += neufs
         print(f"page {page:>3} : {len(lignes):>4} lignes, {len(neufs):>4} nouvelles "
               f"(total {len(tout)})")

@@ -224,6 +224,43 @@ def cmd_boucle(a) -> int:
     return 0
 
 
+def cmd_rapport(a) -> int:
+    """Le rapport de mesure, écrit dans rapports/."""
+    from pathlib import Path as _P
+    from . import rapport as rapport_mod
+
+    mode = _mode(a)
+    cx = ouvrir(_base(a), lecture_seule=True)
+    r = rapport_mod.construire(cx, mode, limite_top=a.top)
+    texte = r.en_texte(avec_fiches=not a.resume)
+
+    dossier = _P(a.sortie)
+    dossier.mkdir(parents=True, exist_ok=True)
+    horo = r.genere_le.replace(":", "").replace("-", "")[:15]
+    chemin = dossier / f"rapport-{mode.value.lower().replace('é', 'e')}-{horo}.txt"
+    chemin.write_text(texte, encoding="utf-8")
+
+    print(texte)
+    print(f"\nRapport écrit dans {chemin}")
+    return 0
+
+
+def cmd_incidents(a) -> int:
+    """Les avis qui n'ont pas pu être traités — conservés, jamais perdus."""
+    cx = ouvrir(_base(a), lecture_seule=True)
+    lignes = cx.execute(
+        "SELECT ligne, source, reference, etape, motif, mode, cree_le FROM incidents"
+        " ORDER BY id DESC LIMIT ?", (a.limite,)).fetchall()
+    if not lignes:
+        print("Aucun incident enregistré.")
+        return 0
+    print(f"{len(lignes)} incident(s) — le contenu brut de chacun est conservé en base\n")
+    for l in lignes:
+        print(f"  ligne {l['ligne'] or '?':<5} {l['source']:<10} {l['etape']:<14} "
+              f"{(l['reference'] or '—')[:26]:<28} {l['motif'][:44]}")
+    return 0
+
+
 def cmd_sources(a) -> int:
     """Le registre : qui a été consulté, quand, et avec quel rendement."""
     import yaml as _y
@@ -318,6 +355,16 @@ def principal(argv=None) -> int:
     bo.add_argument("--profondeur", type=int, default=2)
     bo.add_argument("--budget", type=int, default=100)
     bo.set_defaults(fn=cmd_boucle)
+
+    ra = s.add_parser("rapport", help="rapport de mesure sur les données en base")
+    ra.add_argument("--top", type=int, default=20)
+    ra.add_argument("--resume", action="store_true", help="sans les fiches détaillées")
+    ra.add_argument("--sortie", default="rapports")
+    ra.set_defaults(fn=cmd_rapport)
+
+    inc = s.add_parser("incidents", help="avis non traités, conservés avec leur motif")
+    inc.add_argument("--limite", type=int, default=30)
+    inc.set_defaults(fn=cmd_incidents)
 
     so2 = s.add_parser("sources", help="registre des sources et leur état réel")
     so2.set_defaults(fn=cmd_sources)

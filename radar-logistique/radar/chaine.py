@@ -212,6 +212,16 @@ class Moteur:
             reference=opp.ref_source)
 
 
+def _incident(cx, ligne, opp, etape, motif, mode):
+    """Conserve une ligne non traitée. Elle ne disparaît jamais en silence."""
+    cx.execute(
+        "INSERT INTO incidents(ligne, source, reference, etape, motif, charge, mode,"
+        " cree_le) VALUES(?,?,?,?,?,?,?,?)",
+        (ligne, getattr(opp, "source", "?"), getattr(opp, "ref_source", None),
+         etape, motif, json.dumps(getattr(opp, "brut", {}) or {}, ensure_ascii=False),
+         getattr(mode, "value", str(mode)), maintenant()))
+
+
 def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
             mode: Mode = Mode.DEMO) -> BilanCycle:
     """Traite un lot. En mode RÉEL, refuse toute ligne sans preuve de collecte.
@@ -228,10 +238,13 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
         livre.brutes += 1
 
         # Contrôle d'entrée : une fixture ne peut pas entrer en mode RÉEL.
+        # L'avis refusé est CONSERVÉ comme incident, avec son brut et son motif.
         try:
             verifier_collecte(brut.brut or {}, mode)
         except CollecteInvalide as e:
-            livre.illisible(str(e).split(" (")[0])
+            motif = str(e).split(" (")[0]
+            livre.illisible(motif)
+            _incident(cx, bilan.lus, brut, "collecte", motif, mode)
             continue
 
         enfants = eclater(brut)
@@ -289,15 +302,18 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
 
             cx.execute(
                 "INSERT INTO opportunites(avis_id, type, moteur, action, role, statut, zone,"
-                " familles, marche_ref, lot_numero, intitule, acheteur, montant, echeance,"
+                " familles, marche_ref, lot_numero, intitule, acheteur, montant, devise,"
+                " duree_mois, cadence, contact, exigences, echeance,"
                 " jours_restants, score, marge, detail_score, journal, motif, fiche, calcule_le)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
                 " ON CONFLICT(avis_id) DO UPDATE SET type=excluded.type, score=excluded.score,"
                 " fiche=excluded.fiche, motif=excluded.motif, calcule_le=excluded.calcule_le",
                 (avis_id, r.classement.type.value, r.classement.moteur.value,
                  r.classement.action.value, r.role.value, r.verdict.statut.value,
                  r.zone.zone.value, ",".join(r.correspondance.familles),
                  opp.marche_ref, opp.lot_numero, opp.intitule, opp.acheteur, opp.montant,
+                 opp.devise, opp.duree_mois, opp.cadence, opp.contact,
+                 "; ".join(str(k) for k in (opp.exigences or {})) or None,
                  r.verdict.echeance.isoformat() if r.verdict.echeance else None,
                  r.verdict.jours_restants, r.score.total, r.score.marge_estimee,
                  json.dumps(r.score.detail(), ensure_ascii=False),

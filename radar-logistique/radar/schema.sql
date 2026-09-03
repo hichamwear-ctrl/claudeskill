@@ -38,6 +38,11 @@ CREATE TABLE IF NOT EXISTS opportunites (
     intitule      TEXT,
     acheteur      TEXT,
     montant       REAL,
+    devise        TEXT,
+    duree_mois    INTEGER,
+    cadence       TEXT,
+    contact       TEXT,
+    exigences     TEXT,
     echeance      TEXT,
     jours_restants INTEGER,
     score         INTEGER NOT NULL DEFAULT 0,
@@ -137,6 +142,22 @@ CREATE TABLE IF NOT EXISTS entreprises (
 );
 CREATE INDEX IF NOT EXISTS idx_entreprises_etat ON entreprises(etat);
 CREATE INDEX IF NOT EXISTS idx_attr_renouv ON attributions(renouvellement);
+
+-- Incidents : une ligne qui n'a pas pu être traitée est CONSERVÉE avec son
+-- contenu brut et son motif. Elle ne disparaît pas — elle reste consultable,
+-- et son motif est traçable ligne par ligne.
+CREATE TABLE IF NOT EXISTS incidents (
+    id          INTEGER PRIMARY KEY,
+    ligne       INTEGER,               -- rang dans le lot d'entrée
+    source      TEXT NOT NULL,
+    reference   TEXT,
+    etape       TEXT NOT NULL,         -- collecte | normalisation | extraction
+    motif       TEXT NOT NULL,
+    charge      TEXT,                  -- le brut, tel quel
+    mode        TEXT NOT NULL,
+    cree_le     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_incidents_etape ON incidents(etape);
 
 CREATE TABLE IF NOT EXISTS filigrane (
     source TEXT PRIMARY KEY, valeur TEXT, gele INTEGER NOT NULL DEFAULT 0,

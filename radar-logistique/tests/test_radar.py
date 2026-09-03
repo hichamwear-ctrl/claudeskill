@@ -768,3 +768,64 @@ class LivreDeComptes(unittest.TestCase):
         b = traiter(cx, moteur(), lot, maintenant_dt=MAINTENANT, mode=Mode.REEL)
         b.livre.verifier()
         self.assertEqual(b.capter + b.developper, 3)
+
+
+# ══════════════ non-régression : avis hors schéma
+class AvisHorsSchema(unittest.TestCase):
+    """20 % de données hors schéma ne doivent faire disparaître AUCUN avis."""
+
+    def _o(self, ref):
+        return Opportunite(source="ted", ref_source=ref, intitule="(sans intitulé)")
+
+    def test_deux_avis_illisibles_ne_fusionnent_pas(self):
+        from radar.deduplication import empreinte_stricte
+        self.assertNotEqual(empreinte_stricte(self._o("SANS-REF-a")),
+                            empreinte_stricte(self._o("SANS-REF-b")))
+
+    def test_la_fusion_inter_sources_reste_intacte(self):
+        from radar.deduplication import empreinte_stricte
+        a = opp(source="ted", ref_source="T1", acheteur="CHU")
+        b = opp(source="bda", ref_source="B1", acheteur="CHU")
+        self.assertEqual(empreinte_stricte(a), empreinte_stricte(b))
+
+    def test_un_avis_hors_schema_est_conserve_pas_perdu(self):
+        cx = ouvrir(":memory:")
+        lot = [opp(ref_source="OK", intitule="Transport de colis"),
+               self._o("SANS-REF-a"), self._o("SANS-REF-b")]
+        b = traiter(cx, moteur(), lot, maintenant_dt=MAINTENANT)
+        b.livre.verifier()
+        n = cx.execute("SELECT count(*) c FROM opportunites").fetchone()["c"]
+        self.assertEqual(n, 3, "les trois avis doivent exister en base")
+
+
+# ══════════════ conservation des incidents
+class Incidents(unittest.TestCase):
+    def test_une_fixture_refusee_en_reel_est_conservee_avec_son_motif(self):
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), [opp()], maintenant_dt=MAINTENANT, mode=Mode.REEL)
+        l = cx.execute("SELECT * FROM incidents").fetchone()
+        self.assertIsNotNone(l, "l'avis refusé doit être conservé, pas perdu")
+        self.assertEqual(l["etape"], "collecte")
+        self.assertIn("preuve de collecte", l["motif"])
+
+    def test_le_contenu_brut_de_l_incident_est_conserve(self):
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), [opp(brut={"titre": "avis original"})],
+                maintenant_dt=MAINTENANT, mode=Mode.REEL)
+        charge = cx.execute("SELECT charge FROM incidents").fetchone()["charge"]
+        self.assertIn("avis original", charge)
+
+
+# ══════════════ le rapport ne force jamais un TOP
+class RapportDeMesure(unittest.TestCase):
+    def test_sans_opportunite_le_rapport_le_dit_au_lieu_d_en_inventer(self):
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        texte = construire(cx, Mode.DEMO).en_texte()
+        self.assertIn("AUCUNE OPPORTUNITÉ FORTE DÉTECTÉE", texte)
+
+    def test_le_rapport_porte_son_mode_en_tete(self):
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        self.assertIn("DONNÉES FICTIVES", construire(cx, Mode.DEMO).en_texte())
+        self.assertIn("MODE : RÉEL", construire(cx, Mode.REEL).en_texte())

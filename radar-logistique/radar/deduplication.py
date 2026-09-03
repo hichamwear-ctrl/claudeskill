@@ -77,13 +77,31 @@ def _hacher(*parts) -> str:
 
 
 # ------------------------------------------------------------------ stricte --
+# Intitulés que la normalisation produit quand elle n'a rien pu lire : ils ne
+# distinguent rien et ne doivent jamais servir de signature.
+SANS_CONTENU = {"", "sans intitule", "sans intitule "}
+
+
 def empreinte_stricte(opp) -> str:
-    return _hacher(
-        _plat(opp.acheteur),
-        _plat(opp.intitule)[:120],
-        str(opp.echeance_brute or ""),
-        f"{float(opp.montant):.0f}" if opp.montant else "",
-        (sorted(str(c) for c in (opp.cpv or []))[:1] or [""])[0])
+    """Empreinte du CONTENU. Volontairement indépendante de la référence de
+    source — c'est ce qui permet de reconnaître le même avis sur TED et au BDA.
+
+    Sauf quand il n'y a pas de contenu : deux avis hors schéma ont tous leurs
+    champs vides, donc la même empreinte, et fusionneraient à tort. Dans ce cas
+    seulement, la référence de source départage — mieux vaut deux fiches qu'un
+    avis évaporé.
+    """
+    acheteur = _plat(opp.acheteur)
+    intitule = _plat(opp.intitule)[:120]
+    echeance = str(opp.echeance_brute or "")
+    montant = f"{float(opp.montant):.0f}" if opp.montant else ""
+    cpv = (sorted(str(c) for c in (opp.cpv or []))[:1] or [""])[0]
+
+    distinctif = any((acheteur, intitule not in SANS_CONTENU and intitule,
+                      echeance, montant, cpv))
+    if not distinctif:
+        return _hacher("sans-contenu", opp.source or "", opp.ref_source or "")
+    return _hacher(acheteur, intitule, echeance, montant, cpv)
 
 
 # ---------------------------------------------------------------------- URL --

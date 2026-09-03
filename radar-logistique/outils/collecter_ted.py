@@ -28,6 +28,11 @@ import urllib.error
 import urllib.request
 
 # À corriger si l'API a changé — le script te dira quoi.
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+from radar.mode import estampiller                             # noqa: E402
+
 ENDPOINT = "https://api.ted.europa.eu/v3/notices/search"
 UA = "radar-logistique/1.0 (collecte de marchés publics; contact: exploitant)"
 
@@ -118,11 +123,16 @@ def principal(argv=None) -> int:
 
         neufs = 0
         for avis in lot:
-            empreinte = json.dumps(avis, sort_keys=True)[:400]
-            if empreinte not in vus:
-                vus.add(empreinte)
-                tout.append(avis)
-                neufs += 1
+            cle = json.dumps(avis, sort_keys=True)[:400]
+            if cle in vus:
+                continue
+            vus.add(cle)
+            # Preuve de collecte, posée ICI et nulle part ailleurs : c'est ce
+            # qui permettra à l'avis d'entrer en MODE RÉEL.
+            reference = str(avis.get("publication-number")
+                            or avis.get("notice-id") or url)
+            tout.append(estampiller(avis, source="ted", reference=reference))
+            neufs += 1
         print(f"page {page:>3} : {len(lot):>4} avis reçus, {neufs:>4} nouveaux "
               f"(total {len(tout)})")
         if neufs == 0 or len(lot) < a.taille:
