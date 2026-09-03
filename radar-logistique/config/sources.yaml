@@ -37,6 +37,9 @@ categories:
     deduplication: "même empreinte que TED — les doublons inter-sources sont fusionnés"
     priorite_initiale: 1
     verifie: false
+    methode: navigation
+    url: https://www.publicprocurement.be/bda
+    robots: "consulté avant toute lecture ; un chemin interdit n'est pas lu"
 
   sous_traitance_publique:
     libelle: "Titulaires de marchés publics cherchant des sous-traitants"

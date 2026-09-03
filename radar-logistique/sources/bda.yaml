@@ -1,69 +1,72 @@
-# Adaptateur BDA / e-Procurement — marchés belges, y compris sous le seuil européen.
+# BDA — Bulletin des Adjudications / e-Procurement Belgique
+# https://www.publicprocurement.be/bda
 #
-# verifie: false  →  ces chemins sont PLAUSIBLES, PAS MESURÉS. Aucun accès
-# réseau depuis l'environnement de développement : aucune réponse réelle n'a été
-# observée. Ils existent pour être corrigés par la mesure, pas pour être crus.
+# C'est la source la PLUS IMPORTANTE pour une PME : elle publie les marchés
+# belges y compris sous le seuil européen — communes, CPAS, hôpitaux,
+# intercommunales, provinces — dont beaucoup ne paraissent jamais sur TED.
 #
-#   python -m radar.cli recenser --source ted --echantillon reponses.json
+# ═══ MÉTHODE : NAVIGATION WEB ═══
+# Le BDA n'expose pas d'API JSON connue. On lit donc la page, avec deux règles
+# non négociables : le robots.txt est consulté AVANT toute lecture, et le délai
+# entre requêtes est respecté.
 #
-# Tout champ à 0 % désigne une clé inexistante. On la corrige ICI, jamais dans
-# le code. Puis on passe verifie à true.
+# ═══ verifie: false ═══
+# Les sélecteurs ci-dessous sont PLAUSIBLES, PAS MESURÉS. Aucun accès réseau
+# depuis l'environnement de développement : la page réelle n'a jamais été vue.
+# Ils existent pour être corrigés par la mesure, pas pour être crus.
+#
+#   python3 outils/collecter_bda.py --pages 5 --sortie bda-brut.json
+#   python  -m radar.cli recenser --source bda --echantillon bda-brut.json
+#
+# Tout champ à 0 % désigne un sélecteur faux. On le corrige ICI, jamais dans le
+# code. Puis on passe verifie à true.
 
 source: bda
+methode: navigation
 verifie: false
 secteur_par_defaut: public
 
-champs:
-  identifiant:      [publication-number, notice-id]
-  intitule:         [title.fra, title.nld, title.eng, title]
-  type_avis:        [notice-type, form-type]
-  secteur:          [secteur, buyer.type]
-  acheteur:         [buyer.name.fra, buyer.name.nld, buyer.name, contracting-party.name]
-  contact_email:    [buyer.contact.email, contact-email]
-  objet:            [description.fra, description.nld, description.eng, short-description]
-  montant:          [estimated-value.amount, value-estimated]
-  devise:           [estimated-value.currency, currency]
-  duree_mois:       [duration-months, contract-duration]
-  echeance:         [deadline-receipt-tender, submission-deadline, date-deadline]
-  publie_le:        [publication-date, dispatch-date]
-  plateforme:       [submission-url, procedure-url]
-  lien_documents:   [documents-url, access-url]
-  cpv:              [classification-cpv, cpv-main]
-  pays:             [place-of-performance.country, country]
-  pays_collecte:    [place-of-collection.country]
-  pays_livraison:   [place-of-delivery.country, place-of-performance.country]
-  lieu:             [place-of-performance.fra, place-of-performance, nuts-code]
-  attribue:         [awarded, contract-awarded]
-  titulaire:        [winner.name, contractor.name]
-  attribue_le:      [award-date, conclusion-date]
+navigation:
+  base_url: https://www.publicprocurement.be
+  url_recherche: https://www.publicprocurement.be/bda
+  respecter_robots: true          # jamais désactivable
+  agent: "radar-logistique/1.0 (veille de marchés publics)"
+  delai_minimum_s: 2.5
+  pages_max: 20
+  # Paramètres de pagination et de filtre — à confirmer sur la vraie page.
+  parametre_page: page
+  parametre_recherche: q
 
-# Exigences de sélection. Elles décident de l'éligibilité, donc elles doivent
-# venir de champs NORMÉS : une exigence lue en texte libre ne bloque jamais.
-  exige_afsca:      [requirements.afsca]
-  exige_gdp:        [requirements.gdp]
-  exige_froid:      [requirements.temperature-controlled]
-  exige_licence:    [requirements.transport-licence]
-  surface_min_m2:   [requirements.min-surface-m2]
-  vehicules_min:    [requirements.min-vehicles]
-  anciennete_min_annees: [requirements.min-years-activity]
-  exigences_texte:  [selection-criteria-text]
-  chiffre_affaires_min: [requirements.min-turnover]
-  references_min:   [requirements.min-references]
-  cadence:          [frequency, recurrence]
-  lots:             [lots, lot, division-into-lots]
-  date_demarrage:   [start-date, date-demarrage]
-  km_annuels:       [annual-km, km_annuels]
-  distance_depot_km: [distance_depot_km]
-  travail_nuit:     [night-work, travail_nuit]
-  travail_weekend:  [weekend-work, travail_weekend]
-  vehicules_requis: [vehicles-required, vehicules_requis]
-  chauffeurs_requis: [drivers-required, chauffeurs_requis]
-  exige_chauffeurs_min: [requirements.min-drivers]
+  # Le conteneur des résultats, puis une ligne par avis.
+  conteneur: {balise: table, attrs: {class: result}}
+  ligne:     {balise: tr}
 
-cpv_cibles:
-  - "60000000"
-  - "60100000"
-  - "60160000"
-  - "60170000"
-  - "63100000"
-  - "64120000"
+  # Un sélecteur par champ interne. `attribut: texte` par défaut ;
+  # `motif` extrait une sous-partie par expression régulière.
+  champs:
+    identifiant: {balise: td, attrs: {class: reference}}
+    intitule:    {balise: a}
+    lien_avis:   {balise: a, attribut: href}
+    acheteur:    {balise: td, attrs: {class: buyer}}
+    echeance:    {balise: td, attrs: {class: deadline}}
+    publie_le:   {balise: td, attrs: {class: published}}
+    type_avis:   {balise: td, attrs: {class: type}}
+    lieu:        {balise: td, attrs: {class: place}}
+    cpv:         {balise: td, attrs: {class: cpv}, motif: "([0-9]{8})"}
+
+# La fiche détaillée d'un avis : deuxième requête, une par avis retenu.
+detail:
+  suivre_le_lien: lien_avis
+  champs:
+    objet:            {balise: div, attrs: {class: description}}
+    montant:          {balise: span, attrs: {class: value}, motif: "([0-9][0-9 .,]*)"}
+    duree_mois:       {balise: span, attrs: {class: duration}, motif: "([0-9]+)"}
+    plateforme:       {balise: a, attrs: {class: submit}, attribut: href}
+    lien_documents:   {balise: a, attrs: {class: documents}, attribut: href}
+    contact_email:    {balise: a, attrs: {href: "mailto:"}, attribut: href}
+    lots:             {balise: div, attrs: {class: lot}}
+
+# Codes CPV à cibler — à confirmer au recensement, en comptant ceux réellement
+# publiés sur douze mois plutôt qu'en les supposant.
+cpv_cibles: ["60000000", "60100000", "60160000", "60170000", "63100000",
+             "64120000", "98392000", "79620000"]

@@ -50,6 +50,17 @@ class Adaptateur:
         champs = {}
         for nom, spec in (cfg.get("champs") or {}).items():
             champs[nom] = [spec] if isinstance(spec, str) else list(spec)
+
+        # Source en NAVIGATION WEB : l'extraction HTML produit déjà les noms
+        # internes (les sélecteurs sont déclarés par champ). La correspondance
+        # est donc l'identité — tout l'aval reste identique à une source JSON.
+        if cfg.get("methode") == "navigation":
+            for bloc in ("navigation", "detail"):
+                for nom in ((cfg.get(bloc) or {}).get("champs") or {}):
+                    champs.setdefault(nom, [nom])
+            champs.setdefault("plateforme", ["plateforme", "lien_avis"])
+            champs.setdefault("lien_documents", ["lien_documents", "lien_avis"])
+
         return cls(source=cfg.get("source", "?"), champs=champs,
                    verifie=bool(cfg.get("verifie", False)))
 
