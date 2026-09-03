@@ -216,8 +216,27 @@ def cmd_boucle(a) -> int:
               "elles partiront dès qu'une clé sera fournie.")
         return 3
     reg = RegistreEnt()
+    cx = ouvrir(_base(a))
+    mot = _moteur()
+    mot.entreprises = reg
+
+    # Un résultat de recherche N'EST PAS qu'un moyen de découvrir une
+    # entreprise : c'est un besoin possible, et il entre dans le même moteur
+    # que n'importe quel autre. C'est ce qui permet au radar de voir une
+    # affaire AVANT qu'elle ne devienne un appel d'offres — si elle le devient.
+    adaptateur, cfg_src = _source("google")
+    defauts = {"signal": cfg_src.get("signal"), "secteur": cfg_src.get("secteur_par_defaut")}
+
+    def analyser(resultats) -> int:
+        charges = [r.en_charge() for r in resultats if hasattr(r, "en_charge")]
+        if not charges:
+            return 0
+        opportunites = [vers_opportunite(adaptateur, c, "google", defauts) for c in charges]
+        b = traiter(cx, mot, opportunites, mode=_mode(a))
+        return b.capter + b.developper
+
     trace = Boucle(g, reg, profondeur_max=a.profondeur, budget=a.budget).parcourir(
-        connecteur.rechercher, analyser=lambda r: 0)
+        connecteur.rechercher, analyser=analyser)
     print(trace.resume())
     print()
     print(reg.rapport())

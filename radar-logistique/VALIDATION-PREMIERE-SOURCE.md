@@ -1,6 +1,25 @@
-# Première validation sur données réelles — protocole
+# Validation du pipeline sur une première source réelle
 
-Ce fichier décrit ce qui se passera **exactement** quand un vrai export TED
+Le radar est un **radar commercial multi-sources**. Il n'attend aucune source
+en particulier pour exister : `outils/radar_commercial.py` le fait tourner
+aujourd'hui sur huit formes de besoin — marché européen, marché belge,
+résultat de moteur de recherche, page d'entreprise, signal d'emploi, signal
+d'implantation, tournée de bourse de fret, marché attribué.
+
+Ce qui manque n'est pas « TED ». Ce qui manque, c'est **un premier flux de
+données RÉELLES**, quel qu'il soit, pour confronter le moteur à la saleté du
+monde plutôt qu'à des fixtures.
+
+TED est retenu comme **premier flux d'essai** pour une raison purement
+technique : son API est publique, sans authentification, et son format est le
+plus contraint de tous (lots imbriqués, exigences normées, avis
+d'attribution). Ce n'est **ni la source principale, ni la meilleure, ni celle
+qui produira le plus d'affaires** — son rendement réel n'a jamais été mesuré,
+et il sera mesuré comme celui des autres. N'importe quel autre flux réel
+ferait aussi bien l'affaire : un export BDA, une clé d'API de moteur de
+recherche, un accès à une bourse de fret.
+
+Ce fichier décrit ce qui se passera **exactement** quand ce premier flux
 arrivera. Il est écrit avant, pas après : le but est qu'aucune décision ne
 soit prise au moment où les chiffres seront là et où la tentation de « faire
 apparaître le bon résultat » sera la plus forte.
@@ -11,10 +30,12 @@ apparaître le bon résultat » sera la plus forte.
 
 | | état |
 |---|---|
-| le trajet complet supporte un lot volontairement hostile | **vérifié** — `outils/repetition_ted.py` |
+| le trajet complet supporte un lot volontairement hostile | **vérifié** — `outils/repetition_pipeline.py` |
 | aucune ligne ne se perd entre l'entrée et la sortie | **vérifié** — livre de comptes, écart 0 |
 | une fixture ne peut pas entrer dans la base RÉELLE | **vérifié** — 17 refus, 17 incidents conservés |
 | une ligne réellement collectée passe en RÉEL | **vérifié** |
+| le radar tourne sur huit formats de besoin | **vérifié** — `outils/radar_commercial.py` |
+| la source n'entre pas dans le score | **vérifié** — mêmes données, sources différentes, même score |
 | l'endpoint TED répond, et avec quelle forme | **NON VÉRIFIÉ** — aucun accès réseau ici |
 | les chemins de `sources/ted.yaml` correspondent aux vraies clés | **NON VÉRIFIÉ** — `verifie: false` |
 | ce que le marché contient réellement | **NON MESURÉ** |
@@ -23,7 +44,7 @@ Les trois dernières lignes ne seront pas devinées. `recenser` les mesure.
 
 ---
 
-## La séquence, dans l'ordre
+## La séquence, dans l'ordre — valable pour N'IMPORTE QUELLE source
 
 ```bash
 # 0. COLLECTE — depuis une machine ayant un accès réseau.
@@ -48,11 +69,15 @@ python -m radar.cli rapport --reel --top 20
 À l'étape 3, le cycle **échoue** si le livre de comptes ne se réconcilie pas.
 C'est voulu : un rapport partiel qui ne le dit pas est pire que pas de rapport.
 
+La même séquence vaut pour `--source bda`, `--source google`, `--source entreprise`,
+`--source bourse_fret` ou `--source signaux` : c'est le même pipeline.
+
 Répétition avant tout ça, à relancer après toute modification du moteur :
 
 ```bash
-python3 outils/repetition_ted.py    # sortie 0 = le trajet tient
-python3 outils/audit_cahier.py      # sortie 0 = les 17 règles sont tenues
+python3 outils/repetition_pipeline.py    # sortie 0 = le trajet tient
+python3 outils/radar_commercial.py  # les huit formats dans le même moteur
+python3 outils/audit_cahier.py      # sortie 0 = les 22 règles sont tenues
 python3 -m unittest discover -s tests
 ```
 
@@ -209,10 +234,11 @@ Tests : `test_deux_avis_sans_identifiant_gardent_des_references_distinctes`,
 
 ## Rappels qui tiennent quoi qu'il arrive
 
-- **TED n'est pas le produit.** Si TED tombe, si l'endpoint change, si l'API
-  se ferme, le radar continue sur les autres sources. Aucune source n'est
-  indispensable, et aucune n'a de priorité acquise : la priorité se mesure au
-  rendement observé.
+- **Aucune source n'est le produit.** Si TED tombe, si l'endpoint change, si
+  aucune clé de moteur de recherche n'est fournie, le radar continue sur les
+  autres. C'est testé source par source : retirer n'importe laquelle des huit
+  laisse le moteur produire des opportunités. Aucune n'a de priorité acquise :
+  la priorité se mesure au rendement observé.
 - **Un marché public n'est ni supérieur ni inférieur à un contrat privé.**
   Le type de source n'entre pas dans le score — vérifiable : `score.py` ne
   mentionne ni `source` ni `type_avis`.

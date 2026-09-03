@@ -114,6 +114,26 @@ familles:
       en: ["fleet management", "hire with driver", "vehicle provision"]
     cpv: ["60170000", "60171000", "34100000"]
 
+# --------------------------------------------------------------- domaine --
+# Vocabulaire qui dit « on parle bien de transport ou de logistique », sans
+# désigner de spécialité. Exactement ce que fait un CPV générique comme
+# 60000000 — mais un CPV n'existe que sur un marché public.
+#
+# Sans ce bloc, une page d'entreprise qui écrit « nous cherchons un
+# transporteur » n'était PAS reconnue comme relevant du domaine, alors qu'un
+# avis public portant 60000000 l'était gratuitement. C'était un avantage
+# structurel donné aux sources publiques : la source ne doit rien décider.
+domaine:
+  fr: [transport, transporteur, transporteurs, logistique, livraison, livraisons,
+       distribution, tournée, tournées, fret, affrètement, camion, camionnette,
+       chauffeur, chauffeurs, palette, palettes, colis, entrepôt, dépôt,
+       messagerie, acheminement, expédition, "sous-traitance transport"]
+  nl: [transport, vervoer, vervoerder, logistiek, levering, leveringen, distributie,
+       rit, ritten, vracht, vrachtwagen, chauffeur, pallet, pakket, magazijn, depot]
+  en: [transport, transporter, carrier, logistics, delivery, deliveries,
+       distribution, route, freight, truck, driver, pallet, parcel, warehouse, depot,
+       haulier, "last mile"]
+
 # ------------------------------------------------------------ exclusions --
 # Vocabulaire qui disqualifie, même si une famille active a matché par ailleurs.
 exclusions:

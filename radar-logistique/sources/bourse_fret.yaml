@@ -1,0 +1,38 @@
+# BOURSE DE FRET — tournées, lots et retours à charge proposés par des
+# chargeurs ou des transporteurs.
+#
+# Une tournée régulière compatible avec le parc est une opportunité
+# commerciale au même titre qu'un marché public de 36 mois. Souvent même
+# meilleure : elle démarre en jours, pas en mois.
+#
+# ATTENTION — accès légal : la plupart des bourses interdisent la collecte
+# automatisée dans leurs conditions d'utilisation et exigent un abonnement.
+# Aucune n'est consultée tant qu'un accès explicite n'est pas fourni ; la
+# source reste NON DISPONIBLE, jamais « 0 résultat ».
+#
+# verifie: false — aucun accès fourni.
+
+source: bourse_fret
+verifie: false
+secteur_par_defaut: prive
+
+champs:
+  identifiant:      [id, reference, url]
+  intitule:         [titre, objet]
+  objet:            [description, detail]
+  acheteur:         [chargeur, donneur_ordre, entreprise]
+  contact_email:    [email, contact]
+  publie_le:        [publie_le, date]
+  echeance:         [echeance, valable_jusqu_au]
+  date_demarrage:   [date_demarrage, premier_chargement]
+  pays_collecte:    [pays_chargement, pays_collecte]
+  pays_livraison:   [pays_livraison, pays_dechargement]
+  lieu:             [trajet, lieu]
+  montant:          [prix, montant]
+  devise:           [devise]
+  cadence:          [frequence, cadence]
+  duree_mois:       [duree_mois]
+  km_annuels:       [km_annuels]
+  distance_depot_km: [distance_depot_km]
+  vehicule_type:    [type_vehicule]
+  tonnage_min_t:    [tonnage_t, poids_t]

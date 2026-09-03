@@ -1,17 +1,58 @@
-# Radar commercial — transport et logistique
+# RADAR COMMERCIAL MULTI-SOURCES — transport et logistique
 
-Pas un agrégateur d'appels d'offres. Un radar qui part de **l'entreprise** et
-cherche partout des contrats qu'elle peut réellement décrocher **et exécuter**.
+Un radar qui cherche des **occasions de chiffre d'affaires**, partout où elles
+se trouvent, et qui ne garde que celles que cette entreprise peut réellement
+gagner **et exécuter**.
+
+Ce n'est pas un moteur d'appels d'offres. Ce n'est pas un radar TED. L'appel
+d'offres est **une catégorie d'opportunités parmi d'autres** ; TED est **un
+capteur parmi d'autres**.
+
+> **LE CENTRE DU RADAR N'EST PAS LA SOURCE.**
+> **LE CENTRE DU RADAR N'EST PAS L'APPEL D'OFFRES.**
+> **LE CENTRE DU RADAR EST LE BESOIN COMMERCIAL ET SA RENTABILITÉ.**
 
 La question posée à chaque étage :
 
-> Est-ce que cette entreprise peut réellement postuler ou obtenir ce contrat
-> avec ses capacités actuelles, éventuellement en louant du matériel ou en
-> travaillant avec un partenaire ?
+> Est-ce que cette entreprise peut réellement obtenir ce contrat avec ses
+> capacités actuelles, éventuellement en louant du matériel, en recrutant ou
+> en travaillant avec un partenaire ?
 
-Et jamais : « est-ce que cette annonce contient le mot transport ? »
+Et jamais : « est-ce que cette annonce contient le mot transport ? », ni
+« est-ce que ça vient d'une source officielle ? ».
 
-TED et le BDA ne sont que deux sources parmi d'autres. Le noyau n'en dépend pas.
+## Huit formes de besoin, un seul moteur
+
+| Ce que le radar voit | Ce que ça devient |
+|---|---|
+| marché public européen — distribution de colis, 36 mois | opportunité |
+| marché public belge sous le seuil | opportunité |
+| « nous recherchons un partenaire transport » trouvé par un moteur | opportunité |
+| page « devenir partenaire transporteur » d'une PME | opportunité |
+| « ouverture d'un centre logistique à Gand » | signal |
+| recrutement simultané de 15 chauffeurs | signal |
+| tournée régulière compatible sur une bourse de fret | opportunité |
+| marché de 3 ans attribué à un tiers | piste DÉVELOPPER |
+| métier nouveau avec formation assurée au démarrage | 🟣 à analyser |
+
+Aucune n'est secondaire parce qu'elle n'est pas un appel d'offres.
+
+```bash
+python3 outils/radar_commercial.py   # les huit, dans le même moteur, un seul rapport
+```
+
+## Avant, pendant, après
+
+Le radar couvre toute la chaîne commerciale, pas seulement le moment de l'avis :
+
+```
+AVANT     signal d'expansion → besoin probable → recherche de prestataire
+          → contact commercial → (appel d'offres éventuel)
+PENDANT   besoin publié → analyse → POSTULER / RENFORCER / PARTENARIAT
+APRÈS     attribution → titulaire identifié → sous-traitance → renouvellement
+```
+
+Un portail de marchés ne montre que la colonne du milieu.
 
 ---
 
@@ -161,13 +202,29 @@ COLLECTE EUROPE → TRANSPORT → DÉPÔT BELGE → TRI → DISTRIBUTION BELGIQU
 ## Architecture
 
 ```
-SOURCE → COLLECTE → NORMALISATION → MARCHÉ → LOTS → PRESTATIONS
-       → GÉOGRAPHIE → EXIGENCES → CAPACITÉS → ÉLIGIBILITÉ
-       → CLASSIFICATION → SCORE → DÉDUPLICATION → NOTIFICATION
+SOURCE
+   ↓
+COLLECTE
+   ↓
+NORMALISATION
+   ↓
+FAIT / SIGNAL / HYPOTHÈSE          nature.py
+   ↓
+BESOIN COMMERCIAL                  role.py · activite.py · lots.py
+   ↓
+FAISABILITÉ                        capacite.py · geographie.py · construction.py
+   ↓
+ÉCONOMIE                           score.py (marge, effort, récurrence, taille)
+   ↓
+SCORE
+   ↓
+CAPTER / DÉVELOPPER                classification.py
 ```
 
-Aucun étage après la collecte ne sait d'où vient l'opportunité. Ajouter une
-source, c'est un fichier YAML.
+**Aucun étage après la collecte ne sait d'où vient le besoin.** `score.py` ne
+contient ni le mot `source`, ni `type_avis`, ni le nom d'un portail — c'est
+vérifié par l'audit. Ajouter une source, c'est un fichier YAML ; ça ne touche
+jamais au moteur.
 
 | Fichier | Rôle |
 |---|---|
@@ -177,10 +234,16 @@ source, c'est un fichier YAML.
 | `config/geographie.yaml` | le corridor |
 | `config/ponderations.yaml` | les poids du score |
 | `config/sources.yaml` | catalogue : pourquoi, ce qu'elle apporte, filtre, classement, déduplication |
-| `sources/*.yaml` | un adaptateur par source |
+| `sources/*.yaml` | un adaptateur par source — TED, BDA, moteur de recherche, page d'entreprise, signaux, bourse de fret |
 
-Le catalogue met **le BDA en priorité 1 et TED en 3** : c'est dans les marchés
-locaux que vivent les lots à taille de PME.
+**Aucune source n'a de priorité déclarée** : toutes les `priorite_initiale`
+valent `null  # NON MESURÉE`. La priorité se calcule sur le rendement observé —
+opportunités retenues, contacts obtenus, contrats gagnés, rapportés au volume
+lu. Une source qui publie mille avis et n'en produit aucun d'exploitable passe
+derrière une page d'entreprise qui en produit deux.
+
+**Volume ≠ valeur.** Et une source jamais consultée n'a pas un mauvais
+rendement : elle affiche `NON MESURÉE`, jamais `0`.
 
 ---
 
@@ -264,8 +327,11 @@ la notoriété.
 ## Utilisation
 
 ```bash
+# 0ter. Le radar sur huit formats de besoin, sans aucun réseau
+python3 outils/radar_commercial.py
+
 # 0bis. Répéter le trajet complet AVANT (aucun réseau nécessaire)
-python3 outils/repetition_ted.py
+python3 outils/repetition_pipeline.py
 
 # 0. Collecter de vraies réponses — depuis une machine ayant un accès réseau
 python3 outils/collecter_ted.py --pages 20 --sortie reponses.json
@@ -309,7 +375,7 @@ Un fichier réel est sale. Un montant écrit « 120 000 », une durée écrite
 ces cas a déjà fait perdre des lignes sur le projet précédent.
 
 ```bash
-python3 outils/repetition_ted.py   # code non nul si une ligne se perd
+python3 outils/repetition_pipeline.py   # code non nul si une ligne se perd
 ```
 
 La répétition fait passer **17 enregistrements volontairement hostiles** par la
@@ -320,8 +386,9 @@ qui est éprouvé, pas l'offre.
 Elle a déjà trouvé cinq défauts avant qu'aucune donnée réelle n'arrive — dont
 un lot exigeant douze véhicules que le moteur déclarait « exécutable avec la
 structure actuelle ». Le détail de chacun, avec la règle concernée et le test
-ajouté, est dans **[`PROTOCOLE-REEL.md`](PROTOCOLE-REEL.md)**, qui décrit aussi
-la séquence exacte du jour où le vrai export TED arrivera.
+ajouté, est dans **[`VALIDATION-PREMIERE-SOURCE.md`](VALIDATION-PREMIERE-SOURCE.md)**, qui décrit aussi
+la séquence exacte du jour où un premier flux RÉEL arrivera — d'où qu'il
+vienne.
 
 Règle posée d'avance : si les vraies données révèlent une mauvaise
 classification, **le score n'est pas ajusté pour faire apparaître le résultat
@@ -333,7 +400,7 @@ concernée, correction, test de non-régression.
 
 ## Le cahier des charges est vérifiable
 
-Dix-sept règles ont été validées puis verrouillées. Une règle peut se perdre lors
+Vingt-deux règles ont été validées puis verrouillées. Une règle peut se perdre lors
 d'une réécriture — c'est arrivé une fois, les seize questions ont tourné sans
 test pendant plusieurs versions. L'audit le détecte :
 
@@ -349,7 +416,7 @@ Il vérifie que chaque règle a un module ET ses tests de comportement.
 python -m unittest discover -s tests
 ```
 
-137 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
+168 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
 chacun pose une question dont la mauvaise réponse coûte un contrat.
 
 Zéro dépendance hors PyYAML.

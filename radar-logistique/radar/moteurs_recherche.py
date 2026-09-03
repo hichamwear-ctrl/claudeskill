@@ -32,6 +32,23 @@ class Resultat:
     fournisseur: str
     consulte_le: str | None = None
 
+    def en_charge(self) -> dict:
+        """Le résultat, sous la forme que lit `sources/google.yaml`.
+
+        C'est le pont qui manquait : un résultat de recherche n'était jusqu'ici
+        qu'un moyen de DÉCOUVRIR des entreprises, il ne devenait jamais une
+        opportunité. Un besoin exprimé sur une page web est pourtant une
+        occasion de chiffre d'affaires au même titre qu'un marché publié — et
+        souvent plus tôt.
+
+        Rien n'est fabriqué ici : ni acheteur, ni montant, ni échéance. Ce que
+        la page ne dit pas reste absent, et le moteur le qualifiera en
+        HYPOTHÈSE plutôt qu'en fait.
+        """
+        return {"url": self.url, "titre": self.titre, "extrait": self.extrait,
+                "requete": self.requete, "consulte_le": self.consulte_le,
+                "fournisseur": self.fournisseur}
+
 
 class MoteurRecherche:
     """Contrat commun. Un nouveau moteur n'a que ces trois choses à fournir."""

@@ -17,7 +17,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-from . import construction, deduplication, envoi, memoire, questions, statut as st
+from . import (construction, deduplication, envoi, memoire, nature as nat,
+               questions, statut as st)
 from .comptes import Livre
 from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
 from .entreprises import Registre as RegistreEntreprises
@@ -44,6 +45,7 @@ class Resultat:
     correspondance: object
     verdict: object
     construction: object = None
+    nature: object = None
 
 
 @dataclass
@@ -116,6 +118,7 @@ class Moteur:
 
     # --------------------------------------------------------- analyse --
     def analyser(self, opp, maintenant_dt=None) -> Resultat:
+        nature = nat.qualifier(opp)
         role = self.roles.analyser(f"{opp.intitule} {opp.texte}", opp.cpv)
         corr = self.ontologie.analyser(f"{opp.intitule} {opp.texte}", opp.cpv)
         zone = self.geo.evaluer(opp.pays_collecte, opp.pays_livraison)
@@ -150,7 +153,8 @@ class Moteur:
             bilan_capacite=bilan,
             construction=constr,
             est_signal=opp.est_signal,
-            source_privee=(opp.secteur_acheteur or "").lower().startswith("priv"))
+            source_privee=(opp.secteur_acheteur or "").lower().startswith("priv"),
+            nature=nature)
 
         score = self.bareme.calculer(correspondance=corr, zone=zone, bilan=bilan, opp=opp,
                                      type_opp=classement.type, cadence=opp.cadence,
@@ -159,17 +163,21 @@ class Moteur:
             opp=opp, role=role.role, correspondance=corr, zone=zone, bilan=bilan,
             classement=classement, verdict=verdict, score=score,
             lots_retenus=[opp.lot_numero] if opp.lot_numero else [])
-        fiche = self._fiche(opp, role, corr, zone, bilan, classement, verdict, score, constr)
+        fiche = self._fiche(opp, role, corr, zone, bilan, classement, verdict, score,
+                            constr, nature)
         return Resultat(classement, score, fiche, journal, role.role, zone, bilan,
-                        corr, verdict, constr)
+                        corr, verdict, constr, nature)
 
     # ----------------------------------------------------------- fiche --
-    def _fiche(self, opp, role, corr, zone, bilan, classement, verdict, score, constr):
+    def _fiche(self, opp, role, corr, zone, bilan, classement, verdict, score, constr,
+               nature=None):
         pourquoi = []
         for famille in corr.familles:
             libelle = self.ontologie.cfg["familles"][famille]["libelle"]
             preuves = corr.preuves.get(famille) or []
             pourquoi.append(libelle + (f" — « {preuves[0]} »" if preuves else ""))
+        if not corr.familles and corr.preuve_domaine:
+            pourquoi.append(f"domaine reconnu — {corr.preuve_domaine}")
         pourquoi += zone.raisons
         if role.preuves:
             pourquoi.append("prestation logistique : " + role.preuves[0])
@@ -218,7 +226,33 @@ class Moteur:
             raisons_categorie=[classement.motif] + classement.raisons[:3],
             marge=score.marge_estimee, score=score.total, detail_score=score.detail(),
             lien=opp.lien_depot or opp.lien_dossier, source=opp.source,
-            reference=opp.ref_source)
+            reference=opp.ref_source, nature=nature)
+
+
+def _reecrire(cx, avis_id: int, r, opp) -> None:
+    """Met à jour une opportunité déjà écrite, après fusion avec un doublon.
+
+    On ne réécrit que ce que la fusion peut changer : la fiche, le score, le
+    motif et les provenances. Le brut d'origine n'est jamais touché.
+    """
+    cx.execute(
+        "UPDATE opportunites SET type=?, moteur=?, action=?, score=?, marge=?,"
+        " motif=?, fiche=?, journal=?, acheteur=COALESCE(acheteur, ?),"
+        " montant=COALESCE(montant, ?), echeance=COALESCE(echeance, ?),"
+        " contact=COALESCE(contact, ?), calcule_le=? WHERE avis_id=?",
+        (r.classement.type.value, r.classement.moteur.value, r.classement.action.value,
+         r.score.total, r.score.marge_estimee, r.classement.motif, r.fiche.en_texte(),
+         json.dumps(r.journal.en_lignes(), ensure_ascii=False),
+         opp.acheteur, opp.montant,
+         r.verdict.echeance.isoformat() if r.verdict.echeance else None,
+         opp.contact, maintenant(), avis_id))
+    for p in opp.provenances or []:
+        d = p if isinstance(p, dict) else p.__dict__
+        cx.execute(
+            "INSERT OR IGNORE INTO provenances(avis_id, source, url, requete, consulte_le)"
+            " VALUES(?,?,?,?,?)",
+            (avis_id, d.get("source") or "?", d.get("url"), d.get("requete"),
+             d.get("consulte_le")))
 
 
 def _incident(cx, ligne, opp, etape, motif, mode):
@@ -241,6 +275,9 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
     bilan = BilanCycle(mode=mode)
     livre = bilan.livre
     index = deduplication.Index()
+    # id(opportunité conservée) -> avis_id, pour pouvoir la RÉÉCRIRE quand une
+    # autre source apporte le même besoin.
+    deja_ecrites: dict[int, int] = {}
 
     for brut in opportunites:
         bilan.lus += 1
@@ -267,12 +304,20 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
             # autrement. C'est ce qui fusionne un avis BDA et une page Google.
             rapp = index.rapprocher(opp)
             if rapp is not None and rapp.confiance.fusionne:
-                deduplication.fusionner(rapp.opportunite, opp)
+                gardee = rapp.opportunite
+                deduplication.fusionner(gardee, opp)
                 bilan.doublons += 1
                 if rapp.confiance is deduplication.Confiance.CERTAIN:
                     livre.doublons_certains += 1
                 else:
                     livre.doublons_probables += 1
+                # La fusion enrichit l'opportunité conservée : provenances
+                # cumulées, trous comblés. Sans réécriture, la fiche en base
+                # resterait celle d'AVANT la fusion et n'afficherait qu'une
+                # seule source — la promesse multi-sources tomberait en silence.
+                ancien = deja_ecrites.get(id(gardee))
+                if ancien is not None:
+                    _reecrire(cx, ancien, moteur.analyser(gardee, maintenant_dt), gardee)
                 continue
             if rapp is not None:
                 # POSSIBLE : on ne fusionne PAS. Les deux fiches vivent, reliées.
@@ -286,6 +331,7 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                 bilan.doublons += 1
 
             avis_id = enregistrer_reponse(cx, opp.source, opp.ref_source, opp.brut or {}, emp)
+            deja_ecrites[id(opp)] = avis_id
             r = moteur.analyser(opp, maintenant_dt)
 
             if r.verdict.statut is st.Statut.ATTRIBUE:

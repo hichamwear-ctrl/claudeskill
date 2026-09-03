@@ -1,0 +1,12 @@
+[
+ {"publication-number":"TED-2026-114","notice-type":"contract-notice",
+  "title":{"fra":"Distribution de colis pour les services communaux — 36 mois"},
+  "description":{"fra":"Tournées quotidiennes de distribution au départ d'un dépôt belge."},
+  "buyer":{"name":{"fra":"Ville de Namur"},"contact":{"email":"marches@namur.be"}},
+  "classification-cpv":["60000000","64120000"],
+  "estimated-value":{"amount":540000,"currency":"EUR"},
+  "duration-months":36,"frequency":"quotidienne",
+  "deadline-receipt-tender":"2099-03-15",
+  "place-of-delivery":{"country":"BE"},
+  "submission-url":"https://exemple.eu/ted/TED-2026-114"}
+]

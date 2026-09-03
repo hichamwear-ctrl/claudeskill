@@ -62,6 +62,7 @@ class Fiche:
     lien: str | None = None
     source: str = ""
     reference: str = ""
+    nature: object = None          # FAIT · SIGNAL · HYPOTHÈSE
 
     def en_texte(self, avec_detail_score=False) -> str:
         L = [f"{self.type.emoji} {self.type.value} — {self.titre}"]
@@ -69,9 +70,14 @@ class Fiche:
             L.append(f"   (LOT {self.lot} du marché {self.marche_parent})")
         L.append("")
 
+        if self.nature is not None:
+            L.append(f"NATURE        {self.nature.emoji} {self.nature.value}"
+                     f" — {self.nature.libelle}")
         L.append(f"CLIENT        {_ou(self.client, 'A_VERIFIER')}"
                  + (f"  ({self.secteur})" if self.secteur else ""))
-        L.append(f"SOURCE        {self._provenances()}")
+        # La source dit d'où vient l'information. Elle ne dit rien de sa valeur
+        # commerciale : c'est l'économie qui en décide, plus bas.
+        L.append(f"VU SUR        {self._provenances()}")
         L.append(f"ZONE          {self.zone or 'A_VERIFIER'}"
                  + (f"   [{self.corridor}]" if self.corridor else ""))
         reste = f"  ({self.jours_restants} j restants)" if self.jours_restants is not None else ""

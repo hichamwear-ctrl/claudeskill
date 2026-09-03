@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""RÉPÉTITION GÉNÉRALE — le trajet complet, avant que les vraies données arrivent.
+"""RÉPÉTITION GÉNÉRALE DU PIPELINE — le trajet complet, avant les vraies données.
 
 Ce script ne mesure PAS le marché. Il ne dit rien de ce qui se vend en
 Belgique. Il vérifie une seule chose, et il faut le dire clairement :
 
-    quand un fichier TED réel arrivera, aucune ligne ne se perdra en route.
+    quand un flux réel arrivera — d'où qu'il vienne — aucune ligne ne se
+    perdra en route.
+
+Le lot d'épreuve est écrit au format d'un marché public parce que c'est le
+format le plus contraint : lots imbriqués, exigences normées, avis
+d'attribution. Ce qui tient ici tient sur un résultat de moteur de recherche
+ou une page d'entreprise, qui portent moins de structure. Le pipeline n'est
+pas testé POUR une source ; il est testé AVEC celle qui le contraint le plus.
 
 Il fabrique donc un lot HOSTILE — volontairement mal formé, incomplet,
 dupliqué, hors schéma — puis le fait passer par la chaîne entière :
@@ -20,7 +27,7 @@ collecte, donc :
   · en RÉEL   elles sont toutes REFUSÉES et conservées comme incidents.
 C'est exactement ce qu'on veut vérifier avant de brancher la vraie source.
 
-    python3 outils/repetition_ted.py
+    python3 outils/repetition_pipeline.py
 
 Sortie 0 = le trajet tient. Sortie 1 = une ligne s'est perdue : ne pas brancher
 les vraies données tant que ce n'est pas corrigé.
@@ -47,7 +54,8 @@ from radar import rapport as rapport_mod                       # noqa: E402
 # ─────────────────────────────────────────────────────────── le lot hostile --
 # Chaque entrée porte le nom du piège qu'elle tend. Les clés sont celles
 # déclarées dans sources/ted.yaml : si l'adaptateur change, la répétition
-# suit — elle ne réécrit pas le schéma dans son coin.
+# suit — elle ne réécrit pas le schéma dans son coin. Le choix de cet
+# adaptateur est technique, pas hiérarchique : voir l'en-tête.
 def lot_hostile() -> list[dict]:
     return [
         # 1. l'avis normal, celui qu'on espère recevoir

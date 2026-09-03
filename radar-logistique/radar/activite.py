@@ -36,6 +36,7 @@ class Correspondance:
     # spécialité. Il empêche un rejet pour « aucune prestation reconnue » sans
     # pour autant faire passer un marché de distribution pour du pharmaceutique.
     domaine_transport: bool = False
+    preuve_domaine: str = ""
 
     @property
     def correspond(self) -> bool:
@@ -62,6 +63,17 @@ class Ontologie:
             for code in spec.get("cpv", []):
                 compte[str(code)] = compte.get(str(code), 0) + 1
         self._cpv_generiques = {c for c, n in compte.items() if n > 2}
+
+        # Le vocabulaire de DOMAINE : il confirme qu'on parle de transport ou
+        # de logistique, sans nommer de spécialité — l'équivalent textuel d'un
+        # CPV générique. Il existe pour que les sources sans CPV (une page
+        # d'entreprise, un résultat de recherche, une bourse de fret) soient
+        # traitées à égalité avec les marchés publics.
+        self._domaine = []
+        for langue in ("fr", "nl", "en"):
+            self._domaine += [normaliser(m).strip()
+                              for m in config.get("domaine", {}).get(langue, [])]
+        self._domaine = [m for m in self._domaine if m]
 
         self._exclusions = []
         for langue in ("fr", "nl", "en"):
@@ -94,8 +106,17 @@ class Ontologie:
                 # présumées satisfaites : elles ressortiront en A_VERIFIER.
                 res.exigences_suggerees += spec.get("exigences_typiques", [])
 
+        # Deux chemins vers le domaine, strictement équivalents : un CPV
+        # générique (marchés publics) OU le vocabulaire du métier (partout
+        # ailleurs). Aucun des deux n'est meilleur que l'autre.
         if any(str(c) in self._cpv_generiques for c in (cpv or [])):
             res.domaine_transport = True
+            res.preuve_domaine = "CPV générique de transport"
+        else:
+            mots = [t for t in self._domaine if f" {t} " in plat]
+            if mots:
+                res.domaine_transport = True
+                res.preuve_domaine = f"vocabulaire du métier : « {mots[0]} »"
 
         res.exigences_suggerees = sorted(set(res.exigences_suggerees))
         return res

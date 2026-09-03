@@ -451,7 +451,7 @@ class LaFiche(unittest.TestCase):
     def test_elle_porte_tous_les_blocs_demandes(self):
         t = moteur().analyser(opp(acheteur="Commune", montant=200000, duree_mois=24,
                                   exigences={"vehicules_min": 12}), MAINTENANT).fiche.en_texte()
-        for bloc in ("CLIENT", "SOURCE", "ZONE", "DATE", "VALEUR",
+        for bloc in ("NATURE", "CLIENT", "VU SUR", "ZONE", "DATE", "VALEUR",
                      "CE QU'IL FAUT FAIRE", "POURQUOI C'EST INTÉRESSANT",
                      "CE QUE J'AI DÉJÀ", "CE QUI ME MANQUE", "COMMENT COMBLER",
                      "NIVEAU", "ÉCONOMIE", "ACTION"):
@@ -975,13 +975,13 @@ class RepetitionGenerale(unittest.TestCase):
     fichier TED jouera pour de bon."""
 
     def test_le_trajet_complet_ne_perd_aucune_ligne(self):
-        from outils.repetition_ted import lot_hostile, _passer
+        from outils.repetition_pipeline import lot_hostile, _passer
         cx, b = _passer(lot_hostile(), Mode.DEMO)
         self.assertEqual(b.lus, len(lot_hostile()))
         self.assertEqual(b.livre.ecart(), 0)
 
     def test_aucune_fixture_n_entre_dans_le_flux_reel(self):
-        from outils.repetition_ted import lot_hostile, _passer
+        from outils.repetition_pipeline import lot_hostile, _passer
         cx, b = _passer(lot_hostile(), Mode.REEL)
         self.assertEqual(b.livre.sorties, 0)
         conserves = cx.execute("SELECT count(*) c FROM incidents").fetchone()["c"]
@@ -1077,3 +1077,342 @@ class SondageAvantConstruction(unittest.TestCase):
         s = sonder(moteur(), [opp(ref_source="M5", exigences={"vehicules_min": 12})],
                    "ted", MAINTENANT)
         self.assertIn("1 opportunité(s) exploitable(s)", s.rapport())
+
+
+# ══════════════ LE RADAR COMMERCIAL — le centre n'est ni la source ni l'appel d'offres
+def _charger(fichier, source):
+    """Charge une fixture par son adaptateur déclaré. Aucun format n'est
+    privilégié : c'est le même chemin pour les huit."""
+    from outils.radar_commercial import charger
+    return charger(fichier, source)
+
+
+class RadarCommercial(unittest.TestCase):
+    """Huit formes de besoin, un seul moteur.
+
+    Un marché européen, un marché belge, un résultat de moteur de recherche,
+    une page d'entreprise, deux signaux, une tournée de bourse de fret, un
+    marché attribué et un métier nouveau. Aucun n'est secondaire.
+    """
+
+    def _analyser(self, fichier, source):
+        cx = ouvrir(":memory:")
+        opportunites = _charger(fichier, source)
+        traiter(cx, moteur(), opportunites, maintenant_dt=MAINTENANT)
+        return cx.execute(
+            "SELECT type, moteur, action, score, intitule FROM opportunites"
+            " ORDER BY score DESC").fetchall()
+
+    # ── 1 à 7 : chaque format entre dans le moteur ──────────────────────
+    def test_1_un_marche_public_europeen_est_une_opportunite(self):
+        l = self._analyser("ted.json", "ted")[0]
+        self.assertEqual(l["type"], "DIRECT")
+        self.assertEqual(l["moteur"], "CAPTER")
+
+    def test_2_un_besoin_prive_trouve_par_un_moteur_de_recherche_est_une_opportunite(self):
+        """« Nous recherchons un partenaire transport » vaut un avis de marché."""
+        l = self._analyser("google.json", "google")[0]
+        self.assertNotEqual(l["type"], "REJET")
+        self.assertEqual(l["moteur"], "CAPTER")
+
+    def test_3_un_marche_belge_est_une_opportunite(self):
+        l = self._analyser("bda.json", "bda")[0]
+        self.assertNotEqual(l["type"], "REJET")
+
+    def test_4_une_page_d_entreprise_est_une_opportunite(self):
+        """Ni CPV, ni référence officielle, ni montant, ni échéance."""
+        l = self._analyser("entreprise.json", "entreprise")[0]
+        self.assertNotEqual(l["type"], "REJET")
+        self.assertIn("CONTACTER", l["action"])
+
+    def test_5_un_signal_d_emploi_est_un_signal_pas_un_contrat_certain(self):
+        lignes = self._analyser("signaux.json", "signaux")
+        for l in lignes:
+            self.assertEqual(l["type"], "PROSPECT")
+            self.assertNotIn("POSTULER", l["action"])
+
+    def test_6_une_attribution_va_dans_developper_jamais_postuler(self):
+        l = self._analyser("attribution.json", "ted")[0]
+        self.assertEqual(l["moteur"], "DEVELOPPER")
+        self.assertNotIn("POSTULER", l["action"])
+
+    def test_7_un_metier_nouveau_avec_formation_passe_par_a_construire(self):
+        l = self._analyser("nouveau-metier.json", "entreprise")[0]
+        self.assertEqual(l["type"], "A_CONSTRUIRE")
+
+    def test_7bis_une_tournee_de_bourse_de_fret_est_une_opportunite(self):
+        l = self._analyser("bourse_fret.json", "bourse_fret")[0]
+        self.assertNotEqual(l["type"], "REJET")
+        self.assertEqual(l["moteur"], "CAPTER")
+
+    # ── 8 : un même besoin vu sur trois sources = une opportunité ───────
+    def test_8_un_meme_besoin_vu_sur_trois_sources_garde_ses_trois_provenances(self):
+        cx = ouvrir(":memory:")
+        commun = dict(intitule="Distribution de colis pour la ville de Namur",
+                      texte="tournées quotidiennes de distribution",
+                      acheteur="Ville de Namur", montant=540000,
+                      echeance_brute=OUVERT, pays_livraison=["BE"])
+        trois = [
+            opp(source="ted", ref_source="T-1",
+                provenances=[{"source": "ted", "url": "https://ex.eu/ted/1"}], **commun),
+            opp(source="bda", ref_source="B-1",
+                provenances=[{"source": "bda", "url": "https://ex.be/bda/1"}], **commun),
+            opp(source="google", ref_source="G-1",
+                provenances=[{"source": "google", "url": "https://ex.be/page"}], **commun),
+        ]
+        b = traiter(cx, moteur(), trois, maintenant_dt=MAINTENANT)
+        n = cx.execute("SELECT count(*) c FROM opportunites").fetchone()["c"]
+        self.assertEqual(n, 1, "le même besoin ne doit produire qu'une opportunité")
+        self.assertEqual(b.doublons, 2)
+        fiche = cx.execute("SELECT fiche FROM opportunites").fetchone()["fiche"]
+        for source in ("ted", "bda", "google"):
+            self.assertIn(source, fiche, "chaque provenance reste visible")
+
+    # ── 9 à 11 : aucune source n'est indispensable ──────────────────────
+    def _sans(self, exclues):
+        from outils.radar_commercial import LOTS
+        cx = ouvrir(":memory:")
+        m = moteur()
+        for fichier, source in LOTS:
+            if source in exclues:
+                continue
+            traiter(cx, m, _charger(fichier, source), maintenant_dt=MAINTENANT)
+        return cx.execute("SELECT count(*) c FROM opportunites"
+                          " WHERE type <> 'REJET'").fetchone()["c"]
+
+    def test_9_ted_supprime_le_radar_continue(self):
+        self.assertGreater(self._sans({"ted"}), 0)
+
+    def test_10_google_supprime_le_radar_continue(self):
+        self.assertGreater(self._sans({"google"}), 0)
+
+    def test_11_une_seule_source_suffit_a_faire_tourner_le_moteur(self):
+        from outils.radar_commercial import LOTS
+        sources = {s for _, s in LOTS}
+        for gardee in sorted(sources):
+            with self.subTest(source=gardee):
+                self.assertGreater(self._sans(sources - {gardee}), 0,
+                                   f"le radar doit fonctionner avec « {gardee} » seule")
+
+    # ── 12 et 13 : le score ignore la source ───────────────────────────
+    def _identique(self, source):
+        return opp(source=source, ref_source=f"X-{source}",
+                   intitule="Distribution urbaine de marchandises",
+                   texte="tournées quotidiennes de distribution urbaine",
+                   acheteur="Client", montant=240000, duree_mois=24,
+                   cadence="quotidienne", echeance_brute=OUVERT,
+                   pays_livraison=["BE"], distance_depot_km=20)
+
+    def test_12_meme_economie_source_differente_score_identique(self):
+        scores = {s: moteur().analyser(self._identique(s), MAINTENANT).score.total
+                  for s in ("ted", "google", "bda", "entreprise", "bourse_fret")}
+        self.assertEqual(len(set(scores.values())), 1,
+                         f"la source a influencé le score : {scores}")
+
+    def test_13_meilleure_economie_source_differente_meilleur_score(self):
+        """Google excellent > BDA moyen > TED mauvais. La source apporte
+        l'information ; l'économie décide de la priorité."""
+        excellent = opp(source="google", ref_source="G",
+                        intitule="Distribution urbaine de marchandises",
+                        texte="tournées quotidiennes de distribution urbaine",
+                        acheteur="Client", montant=240000, duree_mois=36,
+                        cadence="quotidienne", echeance_brute=OUVERT,
+                        pays_livraison=["BE"], distance_depot_km=15)
+        moyen = opp(source="bda", ref_source="B",
+                    intitule="Distribution urbaine de marchandises",
+                    texte="tournées de distribution urbaine",
+                    acheteur="Client", montant=240000, duree_mois=12,
+                    cadence="hebdomadaire", echeance_brute=OUVERT,
+                    pays_livraison=["BE"], distance_depot_km=90)
+        mauvais = opp(source="ted", ref_source="T",
+                      intitule="Distribution urbaine de marchandises",
+                      texte="tournées de distribution urbaine",
+                      acheteur="Client", montant=240000, duree_mois=1,
+                      cadence="ponctuelle", echeance_brute=OUVERT,
+                      pays_livraison=["BE"], distance_depot_km=400,
+                      km_annuels=90000)
+        m = moteur()
+        s = [m.analyser(o, MAINTENANT).score.total for o in (excellent, moyen, mauvais)]
+        self.assertGreater(s[0], s[1], f"Google excellent doit battre BDA moyen : {s}")
+        self.assertGreater(s[1], s[2], f"BDA moyen doit battre TED mauvais : {s}")
+
+    # ── 14 : aucun mot-clé connu ne rejette jamais ─────────────────────
+    def test_14_aucun_mot_cle_connu_ne_donne_jamais_un_rejet(self):
+        inconnu = opp(source="google", ref_source="INC",
+                      intitule="Prestation de zorblification des flux",
+                      texte="Nous recherchons un prestataire pour la zorblification.",
+                      acheteur="Entreprise", echeance_brute=OUVERT,
+                      pays_livraison=["BE"], cpv=[])
+        r = moteur().analyser(inconnu, MAINTENANT)
+        self.assertIsNot(r.classement.type, Type.REJET)
+
+
+class AucunAvantageAuxSourcesPubliques(unittest.TestCase):
+    """Le biais le plus difficile à voir : un marché public portait un CPV
+    générique qui confirmait le domaine, une page privée n'avait rien
+    d'équivalent. La source décidait, en silence."""
+
+    def test_le_domaine_se_confirme_par_cpv_ou_par_vocabulaire(self):
+        from radar.activite import Ontologie
+        o = Ontologie(yaml.safe_load((RACINE / "config/capacites.yaml").read_text(
+            encoding="utf-8")), PROFIL["familles_actives"], PROFIL.get("familles_exclues"))
+        par_cpv = o.analyser("Marché de services", ["60000000"])
+        par_texte = o.analyser("Nous cherchons un transporteur pour nos livraisons", [])
+        self.assertTrue(par_cpv.domaine_transport)
+        self.assertTrue(par_texte.domaine_transport, "une page sans CPV reste du transport")
+
+    def test_le_vocabulaire_de_domaine_ne_ratisse_pas_tout(self):
+        from radar.activite import Ontologie
+        o = Ontologie(yaml.safe_load((RACINE / "config/capacites.yaml").read_text(
+            encoding="utf-8")), PROFIL["familles_actives"], PROFIL.get("familles_exclues"))
+        self.assertFalse(o.analyser("Entretien des espaces verts et tonte", []).domaine_transport)
+
+    def test_la_preuve_du_domaine_est_nommee_dans_la_fiche(self):
+        o = opp(source="entreprise", ref_source="E1", cpv=[],
+                intitule="Devenir partenaire transporteur",
+                texte="Nous confions nos tournées à des transporteurs partenaires.",
+                acheteur="PME", echeance_brute=OUVERT, pays_livraison=["BE"])
+        self.assertIn("domaine reconnu", moteur().analyser(o, MAINTENANT).fiche.en_texte())
+
+
+class NatureDeLInformation(unittest.TestCase):
+    """FAIT, SIGNAL, HYPOTHÈSE — visible, jamais monnayable en points."""
+
+    def test_un_besoin_publie_et_date_est_un_fait(self):
+        from radar.nature import Nature, qualifier
+        self.assertIs(qualifier(opp(acheteur="Commune", echeance_brute=OUVERT)),
+                      Nature.FAIT)
+
+    def test_une_page_sans_demandeur_ni_date_est_une_hypothese(self):
+        from radar.nature import Nature, qualifier
+        self.assertIs(qualifier(opp(acheteur=None, echeance_brute=None,
+                                    date_demarrage=None)), Nature.HYPOTHESE)
+
+    def test_un_marche_attribue_est_un_signal(self):
+        from radar.nature import Nature, qualifier
+        self.assertIs(qualifier(opp(attribue=True)), Nature.SIGNAL)
+
+    def test_la_nature_ne_se_deduit_jamais_de_la_source(self):
+        from radar.nature import qualifier
+        commun = dict(acheteur="Client", echeance_brute=OUVERT)
+        natures = {s: qualifier(opp(source=s, **commun))
+                   for s in ("ted", "google", "entreprise", "bda")}
+        self.assertEqual(len(set(natures.values())), 1, natures)
+
+    def test_on_ne_depose_pas_de_dossier_sur_une_hypothese(self):
+        hypothese = opp(source="google", ref_source="H", acheteur=None,
+                        echeance_brute=None, date_demarrage=None,
+                        intitule="Recherche de transporteur",
+                        texte="tournées de distribution en Belgique",
+                        pays_livraison=["BE"], secteur_acheteur=None)
+        action = moteur().analyser(hypothese, MAINTENANT).classement.action.value
+        self.assertNotIn("POSTULER", action)
+
+    def test_la_nature_ne_change_pas_le_score(self):
+        """Un fait et une hypothèse d'économie identique valent pareil."""
+        commun = dict(intitule="Distribution urbaine de marchandises",
+                      texte="tournées quotidiennes de distribution urbaine",
+                      montant=240000, duree_mois=24, cadence="quotidienne",
+                      pays_livraison=["BE"], distance_depot_km=20)
+        fait = opp(ref_source="F", acheteur="Client", echeance_brute=OUVERT, **commun)
+        hypo = opp(ref_source="H", acheteur="Client", echeance_brute=OUVERT, **commun)
+        hypo.est_signal = False
+        m = moteur()
+        self.assertEqual(m.analyser(fait, MAINTENANT).score.total,
+                         m.analyser(hypo, MAINTENANT).score.total)
+
+
+class RapportCentreSurLesOccasions(unittest.TestCase):
+    """On ouvre le radar pour voir ce qu'il y a à gagner, pas pour compter les
+    avis publiés par telle source."""
+
+    def _rapport(self):
+        from outils.radar_commercial import LOTS
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        m = moteur()
+        for fichier, source in LOTS:
+            traiter(cx, m, _charger(fichier, source), maintenant_dt=MAINTENANT)
+        return construire(cx, Mode.DEMO, cible={"montant_total_confortable_max": 1500000})
+
+    def test_les_occasions_passent_avant_les_statistiques_de_source(self):
+        texte = self._rapport().en_texte(avec_fiches=False)
+        self.assertLess(texte.index("CAPTER —"), texte.index("COLLECTE"))
+        self.assertLess(texte.index("DÉVELOPPER —"), texte.index("COLLECTE"))
+
+    def test_plusieurs_sources_differentes_apparaissent_dans_capter(self):
+        r = self._rapport()
+        sources = {source for _, _, _, source, _ in r.capter}
+        self.assertGreaterEqual(len(sources), 4,
+                                f"le radar doit être multi-sources : {sources}")
+
+    def test_le_rendement_est_observe_jamais_declare(self):
+        r = self._rapport()
+        self.assertTrue(r.rendement)
+        for nom, compteurs in r.rendement.items():
+            self.assertLessEqual(compteurs["retenues"], compteurs["lues"])
+
+
+class UnResultatDeRechercheDevientUneOpportunite(unittest.TestCase):
+    """Le pont qui manquait : un résultat web ne servait qu'à découvrir des
+    entreprises, il ne devenait jamais une occasion de chiffre d'affaires."""
+
+    def _resultat(self):
+        from radar.moteurs_recherche import Resultat
+        return Resultat(
+            titre="Nous recherchons un transporteur partenaire en Belgique",
+            url="https://exemple.be/partenaires",
+            extrait="Distribution de nos produits depuis Anvers vers nos clients belges, "
+                    "tournées hebdomadaires.",
+            requete="recherche transporteur partenaire Belgique",
+            fournisseur="google", consulte_le="2026-09-01T09:00:00+00:00")
+
+    def test_un_resultat_web_se_convertit_en_charge_lisible(self):
+        c = self._resultat().en_charge()
+        self.assertEqual(c["url"], "https://exemple.be/partenaires")
+        self.assertIn("transporteur", c["titre"])
+
+    def test_il_traverse_le_moteur_et_ressort_classe(self):
+        from radar.adaptateur import Adaptateur, vers_opportunite
+        cfg = yaml.safe_load((RACINE / "sources" / "google.yaml").read_text(encoding="utf-8"))
+        o = vers_opportunite(Adaptateur.depuis_config(cfg), self._resultat().en_charge(),
+                             "google", {"secteur": cfg.get("secteur_par_defaut")})
+        o.pays_livraison = ["BE"]
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), [o], maintenant_dt=MAINTENANT)
+        l = cx.execute("SELECT type, moteur, action FROM opportunites").fetchone()
+        self.assertNotEqual(l["type"], "REJET")
+        self.assertEqual(l["moteur"], "CAPTER")
+
+    def test_rien_n_est_fabrique_a_partir_d_un_resultat_web(self):
+        """Ni acheteur, ni montant, ni échéance : ce que la page ne dit pas
+        reste absent."""
+        from radar.adaptateur import Adaptateur, vers_opportunite
+        cfg = yaml.safe_load((RACINE / "sources" / "google.yaml").read_text(encoding="utf-8"))
+        o = vers_opportunite(Adaptateur.depuis_config(cfg), self._resultat().en_charge(),
+                             "google", {})
+        self.assertIsNone(o.montant)
+        self.assertIsNone(o.acheteur)
+        self.assertIsNone(o.echeance_brute)
+
+    def test_la_boucle_ne_presume_pas_que_le_moteur_est_google(self):
+        """Brave, ou n'importe quel moteur branché plus tard, s'inscrit pareil."""
+        from radar.boucle import Boucle
+        from radar.entreprises import Registre as RegistreEnt
+        from radar.moteurs_recherche import Resultat
+
+        class Faux:
+            def generer(self, limite=None):
+                return ["une requête"]
+
+            def pour_entreprise(self, nom, domaine=None):
+                return []
+
+        r = Resultat(titre="Société Exemple SA cherche un transporteur",
+                     url="https://exemple.be/a", extrait="", requete="q",
+                     fournisseur="brave")
+        reg = RegistreEnt()
+        Boucle(Faux(), reg, profondeur_max=0, budget=1).parcourir(lambda q: [r])
+        origines = {e.origine for e in reg.entreprises.values()}
+        self.assertTrue(any("brave" in (o or "") for o in origines), origines)
+        self.assertFalse(any("google" in (o or "") for o in origines), origines)

@@ -25,6 +25,9 @@ class Selection:
     lignes: list = field(default_factory=list)
 
 
+EMOJIS = {"DIRECT": "🟢", "RENFORCEMENT": "🟡", "A_CONSTRUIRE": "🟣",
+          "PROSPECT": "🔵", "REJET": "🔴"}
+
 CHAMPS_COMPLETUDE = (
     ("acheteur", "acheteur"), ("échéance", "echeance"), ("montant", "montant"),
     ("durée", "duree_mois"), ("cadence", "cadence"), ("lots", "lot_numero"),
@@ -51,13 +54,46 @@ class Rapport:
     lots: dict = field(default_factory=dict)
     marge_non_mesuree: int = 0
     selections: list = field(default_factory=list)
+    capter: list = field(default_factory=list)        # (score, type, action, source, titre)
+    developper: list = field(default_factory=list)
+    rendement: dict = field(default_factory=dict)     # source -> compteurs observés
 
     def _pct(self, n: int) -> str:
         return f"{n:>5}  ({n / self.total:.0%})" if self.total else f"{n:>5}"
 
+    # ------------------------------------------------------- ce qu'on va faire --
+    def _occasions(self) -> list:
+        """Les occasions de chiffre d'affaires, avant toute statistique.
+
+        On ouvre le radar pour voir ce qu'il y a à gagner, pas pour compter
+        combien d'avis telle source a publiés. La source figure au bout de
+        chaque ligne, comme une provenance — pas comme un classement.
+        """
+        L = ["RADAR COMMERCIAL", "=" * 72, ""]
+        L.append("CAPTER — ce que je peux attaquer maintenant")
+        if self.capter:
+            for score, typ, action, source, titre in self.capter:
+                emoji = EMOJIS.get(typ, "·")
+                L.append(f"  {emoji} [{score:>3}] {titre[:46]:<46} {action[:22]:<24} "
+                         f"vu sur {source}")
+        else:
+            L.append("  rien à attaquer dans cet échantillon — ce n'est pas une panne,")
+            L.append("  c'est une mesure.")
+
+        L += ["", "DÉVELOPPER — ce qui demande une relation ou de la préparation"]
+        if self.developper:
+            for score, typ, action, source, titre in self.developper:
+                emoji = EMOJIS.get(typ, "·")
+                L.append(f"  {emoji} [{score:>3}] {titre[:46]:<46} {action[:22]:<24} "
+                         f"vu sur {source}")
+        else:
+            L.append("  aucune piste de développement dans cet échantillon")
+        return L
+
     def en_texte(self, avec_fiches=True) -> str:
-        L = [self.mode.bandeau(), "",
-             f"RAPPORT DE MESURE — généré le {self.genere_le}", "=" * 72, ""]
+        L = [self.mode.bandeau(), ""] + self._occasions()
+        L += ["", "=" * 72, "",
+              f"MESURE — générée le {self.genere_le}", ""]
 
         L.append("COLLECTE")
         if self.sources:
@@ -76,6 +112,18 @@ class Rapport:
             motif = infos.get("motif") if isinstance(infos, dict) else None
             L.append(f"  {nom:<16} {etat:<17} {motif or 'aucun avis dans cette base'}")
         L.append(f"  total analysé    {self.total:>6}")
+
+        if self.rendement:
+            L += ["", "RENDEMENT OBSERVÉ PAR SOURCE",
+                  "  Volume ≠ valeur. Une source qui publie beaucoup et ne produit rien",
+                  "  d'exploitable descend ; une petite source qui produit descend moins.",
+                  f"  {'source':<16}{'lues':>7}{'retenues':>10}{'CAPTER':>8}"
+                  f"{'DÉVELOPPER':>12}   part utile"]
+            for nom, r in sorted(self.rendement.items(),
+                                 key=lambda x: -(x[1]["retenues"] / (x[1]["lues"] or 1))):
+                part = (f"{r['retenues'] / r['lues']:.0%}" if r["lues"] else "NON MESURÉE")
+                L.append(f"  {nom:<16}{r['lues']:>7}{r['retenues']:>10}"
+                         f"{r['capter']:>8}{r['developper']:>12}   {part}")
 
         L += ["", "LOTS"]
         if self.lots:
@@ -144,11 +192,8 @@ class Rapport:
             L.append("aujourd'hui. Ce n'est pas une panne, c'est une mesure.")
             return "\n".join(L)
 
-        L.append(f"CE QUE JE REGARDERAIS À TA PLACE — {len(self.top)} opportunité(s)")
-        L.append("")
-        for i, (score, titre, action, fiche) in enumerate(self.top, 1):
-            L.append(f"  {i:>2}. [{score:>3}] {action:<24} {titre[:60]}")
         if avec_fiches:
+            L.append(f"LES {len(self.top)} FICHES EN DÉTAIL")
             L += ["", "=" * 72, ""]
             for _, _, _, fiche in self.top:
                 L.append(fiche)
@@ -286,6 +331,29 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
         "SELECT count(*) c FROM opportunites WHERE fiche LIKE '%A_VERIFIER%'").fetchone()["c"]
 
     r.selections = _selections(cx, connues, cible or {}, proche_km, limite_top)
+
+    # Les occasions, moteur par moteur. La source n'est qu'une étiquette de
+    # provenance : elle ne trie rien, elle ne bonifie rien.
+    for moteur, cible_liste in (("CAPTER", r.capter), ("DEVELOPPER", r.developper)):
+        for l in cx.execute(
+                "SELECT o.score, o.type, o.action, o.intitule, a.source"
+                " FROM opportunites o JOIN avis a ON a.id = o.avis_id"
+                " WHERE o.type <> 'REJET' AND o.moteur = ?"
+                " ORDER BY o.score DESC LIMIT ?", (moteur, limite_top)):
+            cible_liste.append((l["score"], l["type"], l["action"] or "?",
+                                l["source"], l["intitule"] or "(sans intitulé)"))
+
+    # Rendement observé : ce que chaque source produit RÉELLEMENT. Jamais une
+    # priorité déclarée d'avance, jamais un zéro pour une source non consultée.
+    for l in cx.execute(
+            "SELECT a.source s, count(*) lues,"
+            " sum(o.type <> 'REJET') retenues,"
+            " sum(o.type <> 'REJET' AND o.moteur = 'CAPTER') capter,"
+            " sum(o.type <> 'REJET' AND o.moteur = 'DEVELOPPER') developper"
+            " FROM opportunites o JOIN avis a ON a.id = o.avis_id GROUP BY a.source"):
+        r.rendement[l["s"]] = {"lues": l["lues"], "retenues": l["retenues"] or 0,
+                               "capter": l["capter"] or 0,
+                               "developper": l["developper"] or 0}
 
     for l in cx.execute(
             "SELECT score, intitule, action, fiche FROM opportunites"

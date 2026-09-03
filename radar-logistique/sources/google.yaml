@@ -1,0 +1,35 @@
+# Résultats de MOTEUR DE RECHERCHE — Google, Brave, ou tout autre.
+#
+# Ce que cette source apporte et qu'aucun portail de marchés ne donne : le
+# besoin AVANT sa formalisation. « Nous recherchons un partenaire transport »,
+# « référencement fournisseur », « ouverture d'une plateforme logistique ».
+# Beaucoup de ces affaires ne paraîtront jamais dans un avis de marché.
+#
+# Un résultat web n'est pas un marché ouvert : c'est le plus souvent une
+# HYPOTHÈSE. Le moteur le qualifie lui-même (radar/nature.py) à partir de ce
+# que la page dit — jamais à partir du fait que ça vient d'un moteur de
+# recherche. Une page datée qui nomme son demandeur est un FAIT, elle aussi.
+#
+# verifie: false — aucune réponse réelle observée : pas de clé API fournie.
+
+source: google
+verifie: false
+secteur_par_defaut: prive
+
+champs:
+  identifiant:      [url, lien]
+  intitule:         [titre, title]
+  objet:            [extrait, snippet, description]
+  acheteur:         [entreprise, company]
+  contact_email:    [email, contact]
+  publie_le:        [consulte_le, date]
+  plateforme:       [url, lien]
+  lien_documents:   [url, lien]
+  pays_livraison:   [pays, country]
+  lieu:             [lieu, location]
+  cadence:          [cadence]
+  echeance:         [echeance, deadline]
+  montant:          [montant, valeur]
+  duree_mois:       [duree_mois]
+  date_demarrage:   [date_demarrage]
+  requete:          [requete]

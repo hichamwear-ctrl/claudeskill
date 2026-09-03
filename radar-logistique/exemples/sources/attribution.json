@@ -1,0 +1,12 @@
+[
+ {"publication-number":"TED-2026-098","notice-type":"contract-award",
+  "contract-awarded":true,
+  "title":{"fra":"Distribution régionale de colis — marché attribué"},
+  "description":{"fra":"Marché de distribution attribué pour 48 mois."},
+  "buyer":{"name":{"fra":"Intercommunale de Wallonie"}},
+  "winner":{"name":"Grand Opérateur Logistique SA"},
+  "estimated-value":{"amount":3200000,"currency":"EUR"},
+  "duration-months":48,"award-date":"2026-06-15",
+  "classification-cpv":["60000000"],
+  "place-of-delivery":{"country":"BE"}}
+]

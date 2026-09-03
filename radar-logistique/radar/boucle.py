@@ -96,7 +96,12 @@ class Boucle:
             trace.budget_utilise += 1
 
             opportunites = analyser(resultats) if analyser else 0
-            origine = f"google/n{profondeur}"
+            # Le moteur qui a produit les résultats se nomme lui-même : la
+            # boucle ne présume pas que c'est Google. Brave, ou n'importe quel
+            # autre moteur branché plus tard, s'inscrit de la même façon.
+            fournisseur = next((getattr(r, "fournisseur", None) for r in resultats
+                                if getattr(r, "fournisseur", None)), "recherche")
+            origine = f"{fournisseur}/n{profondeur}"
             nouvelles = self._entreprises_dans(resultats, origine, profondeur)
             trace.etapes.append(Etape(profondeur, getattr(requete, "texte", str(requete)),
                                       entreprise, len(resultats), opportunites, nouvelles))

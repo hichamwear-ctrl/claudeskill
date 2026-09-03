@@ -65,6 +65,26 @@ REGLES = [
     ("17 sonder mesure ce que la chaîne traitera", ["sondage"],
      ["sonder_annonce_les_memes_categories_que_la_chaine",
       "sonder_compte_les_lots_pas_seulement_les_marches"]),
+    # ── Le centre du radar n'est ni la source, ni l'appel d'offres. ──
+    ("18 tout format de besoin entre dans le même moteur", ["adaptateur", "chaine"],
+     ["un_besoin_prive_trouve_par_un_moteur_de_recherche_est_une_opportunite",
+      "une_page_d_entreprise_est_une_opportunite",
+      "une_tournee_de_bourse_de_fret_est_une_opportunite"]),
+    ("19 aucune source n'est indispensable", ["registre", "chaine"],
+     ["ted_supprime_le_radar_continue", "google_supprime_le_radar_continue",
+      "une_seule_source_suffit_a_faire_tourner_le_moteur"]),
+    ("20 la source n'entre jamais dans le score", ["score"],
+     ["meme_economie_source_differente_score_identique",
+      "meilleure_economie_source_differente_meilleur_score",
+      "le_domaine_se_confirme_par_cpv_ou_par_vocabulaire"]),
+    ("21 FAIT / SIGNAL / HYPOTHÈSE, sans prime au fait", ["nature"],
+     ["la_nature_ne_se_deduit_jamais_de_la_source",
+      "la_nature_ne_change_pas_le_score",
+      "on_ne_depose_pas_de_dossier_sur_une_hypothese"]),
+    ("22 le rapport montre les occasions avant les sources", ["rapport"],
+     ["les_occasions_passent_avant_les_statistiques_de_source",
+      "plusieurs_sources_differentes_apparaissent_dans_capter",
+      "le_rendement_est_observe_jamais_declare"]),
 ]
 
 

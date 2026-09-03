@@ -1,0 +1,36 @@
+# PAGE D'ENTREPRISE — « devenir partenaire transporteur », « nos appels à
+# sous-traitance », « référencement fournisseur », page carrières.
+#
+# C'est une source d'opportunités à part entière, et souvent la meilleure :
+# le besoin y est décrit par celui qui l'a, sans intermédiaire et sans
+# concurrence encore constituée. Elle n'a ni CPV, ni référence officielle, ni
+# montant, ni échéance — et rien de tout cela n'est requis pour être analysée.
+# Ce qui manque s'écrit INCONNU ou À VÉRIFIER ; ça ne rejette rien.
+#
+# verifie: false — aucune page réelle observée.
+
+source: entreprise
+verifie: false
+secteur_par_defaut: prive
+
+champs:
+  identifiant:      [url, id]
+  intitule:         [titre, title, h1]
+  objet:            [texte, description, contenu]
+  acheteur:         [entreprise, societe, company]
+  contact_email:    [email, contact]
+  plateforme:       [url]
+  lien_documents:   [url, formulaire]
+  pays_livraison:   [pays, country]
+  lieu:             [lieu, adresse, ville]
+  cadence:          [cadence, frequence]
+  echeance:         [echeance, date_limite]
+  montant:          [montant, budget]
+  duree_mois:       [duree_mois, duree]
+  date_demarrage:   [date_demarrage, debut]
+  vehicules_requis: [vehicules_requis, vehicules]
+  chauffeurs_requis: [chauffeurs_requis, chauffeurs]
+  exige_licence:    [licence_requise]
+  exige_afsca:      [afsca_requis]
+  exige_adr:        [adr_requis]
+  exige_froid:      [froid_requis]

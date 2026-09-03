@@ -1,0 +1,14 @@
+[
+ {"id":"SIG-2026-31","signal":"recrutement_massif",
+  "titre":"Recrutement de 15 chauffeurs livreurs — Région de Gand",
+  "entreprise":"Distributeur régional",
+  "description":"Distribution urbaine de marchandises, tournées quotidiennes au départ d'un nouveau centre logistique.",
+  "pays":"BE","cadence":"quotidienne","date":"2026-08-28",
+  "url":"https://exemple.be/emploi/SIG-2026-31"},
+ {"id":"SIG-2026-32","signal":"ouverture_site",
+  "titre":"Ouverture d'un nouveau centre logistique à Gand",
+  "entreprise":"Groupe agroalimentaire",
+  "description":"Nouvelle plateforme de 12 000 m² destinée à la distribution en Belgique et aux Pays-Bas.",
+  "pays":"BE","date":"2026-08-20",
+  "url":"https://exemple.be/presse/SIG-2026-32"}
+]

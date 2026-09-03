@@ -81,8 +81,16 @@ def _de_taille(message: str) -> bool:
 def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
             deadline_ouverte, deadline_motif, attribue, informatif,
             bilan_capacite, construction=None, est_signal=False,
-            source_privee=False) -> Classement:
-    """Décide de la catégorie, du moteur et de l'action unique."""
+            source_privee=False, nature=None) -> Classement:
+    """Décide de la catégorie, du moteur et de l'action unique.
+
+    Aucun paramètre ne nomme une source, et c'est délibéré : brancher TED,
+    Google, une bourse de fret ou la page d'une PME ne change rien ici. Ce qui
+    entre, ce sont des faits sur le BESOIN — objet, zone, échéance, exigences —
+    et la capacité de l'entreprise à le servir.
+    """
+    from .nature import Nature
+    nature = nature or Nature.FAIT
 
     # ── 1. Impossibilités objectives sur l'objet ──
     if role is Role.FOURNISSEUR:
@@ -121,7 +129,11 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
                           deadline_motif or "date limite dépassée",
                           raisons=["hors délai pour déposer — surveiller le renouvellement"])
 
-    action_defaut = Action.CONTACTER_ENTREPRISE if source_privee else Action.POSTULER
+    # On ne dépose un dossier que sur un besoin PUBLIÉ. Sur une hypothèse —
+    # une page qui dit « devenir partenaire transporteur », sans date ni
+    # demandeur nommé — l'action juste est d'appeler, pas de candidater.
+    depot = nature.depot_attendu and not source_privee
+    action_defaut = Action.POSTULER if depot else Action.CONTACTER_ENTREPRISE
 
     # ── 4. Blocages de capacité : taille ou nature ? ──
     if bilan_capacite.bloquants:

@@ -73,6 +73,26 @@ modeles:
       - '"opens new warehouse" Belgium'
       - '"expands into Belgium" logistics'
 
+  investissement_expansion:
+    # Un besoin logistique naît AVANT d'être écrit : une entreprise qui investit,
+    # qui s'agrandit ou qui ouvre un flux nouveau aura besoin de capacité. C'est
+    # là que le radar arrive avant tout le monde — et avant tout appel d'offres.
+    poids: 7
+    fr:
+      - '"investit" {zone} "site logistique" OR "plateforme"'
+      - '"lève des fonds" {zone} distribution OR e-commerce'
+      - '"double sa capacité" {zone} livraison'
+      - '"nouveau flux" OR "nouvelle ligne" livraison {zone}'
+      - '"étend son activité" {zone} logistique'
+      - '"nouveau contrat" logistique {zone}'
+      - 'PME {zone} "livraison quotidienne" partenaire'
+    nl:
+      - '"investeert" {zone} logistiek'
+      - '"breidt uit" {zone} distributie'
+    en:
+      - '"expands operations" Belgium logistics'
+      - '"new distribution hub" Belgium'
+
   metier_a_construire:
     # Les 🟣 : un donneur d'ordre qui FORME ses partenaires. Sans mention écrite
     # d'une formation, il n'y a pas de 🟣 — d'où ces requêtes dédiées.

@@ -1,0 +1,11 @@
+[
+ {"id":"FRET-2026-902",
+  "titre":"Tournée régulière Rotterdam → Bruxelles, 3 rotations par semaine",
+  "description":"Palettes filmées, camion 20 m³ suffisant, chargement le matin.",
+  "chargeur":"Négociant en produits frais",
+  "pays_chargement":"NL","pays_livraison":"BE",
+  "prix":4200,"devise":"EUR","frequence":"hebdomadaire",
+  "premier_chargement":"2026-10-01","valable_jusqu_au":"2099-09-20",
+  "distance_depot_km":18,
+  "email":"transport@exemple.nl"}
+]

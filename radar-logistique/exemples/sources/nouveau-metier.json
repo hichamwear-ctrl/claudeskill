@@ -1,0 +1,9 @@
+[
+ {"url":"https://exemple-energie.be/appel-partenaires",
+  "titre":"Recherche de partenaires pour l'installation de bornes de recharge",
+  "texte":"Nous recherchons des partenaires disposant de véhicules utilitaires et de personnel de terrain pour l'installation et la maintenance de bornes de recharge en Belgique. Une formation complète de trois semaines est assurée au démarrage. Marché de trois ans, interventions hebdomadaires, démarrage prévu le 01/06/2027.",
+  "entreprise":"Opérateur de recharge",
+  "email":"partenaires@exemple-energie.be",
+  "pays":"BE","frequence":"hebdomadaire","duree":36,
+  "debut":"2027-06-01","date_limite":"2027-03-01"}
+]
