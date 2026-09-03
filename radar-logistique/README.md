@@ -299,6 +299,18 @@ l'observation manque. Sous 30 opportunités il refuse de publier un pourcentage.
 
 ---
 
+## Le cahier des charges est vérifiable
+
+Quinze règles ont été validées puis verrouillées. Une règle peut se perdre lors
+d'une réécriture — c'est arrivé une fois, les seize questions ont tourné sans
+test pendant plusieurs versions. L'audit le détecte :
+
+```bash
+python3 outils/audit_cahier.py     # code non nul si une règle n'est plus couverte
+```
+
+Il vérifie que chaque règle a un module ET ses tests de comportement.
+
 ## Tests
 
 ```bash

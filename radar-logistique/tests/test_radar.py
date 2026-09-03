@@ -829,3 +829,46 @@ class RapportDeMesure(unittest.TestCase):
         cx = ouvrir(":memory:")
         self.assertIn("DONNÉES FICTIVES", construire(cx, Mode.DEMO).en_texte())
         self.assertIn("MODE : RÉEL", construire(cx, Mode.REEL).en_texte())
+
+
+# ══════════════ §15 — jamais une boîte noire
+class SeizeQuestions(unittest.TestCase):
+    """Chaque opportunité doit pouvoir dire pourquoi elle est là, ce qui manque
+    et quelle action suit. Ces tests avaient disparu lors d'une réécriture :
+    la règle s'appliquait sans filet."""
+
+    def test_le_journal_repond_aux_seize_questions(self):
+        j = moteur().analyser(opp(acheteur="Commune", montant=120000, duree_mois=24),
+                              MAINTENANT).journal
+        numerotees = [q for q in j.reponses if q[0].isdigit()]
+        self.assertEqual(len(numerotees), 16)
+
+    def test_ce_qui_ne_peut_pas_etre_repondu_vaut_a_verifier(self):
+        """Jamais une réponse inventée à la place d'une donnée absente."""
+        j = moteur().analyser(opp(acheteur=None, montant=None), MAINTENANT).journal
+        self.assertIn("1. qui achète ?", j.sans_reponse())
+
+    def test_le_journal_dit_si_je_peux_etre_titulaire(self):
+        direct = moteur().analyser(opp(), MAINTENANT).journal
+        gros = moteur().analyser(opp(exigences={"vehicules_min": 200}), MAINTENANT).journal
+        self.assertIn("oui", direct.reponses["12. puis-je être titulaire ?"])
+        self.assertEqual(gros.reponses["12. puis-je être titulaire ?"], "non")
+
+    def test_le_journal_nomme_l_action_suivante(self):
+        j = moteur().analyser(opp(), MAINTENANT).journal
+        self.assertTrue(j.reponses["16. quelle action maintenant ?"])
+
+    def test_le_journal_est_conserve_en_base(self):
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), [opp(acheteur="Commune")], maintenant_dt=MAINTENANT)
+        journal = cx.execute("SELECT journal FROM opportunites").fetchone()["journal"]
+        self.assertIn("qui achète", journal)
+
+    def test_chaque_rejet_porte_son_motif(self):
+        """Pour un rejet aussi, on doit pouvoir comprendre pourquoi."""
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), [opp(ref_source="ADR", exigences={"adr": True})],
+                maintenant_dt=MAINTENANT)
+        l = cx.execute("SELECT type, motif FROM opportunites").fetchone()
+        self.assertEqual(l["type"], "REJET")
+        self.assertTrue(l["motif"], "un rejet sans motif est une boîte noire")
