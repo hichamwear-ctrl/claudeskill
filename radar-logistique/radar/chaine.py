@@ -320,7 +320,7 @@ class Moteur:
 # disait « ATTRIBUÉ ». Une ligne qui se contredit elle-même est pire qu'une
 # ligne absente : on agit dessus.
 RECALCULEES = ("type", "moteur", "action", "role", "statut", "zone", "familles",
-               "etat_procedure", "confiance_etat", "type_information",
+               "etat_procedure", "confiance_etat", "type_information", "nature",
                "fiabilite", "fiabilite_motif", "echeance", "jours_restants",
                "score", "marge", "detail_score", "journal", "motif", "fiche",
                "calcule_le")
@@ -329,7 +329,8 @@ _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "familles", "marche_ref", "lot_numero", "intitule", "acheteur",
              "montant", "devise", "duree_mois", "cadence", "contact", "exigences",
              "echeance", "jours_restants", "distance_km", "etat_procedure",
-             "confiance_etat", "type_information", "fiabilite", "fiabilite_motif",
+             "confiance_etat", "type_information", "nature", "fiabilite",
+             "fiabilite_motif",
              "score", "marge", "detail_score", "journal", "motif", "fiche",
              "calcule_le")
 
@@ -347,6 +348,7 @@ def _valeurs(avis_id, opp, r) -> tuple:
             lecture.etat_affiche if lecture else None,
             lecture.confiance.value if lecture else None,
             lecture.type_information_source if lecture else None,
+            r.nature.value if r.nature else None,
             r.fiabilite.niveau.value if r.fiabilite else None,
             r.fiabilite.motif() if r.fiabilite else None,
             r.score.total, r.score.marge_estimee,

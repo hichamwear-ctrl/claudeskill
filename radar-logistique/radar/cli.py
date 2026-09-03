@@ -51,6 +51,10 @@ def _vocabulaires(cx=None) -> dict:
         declare = Vocabulaire(cfg)
         appris = vocabulaire_appris(cx, nom) if cx is not None else None
         sortie[nom] = fusionner_vocabulaires(appris, declare)
+    # Les moteurs partagent l'adaptateur « recherche » mais gardent chacun leur
+    # provenance : ils héritent donc de son vocabulaire, sans le confondre.
+    for moteur in ("google", "brave"):
+        sortie.setdefault(moteur, sortie.get("recherche"))
     return sortie
 
 
@@ -241,14 +245,23 @@ def cmd_boucle(a) -> int:
     # entreprise : c'est un besoin possible, et il entre dans le même moteur
     # que n'importe quel autre. C'est ce qui permet au radar de voir une
     # affaire AVANT qu'elle ne devienne un appel d'offres — si elle le devient.
-    adaptateur, cfg_src = _source("google")
+    # L'adaptateur « recherche » lit la FORME d'un résultat web, quel que soit
+    # le moteur qui l'a produit. La PROVENANCE, elle, est celle du moteur réel :
+    # étiqueter un résultat Brave comme « google » ferait mentir le rendement
+    # par source et rendrait Google indispensable dans les chiffres.
+    adaptateur, cfg_src = _source("recherche")
     defauts = {"signal": cfg_src.get("signal"), "secteur": cfg_src.get("secteur_par_defaut")}
 
     def analyser(resultats) -> int:
-        charges = [r.en_charge() for r in resultats if hasattr(r, "en_charge")]
-        if not charges:
+        opportunites = []
+        for res in resultats:
+            if not hasattr(res, "en_charge"):
+                continue
+            charge = res.en_charge()
+            provenance = charge.get("fournisseur") or "recherche"
+            opportunites.append(vers_opportunite(adaptateur, charge, provenance, defauts))
+        if not opportunites:
             return 0
-        opportunites = [vers_opportunite(adaptateur, c, "google", defauts) for c in charges]
         b = traiter(cx, mot, opportunites, mode=_mode(a))
         return b.capter + b.developper
 

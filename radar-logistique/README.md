@@ -44,6 +44,34 @@ Aucune n'est secondaire parce qu'elle n'est pas un appel d'offres.
 python3 outils/radar_commercial.py   # les huit, dans le même moteur, un seul rapport
 ```
 
+## Symétrie public / privé — trois asymétries corrigées
+
+Le cœur ne doit donner aucun privilège à une source officielle. Trois entorses
+trouvées à l'audit, toutes silencieuses :
+
+| asymétrie | ce qu'elle coûtait | correction |
+|---|---|---|
+| le lexique prestation/fourniture était écrit en langue de marchés publics | « nous recherchons un transporteur » → `A_VERIFIER`, alors qu'un avis équivalent → `PRESTATAIRE` grâce à son CPV | le lexique parle aussi la langue du privé (FR/NL/EN) |
+| le **CPV** entrait dans l'empreinte de déduplication | le même besoin, public d'un côté et privé de l'autre, ne se reconnaissait pas — fusion `PROBABLE` au mieux, aucune si la formulation variait | le CPV sort de l'empreinte ; il redevient un garde-fou (`cpv_incompatible`) quand les **deux** côtés en portent un |
+| la boucle étiquetait tout résultat web « google » | un résultat Brave faussait le rendement par source et rendait Google indispensable dans les chiffres | l'adaptateur s'appelle `recherche` ; la provenance reste celle du moteur qui a répondu |
+
+Le cœur est vérifié par l'AST : **aucun module métier n'importe un adaptateur,
+et aucun ne nomme un portail dans son code exécutable** (les commentaires
+peuvent citer TED en exemple, le code non).
+
+```bash
+python -m unittest tests.test_radar.LeCoeurIgnoreLesCapteurs
+python -m unittest tests.test_radar.MemeBesoinSixCapteurs
+```
+
+Le même besoin injecté depuis `ted · bda · tenderned · recherche · entreprise ·
+bourse_fret` donne la même classification, la même capacité, le même score, le
+même rôle, le même état — et **une seule opportunité** après déduplication,
+avec les six provenances conservées. Retirer n'importe lequel des six ne casse
+rien : c'est testé capteur par capteur.
+
+---
+
 ## Quatre dimensions, jamais mélangées
 
 Une annonce n'a pas « un statut ». Elle a quatre choses distinctes, et les
@@ -181,6 +209,30 @@ Aucune alerte commerciale n'a été émise.
 Un marché parent `ATTRIBUÉ` dont le lot 3 est encore ouvert produit **trois
 situations distinctes**, pas une seule fiche. Le statut du lot prime sur celui
 du marché.
+
+### Le rapport est le produit, pas un compteur d'avis
+
+```
+CAPTER        ce que je peux attaquer maintenant
+DÉVELOPPER    titulaires, renouvellements, préinformations, partenariats
+SIGNAUX       des événements, pas encore des contrats
+À VÉRIFIER    informations ambiguës, ni jetées ni promues
+TOP ACTIONS   ce que je fais demain matin, groupé par geste
+```
+
+Les statistiques de collecte viennent **après**. Les sources y figurent comme
+provenances (« vu sur »), jamais comme classement.
+
+`SIGNAUX` sélectionne sur la **nature** (dimension C), surtout pas sur l'état
+(dimension B) — le défaut trouvé en écrivant cette section. Une page qui dit
+« devenir partenaire transporteur » est `HORS PROCÉDURE` sur B et un **FAIT**
+sur C : la ranger parmi les signaux présenterait un fait comme une inférence.
+
+```
+« Nous recherchons un transporteur »              → FAIT
+« L'entreprise recrute quinze chauffeurs »        → SIGNAL
+« Elle aura probablement besoin de sous-traitants » → HYPOTHÈSE
+```
 
 ### Une opportunité, un fil de vie
 
@@ -618,7 +670,7 @@ concernée, correction, test de non-régression.
 
 ## Le cahier des charges est vérifiable
 
-Trente-neuf règles ont été validées puis verrouillées. Une règle peut se perdre lors
+Quarante-cinq règles ont été validées puis verrouillées. Une règle peut se perdre lors
 d'une réécriture — c'est arrivé une fois, les seize questions ont tourné sans
 test pendant plusieurs versions. L'audit le détecte :
 
@@ -648,7 +700,7 @@ l'objectif.*
 python -m unittest discover -s tests
 ```
 
-253 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
+277 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
 chacun pose une question dont la mauvaise réponse coûte un contrat.
 
 Zéro dépendance hors PyYAML.

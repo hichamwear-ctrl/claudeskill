@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS opportunites (
     etat_procedure TEXT,
     confiance_etat TEXT,
     type_information TEXT,            -- A · ce que la source appelle l'objet
+    nature        TEXT,               -- C · FAIT | SIGNAL | HYPOTHÈSE
     -- FIABILITÉ DE L'INFORMATION — jamais mélangée à la valeur économique.
     -- Une information peu fiable peut être excellente commercialement.
     fiabilite     TEXT,

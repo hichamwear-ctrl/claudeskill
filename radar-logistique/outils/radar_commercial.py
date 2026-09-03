@@ -43,7 +43,9 @@ LOTS = [
     ("ted.json",           "ted"),
     ("attribution.json",   "ted"),
     ("bda.json",           "bda"),
-    ("google.json",        "google"),
+    # Deux moteurs, un seul adaptateur, deux provenances distinctes : c'est
+    # exactement ce qui se passe quand Google et Brave répondent tous les deux.
+    ("google.json",        "recherche"),
     ("entreprise.json",    "entreprise"),
     ("nouveau-metier.json", "entreprise"),
     ("signaux.json",       "signaux"),
@@ -73,12 +75,18 @@ def _moteur() -> Moteur:
 
 
 def charger(fichier: str, source: str) -> list:
+    """Lit une fixture avec l'adaptateur nommé, et garde la provenance RÉELLE.
+
+    L'adaptateur dit comment lire ; le champ `fournisseur` de la donnée dit qui
+    a répondu. Les deux ne se confondent pas.
+    """
     cfg = _cfg(f"sources/{source}.yaml")
     ad = Adaptateur.depuis_config(cfg)
     charges = json.loads((RACINE / "exemples" / "sources" / fichier).read_text(
         encoding="utf-8"))
     defauts = {"signal": cfg.get("signal"), "secteur": cfg.get("secteur_par_defaut")}
-    return [vers_opportunite(ad, c, source, defauts) for c in charges]
+    return [vers_opportunite(ad, c, c.get("fournisseur") or source, defauts)
+            for c in charges]
 
 
 def principal(argv=None) -> int:

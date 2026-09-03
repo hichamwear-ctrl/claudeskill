@@ -101,7 +101,30 @@ def empreinte_stricte(opp) -> str:
                       echeance, montant, cpv))
     if not distinctif:
         return _hacher("sans-contenu", opp.source or "", opp.ref_source or "")
-    return _hacher(acheteur, intitule, echeance, montant, cpv)
+    # Le CPV N'ENTRE PAS dans l'empreinte.
+    #
+    # C'est une nomenclature de marchés publics : une page d'entreprise ou un
+    # résultat de recherche n'en porte jamais. L'y inclure faisait que le MÊME
+    # besoin, publié sur un portail et décrit sur un site, produisait deux
+    # empreintes différentes — donc au mieux une fusion PROBABLE, au pire aucune
+    # fusion si la formulation variait un peu. Le besoin identique se voyait
+    # refuser la reconnaissance parce qu'une des deux sources était privée.
+    #
+    # Le montant et l'échéance discriminent déjà deux marchés distincts d'un
+    # même acheteur ; `cpv_incompatible()` reprend le rôle de garde-fou quand
+    # les DEUX côtés portent un CPV.
+    return _hacher(acheteur, intitule, echeance, montant)
+
+
+def cpv_incompatible(a, b) -> bool:
+    """Deux CPV présents et de familles différentes interdisent le CERTAIN.
+
+    Quand un seul des deux côtés en porte — le cas normal dès qu'une source
+    privée est impliquée — l'absence ne prouve rien et ne bloque rien.
+    """
+    fa = {str(c)[:2] for c in (a.cpv or []) if str(c).strip()}
+    fb = {str(c)[:2] for c in (b.cpv or []) if str(c).strip()}
+    return bool(fa and fb and not (fa & fb))
 
 
 # ---------------------------------------------------------------------- URL --
@@ -229,10 +252,17 @@ class Index:
         # 1. CERTAIN — même identifiant officiel, ou même page.
         for nom, valeur in empreintes(opp).items():
             trouve = self._par_empreinte.get(valeur)
-            if trouve is not None:
-                motif = ("référence officielle identique" if nom == "stricte"
-                         else "URL identique")
-                return Rapprochement(trouve, Confiance.CERTAIN, motif, 1.0)
+            if trouve is None:
+                continue
+            if cpv_incompatible(trouve, opp):
+                # Même intitulé, même acheteur, même montant, mais deux
+                # nomenclatures franchement différentes : on relie sans fusionner.
+                return Rapprochement(
+                    trouve, Confiance.POSSIBLE,
+                    "contenu identique mais CPV de familles différentes — "
+                    "NON FUSIONNÉ, à vérifier", 1.0)
+            motif = ("contenu identique" if nom == "stricte" else "URL identique")
+            return Rapprochement(trouve, Confiance.CERTAIN, motif, 1.0)
 
         # 2. PROBABLE ou POSSIBLE — même organisation, objet proche.
         meilleur, meilleur_score = None, 0.0

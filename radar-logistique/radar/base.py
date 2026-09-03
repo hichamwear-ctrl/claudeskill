@@ -26,6 +26,7 @@ AJOUTS = (
     ("opportunites", "etat_procedure", "TEXT"),
     ("opportunites", "confiance_etat", "TEXT"),
     ("opportunites", "type_information", "TEXT"),
+    ("opportunites", "nature", "TEXT"),
     ("opportunites", "fiabilite", "TEXT"),
     ("opportunites", "fiabilite_motif", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),

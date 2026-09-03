@@ -61,6 +61,9 @@ class Rapport:
     fiabilites: dict = field(default_factory=dict)    # niveau -> nombre
     croisement: list = field(default_factory=list)    # (fiabilité, score, titre, action)
     transitions: list = field(default_factory=list)
+    signaux: list = field(default_factory=list)       # événements pouvant générer du CA
+    a_verifier_liste: list = field(default_factory=list)   # informations ambiguës
+    actions: dict = field(default_factory=dict)       # action -> [(score, titre, source)]
 
     def _pct(self, n: int) -> str:
         return f"{n:>5}  ({n / self.total:.0%})" if self.total else f"{n:>5}"
@@ -92,6 +95,35 @@ class Rapport:
                          f"{action[:22]:<24} vu sur {source}")
         else:
             L.append("  aucune piste de développement dans cet échantillon")
+
+        L += ["", "SIGNAUX — des événements, pas encore des contrats"]
+        if self.signaux:
+            for score, titre, source, nature in self.signaux:
+                L.append(f"  ◈ [{score:>3}] {titre[:50]:<50} {nature[:10]:<11} "
+                         f"vu sur {source}")
+            L.append("  Un signal n'est pas une commande : il dit qu'un besoin est")
+            L.append("  probable. Une hypothèse l'est encore moins. Ni l'un ni")
+            L.append("  l'autre n'est présenté comme un fait.")
+        else:
+            L.append("  aucun signal dans cet échantillon")
+
+        L += ["", "À VÉRIFIER — informations ambiguës, ni jetées ni promues"]
+        if self.a_verifier_liste:
+            for score, titre, source, motif in self.a_verifier_liste:
+                L.append(f"  ? [{score:>3}] {titre[:46]:<46} vu sur {source}")
+                L.append(f"        {motif[:66]}")
+        else:
+            L.append("  rien d'ambigu dans cet échantillon")
+
+        L += ["", "TOP ACTIONS — ce que je fais demain matin"]
+        if self.actions:
+            for action, lignes in sorted(self.actions.items(),
+                                         key=lambda x: -max(l[0] for l in x[1])):
+                L.append(f"  {action}  ({len(lignes)})")
+                for score, titre, source in lignes[:3]:
+                    L.append(f"      [{score:>3}] {titre[:52]:<52} {source}")
+        else:
+            L.append("  rien à faire sur cet échantillon")
         return L
 
     def en_texte(self, avec_fiches=True) -> str:
@@ -402,6 +434,37 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
             cible_liste.append((l["score"], l["type"], l["action"] or "?",
                                 l["source"], l["intitule"] or "(sans intitulé)",
                                 l["etat_procedure"]))
+
+    # SIGNAUX = dimension C (nature), surtout PAS dimension B (état).
+    #
+    # « Devenir partenaire transporteur » est HORS PROCÉDURE sur B et pourtant
+    # un FAIT sur C : l'entreprise dit elle-même ce qu'elle cherche. Le ranger
+    # parmi les signaux reviendrait à présenter un fait comme une inférence —
+    # exactement la confusion que les quatre dimensions existent pour empêcher.
+    if "nature" in connues:
+        for l in cx.execute(
+                "SELECT o.score, o.intitule, a.source, o.nature FROM opportunites o"
+                " JOIN avis a ON a.id = o.avis_id"
+                " WHERE o.type <> 'REJET' AND o.nature IN ('SIGNAL', 'HYPOTHÈSE')"
+                " ORDER BY o.score DESC LIMIT ?", (limite_top,)):
+            r.signaux.append((l["score"], l["intitule"] or "(sans intitulé)",
+                              l["source"], l["nature"]))
+    if "etat_procedure" in connues:
+        for l in cx.execute(
+                "SELECT o.score, o.intitule, o.motif, a.source FROM opportunites o"
+                " JOIN avis a ON a.id = o.avis_id"
+                " WHERE o.type <> 'REJET' AND o.etat_procedure = 'INCONNU'"
+                " ORDER BY o.score DESC LIMIT ?", (limite_top,)):
+            r.a_verifier_liste.append((l["score"], l["intitule"] or "(sans intitulé)",
+                                       l["source"], l["motif"] or "état non démontré"))
+
+    # Ce qu'il y a à FAIRE, regroupé par geste. C'est la sortie du produit.
+    for l in cx.execute(
+            "SELECT o.score, o.intitule, o.action, a.source FROM opportunites o"
+            " JOIN avis a ON a.id = o.avis_id WHERE o.type <> 'REJET'"
+            " ORDER BY o.score DESC"):
+        r.actions.setdefault(l["action"] or "?", []).append(
+            (l["score"], l["intitule"] or "(sans intitulé)", l["source"]))
 
     # Rendement observé : ce que chaque source produit RÉELLEMENT. Jamais une
     # priorité déclarée d'avance, jamais un zéro pour une source non consultée.

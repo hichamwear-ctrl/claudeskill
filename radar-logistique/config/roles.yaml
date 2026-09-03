@@ -59,11 +59,33 @@ lexique:
          "pour le compte de", "location de véhicules avec chauffeur",
          "mise à disposition de chauffeurs", "tournées de", "déménagement",
          "manutention", "transfert de véhicules", "convoyage",
-         "services de messagerie", "affrètement", "lavage de véhicules"]
+         "services de messagerie", "affrètement", "lavage de véhicules",
+         # ── Comment le PRIVÉ dit la même chose ──
+         # Le lexique ci-dessus était écrit dans la langue des marchés publics.
+         # Résultat : « nous recherchons un transporteur partenaire » ressortait
+         # A_VERIFIER, alors qu'un avis public équivalent ressortait PRESTATAIRE
+         # grâce à son CPV. Une entreprise qui exprime son besoin avec ses mots
+         # à elle valait donc moins qu'un acheteur public. C'est exactement le
+         # privilège qu'on refuse.
+         "transporteur", "transporteurs", "partenaire transport",
+         "partenaire logistique", "partenaire transporteur",
+         "sous-traitant transport", "sous-traitance de transport",
+         "assurer nos livraisons", "assurer les livraisons", "confions nos",
+         "confier nos", "reprendre la tournée", "reprendre les tournées",
+         "capacité de transport", "capacité recherchée", "recherche transporteur",
+         "recherche un transporteur", "cherche transporteur", "tournée régulière",
+         "tournées régulières", "rotations par semaine", "livraison à domicile",
+         "dernier kilomètre", "livraisons quotidiennes", "distribution urbaine",
+         "prestataire de transport", "prestataire logistique", "flotte dédiée"]
     nl: ["vervoersdiensten", "transportdiensten", "logistieke dienstverlening",
-         "vervoer van", "ophaling en vervoer", "verhuizing", "goederenbehandeling"]
+         "vervoer van", "ophaling en vervoer", "verhuizing", "goederenbehandeling",
+         "transporteur gezocht", "vervoerder gezocht", "logistieke partner",
+         "onderaannemer transport", "dagelijkse leveringen", "vaste rit"]
     en: ["transport services", "logistics services", "haulage", "freight services",
-         "courier services", "removal services", "vehicle transfer"]
+         "courier services", "removal services", "vehicle transfer",
+         "carrier wanted", "looking for a carrier", "transport partner",
+         "logistics partner", "delivery partner", "subcontractor transport",
+         "regular route", "daily deliveries", "last mile"]
 
 # ─────────────────────────────────────────────────────────────────── arbitrage
 # Comment trancher quand les signaux se contredisent.

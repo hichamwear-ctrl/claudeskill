@@ -1,5 +1,10 @@
 # Résultats de MOTEUR DE RECHERCHE — Google, Brave, ou tout autre.
 #
+# Cet adaptateur lit la FORME d'un résultat web. Il ne nomme aucun moteur :
+# la provenance enregistrée est celle du moteur qui a réellement répondu.
+# Un résultat Brave n'est pas un résultat Google, et le rendement par source
+# ne doit pas le prétendre.
+#
 # Ce que cette source apporte et qu'aucun portail de marchés ne donne : le
 # besoin AVANT sa formalisation. « Nous recherchons un partenaire transport »,
 # « référencement fournisseur », « ouverture d'une plateforme logistique ».
@@ -12,7 +17,7 @@
 #
 # verifie: false — aucune réponse réelle observée : pas de clé API fournie.
 
-source: google
+source: recherche
 verifie: false
 secteur_par_defaut: prive
 

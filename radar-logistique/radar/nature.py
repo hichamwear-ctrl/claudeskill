@@ -55,6 +55,37 @@ class Nature(Enum):
         return self is Nature.FAIT
 
 
+# Un besoin énoncé À LA PREMIÈRE PERSONNE et au présent est un FAIT : quelqu'un
+# l'a écrit. Ce qui reste une hypothèse, c'est ce que NOUS en déduisons.
+#
+#   « Nous recherchons un transporteur »              → FAIT
+#   « L'entreprise recrute quinze chauffeurs »        → SIGNAL
+#   « Elle aura probablement besoin de sous-traitants » → HYPOTHÈSE
+#
+# Le demandeur n'a pas besoin d'être nommé pour que le fait existe : une page
+# qui dit « nous cherchons » dit qui cherche, même si son nom n'est pas
+# extractible. Le déduire du domaine reviendrait à inventer un nom — interdit.
+BESOIN_DIRECT = (
+    "nous recherchons", "nous cherchons", "nous recrutons", "nous confions",
+    "nous souhaitons", "nous faisons appel", "recherchons un", "recherchons des",
+    "cherchons un", "cherchons des", "devenez", "devenir partenaire",
+    "rejoignez", "notre societe recherche", "appel a partenaires",
+    "wij zoeken", "wij werken samen", "word partner", "gezocht",
+    "we are looking for", "we seek", "join our", "become a", "wanted",
+    "wir suchen", "gesucht",
+)
+
+
+def _besoin_exprime(opp) -> bool:
+    import re
+    import unicodedata
+    texte = f"{getattr(opp, 'intitule', '') or ''} {getattr(opp, 'texte', '') or ''}"
+    plat = unicodedata.normalize("NFKD", texte)
+    plat = "".join(c for c in plat if not unicodedata.combining(c)).lower()
+    plat = " " + re.sub(r"[^a-z0-9]+", " ", plat).strip() + " "
+    return any(f" {m} " in plat for m in BESOIN_DIRECT)
+
+
 def qualifier(opp) -> Nature:
     """Lit la nature dans les FAITS portés par l'opportunité.
 
@@ -72,6 +103,8 @@ def qualifier(opp) -> Nature:
     # ou ce qui est demandé ET pour quand.
     objet = bool((getattr(opp, "intitule", "") or "").strip()
                  and (opp.intitule or "").strip() != "(sans intitulé)")
+    if objet and _besoin_exprime(opp):
+        return Nature.FAIT
     demandeur = bool(getattr(opp, "acheteur", None))
     quand = bool(getattr(opp, "echeance_brute", None)
                  or getattr(opp, "date_demarrage", None))

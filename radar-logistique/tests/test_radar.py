@@ -1111,7 +1111,7 @@ class RadarCommercial(unittest.TestCase):
 
     def test_2_un_besoin_prive_trouve_par_un_moteur_de_recherche_est_une_opportunite(self):
         """« Nous recherchons un partenaire transport » vaut un avis de marché."""
-        l = self._analyser("google.json", "google")[0]
+        l = self._analyser("google.json", "recherche")[0]
         self.assertNotEqual(l["type"], "REJET")
         self.assertEqual(l["moteur"], "CAPTER")
 
@@ -1374,7 +1374,7 @@ class UnResultatDeRechercheDevientUneOpportunite(unittest.TestCase):
 
     def test_il_traverse_le_moteur_et_ressort_classe(self):
         from radar.adaptateur import Adaptateur, vers_opportunite
-        cfg = yaml.safe_load((RACINE / "sources" / "google.yaml").read_text(encoding="utf-8"))
+        cfg = yaml.safe_load((RACINE / "sources" / "recherche.yaml").read_text(encoding="utf-8"))
         o = vers_opportunite(Adaptateur.depuis_config(cfg), self._resultat().en_charge(),
                              "google", {"secteur": cfg.get("secteur_par_defaut")})
         o.pays_livraison = ["BE"]
@@ -1388,7 +1388,7 @@ class UnResultatDeRechercheDevientUneOpportunite(unittest.TestCase):
         """Ni acheteur, ni montant, ni échéance : ce que la page ne dit pas
         reste absent."""
         from radar.adaptateur import Adaptateur, vers_opportunite
-        cfg = yaml.safe_load((RACINE / "sources" / "google.yaml").read_text(encoding="utf-8"))
+        cfg = yaml.safe_load((RACINE / "sources" / "recherche.yaml").read_text(encoding="utf-8"))
         o = vers_opportunite(Adaptateur.depuis_config(cfg), self._resultat().en_charge(),
                              "google", {})
         self.assertIsNone(o.montant)
@@ -2234,3 +2234,296 @@ class VocabulaireVersionne(unittest.TestCase):
         touchees = concerne(cx, "portail", "type_information", "Phase gamma")
         self.assertEqual(len(touchees), 1)
         self.assertEqual(touchees[0]["etat_procedure"], "POSTULABLE")
+
+
+# ══════════════ §18 — LE MÊME BESOIN, INJECTÉ PAR SIX CAPTEURS DIFFÉRENTS
+def besoin_neutre(source: str, **kw):
+    """Un besoin économique décrit SANS vocabulaire de marché public.
+
+    Le banc de test avait un biais : `opp()` porte par défaut
+    `type_avis="appel-offres"` et `cpv=["60000000"]`. Presque tous les tests
+    faisaient donc passer le moteur par un objet en forme d'appel d'offres.
+    Ce constructeur-ci n'a ni CPV, ni type d'avis, ni référence officielle :
+    c'est ce qu'une page d'entreprise ou une bourse de fret produit vraiment.
+    """
+    base = dict(source=source, ref_source=f"N-{source}",
+                intitule="Distribution urbaine de marchandises",
+                texte="tournées quotidiennes de distribution urbaine pour le "
+                      "compte de tiers",
+                acheteur="Client Exemple", montant=240000, duree_mois=24,
+                cadence="quotidienne", pays_livraison=["BE"],
+                distance_depot_km=20, echeance_brute=OUVERT,
+                cpv=[], type_avis=None)
+    base.update(kw)
+    return Opportunite(**base)
+
+
+CAPTEURS = ("ted", "bda", "tenderned", "recherche", "entreprise", "bourse_fret")
+
+
+class MemeBesoinSixCapteurs(unittest.TestCase):
+    """Seule la PROVENANCE change. Tout le reste doit être identique."""
+
+    def setUp(self):
+        self.m = moteur()
+        self.resultats = {s: self.m.analyser(besoin_neutre(s), MAINTENANT)
+                          for s in CAPTEURS}
+
+    def test_meme_classification_economique(self):
+        types = {s: r.classement.type.value for s, r in self.resultats.items()}
+        self.assertEqual(len(set(types.values())), 1, types)
+
+    def test_meme_moteur_et_meme_action(self):
+        sorties = {s: (r.classement.moteur.value, r.classement.action.value)
+                   for s, r in self.resultats.items()}
+        self.assertEqual(len(set(sorties.values())), 1, sorties)
+
+    def test_meme_bilan_de_capacite(self):
+        bilans = {s: (tuple(r.bilan.atouts), tuple(r.bilan.bloquants),
+                      tuple(r.bilan.mobilisations)) for s, r in self.resultats.items()}
+        self.assertEqual(len(set(bilans.values())), 1, list(bilans)[:2])
+
+    def test_meme_score(self):
+        scores = {s: r.score.total for s, r in self.resultats.items()}
+        self.assertEqual(len(set(scores.values())), 1, scores)
+
+    def test_meme_role_et_meme_etat(self):
+        lus = {s: (r.role.value, r.lecture.etat.value) for s, r in self.resultats.items()}
+        self.assertEqual(len(set(lus.values())), 1, lus)
+
+    def test_une_seule_opportunite_apres_deduplication(self):
+        """Six capteurs, un besoin : une opportunité, six provenances."""
+        cx = ouvrir(":memory:")
+        entrees = [besoin_neutre(s, provenances=[{"source": s, "url": f"https://{s}.be/1"}])
+                   for s in CAPTEURS]
+        b = traiter(cx, moteur(), entrees, maintenant_dt=MAINTENANT)
+        n = cx.execute("SELECT count(*) c FROM opportunites").fetchone()["c"]
+        self.assertEqual(n, 1, "le même besoin ne doit produire qu'une opportunité")
+        self.assertEqual(b.doublons, len(CAPTEURS) - 1)
+        fiche = cx.execute("SELECT fiche FROM opportunites").fetchone()["fiche"]
+        for s in CAPTEURS:
+            self.assertIn(s, fiche, f"la provenance « {s} » doit rester visible")
+
+    def test_le_besoin_neutre_ne_porte_aucun_vocabulaire_de_marche_public(self):
+        o = besoin_neutre("recherche")
+        self.assertEqual(o.cpv, [])
+        self.assertIsNone(o.type_avis)
+
+
+class RetraitDeChaqueCapteur(unittest.TestCase):
+    """Aucun capteur n'est indispensable — un par un, tous retirés tour à tour."""
+
+    def _sans(self, exclu):
+        cx = ouvrir(":memory:")
+        m = moteur()
+        entrees = [besoin_neutre(s, intitule=f"Besoin vu sur {s}",
+                                 acheteur=f"Client {s}")
+                   for s in CAPTEURS if s != exclu]
+        traiter(cx, m, entrees, maintenant_dt=MAINTENANT)
+        return cx.execute("SELECT count(*) c FROM opportunites"
+                          " WHERE type <> 'REJET'").fetchone()["c"]
+
+    def test_retirer_n_importe_quel_capteur_ne_casse_rien(self):
+        for capteur in CAPTEURS:
+            with self.subTest(retire=capteur):
+                self.assertEqual(self._sans(capteur), len(CAPTEURS) - 1)
+
+    def test_sans_aucun_moteur_de_recherche_le_radar_produit_encore(self):
+        """Aucune clé d'API n'est fournie : la découverte web ne démarre pas."""
+        from radar.decouverte import charger_connecteur
+        self.assertFalse(charger_connecteur({}).disponible)
+        cx = ouvrir(":memory:")
+        entrees = [besoin_neutre(s, intitule=f"Besoin {s}", acheteur=f"Client {s}")
+                   for s in ("entreprise", "bourse_fret", "signaux")]
+        traiter(cx, moteur(), entrees, maintenant_dt=MAINTENANT)
+        self.assertEqual(cx.execute("SELECT count(*) c FROM opportunites"
+                                    " WHERE type <> 'REJET'").fetchone()["c"], 3)
+
+
+class LeCoeurIgnoreLesCapteurs(unittest.TestCase):
+    """Le cœur ne doit connaître ni portail, ni moteur de recherche."""
+
+    COEUR = ("activite", "capacite", "chaine", "classification", "comptes",
+             "construction", "deduplication", "fiabilite", "fiche", "geographie",
+             "lots", "memoire", "modele", "nature", "procedure", "questions",
+             "role", "score", "statut", "transitions")
+
+    def test_aucun_module_du_coeur_n_importe_un_adaptateur(self):
+        import ast
+        interdits = ("moteurs_recherche", "adaptateur", "decouverte", "boucle", "cli")
+        for nom in self.COEUR:
+            arbre = ast.parse((RACINE / "radar" / f"{nom}.py").read_text(encoding="utf-8"))
+            for n in ast.walk(arbre):
+                cibles = ([n.module] if isinstance(n, ast.ImportFrom) and n.module
+                          else [a.name for a in n.names] if isinstance(n, ast.Import)
+                          else [])
+                for c in cibles:
+                    self.assertFalse(
+                        any(i in c for i in interdits),
+                        f"{nom} importe {c} — le cœur doit ignorer les capteurs")
+
+    def test_aucun_nom_de_portail_dans_le_code_du_coeur(self):
+        """Les commentaires peuvent citer TED en exemple. Le CODE, non."""
+        import ast
+        import io
+        import re
+        import tokenize
+        motif = re.compile(r"\b(ted|bda|tenderned|publicprocurement)\b", re.I)
+        for nom in self.COEUR:
+            src = (RACINE / "radar" / f"{nom}.py").read_text(encoding="utf-8")
+            arbre = ast.parse(src)
+            ignorees = set()
+            for n in ast.walk(arbre):
+                if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                  ast.AsyncFunctionDef)) and ast.get_docstring(n):
+                    ignorees.update(range(n.body[0].lineno, n.body[0].end_lineno + 1))
+            for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+                if tok.type == tokenize.COMMENT:
+                    ignorees.add(tok.start[0])
+            for i, ligne in enumerate(src.splitlines(), 1):
+                if i in ignorees:
+                    continue
+                code = ligne.split("#", 1)[0]
+                self.assertIsNone(motif.search(code),
+                                  f"{nom}.py:{i} nomme un portail dans du code")
+
+
+class SymetriePublicPrive(unittest.TestCase):
+    """Trois asymétries trouvées à l'audit. Chacune donnait un avantage
+    structurel aux sources publiques."""
+
+    def _role(self, texte, cpv):
+        import yaml as _y
+        from radar.role import DetecteurDeRole
+        d = DetecteurDeRole(_y.safe_load(
+            (RACINE / "config" / "roles.yaml").read_text(encoding="utf-8")))
+        return d.analyser(texte, cpv).role
+
+    def test_le_prive_dit_prestation_avec_ses_propres_mots(self):
+        """Le lexique était écrit en langue de marchés publics : « nous
+        recherchons un transporteur » ressortait A_VERIFIER quand un avis
+        équivalent ressortait PRESTATAIRE grâce à son CPV."""
+        for phrase in ("Nous recherchons un transporteur partenaire pour nos livraisons",
+                       "Devenir partenaire transporteur, nous confions nos tournées",
+                       "Tournée régulière Rotterdam Bruxelles, 3 rotations par semaine",
+                       "Capacité recherchée sur la liaison Anvers-Bruxelles"):
+            with self.subTest(phrase=phrase[:40]):
+                self.assertIs(self._role(phrase, []), Role.PRESTATAIRE)
+
+    def test_le_lexique_elargi_ne_rachete_pas_une_fourniture(self):
+        self.assertIs(self._role("Fourniture et livraison de poissons frais", []),
+                      Role.FOURNISSEUR)
+
+    def test_le_lexique_elargi_ne_ratisse_pas_les_metiers_etrangers(self):
+        self.assertIs(self._role("Entretien des espaces verts et tonte des haies", []),
+                      Role.A_VERIFIER)
+
+    def test_un_cpv_absent_n_empeche_plus_la_fusion_certaine(self):
+        """Le CPV est une nomenclature de marchés publics. L'inclure dans
+        l'empreinte faisait que le même besoin, public d'un côté et privé de
+        l'autre, ne se reconnaissait pas."""
+        commun = dict(intitule="Distribution de colis pour la ville de Namur",
+                      texte="tournées quotidiennes", acheteur="Ville de Namur",
+                      montant=540000, echeance_brute=OUVERT, pays_livraison=["BE"])
+        idx = Index()
+        idx.ajouter(opp(source="ted", ref_source="T", cpv=["60000000"], **commun))
+        r = idx.rapprocher(opp(source="recherche", ref_source="G", cpv=[], **commun))
+        self.assertIs(r.confiance, Confiance.CERTAIN)
+
+    def test_deux_cpv_de_familles_differentes_interdisent_encore_la_fusion(self):
+        """Le garde-fou reste : ce n'est pas parce que le CPV sort de
+        l'empreinte qu'on fusionne un marché de poissons avec un transport."""
+        commun = dict(intitule="Marché de la ville de Namur", texte="lot unique",
+                      acheteur="Ville de Namur", montant=540000,
+                      echeance_brute=OUVERT, pays_livraison=["BE"])
+        idx = Index()
+        idx.ajouter(opp(source="ted", ref_source="T", cpv=["60000000"], **commun))
+        r = idx.rapprocher(opp(source="bda", ref_source="B", cpv=["15200000"], **commun))
+        self.assertIs(r.confiance, Confiance.POSSIBLE)
+        self.assertIn("CPV", r.motif)
+
+    def test_un_resultat_brave_n_est_pas_etiquete_google(self):
+        """Un seul adaptateur lit la forme d'un résultat web ; la provenance
+        enregistrée reste celle du moteur qui a réellement répondu."""
+        from radar.adaptateur import Adaptateur, vers_opportunite
+        from radar.moteurs_recherche import Resultat
+        cfg = yaml.safe_load(
+            (RACINE / "sources" / "recherche.yaml").read_text(encoding="utf-8"))
+        res = Resultat(titre="Transporteur recherché", url="https://ex.be/a",
+                       extrait="", requete="q", fournisseur="brave")
+        charge = res.en_charge()
+        o = vers_opportunite(Adaptateur.depuis_config(cfg), charge,
+                             charge["fournisseur"], {})
+        self.assertEqual(o.source, "brave")
+
+    def test_l_adaptateur_de_recherche_ne_nomme_aucun_moteur(self):
+        cfg = yaml.safe_load(
+            (RACINE / "sources" / "recherche.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(cfg["source"], "recherche")
+
+
+class QuatreDimensionsJamaisMelangees(unittest.TestCase):
+    """Le défaut trouvé en construisant la section SIGNAUX : elle sélectionnait
+    sur l'ÉTAT (dimension B) au lieu de la NATURE (dimension C). Une page
+    d'entreprise qui dit ce qu'elle cherche est HORS PROCÉDURE sur B et un FAIT
+    sur C — la ranger parmi les signaux présentait un fait comme une inférence."""
+
+    def _n(self, titre, texte="", **kw):
+        from radar.nature import qualifier
+        return qualifier(Opportunite(source="x", ref_source="r", intitule=titre,
+                                     texte=texte, **kw))
+
+    def test_un_besoin_exprime_directement_est_un_fait(self):
+        from radar.nature import Nature
+        self.assertIs(self._n("Nous recherchons un partenaire transport",
+                              "pour nos livraisons"), Nature.FAIT)
+        self.assertIs(self._n("Devenir partenaire transporteur",
+                              "nous confions nos tournées"), Nature.FAIT)
+
+    def test_un_evenement_observable_est_un_signal(self):
+        from radar.nature import Nature
+        self.assertIs(self._n("Recrutement de 15 chauffeurs", "distribution",
+                              est_signal=True), Nature.SIGNAL)
+        self.assertIs(self._n("Marché attribué", "distribution", attribue=True),
+                      Nature.SIGNAL)
+
+    def test_une_page_qui_ne_dit_rien_reste_une_hypothese(self):
+        from radar.nature import Nature
+        self.assertIs(self._n("Page", "du transport quelque part"), Nature.HYPOTHESE)
+
+    def test_hors_procedure_n_est_pas_un_signal(self):
+        """B et C sont indépendantes : une page sans procédure peut être un
+        fait, et un marché public en cours peut être un signal (attribution)."""
+        r = moteur().analyser(
+            opp(source="entreprise", ref_source="E9", cpv=[], type_avis=None,
+                intitule="Devenir partenaire transporteur",
+                texte="nous confions nos tournées à des transporteurs partenaires",
+                acheteur="PME Exemple", pays_livraison=["BE"],
+                echeance_brute=None), MAINTENANT)
+        self.assertEqual(r.lecture.etat_affiche, "HORS PROCÉDURE")
+        self.assertEqual(r.nature.value, "FAIT")
+
+    def test_le_rapport_range_les_signaux_par_nature_pas_par_etat(self):
+        from outils.radar_commercial import LOTS, charger, _moteur
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        m = _moteur()
+        for fichier, source in LOTS:
+            traiter(cx, m, charger(fichier, source), maintenant_dt=MAINTENANT)
+        r = construire(cx, Mode.DEMO)
+        natures = {n for _, _, _, n in r.signaux}
+        self.assertTrue(natures <= {"SIGNAL", "HYPOTHÈSE"},
+                        f"un FAIT ne doit pas figurer parmi les signaux : {natures}")
+
+    def test_le_rapport_porte_les_cinq_blocs_du_produit(self):
+        from outils.radar_commercial import LOTS, charger, _moteur
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        m = _moteur()
+        for fichier, source in LOTS:
+            traiter(cx, m, charger(fichier, source), maintenant_dt=MAINTENANT)
+        texte = construire(cx, Mode.DEMO).en_texte(avec_fiches=False)
+        for bloc in ("CAPTER", "DÉVELOPPER", "SIGNAUX", "À VÉRIFIER", "TOP ACTIONS"):
+            self.assertIn(bloc, texte)
+        self.assertLess(texte.index("TOP ACTIONS"), texte.index("COLLECTE"),
+                        "les actions passent avant les statistiques de source")
