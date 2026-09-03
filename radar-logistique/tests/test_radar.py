@@ -2766,11 +2766,27 @@ class LAbsenceNEstPasUnAvantage(unittest.TestCase):
         base.update(kw)
         return moteur().analyser(opp(**base), MAINTENANT)
 
-    def test_aucune_exigence_publiee_vaut_non_mesure_pas_couvert(self):
-        r = self._score(ref_service="x") if False else self._score()
-        lignes = " ".join(r.score.detail())
-        self.assertIn("aucune exigence publiée", lignes)
-        self.assertIn("NON MESURÉ", lignes)
+    def test_les_trois_cas_d_exigence_sont_distincts(self):
+        """PUBLIÉE ET COUVERTE · PUBLIÉE ET NON COUVERTE · AUCUNE PUBLIÉE.
+        Trois situations, trois libellés, trois niveaux de points."""
+        muette = self._score(ref_source="M")
+        couverte = self._score(ref_source="C",
+                               exigences={"licence_transport": True})
+        non_couverte = self._score(ref_source="N", exigences={"vehicules_min": 12})
+
+        def ligne(r):
+            return next(l for l in r.score.detail() if "accessibilité" in l)
+
+        self.assertIn("AUCUNE EXIGENCE PUBLIÉE", ligne(muette))
+        self.assertIn("NON MESURÉ", ligne(muette))
+        self.assertIn("PUBLIÉE ET COUVERTE", ligne(couverte))
+        self.assertIn("PUBLIÉE ET NON COUVERTE", ligne(non_couverte))
+
+    def test_une_exigence_juridiquement_inaccessible_annule_l_accessibilite(self):
+        r = self._score(ref_source="ADR", exigences={"adr": True})
+        ligne = next(l for l in r.score.detail() if "accessibilité" in l)
+        self.assertIn("+0", ligne)
+        self.assertIn("PUBLIÉE ET NON COUVERTE", ligne)
 
     def test_une_annonce_muette_ne_bat_pas_une_annonce_couverte(self):
         muette = self._score(ref_source="M")
@@ -2869,3 +2885,225 @@ class LesDouzeFamillesTraversentLeMoteur(unittest.TestCase):
         self.assertEqual(o.cpv, [])
         self.assertIsNone(o.type_avis)
         self.assertEqual(avis_public().cpv, ["60000000"])
+
+
+# ══════════════ LE SCORE RÉAGIT À L'ÉCONOMIE, PAS À LA NATURE DE L'INFORMATION
+#
+# Deux tests réciproques. Le premier fige l'économie et fait varier la nature :
+# rien ne doit bouger. Le second fige la nature et fait varier UNE seule
+# variable économique : le score doit bouger, et dans le bon sens.
+ECONOMIE_TEMOIN = dict(
+    intitule="Distribution urbaine de marchandises",
+    texte="tournées quotidiennes de distribution urbaine pour le compte de tiers",
+    montant=180000, duree_mois=24, cadence="hebdomadaire",
+    pays_livraison=["BE"], distance_depot_km=120, km_annuels=30000,
+    exigences={"licence_transport": True}, acheteur="Client Exemple")
+# Volontairement PAS au plafond : le score est borné à 0-100, et un témoin à
+# 100 rendrait toute pénalité invisible. On mesure des variations, pas un idéal.
+
+
+def _temoin(**kw):
+    base = dict(source="entreprise", ref_source="T", cpv=[], type_avis=None,
+                echeance_brute=OUVERT)
+    base.update(ECONOMIE_TEMOIN)
+    base.update(kw)
+    return Opportunite(**base)
+
+
+NATURES_TEMOIN = {
+    "A_marche_public": _temoin(source="bda", ref_source="A", cpv=["60000000"],
+                               type_avis="avis de marché", secteur_acheteur="public"),
+    "B_contrat_prive": _temoin(source="entreprise", ref_source="B",
+                               secteur_acheteur="privé"),
+    "C_sous_traitance": _temoin(source="entreprise", ref_source="C",
+                                texte=ECONOMIE_TEMOIN["texte"] + " en sous-traitance",
+                                secteur_acheteur="privé"),
+    "D_signal_recrutement": _temoin(source="signaux", ref_source="D", est_signal=True,
+                                    signal_code="recrutement_massif",
+                                    secteur_acheteur="privé"),
+    "E_page_partenaire": _temoin(source="entreprise", ref_source="E",
+                                 intitule="Devenir partenaire transporteur",
+                                 secteur_acheteur="privé"),
+    "F_attribution": _temoin(source="ted", ref_source="F", attribue=True,
+                             titulaire="Transport National SA",
+                             secteur_acheteur="public"),
+}
+
+
+class MemeEconomieNaturesDifferentes(unittest.TestCase):
+    """A→F : même économie, six natures. Valeur économique, score et capacité
+    identiques. Seuls nature, fiabilité, état, action et provenance changent."""
+
+    def setUp(self):
+        m = moteur()
+        self.r = {n: m.analyser(o, MAINTENANT) for n, o in NATURES_TEMOIN.items()}
+
+    def test_le_score_est_identique(self):
+        scores = {n: r.score.total for n, r in self.r.items()}
+        self.assertEqual(len(set(scores.values())), 1, scores)
+
+    def test_la_valeur_economique_ligne_a_ligne_est_identique(self):
+        """Pas seulement le total : chaque critère doit être au même niveau."""
+        detail = {n: tuple(r.score.detail()) for n, r in self.r.items()}
+        self.assertEqual(len(set(detail.values())), 1,
+                         "\n".join(f"{n} : {d}" for n, d in list(detail.items())[:2]))
+
+    def test_la_capacite_est_identique(self):
+        bilans = {n: (tuple(r.bilan.atouts), tuple(r.bilan.bloquants),
+                      tuple(r.bilan.mobilisations), tuple(r.bilan.a_verifier))
+                  for n, r in self.r.items()}
+        self.assertEqual(len(set(bilans.values())), 1)
+
+    def test_le_signal_ne_gagne_rien_a_etre_muet(self):
+        """Le piège inverse : un signal ne doit pas non plus profiter de son
+        silence. Ici il porte les mêmes données que les autres, il note pareil."""
+        self.assertEqual(self.r["D_signal_recrutement"].score.total,
+                         self.r["A_marche_public"].score.total)
+
+    def test_ce_qui_change_est_exactement_ce_qui_doit_changer(self):
+        change = {
+            "nature": {r.nature.value for r in self.r.values()},
+            "état": {r.lecture.etat_affiche for r in self.r.values()},
+            "action": {r.classement.action.value for r in self.r.values()},
+            "provenance": {NATURES_TEMOIN[n].source for n in self.r},
+        }
+        for dimension, valeurs in change.items():
+            self.assertGreater(len(valeurs), 1,
+                               f"{dimension} devrait dépendre de la forme")
+        fige = {
+            "score": {r.score.total for r in self.r.values()},
+            "capacité": {tuple(r.bilan.bloquants) for r in self.r.values()},
+            "marge": {r.score.marge_estimee for r in self.r.values()},
+        }
+        for dimension, valeurs in fige.items():
+            self.assertEqual(len(valeurs), 1,
+                             f"{dimension} ne doit PAS dépendre de la forme")
+
+    def test_une_attribution_garde_sa_valeur_economique(self):
+        """Elle change de moteur, pas de valeur : le titulaire devra exécuter."""
+        a = self.r["F_attribution"]
+        self.assertEqual(a.classement.moteur.value, "DEVELOPPER")
+        self.assertEqual(a.score.total, self.r["A_marche_public"].score.total)
+
+
+class LeScoreReagitALEconomie(unittest.TestCase):
+    """Le test réciproque. Même nature, même source, même besoin — une seule
+    variable économique bouge. Sans lui, « score identique partout » pourrait
+    simplement vouloir dire « le score ne mesure rien »."""
+
+    def _score(self, **kw):
+        return moteur().analyser(_temoin(**kw), MAINTENANT).score.total
+
+    def setUp(self):
+        self.reference = self._score()
+
+    def test_un_montant_hors_cible_fait_baisser_le_score(self):
+        self.assertLess(self._score(ref_source="gros", montant=8_000_000),
+                        self.reference)
+
+    def test_un_contrat_plus_court_fait_baisser_le_score(self):
+        self.assertLess(self._score(ref_source="court", duree_mois=1,
+                                    cadence="ponctuelle"), self.reference)
+
+    def test_l_eloignement_fait_baisser_le_score(self):
+        self.assertLess(self._score(ref_source="loin", distance_depot_km=400),
+                        self.reference)
+
+    def test_un_kilometrage_lourd_fait_baisser_le_score(self):
+        self.assertLess(self._score(ref_source="km", km_annuels=95000),
+                        self.reference)
+
+    def test_une_exigence_hors_capacite_fait_baisser_le_score(self):
+        self.assertLess(self._score(ref_source="gros_parc",
+                                    exigences={"vehicules_min": 40}), self.reference)
+
+    def test_le_travail_de_nuit_et_de_weekend_fait_baisser_le_score(self):
+        self.assertLess(self._score(ref_source="nuit", travail_nuit=True,
+                                    travail_weekend=True), self.reference)
+
+    def test_la_proximite_fait_monter_le_score(self):
+        loin = self._score(ref_source="l", distance_depot_km=400)
+        pres = self._score(ref_source="p", distance_depot_km=10)
+        self.assertGreater(pres, loin)
+
+    def test_chaque_variable_economique_a_un_effet_mesurable(self):
+        """Aucune ne doit être décorative : si l'une ne change rien, le critère
+        ment sur ce qu'il prétend mesurer."""
+        variations = {
+            "montant": dict(montant=8_000_000),
+            "durée": dict(duree_mois=1, cadence="ponctuelle"),
+            "distance": dict(distance_depot_km=400),
+            "kilométrage": dict(km_annuels=95000),
+            "capacité": dict(exigences={"vehicules_min": 40}),
+            "horaires": dict(travail_nuit=True, travail_weekend=True),
+        }
+        for nom, kw in variations.items():
+            with self.subTest(variable=nom):
+                self.assertNotEqual(self._score(ref_source=nom, **kw), self.reference,
+                                    f"« {nom} » n'a aucun effet sur le score")
+
+
+class LAdequationMesureLAptitudePasLaVerbosite(unittest.TestCase):
+    """Défaut trouvé en décomposant le 77 d'un signal : l'adéquation donnait la
+    moitié des points pour une famille reconnue et le plein pour deux. Un texte
+    bavard battait donc un intitulé précis, à besoin égal — et les sources qui
+    écrivent long (communiqués, pages web) y gagnaient mécaniquement."""
+
+    def _adequation(self, texte):
+        r = moteur().analyser(_temoin(ref_source="A", intitule=texte, texte=texte),
+                              MAINTENANT)
+        ligne = next(l for l in r.score.detail() if "adéquation" in l)
+        return float(ligne.split("+")[1].split(" ")[0])
+
+    def test_un_intitule_precis_vaut_autant_qu_un_texte_bavard(self):
+        precis = self._adequation("distribution de colis")
+        bavard = self._adequation("distribution urbaine de marchandises, logistique, "
+                                  "entreposage, tri de colis et messagerie")
+        self.assertEqual(precis, bavard)
+
+    def test_un_domaine_sans_specialite_vaut_moins_qu_un_metier_reconnu(self):
+        reconnu = self._adequation("distribution de colis")
+        domaine = self._adequation("prestation de transport non détaillée")
+        self.assertLess(domaine, reconnu)
+        self.assertGreater(domaine, 0, "le domaine reconnu n'est pas zéro")
+
+    def test_un_metier_etranger_ne_gagne_aucun_point_d_adequation(self):
+        self.assertEqual(self._adequation("entretien des espaces verts et tonte"), 0)
+
+
+class LePlafondDuScoreEstUneLimiteConnue(unittest.TestCase):
+    """Le score est borné à 0-100. Deux opportunités excellentes mais inégales
+    peuvent donc plafonner ensemble et devenir impossibles à départager.
+
+    Ce test ne corrige rien : il DOCUMENTE la limite, pour qu'elle ne soit pas
+    découverte le jour où deux vraies affaires arrivent à égalité.
+    """
+
+    def _tres_bon(self, **kw):
+        base = dict(source="entreprise", ref_source="X", cpv=[], type_avis=None,
+                    intitule="Distribution urbaine de marchandises",
+                    texte="tournées quotidiennes de distribution urbaine",
+                    acheteur="Client", montant=180000, duree_mois=24,
+                    cadence="quotidienne", pays_livraison=["BE"],
+                    distance_depot_km=10, km_annuels=15000,
+                    exigences={"licence_transport": True}, echeance_brute=OUVERT)
+        base.update(kw)
+        return moteur().analyser(Opportunite(**base), MAINTENANT).score.total
+
+    def test_deux_opportunites_excellentes_plafonnent_ensemble(self):
+        proche = self._tres_bon(ref_source="A", distance_depot_km=5)
+        un_peu_moins = self._tres_bon(ref_source="B", distance_depot_km=45)
+        self.assertEqual(proche, 100)
+        self.assertEqual(un_peu_moins, 100)
+        self.assertEqual(proche, un_peu_moins,
+                         "limite connue : au plafond, le score ne départage plus")
+
+    def test_sous_le_plafond_les_variations_restent_visibles(self):
+        loin = self._tres_bon(ref_source="C", distance_depot_km=400,
+                              cadence="ponctuelle", km_annuels=70000,
+                              exigences={"vehicules_min": 12})
+        proche = self._tres_bon(ref_source="D", distance_depot_km=20,
+                                cadence="ponctuelle", km_annuels=70000,
+                                exigences={"vehicules_min": 12})
+        self.assertLess(loin, proche)
+        self.assertLess(proche, 100)

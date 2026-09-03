@@ -105,13 +105,26 @@ class Bareme:
         c, e = self.c, self.effort
 
         # 1. Sais-je faire ?
+        #
+        # On mesure si le besoin tombe DANS mon métier — pas combien de fois il
+        # nomme mes métiers. L'ancienne règle donnait la moitié des points à une
+        # famille et le plein à deux : un communiqué de presse bavard battait un
+        # intitulé de marché précis, à besoin égal. C'était une prime à la
+        # verbosité du texte, et elle avantageait mécaniquement les sources qui
+        # écrivent long. « Distribution de colis » est parfaitement adéquat même
+        # s'il ne cite qu'un seul de mes métiers.
         if correspondance.familles:
-            part = min(len(correspondance.familles) / 2, 1.0)
             preuves = [t for v in correspondance.preuves.values() for t in v][:2]
+            libelles = ", ".join(correspondance.familles[:2])
+            L.append(Ligne("adéquation opérationnelle", c["adequation_operationnelle"],
+                           f"dans mon métier : {libelles}"
+                           + (f" — « {preuves[0]} »" if preuves else "")))
+        elif correspondance.domaine_transport:
+            # Le domaine est confirmé, la spécialité non : adéquation partielle.
             L.append(Ligne("adéquation opérationnelle",
-                           round(c["adequation_operationnelle"] * part, 1),
-                           f"{len(correspondance.familles)} famille(s)"
-                           + (f" via « {' / '.join(preuves)} »" if preuves else "")))
+                           round(c["adequation_operationnelle"] * 0.5, 1),
+                           f"domaine reconnu, spécialité NON IDENTIFIÉE"
+                           f" — {correspondance.preuve_domaine or 'à confirmer'}"))
         elif type_opp is Type.A_CONSTRUIRE:
             L.append(Ligne("adéquation opérationnelle", c["adequation_operationnelle"] * 0.4,
                            "métier nouveau — adéquation partielle par les moyens"))
@@ -126,20 +139,36 @@ class Bareme:
         # — et à traiter NON MESURÉ comme un zéro favorable. Une opportunité
         # dont on ne sait rien n'est pas une opportunité facile : c'est une
         # opportunité qu'on n'a pas encore lue.
+        # TROIS CAS, jamais confondus :
+        #
+        #   PUBLIÉE ET COUVERTE      → information positive, points pleins
+        #   PUBLIÉE ET NON COUVERTE  → manque réel, points réduits ou nuls
+        #   AUCUNE EXIGENCE PUBLIÉE  → NON MESURÉ, position neutre
+        #
+        # Absence d'information ≠ absence de difficulté. Le silence d'une
+        # annonce ne rapporte aucun point : il ne prouve pas que le besoin est
+        # facile, il prouve qu'on ne l'a pas encore lu.
         exigences_publiees = bool(opp.exigences or opp.chauffeurs_requis
                                   or opp.vehicules_requis or opp.exigences_texte)
-        if bilan.bloquants:
-            acces, raison = 0, "exigence hors capacité"
-        elif not exigences_publiees:
+        if not exigences_publiees:
             acces = c["accessibilite_pme"] * 0.5
-            raison = "aucune exigence publiée — NON MESURÉ, ni bon ni mauvais"
-        elif not bilan.a_verifier and not bilan.mobilisations:
-            acces, raison = c["accessibilite_pme"], "exigences couvertes en l'état"
-        elif bilan.mobilisations and not bilan.a_verifier:
-            acces, raison = c["accessibilite_pme"] * 0.8, "accessible après mobilisation"
-        else:
+            raison = "AUCUNE EXIGENCE PUBLIÉE — NON MESURÉ, ni bon ni mauvais"
+        elif bilan.bloquants:
+            acces = 0
+            raison = f"PUBLIÉE ET NON COUVERTE — {bilan.bloquants[0][:44]}"
+        elif bilan.mobilisations and bilan.a_verifier:
+            acces = c["accessibilite_pme"] * 0.5
+            raison = (f"PUBLIÉE, à mobiliser et {len(bilan.a_verifier)} point(s) "
+                      f"À CONFIRMER")
+        elif bilan.mobilisations:
+            acces = c["accessibilite_pme"] * 0.8
+            raison = "PUBLIÉE ET NON COUVERTE — accessible après mobilisation"
+        elif bilan.a_verifier:
             acces = c["accessibilite_pme"] * 0.55
-            raison = f"{len(bilan.a_verifier)} exigence(s) à confirmer"
+            raison = f"PUBLIÉE mais {len(bilan.a_verifier)} exigence(s) À CONFIRMER"
+        else:
+            acces = c["accessibilite_pme"]
+            raison = "PUBLIÉE ET COUVERTE — exigences satisfaites en l'état"
         L.append(Ligne("accessibilité PME", round(acces, 1), raison))
 
         # 3. Géographie
