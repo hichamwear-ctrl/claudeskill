@@ -49,6 +49,7 @@ class Action(Enum):
     CONTACTER_TITULAIRE = "CONTACTER LE TITULAIRE"
     PROPOSER_SOUS_TRAITANCE = "PROPOSER SOUS-TRAITANCE"
     PROPOSER_PARTENARIAT = "PROPOSER PARTENARIAT"
+    PROPOSER_GROUPEMENT = "PROPOSER UN GROUPEMENT"
     SURVEILLER = "SURVEILLER"
     ABANDONNER = "ABANDONNER"
 
@@ -57,6 +58,10 @@ class Action(Enum):
 # Ceux-là mènent en 🔵, jamais en 🔴.
 BLOCAGES_DE_TAILLE = ("véhicules exigés", "chiffre d'affaires", "m² exigés",
                       "chauffeurs exigés")
+
+# Part du besoin qu'il faut couvrir pour qu'un groupement soit crédible : en
+# dessous, on n'apporte pas assez pour être associé, on est sous-traitant.
+SEUIL_GROUPEMENT = 0.25
 
 
 @dataclass
@@ -125,10 +130,25 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
         if autres:
             return Classement(Type.REJET, Moteur.CAPTER, Action.ABANDONNER, autres[0],
                               raisons_rejet=autres)
-        return Classement(Type.PROSPECT, Moteur.CAPTER, Action.PROPOSER_SOUS_TRAITANCE,
+        # Trop grand seul ne veut pas dire hors d'atteinte : reste le groupement
+        # momentané (répondre à plusieurs, en titulaire solidaire) et la
+        # sous-traitance (travailler pour celui qui l'emportera). On chiffre
+        # laquelle est plausible plutôt que de proposer les deux en vrac.
+        part = bilan_capacite.part_couverte()
+        raisons = ["prestation dans mon savoir-faire"]
+        if part is not None:
+            raisons.append(f"tu couvres {part:.0%} du besoin avec tes moyens mobilisables")
+        if part is not None and part >= SEUIL_GROUPEMENT:
+            raisons.append("part suffisante pour entrer dans un groupement momentané "
+                           "avec une ou deux autres entreprises")
+            action = Action.PROPOSER_GROUPEMENT
+        else:
+            raisons.append("part trop faible pour un groupement — entrée par "
+                           "sous-traitance d'une zone ou d'une tournée")
+            action = Action.PROPOSER_SOUS_TRAITANCE
+        return Classement(Type.PROSPECT, Moteur.CAPTER, action,
                           f"trop grand pour être porté seul — {de_taille[0]}",
-                          raisons=["prestation dans mon savoir-faire",
-                                   "entrée possible par sous-traitance ou partenariat"])
+                          raisons=raisons)
 
     # ── 5. Métier reconnu ou non ──
     if not activite_reconnue:

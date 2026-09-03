@@ -103,11 +103,39 @@ CREATE TABLE IF NOT EXISTS attributions (
     montant       REAL,
     duree_mois    INTEGER,
     prestation    TEXT,
+    zone          TEXT,
+    lots          TEXT,
     conclu_le     TEXT,
+    debut         TEXT,
+    fin           TEXT,
     renouvellement TEXT,
     fiabilite     TEXT NOT NULL,
-    commentaire   TEXT
+    commentaire   TEXT,
+    contact       TEXT,
+    taille_apparente TEXT,
+    besoin_sous_traitance TEXT
 );
+
+-- Registre des entreprises : une entreprise découverte ne disparaît jamais,
+-- elle devient une entité surveillée qui produit ses propres recherches.
+CREATE TABLE IF NOT EXISTS entreprises (
+    cle           TEXT PRIMARY KEY,
+    nom           TEXT NOT NULL,
+    domaine       TEXT,
+    etat          TEXT NOT NULL DEFAULT 'DÉCOUVERTE',
+    motifs        TEXT,
+    origine       TEXT,
+    decouverte_le TEXT,
+    derniere_visite TEXT,
+    besoins_detectes INTEGER NOT NULL DEFAULT 0,
+    marches_gagnes   INTEGER NOT NULL DEFAULT 0,
+    montant_gagne    REAL NOT NULL DEFAULT 0,
+    bce           TEXT,
+    contact       TEXT,
+    motif_ecart   TEXT,
+    profondeur    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_entreprises_etat ON entreprises(etat);
 CREATE INDEX IF NOT EXISTS idx_attr_renouv ON attributions(renouvellement);
 
 CREATE TABLE IF NOT EXISTS filigrane (

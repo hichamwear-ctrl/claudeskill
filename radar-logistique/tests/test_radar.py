@@ -24,6 +24,10 @@ from radar.decouverte import ConnecteurGoogle, ConnecteurIndisponible, Generateu
 from radar.geographie import Geographie, Zone
 from radar.lots import eclater
 from radar.modele import LotBrut, Opportunite
+from radar.boucle import Boucle
+from radar.deduplication import Index, fusionner, libelle_provenances
+from radar.entreprises import Etat as EtatEnt, Registre as RegistreEnt, nom_probable
+from radar.memoire import memoriser
 from radar.registre import Etat, Registre
 from radar.role import DetecteurDeRole, Role
 
@@ -110,7 +114,8 @@ class CinqCategories(unittest.TestCase):
     def test_trop_gros_pour_moi_seul_donne_prospect_jamais_rejet(self):
         r = moteur().analyser(opp(exigences={"vehicules_min": 30}), MAINTENANT)
         self.assertIs(r.classement.type, Type.PROSPECT)
-        self.assertIs(r.classement.action, Action.PROPOSER_SOUS_TRAITANCE)
+        self.assertIn(r.classement.action,
+                      (Action.PROPOSER_GROUPEMENT, Action.PROPOSER_SOUS_TRAITANCE))
 
     def test_qualification_impossible_donne_rejet(self):
         self.assertIs(self._type(exigences={"adr": True}), Type.REJET)
@@ -468,3 +473,187 @@ class Garanties(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ══════════════ §9 — aucune source hiérarchisée d'avance
+class AucuneHierarchieDeSource(unittest.TestCase):
+    def test_toutes_les_priorites_initiales_sont_non_mesurees(self):
+        cat = cfg("config/sources.yaml")["categories"]
+        self.assertEqual({v["priorite_initiale"] for v in cat.values()}, {None})
+
+    def test_le_score_ne_depend_pas_de_la_source(self):
+        """Un appel d'offres public n'est ni meilleur ni moins bon par nature."""
+        commun = dict(intitule="Transport de colis", texte="transport de marchandises",
+                      montant=200000, duree_mois=24, cadence="quotidienne")
+        public = moteur().analyser(opp(source="bda", secteur_acheteur="public", **commun),
+                                   MAINTENANT).score.total
+        prive = moteur().analyser(opp(source="google", secteur_acheteur="privé", **commun),
+                                  MAINTENANT).score.total
+        self.assertEqual(public, prive)
+
+
+# ══════════════ §6 — groupement et consortium
+class GroupementEtSousTraitance(unittest.TestCase):
+    def _classer(self, vehicules):
+        return moteur().analyser(opp(exigences={"vehicules_min": vehicules}), MAINTENANT)
+
+    def test_une_part_suffisante_ouvre_un_groupement(self):
+        r = self._classer(30)
+        self.assertIs(r.classement.action, Action.PROPOSER_GROUPEMENT)
+        self.assertTrue(any("%" in x for x in r.classement.raisons))
+
+    def test_une_part_trop_faible_renvoie_a_la_sous_traitance(self):
+        self.assertIs(self._classer(200).classement.action, Action.PROPOSER_SOUS_TRAITANCE)
+
+    def test_la_part_couverte_est_chiffree_et_jamais_supposee(self):
+        r = self._classer(50)
+        self.assertAlmostEqual(r.bilan.part_couverte(), 16 / 50, places=3)
+
+    def test_aucun_de_ces_cas_n_est_un_rejet(self):
+        for n in (30, 50, 200, 1000):
+            with self.subTest(vehicules=n):
+                self.assertIsNot(self._classer(n).classement.type, Type.REJET)
+
+
+# ══════════════ §12 — fusion public / privé
+class FusionMultiSources(unittest.TestCase):
+    def _o(self, **kw):
+        base = dict(source="bda", ref_source="R", intitule="Transport de colis",
+                    texte="", provenances=[])
+        base.update(kw)
+        return Opportunite(**base)
+
+    def test_le_meme_besoin_formule_autrement_est_fusionne(self):
+        idx = Index()
+        a = self._o(source="bda", ref_source="B1", acheteur="Commune de Namur",
+                    intitule="Transport et distribution de colis",
+                    provenances=[{"source": "bda", "url": "https://x.be/1"}])
+        idx.ajouter(a)
+        b = self._o(source="google", ref_source="G1", acheteur="Commune de Namur",
+                    intitule="Distribution, transport de colis — commune",
+                    provenances=[{"source": "google", "url": "https://y.be/2"}])
+        self.assertIsNotNone(idx.chercher(b))
+
+    def test_un_autre_acheteur_n_est_jamais_fusionne(self):
+        idx = Index()
+        idx.ajouter(self._o(ref_source="B1", acheteur="Commune de Namur"))
+        self.assertIsNone(idx.chercher(self._o(ref_source="G1", acheteur="Ville de Liège")))
+
+    def test_la_meme_page_est_reconnue_malgre_www_et_parametres(self):
+        idx = Index()
+        idx.ajouter(self._o(ref_source="B1", acheteur="X",
+                            provenances=[{"source": "bda", "url": "https://a.be/n/1"}]))
+        autre = self._o(ref_source="G1", acheteur=None, intitule="Titre différent",
+                        provenances=[{"source": "google",
+                                      "url": "https://www.a.be/n/1?utm_source=z"}])
+        self.assertIsNotNone(idx.chercher(autre))
+
+    def test_la_fusion_cumule_les_provenances_et_comble_les_trous(self):
+        a = self._o(ref_source="B1", acheteur="Commune",
+                    provenances=[{"source": "bda", "url": "https://x.be/1"}])
+        b = self._o(source="google", ref_source="G1", acheteur="Commune",
+                    contact="achats@commune.be",
+                    provenances=[{"source": "google", "url": "https://y.be/2"}])
+        fusionner(a, b)
+        self.assertEqual(a.contact, "achats@commune.be")
+        self.assertEqual(libelle_provenances(a), "BDA + GOOGLE")
+
+
+# ══════════════ §11 — registre d'entreprises et boucle
+class RegistreEntreprises(unittest.TestCase):
+    def test_un_titulaire_entre_au_registre_et_est_surveille(self):
+        r = RegistreEnt()
+        e = r.depuis_attribution(opp(attribue=True, titulaire="Grand Opérateur",
+                                     montant=2400000))
+        self.assertIs(e.etat, EtatEnt.SURVEILLEE)
+        self.assertEqual(e.marches_gagnes, 1)
+
+    def test_une_entreprise_peut_etre_surveillee_manuellement(self):
+        r = RegistreEnt()
+        e = r.surveiller("Transports Dupont", domaine="dupont.be")
+        self.assertIs(e.etat, EtatEnt.SURVEILLEE)
+        self.assertIn(e, r.a_surveiller())
+
+    def test_une_entreprise_ecartee_garde_son_motif(self):
+        r = RegistreEnt()
+        r.surveiller("X", domaine="x.be")
+        r.ecarter("x.be", "robots.txt interdit la lecture")
+        self.assertNotIn(r.entreprises["x.be"], r.a_surveiller())
+        self.assertEqual(r.entreprises["x.be"].motif_ecart,
+                         "robots.txt interdit la lecture")
+
+    def test_un_nom_d_entreprise_n_est_jamais_invente(self):
+        self.assertIsNone(nom_probable("une phrase sans raison sociale"))
+        self.assertEqual(nom_probable("Logistique BE SRL recherche"), "Logistique BE SRL")
+
+    def test_la_boucle_descend_par_entreprise_et_respecte_son_budget(self):
+        from types import SimpleNamespace
+        g = Generateur(DECOUVERTE)
+        reg = RegistreEnt()
+
+        def chercher(_):
+            return [SimpleNamespace(titre="Logistique BE SRL cherche un transporteur",
+                                    url="https://logistiquebe.be/a", extrait="")]
+
+        trace = Boucle(g, reg, profondeur_max=2, budget=6).parcourir(
+            chercher, requetes_generales=g.generer(2), analyser=lambda r: len(r))
+        self.assertEqual(trace.budget_utilise, 6)
+        self.assertTrue(any(e.profondeur == 1 for e in trace.etapes))
+
+
+# ══════════════ §10 — DÉVELOPPER enrichi
+class MemoireDesAttributions(unittest.TestCase):
+    def test_l_echeance_est_calculee_quand_la_duree_est_publiee(self):
+        a = memoriser(opp(attribue=True, titulaire="X", duree_mois=36,
+                          attribue_le="2026-09-01"))
+        self.assertEqual(a.fiabilite, "calculée")
+        self.assertTrue(str(a.remise_en_concurrence).startswith("2029"))
+
+    def test_sans_duree_rien_n_est_estime(self):
+        a = memoriser(opp(attribue=True, titulaire="X", duree_mois=None))
+        self.assertIsNone(a.remise_en_concurrence)
+        self.assertIn("NON PUBLIÉE", a.commentaire)
+
+    def test_la_taille_du_titulaire_n_est_pas_devinee_sans_montant(self):
+        a = memoriser(opp(attribue=True, titulaire="X", montant=None))
+        self.assertEqual(a.taille_apparente, "A_VERIFIER")
+
+    def test_un_gros_montant_signale_un_besoin_probable_de_sous_traitants(self):
+        a = memoriser(opp(attribue=True, titulaire="X", montant=6000000))
+        self.assertIn("probable", a.besoin_sous_traitance)
+
+
+# ══════════════ non-régression : un identifiant manquant ne fusionne rien
+class ReferenceManquante(unittest.TestCase):
+    def _ad(self):
+        from radar.adaptateur import Adaptateur
+        return Adaptateur.depuis_config(cfg("sources/ted.yaml"))
+
+    def test_deux_avis_sans_identifiant_gardent_des_references_distinctes(self):
+        """Deux références vides ont la même empreinte et se fusionneraient en
+        silence — c'est-à-dire feraient disparaître une opportunité."""
+        from radar.adaptateur import vers_opportunite
+        ad = self._ad()
+        a = vers_opportunite(ad, {"title": {"fra": "Marché A"}}, "ted")
+        b = vers_opportunite(ad, {"title": {"fra": "Marché B"}}, "ted")
+        self.assertNotEqual(a.ref_source, b.ref_source)
+        self.assertTrue(a.ref_source.startswith("SANS-REF-"))
+
+    def test_la_reference_derivee_est_stable(self):
+        from radar.adaptateur import vers_opportunite
+        ad = self._ad()
+        charge = {"title": {"fra": "Marché A"}, "buyer": {"name": "X"}}
+        self.assertEqual(vers_opportunite(ad, charge, "ted").ref_source,
+                         vers_opportunite(ad, dict(charge), "ted").ref_source)
+
+    def test_les_lots_d_un_meme_marche_ne_fusionnent_jamais(self):
+        cx = ouvrir(":memory:")
+        marche = opp(ref_source="M-1", intitule="Marché à lots",
+                     plateforme="https://x.be/marche/1",
+                     lots=[LotBrut(numero="1", intitule="Déménagement de bureaux",
+                                   texte="déménagement et manutention"),
+                           LotBrut(numero="2", intitule="Transport de matériel",
+                                   texte="transport de marchandises")])
+        b = traiter(cx, moteur(), [marche], maintenant_dt=MAINTENANT)
+        self.assertEqual(b.doublons, 0)
+        self.assertEqual(cx.execute("SELECT count(*) c FROM envois").fetchone()["c"], 2)

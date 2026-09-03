@@ -17,11 +17,11 @@ categories:
       Volume important et données très structurées, mais souvent calibré pour
       des entreprises à plusieurs années de références et grosse capacité
       financière. Utile surtout par ses LOTS et ses avis d'attribution.
-    apporte: [DIRECT sur les petits lots, SOUS_TRAITANCE via les attributions]
+    apporte: [DIRECT, RENFORCEMENT, PROSPECT, et attributions vers DÉVELOPPER]
     filtre: "rôle prestataire obligatoire · lot par lot · exigences financières vérifiées"
     classement: "pénalisé si le montant dépasse le gabarit ou si la concurrence est lourde"
     deduplication: "empreinte acheteur + objet + échéance ; recouvre largement le BDA"
-    priorite_initiale: 3
+    priorite_initiale: null   # NON MESURÉE
     verifie: false
 
   marches_publics_locaux:
@@ -35,7 +35,7 @@ categories:
     filtre: "rôle prestataire · zone belge · exigences d'ancienneté signalées, jamais bloquantes seules"
     classement: "bonifié quand le montant entre dans la cible économique"
     deduplication: "même empreinte que TED — les doublons inter-sources sont fusionnés"
-    priorite_initiale: 1
+    priorite_initiale: null   # NON MESURÉE
     verifie: false
     methode: navigation
     url: https://www.publicprocurement.be/bda
@@ -48,11 +48,11 @@ categories:
       Un marché de plusieurs millions est hors gabarit en titulaire direct, mais
       son gagnant devra exécuter et cherchera des bras localement. L'avis
       d'attribution nomme le gagnant, la zone, la durée — avant tout recrutement.
-    apporte: [SOUS_TRAITANCE]
+    apporte: [PROSPECT, DÉVELOPPER]
     filtre: "zone d'exécution compatible · prestation dans les familles actives"
     classement: "bonifié quand le volume dépasse manifestement la flotte du titulaire"
     deduplication: "clé titulaire + marché ; un même gagnant ne remonte qu'une fois par marché"
-    priorite_initiale: 2
+    priorite_initiale: null   # NON MESURÉE
     verifie: false
 
   plateformes_privees:
@@ -61,11 +61,11 @@ categories:
     pourquoi: >
       Marché privé où se traitent réellement les tournées récurrentes. Souvent
       sous abonnement : à activer seulement si l'accès est pris.
-    apporte: [DIRECT, SOUS_TRAITANCE]
+    apporte: [DIRECT, RENFORCEMENT, PROSPECT]
     filtre: "récurrence exigée · corridor compatible"
     classement: "forte bonification de la récurrence"
     deduplication: "identifiant de plateforme"
-    priorite_initiale: 2
+    priorite_initiale: null   # NON MESURÉE
     verifie: false
 
   pages_fournisseurs:
@@ -75,11 +75,11 @@ categories:
       Chaque réseau colis, retailer et logisticien en a une. Détection de
       modification sur une liste choisie par l'exploitant : peu de code, aucune
       zone grise, signal fort quand un référencement s'ouvre.
-    apporte: [PROSPECT, SOUS_TRAITANCE]
+    apporte: [PROSPECT, A_CONSTRUIRE]
     filtre: "liste blanche d'entreprises · changement réel de contenu"
     classement: "bonifié si l'entreprise achète du transport de façon récurrente (mémoire)"
     deduplication: "URL + empreinte du contenu"
-    priorite_initiale: 1
+    priorite_initiale: null   # NON MESURÉE
     verifie: false
 
   signaux_entreprises:
@@ -94,7 +94,7 @@ categories:
     filtre: "grappes seulement — une annonce isolée n'est pas un signal"
     classement: "score pondéré à la baisse : c'est une inférence, pas un fait"
     deduplication: "entreprise + zone + fenêtre de 30 jours"
-    priorite_initiale: 1
+    priorite_initiale: null   # NON MESURÉE
     verifie: false
 
   demandes_directes:
@@ -108,12 +108,20 @@ categories:
     filtre: "rôle prestataire · délai de réponse réaliste"
     classement: "bonification du démarrage rapide"
     deduplication: "empreinte acheteur + objet"
-    priorite_initiale: 1
+    priorite_initiale: null   # NON MESURÉE
     verifie: false
 
 # Recalcul de priorité : une source qui ne produit rien d'accessible descend,
 # quelle que soit sa notoriété. Mesuré, jamais décrété.
+# ─────────────────────────────────────────────────────── AUCUNE HIÉRARCHIE A PRIORI
+# Toutes les sources démarrent à égalité, priorité NON MESURÉE. Un appel d'offres
+# public n'est ni meilleur ni moins bon qu'un besoin privé trouvé sur Google : on
+# ne juge jamais une opportunité sur sa source, et on ne juge jamais une source
+# avant de l'avoir mesurée.
 regle_de_priorite: >
-  priorite = opportunités DIRECT ou SOUS_TRAITANCE réellement postulables
-             produites sur 90 jours, rapportées au volume lu.
-  Une source à fort volume et zéro opportunité accessible est déclassée.
+  priorite = (opportunités retenues + 3 × contacts + 10 × contrats) / résultats lus,
+  observée sur 90 jours glissants.
+  Une source jamais consultée n'a PAS de priorité — elle n'est pas classée
+  dernière, elle est marquée non mesurée.
+  Une petite source qui produit 10 vrais contrats passe devant une grosse source
+  qui produit 5 000 faux positifs.

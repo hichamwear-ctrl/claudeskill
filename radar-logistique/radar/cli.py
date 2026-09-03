@@ -146,6 +146,69 @@ def cmd_calendrier(a) -> int:
     return 0
 
 
+def cmd_entreprises(a) -> int:
+    """Le registre des entreprises découvertes et surveillées."""
+    from .entreprises import Registre as RegistreEnt
+    cx = ouvrir(a.base, lecture_seule=True)
+    reg = RegistreEnt()
+    for l in cx.execute("SELECT * FROM entreprises"):
+        e = reg.decouvrir(l["nom"], domaine=l["domaine"], origine=l["origine"])
+        e.besoins_detectes = l["besoins_detectes"]
+        e.marches_gagnes = l["marches_gagnes"]
+        e.motifs = (l["motifs"] or "").split("; ") if l["motifs"] else []
+        e.derniere_visite = l["derniere_visite"]
+        from .entreprises import Etat as EtatEnt
+        e.etat = EtatEnt(l["etat"]) if l["etat"] in {x.value for x in EtatEnt} else e.etat
+        e.motif_ecart = l["motif_ecart"]
+    print(reg.rapport())
+    return 0
+
+
+def cmd_surveiller(a) -> int:
+    """« surveille cette entreprise » — ajout manuel au registre."""
+    from .entreprises import Motif, Registre as RegistreEnt
+    from .decouverte import Generateur
+    cx = ouvrir(a.base)
+    reg = RegistreEnt()
+    e = reg.surveiller(a.nom, domaine=a.domaine, motif=Motif.MANUEL)
+    cx.execute(
+        "INSERT OR REPLACE INTO entreprises(cle, nom, domaine, etat, motifs, origine,"
+        " decouverte_le) VALUES(?,?,?,?,?,?,?)",
+        (e.cle, e.nom, e.domaine, e.etat.value, "; ".join(e.motifs), "manuel",
+         e.decouverte_le))
+    cx.commit()
+    print(f"« {e.nom} » est désormais SURVEILLÉE.")
+    reqs = Generateur(_cfg("config/decouverte.yaml")).pour_entreprise(e.nom, e.domaine)
+    print(f"\n{len(reqs)} recherche(s) ciblée(s) seront lancées dès qu'une clé "
+          "Google sera disponible :")
+    for q in reqs:
+        print(f"  · {q.texte}")
+    return 0
+
+
+def cmd_boucle(a) -> int:
+    """La boucle de découverte — sans moteur de recherche, elle ne part pas."""
+    from .boucle import Boucle
+    from .decouverte import ConnecteurIndisponible, Generateur, charger_connecteur
+    from .entreprises import Registre as RegistreEnt
+
+    connecteur = charger_connecteur()
+    g = Generateur(_cfg("config/decouverte.yaml"))
+    if not connecteur.disponible:
+        print(f"BOUCLE NON LANCÉE — {connecteur.motif_indisponibilite}")
+        print("\nAucune recherche n'a eu lieu et aucun résultat n'est simulé.")
+        print(f"{len(g.generer())} requêtes sont prêtes ; "
+              "elles partiront dès qu'une clé sera fournie.")
+        return 3
+    reg = RegistreEnt()
+    trace = Boucle(g, reg, profondeur_max=a.profondeur, budget=a.budget).parcourir(
+        connecteur.rechercher, analyser=lambda r: 0)
+    print(trace.resume())
+    print()
+    print(reg.rapport())
+    return 0
+
+
 def cmd_sources(a) -> int:
     """Le registre : qui a été consulté, quand, et avec quel rendement."""
     import yaml as _y
@@ -223,6 +286,18 @@ def principal(argv=None) -> int:
     o.add_argument("--moteur", choices=["capter", "developper"],
                    help="CAPTER = agir maintenant · DEVELOPPER = action commerciale")
     o.set_defaults(fn=cmd_opportunites)
+
+    en = s.add_parser("entreprises", help="entreprises découvertes et surveillées")
+    en.set_defaults(fn=cmd_entreprises)
+
+    su = s.add_parser("surveiller", help="ajouter manuellement une entreprise")
+    su.add_argument("nom"); su.add_argument("--domaine")
+    su.set_defaults(fn=cmd_surveiller)
+
+    bo = s.add_parser("boucle", help="lancer la boucle de découverte")
+    bo.add_argument("--profondeur", type=int, default=2)
+    bo.add_argument("--budget", type=int, default=100)
+    bo.set_defaults(fn=cmd_boucle)
 
     so2 = s.add_parser("sources", help="registre des sources et leur état réel")
     so2.set_defaults(fn=cmd_sources)

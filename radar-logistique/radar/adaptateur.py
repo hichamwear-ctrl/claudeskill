@@ -153,12 +153,23 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
 
     c = adaptateur.extraire(charge)
     d = defauts or {}
+
+    # Un identifiant absent ne doit JAMAIS produire une référence vide : deux
+    # références vides ont la même empreinte et se fusionneraient en silence,
+    # ce qui fait disparaître des opportunités. On dérive alors une référence
+    # stable du contenu, et on la marque comme dérivée pour que ce soit visible.
+    ref = str(c.get("identifiant") or charge.get("id") or "").strip()
+    if not ref:
+        import hashlib
+        empreinte = hashlib.sha256(
+            repr(sorted(charge.items())).encode()).hexdigest()[:12]
+        ref = f"SANS-REF-{empreinte}"
     est_signal = bool(d.get("signal")) or bool(c.get("signal_code"))
 
     texte = " ".join(str(c.get(k, "")) for k in ("objet", "intitule", "lieu", "conditions"))
     return Opportunite(
         source=source,
-        ref_source=str(c.get("identifiant") or charge.get("id") or ""),
+        ref_source=ref,
         intitule=str(c.get("intitule") or "(sans intitulé)"),
         lots=_lots_de(charge, adaptateur),
         texte=texte,

@@ -18,6 +18,7 @@ import json
 from dataclasses import dataclass, field
 
 from . import construction, deduplication, envoi, memoire, questions, statut as st
+from .entreprises import Registre as RegistreEntreprises
 from .activite import Ontologie
 from .base import enregistrer_reponse, maintenant
 from .capacite import Bilan, Capacites
@@ -64,7 +65,11 @@ class BilanCycle:
 
 
 class Moteur:
-    def __init__(self, profil, capacites, geographie, ponderations, roles):
+    def __init__(self, profil, capacites, geographie, ponderations, roles,
+                 entreprises: RegistreEntreprises | None = None):
+        # Le registre d'entreprises est optionnel : le moteur fonctionne sans,
+        # mais avec lui chaque opportunité nourrit la boucle commerciale.
+        self.entreprises = entreprises if entreprises is not None else RegistreEntreprises()
         self.profil = profil
         self.libelles = capacites.get("exigences", {})
         self.ontologie = Ontologie(capacites, profil["familles_actives"],
@@ -205,7 +210,7 @@ class Moteur:
 
 def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None) -> BilanCycle:
     bilan = BilanCycle()
-    vues = {}
+    index = deduplication.Index()
 
     for brut in opportunites:
         bilan.lus += 1
@@ -214,12 +219,15 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None) -> BilanCycle:
             bilan.lots_eclates += len(enfants)
 
         for opp in enfants:
-            emp = deduplication.empreinte(opp)
-            if emp in vues:
-                deduplication.fusionner(vues[emp], opp)
+            # Trois empreintes : identique, même page, ou même besoin formulé
+            # autrement. C'est ce qui fusionne un avis BDA et une page Google.
+            deja = index.chercher(opp)
+            if deja is not None:
+                deduplication.fusionner(deja, opp)
                 bilan.doublons += 1
                 continue
-            vues[emp] = opp
+            index.ajouter(opp)
+            emp = deduplication.empreinte(opp)
             if cx.execute("SELECT 1 FROM avis WHERE empreinte=? AND ref_source<>?",
                           (emp, opp.ref_source)).fetchone():
                 bilan.doublons += 1
@@ -231,13 +239,22 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None) -> BilanCycle:
                 m = memoire.memoriser(opp)
                 cx.execute(
                     "INSERT OR REPLACE INTO attributions(avis_id, acheteur, titulaire,"
-                    " montant, duree_mois, prestation, conclu_le, renouvellement,"
-                    " fiabilite, commentaire) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    " montant, duree_mois, prestation, zone, lots, conclu_le, debut, fin,"
+                    " renouvellement, fiabilite, commentaire, contact, taille_apparente,"
+                    " besoin_sous_traitance) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (avis_id, m.acheteur, m.titulaire, m.montant, m.duree_mois,
-                     m.prestation, m.conclu_le.isoformat() if m.conclu_le else None,
+                     m.prestation, m.zone, "; ".join(m.lots),
+                     m.conclu_le.isoformat() if m.conclu_le else None,
+                     m.debut.isoformat() if m.debut else None,
+                     m.fin.isoformat() if m.fin else None,
                      m.remise_en_concurrence.isoformat() if m.remise_en_concurrence else None,
-                     m.fiabilite, m.commentaire))
+                     m.fiabilite, m.commentaire, m.contact, m.taille_apparente,
+                     m.besoin_sous_traitance))
                 bilan.attributions += 1
+                # Le titulaire entre au registre : il devra exécuter.
+                moteur.entreprises.depuis_attribution(opp)
+            else:
+                moteur.entreprises.depuis_opportunite(opp)
 
             cx.execute(
                 "INSERT INTO opportunites(avis_id, type, moteur, action, role, statut, zone,"

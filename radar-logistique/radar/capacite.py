@@ -34,11 +34,15 @@ class Reponse:
     niveau: Niveau
     message: str
     cout: str = ""          # ce qu'il faut engager pour y arriver
+    # Chiffres bruts, pour évaluer un groupement : « je couvre 16 des 50 exigés ».
+    besoin: float | None = None
+    couvert: float | None = None
 
 
 @dataclass
 class Bilan:
     atouts: list[str] = field(default_factory=list)
+    couverture: list[tuple] = field(default_factory=list)   # (besoin, couvert) bloquants
     mobilisations: list[str] = field(default_factory=list)   # CE QUI MANQUE
     remedes: list[str] = field(default_factory=list)         # COMMENT LE COMBLER
     a_verifier: list[str] = field(default_factory=list)
@@ -58,6 +62,16 @@ class Bilan:
             self.a_verifier.append(r.message)
         else:
             self.bloquants.append(r.message)
+            if r.besoin and r.couvert is not None:
+                self.couverture.append((r.besoin, r.couvert))
+
+    def part_couverte(self) -> float | None:
+        """Quelle part du besoin bloquant je couvre ? Sert au groupement."""
+        if not self.couverture:
+            return None
+        besoin = sum(b for b, _ in self.couverture)
+        couvert = sum(c for _, c in self.couverture)
+        return couvert / besoin if besoin else None
 
 
 class Capacites:
@@ -117,7 +131,8 @@ class Capacites:
                 cout=f"location de {manque} véhicule(s) « {type_demande} », "
                      f"{self.mobilisable.get('delai_mobilisation_jours', '?')} j")
         return Reponse(Niveau.NON_DISPONIBLE,
-                       f"{besoin} véhicules exigés — au-delà du maximum mobilisable ({maxi})")
+                       f"{besoin} véhicules exigés — au-delà du maximum mobilisable ({maxi})",
+                       besoin=besoin, couvert=maxi)
 
     # -------------------------------------------------------- tonnage --
     def tonnage(self, seuil_t: float) -> Reponse:
@@ -145,7 +160,8 @@ class Capacites:
                 cout=f"location de {manque} véhicule(s), "
                      f"{self.mobilisable.get('delai_mobilisation_jours', '?')} j")
         return Reponse(Niveau.NON_DISPONIBLE,
-                       f"{besoin} véhicules exigés — au-delà du maximum mobilisable ({maxi})")
+                       f"{besoin} véhicules exigés — au-delà du maximum mobilisable ({maxi})",
+                       besoin=besoin, couvert=maxi)
 
     # -------------------------------------------------------------- surface --
     def surface(self, besoin: float) -> Reponse:
