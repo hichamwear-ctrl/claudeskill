@@ -1,0 +1,105 @@
+# UN PORTAIL D'ACHETEUR qui organise ses annonces par TYPE D'INFORMATION.
+#
+# Beaucoup de portails ne publient aucun « statut » : ils rangent leurs
+# annonces dans des rubriques.
+#
+#     Type d'information
+#     ├── 🔒 Marchés en cours
+#     ├── 🔒 Avis de préinformation
+#     └── 🔒 Appels à projets
+#
+# Ces trois rubriques ne veulent PAS dire la même chose, et aucune ne se lit
+# comme un mot-clé. Chacune est déclarée ici avec ce qu'elle signifie sur CE
+# portail, avec quelle confiance, et ce qu'il reste à vérifier.
+#
+# ═══ LES CADENAS ═══
+# On ne suppose RIEN de ce qu'ils signifient : connexion obligatoire,
+# abonnement, accès restreint, ou simple icône de mise en page. Tant que ce
+# n'est pas vérifié, `acces: INCONNU`. Et une restriction d'accès ne veut
+# JAMAIS dire « pas d'opportunité » — seulement « source partiellement
+# accessible ».
+#
+# verifie: false — aucune page réelle observée.
+
+source: portail
+methode: navigation
+verifie: false
+secteur_par_defaut: public
+acces: INCONNU
+note_acces: >
+  Les rubriques portent une icône de cadenas dont la signification n'a pas été
+  vérifiée. Ne pas conclure à un accès libre, ni à une absence d'opportunité.
+
+champs:
+  identifiant:      [identifiant, reference, url]
+  intitule:         [intitule, titre]
+  objet:            [objet, description]
+  acheteur:         [acheteur, pouvoir_adjudicateur]
+  type_information: [type_information, rubrique, categorie]
+  statut:           [statut, etat]
+  texte_statut:     [texte_statut, mention_statut]
+  evenements:       [evenements]
+  documents:        [documents, pieces]
+  actions:          [actions, boutons]
+  echeance:         [echeance, date_limite]
+  publie_le:        [publie_le, date_publication]
+  date_demarrage:   [date_demarrage, debut_prevu]
+  montant:          [montant, valeur]
+  duree_mois:       [duree_mois]
+  cadence:          [cadence, frequence]
+  cpv:              [cpv]
+  pays_livraison:   [pays, pays_livraison]
+  lieu:             [lieu]
+  lots:             [lots]
+  contact_email:    [contact_email, email]
+  plateforme:       [url, lien]
+  titulaire:        [titulaire]
+  attribue_le:      [date_attribution]
+
+# ═══ LA TAXONOMIE DU PORTAIL ═══
+procedure:
+  statuts: {}       # ce portail n'expose pas de champ de statut distinct
+
+  types_information:
+    "Marchés en cours":
+      # Susceptible de contenir des opportunités postulables — mais la rubrique
+      # ne le PROUVE pas. Confiance moyenne : si le texte de l'annonce dit
+      # « procédure clôturée », la formulation ne l'emportera pas (rang 2 contre
+      # rang 4), et la contradiction sera affichée pour être tranchée à la main.
+      interpretation: postulable
+      confiance: moyenne
+      normalise: "marché en cours"
+      note: >
+        rubrique de listing : vérifier la date limite et le texte de l'annonce
+        avant d'engager du temps.
+
+    "Avis de préinformation":
+      # SURTOUT PAS un appel d'offres ouvert. C'est un besoin annoncé : rien à
+      # déposer aujourd'hui, une très bonne raison d'appeler l'acheteur.
+      interpretation: informatif
+      confiance: elevee
+      normalise: "avis de préinformation"
+      note: >
+        futur marché : surveiller, et prendre contact avant la publication.
+
+    "Appels à projets":
+      # Ni un marché public, ni du bruit. L'objet, le bénéficiaire recherché,
+      # les conditions, la rémunération et les obligations décident — et rien
+      # de tout cela ne se lit dans le nom de la rubrique.
+      interpretation: a_evaluer
+      confiance: nulle
+      normalise: "appel à projets"
+      note: >
+        analyser objet, bénéficiaire recherché, conditions de participation,
+        rémunération, prestation demandée, échéance et obligations avant de
+        conclure. Ce n'est ni un marché public, ni forcément hors périmètre.
+
+    "Résultats":
+      interpretation: attribue
+      confiance: elevee
+      normalise: "avis d'attribution"
+
+    "Marchés clôturés":
+      interpretation: ferme
+      confiance: elevee
+      normalise: "marché clôturé"

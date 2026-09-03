@@ -1416,3 +1416,468 @@ class UnResultatDeRechercheDevientUneOpportunite(unittest.TestCase):
         origines = {e.origine for e in reg.entreprises.values()}
         self.assertTrue(any("brave" in (o or "") for o in origines), origines)
         self.assertFalse(any("google" in (o or "") for o in origines), origines)
+
+
+# ══════════════ L'ÉTAT DE LA PROCÉDURE — comprendre, pas reconnaître des mots
+from radar.procedure import (  # noqa: E402
+    Confiance as ConfProc, Etat as EtatProc, Vocabulaire, lire, reviser,
+    vocabulaire_appris)
+
+
+def etat(**kw):
+    kw.setdefault("maintenant", MAINTENANT)
+    return lire(**kw)
+
+
+class EtatDeProcedure(unittest.TestCase):
+    """Les quinze cas adversariaux. Chacun a une mauvaise réponse évidente."""
+
+    def test_01_ouvert_est_postulable(self):
+        self.assertIs(etat(texte="procédure ouverte").etat, EtatProc.POSTULABLE)
+
+    def test_02_attribue_est_attribue(self):
+        self.assertIs(etat(texte="marché attribué").etat, EtatProc.ATTRIBUE)
+
+    def test_03_award_est_attribue(self):
+        self.assertIs(etat(texte="contract awarded").etat, EtatProc.ATTRIBUE)
+
+    def test_04_gunning_est_attribue(self):
+        self.assertIs(etat(texte="gunning van de opdracht").etat, EtatProc.ATTRIBUE)
+
+    def test_05_date_depassee_sans_attribution_est_ferme_pas_attribue(self):
+        """Le piège central : une date passée ne prouve AUCUNE attribution."""
+        l = etat(echeance=datetime(2026, 1, 1, tzinfo=timezone.utc))
+        self.assertIs(l.etat, EtatProc.FERME)
+        self.assertIsNot(l.etat, EtatProc.ATTRIBUE)
+        self.assertIn("attribution", l.etat.libelle_long)
+
+    def test_06_attribution_publiee_bat_une_ancienne_date_limite(self):
+        l = etat(texte="marché attribué le 03/09/2026",
+                 echeance=datetime(2099, 1, 1, tzinfo=timezone.utc))
+        self.assertIs(l.etat, EtatProc.ATTRIBUE)
+        self.assertTrue(l.contradictions, "la date contradictoire doit rester visible")
+
+    def test_07_statut_inconnu_reste_inconnu(self):
+        l = etat(statut_source="zorbliflé", source="portail")
+        self.assertIs(l.etat, EtatProc.INCONNU)
+        self.assertIn(("statut", "zorbliflé"), l.inconnues)
+
+    def test_08_un_rectificatif_ne_rouvre_pas_un_marche_attribue(self):
+        voc = Vocabulaire({"procedure": {"types_information": {
+            "avis rectificatif": {"interpretation": "a_evaluer", "confiance": "nulle"}}}})
+        l = etat(type_information="avis rectificatif",
+                 titre="Rectificatif — transport de matériel",
+                 evenements=[{"type": "avis d'attribution", "date": "2026-06-01"}],
+                 vocabulaire=voc)
+        self.assertIs(l.etat, EtatProc.ATTRIBUE)
+
+    def test_09_un_lot_encore_ouvert_dans_un_marche_attribue(self):
+        """Le marché est attribué ; le lot 3 ne l'est pas. Trois situations."""
+        marche = opp(ref_source="M", statut_source="attribué",
+                     intitule="Marché de services logistiques",
+                     texte="transport et distribution",
+                     lots=[LotBrut(numero="1", intitule="Transport de mobilier",
+                                   statut_source="attribué"),
+                           LotBrut(numero="2", intitule="Transport de palettes",
+                                   statut_source="annulé"),
+                           LotBrut(numero="3", intitule="Distribution urbaine",
+                                   statut_source="en cours")])
+        enfants = eclater(marche)
+        self.assertEqual([e.statut_source for e in enfants],
+                         ["attribué", "annulé", "en cours"])
+
+    def test_10_un_lot_annule_dans_un_marche_ouvert(self):
+        marche = opp(ref_source="M2", statut_source="en cours",
+                     lots=[LotBrut(numero="1", intitule="Transport"),
+                           LotBrut(numero="2", intitule="Manutention",
+                                   statut_source="annulé")])
+        enfants = eclater(marche)
+        self.assertEqual(enfants[0].statut_source, "en cours",
+                         "un lot sans statut hérite de celui du marché")
+        self.assertEqual(enfants[1].statut_source, "annulé")
+
+    def test_11_le_neerlandais_est_compris(self):
+        self.assertIs(etat(texte="inschrijving mogelijk tot 15/10").etat,
+                      EtatProc.POSTULABLE)
+        self.assertIs(etat(texte="de opdracht is gegund").etat, EtatProc.ATTRIBUE)
+
+    def test_12_le_francais_est_compris(self):
+        self.assertIs(etat(texte="les offres sont recevables").etat, EtatProc.POSTULABLE)
+        self.assertIs(etat(texte="le contrat a été octroyé").etat, EtatProc.ATTRIBUE)
+
+    def test_13_l_anglais_et_l_allemand_sont_compris(self):
+        self.assertIs(etat(titre="Open tenders").etat, EtatProc.POSTULABLE)
+        self.assertIs(etat(texte="the contract has been awarded").etat, EtatProc.ATTRIBUE)
+        self.assertIs(etat(texte="Angebote können eingereicht werden").etat,
+                      EtatProc.POSTULABLE)
+        self.assertIs(etat(texte="der Zuschlag wurde erteilt").etat, EtatProc.ATTRIBUE)
+
+    def test_14_award_dans_un_document_annexe_ne_conclut_pas(self):
+        """Le statut d'un DOCUMENT n'est pas celui de la PROCÉDURE."""
+        l = etat(titre="Marché de transport de marchandises",
+                 documents=["avis d'attribution.pdf", "cahier des charges.pdf"])
+        self.assertIsNot(l.etat, EtatProc.ATTRIBUE)
+        self.assertTrue(any("document" in v for v in l.a_verifier))
+
+    def test_15_absence_totale_de_statut_donne_inconnu_jamais_postulable(self):
+        l = etat(titre="Marché de transport", texte="")
+        self.assertIs(l.etat, EtatProc.INCONNU)
+        self.assertIsNone(l.postulable, "INCONNU n'est ni True ni False")
+        self.assertIsNot(l.etat, EtatProc.POSTULABLE)
+
+
+class FormulationsJamaisVues(unittest.TestCase):
+    """Des tournures absentes des fixtures. Le moteur ne connaît pas « la phrase
+    du portail X » : il connaît ce dont une phrase parle."""
+
+    POSTULABLES = [
+        "consultations ouvertes", "dépôt des offres en cours",
+        "les soumissions sont recevables", "procédure active",
+        "offres actuellement recevables", "appel à concurrence en cours",
+        "inschrijvingen zijn mogelijk", "open procedure",
+        "tender opportunities currently available",
+        "Angebote können eingereicht werden",
+    ]
+    ATTRIBUES = [
+        "contrat déjà octroyé", "fournisseur retenu", "soumissionnaire retenu",
+        "décision d'attribution publiée", "marché conclu avec le prestataire",
+        "award decision published", "awarded supplier", "de winnaar is bekend",
+        "opdracht toegewezen", "der Auftragnehmer steht fest",
+    ]
+    FERMES = [
+        "aucune offre ne peut désormais être déposée",
+        "les offres ne sont plus acceptées", "la procédure est clôturée",
+        "la date limite de remise des offres est dépassée",
+        "de procedure is afgesloten", "submissions are closed",
+    ]
+
+    def test_les_formulations_ouvertes_sont_comprises(self):
+        for phrase in self.POSTULABLES:
+            with self.subTest(phrase=phrase):
+                self.assertIs(etat(texte=phrase).etat, EtatProc.POSTULABLE)
+
+    def test_les_formulations_d_attribution_sont_comprises(self):
+        for phrase in self.ATTRIBUES:
+            with self.subTest(phrase=phrase):
+                self.assertIs(etat(texte=phrase).etat, EtatProc.ATTRIBUE)
+
+    def test_les_formulations_de_fermeture_sont_comprises(self):
+        for phrase in self.FERMES:
+            with self.subTest(phrase=phrase):
+                self.assertIs(etat(texte=phrase).etat, EtatProc.FERME)
+
+    def test_les_negations_ne_sont_pas_ignorees(self):
+        """« aucun soumissionnaire désigné » contient le vocabulaire de
+        l'attribution et dit exactement l'inverse."""
+        l = etat(texte="aucun soumissionnaire n'a encore été désigné")
+        self.assertIsNot(l.etat, EtatProc.ATTRIBUE)
+        self.assertIsNot(l.etat, EtatProc.POSTULABLE)
+
+    def test_une_attribution_annoncee_n_est_pas_une_attribution(self):
+        l = etat(texte="le marché sera attribué prochainement")
+        self.assertIsNot(l.etat, EtatProc.ATTRIBUE)
+
+    def test_aucune_attribution_annoncee_ne_rend_pas_postulable(self):
+        l = etat(texte="aucune attribution annoncée")
+        self.assertIsNot(l.etat, EtatProc.POSTULABLE)
+        self.assertIsNot(l.etat, EtatProc.ATTRIBUE)
+
+    def test_une_selection_en_cours_n_est_ni_ouverte_ni_attribuee(self):
+        l = etat(texte="sélection en cours")
+        self.assertIsNot(l.etat, EtatProc.POSTULABLE)
+        self.assertIsNot(l.etat, EtatProc.ATTRIBUE)
+
+    def test_un_resultat_publie_sans_titulaire_ne_dit_pas_attribue(self):
+        l = etat(texte="résultat de la procédure")
+        self.assertIsNot(l.etat, EtatProc.ATTRIBUE)
+
+    def test_un_depot_logistique_n_est_pas_un_depot_d_offre(self):
+        """« nous disposons d'un dépôt en Belgique » ne parle pas de procédure."""
+        l = etat(titre="Devenir partenaire transporteur",
+                 texte="Nous confions nos tournées à des partenaires disposant "
+                       "d'un dépôt en Belgique.")
+        self.assertFalse(l.procedure_detectee)
+
+    def test_une_expression_non_interpretable_ne_devient_jamais_postulable(self):
+        l = etat(statut_source="phase gamma", texte="Marché de transport", source="x")
+        self.assertIs(l.etat, EtatProc.INCONNU)
+        self.assertTrue(l.a_verifier)
+
+
+class HierarchieDesPreuves(unittest.TestCase):
+    def test_un_statut_declare_bat_la_rubrique_du_portail(self):
+        voc = Vocabulaire({"procedure": {
+            "statuts": {"gesloten": {"interpretation": "ferme", "confiance": "elevee"}},
+            "types_information": {"Marchés en cours": {"interpretation": "postulable"}}}})
+        l = etat(statut_source="gesloten", type_information="Marchés en cours",
+                 vocabulaire=voc)
+        self.assertIs(l.etat, EtatProc.FERME)
+        self.assertTrue(l.contradictions)
+
+    def test_un_etat_explicite_bat_la_rubrique_du_portail(self):
+        """Une rubrique de listing est souvent en retard ; la phrase de
+        l'annonce parle de CETTE procédure."""
+        voc = Vocabulaire({"procedure": {"types_information": {
+            "Marchés en cours": {"interpretation": "postulable", "confiance": "moyenne"}}}})
+        l = etat(type_information="Marchés en cours",
+                 texte="La procédure est clôturée. Les offres ne sont plus acceptées.",
+                 vocabulaire=voc)
+        self.assertIs(l.etat, EtatProc.FERME)
+        self.assertTrue(any("Marchés en cours" in c for c in l.contradictions))
+
+    def test_la_date_ne_bat_jamais_une_attribution(self):
+        l = etat(texte="marché attribué",
+                 echeance=datetime(2099, 1, 1, tzinfo=timezone.utc))
+        self.assertIs(l.etat, EtatProc.ATTRIBUE)
+
+    def test_deux_preuves_de_meme_rang_contradictoires_donnent_inconnu(self):
+        voc = Vocabulaire({"procedure": {"types_information": {
+            "A": {"interpretation": "postulable"}, "B": {"interpretation": "attribue"}}}})
+        l1 = etat(type_information="A", vocabulaire=voc)
+        l2 = etat(type_information="B", vocabulaire=voc)
+        self.assertIs(l1.etat, EtatProc.POSTULABLE)
+        self.assertIs(l2.etat, EtatProc.ATTRIBUE)
+        # deux états terminaux différents, même rang : on ne tranche pas
+        l3 = etat(texte="procédure annulée, marché attribué à XYZ")
+        self.assertIs(l3.etat, EtatProc.INCONNU)
+
+    def test_un_etat_plus_precis_absorbe_ferme_sans_contradiction_fausse(self):
+        """ATTRIBUÉ dit « fermé » ET pourquoi. Ce n'est pas une contradiction."""
+        l = etat(texte="procédure clôturée, marché attribué à XYZ Logistics")
+        self.assertIs(l.etat, EtatProc.ATTRIBUE)
+
+    def test_la_confiance_baisse_quand_une_preuve_contredit(self):
+        seul = etat(texte="marché attribué")
+        contredit = etat(texte="marché attribué",
+                         echeance=datetime(2099, 1, 1, tzinfo=timezone.utc))
+        self.assertIs(seul.confiance, ConfProc.ELEVEE)
+        self.assertIs(contredit.confiance, ConfProc.MOYENNE)
+
+
+class TaxonomieDunPortail(unittest.TestCase):
+    """« Marchés en cours », « Avis de préinformation », « Appels à projets »
+    ne veulent pas dire la même chose et ne doivent pas finir au même endroit."""
+
+    def _traiter(self):
+        from outils.radar_commercial import charger, _moteur
+        cx = ouvrir(":memory:")
+        traiter(cx, _moteur(), charger("portail.json", "portail"),
+                maintenant_dt=MAINTENANT)
+        return {l["intitule"]: l for l in cx.execute(
+            "SELECT intitule, type, moteur, action, fiche FROM opportunites")}
+
+    def _une(self, fragment):
+        for titre, l in self._traiter().items():
+            if fragment.lower() in (titre or "").lower():
+                return l
+        self.fail(f"aucune opportunité contenant « {fragment} »")
+
+    def test_les_trois_rubriques_ne_finissent_pas_au_meme_endroit(self):
+        lignes = self._traiter()
+        moteurs = {t: l["moteur"] for t, l in lignes.items()}
+        actions = {l["action"] for l in lignes.values()}
+        self.assertIn("CAPTER", moteurs.values())
+        self.assertIn("DEVELOPPER", moteurs.values())
+        self.assertGreaterEqual(len(actions), 3,
+                                f"trois rubriques, au moins trois actions : {actions}")
+
+    def test_un_marche_en_cours_est_analyse_pour_sa_postulabilite(self):
+        l = self._une("Distribution de fournitures")
+        self.assertEqual(l["moteur"], "CAPTER")
+        self.assertIn("POSTULABLE", l["fiche"])
+
+    def test_une_preinformation_va_dans_developper_et_surveille(self):
+        l = self._une("Préinformation")
+        self.assertEqual(l["moteur"], "DEVELOPPER")
+        self.assertEqual(l["action"], "SURVEILLER")
+        self.assertIn("futur marché", l["fiche"])
+
+    def test_un_appel_a_projets_n_est_ni_postulable_ni_jete(self):
+        l = self._une("Appel à projets")
+        self.assertNotEqual(l["type"], "REJET", "un appel à projets n'est pas du bruit")
+        self.assertIn("ÉTAT À VÉRIFIER", l["fiche"])
+        self.assertIn("bénéficiaire", l["fiche"].lower())
+
+    def test_une_rubrique_contredite_par_le_texte_suit_le_texte(self):
+        l = self._une("ateliers communaux")
+        self.assertEqual(l["moteur"], "DEVELOPPER")
+        self.assertIn("FERMÉ", l["fiche"])
+        self.assertIn("CONTRADICTION", l["fiche"])
+
+    def test_une_rubrique_inconnue_ne_casse_pas_le_moteur(self):
+        """« Phase de consultation active » n'est déclarée nulle part."""
+        l = self._une("reprise des tournées")
+        self.assertNotEqual(l["type"], "REJET")
+
+    def test_l_acces_du_portail_reste_inconnu_tant_qu_il_n_est_pas_verifie(self):
+        cfg = yaml.safe_load((RACINE / "sources" / "portail.yaml").read_text(
+            encoding="utf-8"))
+        self.assertEqual(cfg["acces"], "INCONNU")
+        self.assertIn("absence d'opportunité", cfg["note_acces"])
+
+
+class EtatEtAction(unittest.TestCase):
+    """L'état change l'ACTION. Il ne change jamais la valeur économique."""
+
+    def _avec(self, **kw):
+        o = opp(intitule="Distribution urbaine de marchandises",
+                texte="tournées quotidiennes de distribution urbaine",
+                acheteur="Client", montant=240000, duree_mois=24,
+                cadence="quotidienne", pays_livraison=["BE"], distance_depot_km=20,
+                echeance_brute=OUVERT, **kw)
+        return moteur().analyser(o, MAINTENANT)
+
+    def test_ferme_va_dans_developper_et_dit_attribution_non_publiee(self):
+        r = self._avec(texte_statut="la procédure est clôturée")
+        self.assertEqual(r.classement.moteur.value, "DEVELOPPER")
+        self.assertIn("NON PUBLIÉE", r.classement.motif)
+
+    def test_un_marche_annule_reste_une_piste(self):
+        r = self._avec(texte_statut="procédure annulée")
+        self.assertIsNot(r.classement.type, Type.REJET)
+        self.assertEqual(r.classement.action, Action.SURVEILLER)
+
+    def test_un_marche_infructueux_est_une_occasion_d_etre_connu(self):
+        r = self._avec(texte_statut="procédure déclarée sans suite")
+        self.assertIsNot(r.classement.type, Type.REJET)
+        self.assertEqual(r.classement.action, Action.CONTACTER_ACHETEUR)
+
+    def test_un_etat_inconnu_donne_verifier_jamais_postuler(self):
+        r = self._avec(statut_source="phase gamma")
+        self.assertEqual(r.classement.action, Action.VERIFIER_ETAT)
+        self.assertIsNot(r.classement.type, Type.REJET)
+
+    def test_l_etat_ne_change_pas_le_score(self):
+        """Un marché fermé vaut économiquement ce qu'il vaut. C'est l'action
+        qui change, pas le chiffre d'affaires potentiel."""
+        scores = {
+            "postulable": self._avec(texte_statut="procédure ouverte").score.total,
+            "ferme": self._avec(texte_statut="procédure clôturée").score.total,
+            "attribue": self._avec(texte_statut="marché attribué").score.total,
+            "inconnu": self._avec(statut_source="phase gamma").score.total,
+        }
+        self.assertEqual(len(set(scores.values())), 1,
+                         f"l'état a influencé le score : {scores}")
+
+
+class MemoireDuVocabulaire(unittest.TestCase):
+    def test_une_expression_inconnue_est_conservee_avec_son_contexte(self):
+        cx = ouvrir(":memory:")
+        o = opp(source="portail", ref_source="P1", statut_source="phase gamma",
+                intitule="Transport de matériel", echeance_brute=OUVERT)
+        traiter(cx, moteur(), [o], maintenant_dt=MAINTENANT)
+        l = cx.execute("SELECT * FROM vocabulaire").fetchone()
+        self.assertEqual(l["expression"], "phase gamma")
+        self.assertIsNone(l["interpretation"], "rien n'est tranché automatiquement")
+        self.assertIn("Transport", l["contexte"])
+
+    def test_trancher_une_expression_la_rend_lisible_ensuite(self):
+        cx = ouvrir(":memory:")
+        reviser(cx, "portail", "statut", "phase gamma", "ferme",
+                motif="vérifié sur le portail", par="test")
+        voc = vocabulaire_appris(cx, "portail")
+        self.assertIs(lire(statut_source="phase gamma", vocabulaire=voc).etat,
+                      EtatProc.FERME)
+
+    def test_une_revision_archive_l_ancienne_lecture_sans_l_effacer(self):
+        cx = ouvrir(":memory:")
+        reviser(cx, "portail", "statut", "phase gamma", "postulable", par="a")
+        reviser(cx, "portail", "statut", "phase gamma", "ferme",
+                motif="première lecture erronée", par="b")
+        hist = cx.execute("SELECT * FROM vocabulaire_historique").fetchall()
+        self.assertEqual(len(hist), 1)
+        self.assertEqual(hist[0]["interpretation"], "postulable")
+        self.assertEqual(
+            cx.execute("SELECT interpretation FROM vocabulaire").fetchone()[0], "ferme")
+
+    def test_une_interpretation_inventee_est_refusee(self):
+        cx = ouvrir(":memory:")
+        with self.assertRaises(ValueError):
+            reviser(cx, "portail", "statut", "x", "probablement-ouvert")
+
+    def test_le_yaml_ecrit_a_la_main_prime_sur_la_memoire(self):
+        from radar.procedure import fusionner_vocabulaires
+        cx = ouvrir(":memory:")
+        reviser(cx, "bda", "statut", "clôturé", "postulable", par="erreur")
+        declare = Vocabulaire(yaml.safe_load(
+            (RACINE / "sources" / "bda.yaml").read_text(encoding="utf-8")))
+        fusion = fusionner_vocabulaires(vocabulaire_appris(cx, "bda"), declare)
+        self.assertIs(lire(statut_source="clôturé", vocabulaire=fusion).etat,
+                      EtatProc.FERME)
+
+
+class InterpretationHorsAppelsDOffres(unittest.TestCase):
+    """La couche d'interprétation est générique — elle n'est pas réservée aux
+    portails de marchés publics."""
+
+    def test_une_page_privee_qui_cherche_activement_est_lue(self):
+        l = etat(texte="nous cherchons actuellement un partenaire logistique")
+        self.assertIsNot(l.etat, EtatProc.ATTRIBUE)
+
+    def test_une_bourse_de_fret_est_lue_par_le_meme_module(self):
+        l = etat(texte="capacité recherchée sur la liaison Rotterdam-Bruxelles")
+        self.assertIsNot(l.etat, EtatProc.POSTULABLE,
+                         "rien ne prouve une procédure ouverte ici")
+
+    def test_le_module_ne_connait_aucun_portail(self):
+        source = (RACINE / "radar" / "procedure.py").read_text(encoding="utf-8")
+        for nom in ("ted.europa", "publicprocurement", "tenderned", "api.ted"):
+            self.assertNotIn(nom, source)
+
+
+class IndependanceDesCapteurs(unittest.TestCase):
+    """Le radar existe indépendamment de chacun de ses capteurs.
+
+    Le projet ne doit jamais pouvoir être résumé à « un lecteur de TED
+    amélioré » : le produit est le radar, TED n'en est qu'un capteur.
+    """
+
+    PUBLIQUES = {"ted", "bda", "portail"}
+    PRIVEES = {"google", "entreprise", "signaux", "bourse_fret"}
+
+    def _radar(self, exclues=()):
+        from outils.radar_commercial import LOTS, charger, _moteur
+        cx = ouvrir(":memory:")
+        m = _moteur()
+        for fichier, source in LOTS:
+            if source in exclues:
+                continue
+            traiter(cx, m, charger(fichier, source), maintenant_dt=MAINTENANT)
+        return cx.execute(
+            "SELECT o.type, o.moteur, o.action, a.source FROM opportunites o"
+            " JOIN avis a ON a.id = o.avis_id WHERE o.type <> 'REJET'").fetchall()
+
+    def _coherent(self, lignes, contexte):
+        self.assertGreater(len(lignes), 0, f"{contexte} : plus aucune opportunité")
+        self.assertTrue(any(l["moteur"] == "CAPTER" for l in lignes),
+                        f"{contexte} : plus rien à attaquer")
+        self.assertTrue(all(l["action"] for l in lignes),
+                        f"{contexte} : une opportunité sans action")
+
+    def test_sans_ted_le_radar_produit_toujours_un_resultat_commercial(self):
+        lignes = self._radar({"ted"})
+        self._coherent(lignes, "sans TED")
+        self.assertNotIn("ted", {l["source"] for l in lignes})
+
+    def test_sans_google_le_radar_continue(self):
+        self._coherent(self._radar({"google"}), "sans Google")
+
+    def test_sans_aucune_source_publique_le_radar_continue(self):
+        """Ni TED, ni BDA, ni portail : restent le privé, les entreprises et
+        les signaux. C'est encore un radar commercial."""
+        lignes = self._radar(self.PUBLIQUES)
+        self._coherent(lignes, "sans aucune source publique")
+        self.assertTrue(self.PRIVEES & {l["source"] for l in lignes})
+
+    def test_sans_aucune_source_privee_le_radar_continue(self):
+        self._coherent(self._radar(self.PRIVEES), "sans aucune source privée")
+
+    def test_aucune_source_ne_represente_plus_de_la_moitie_des_occasions(self):
+        """Un radar dont une source ferait tout le travail serait un lecteur
+        de cette source, pas un radar."""
+        lignes = self._radar()
+        compte = {}
+        for l in lignes:
+            compte[l["source"]] = compte.get(l["source"], 0) + 1
+        part = max(compte.values()) / len(lignes)
+        self.assertLess(part, 0.5, f"une source domine le radar : {compte}")

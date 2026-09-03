@@ -34,6 +34,9 @@ class LotBrut:
     exigences: dict = field(default_factory=dict)
     pays_collecte: list[str] = field(default_factory=list)
     pays_livraison: list[str] = field(default_factory=list)
+    # Un lot peut avoir son PROPRE état : marché attribué, lot 3 encore ouvert.
+    statut_source: str | None = None
+    type_information: str | None = None
 
 
 @dataclass
@@ -47,6 +50,13 @@ class Opportunite:
 
     texte: str = ""
     type_avis: str | None = None
+    # ── A · ce que le PORTAIL dit être cet objet, tel quel ────────────────
+    type_information: str | None = None     # « Marchés en cours », « Résultats »…
+    statut_source: str | None = None        # la valeur du champ de statut
+    texte_statut: str | None = None         # la phrase qui entoure le statut
+    evenements: list = field(default_factory=list)   # [{type, date}]
+    documents: list = field(default_factory=list)    # noms des pièces jointes
+    actions_possibles: list = field(default_factory=list)  # boutons de la page
     est_signal: bool = False
     signal_code: str | None = None       # recrutement_massif, ouverture_site, ...
 

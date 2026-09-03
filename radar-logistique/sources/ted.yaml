@@ -60,6 +60,51 @@ champs:
   chauffeurs_requis: [drivers-required, chauffeurs_requis]
   exige_chauffeurs_min: [requirements.min-drivers]
 
+# ═══ VOCABULAIRE DE PROCÉDURE ═══
+#
+# NON VÉRIFIÉ, comme le reste : aucune réponse réelle n'a été observée. Ces
+# valeurs sont celles que les formulaires eForms sont réputés utiliser. Une
+# valeur ABSENTE de cette table ne devient PAS postulable par ressemblance :
+# elle ressort « STATUT SOURCE INCONNU → À ÉVALUER », est mémorisée, et
+# l'interprétation générale prend le relais sans autorité.
+procedure:
+  statuts: {}          # aucune valeur de statut réellement observée à ce jour
+
+  types_information:
+    "contract-notice":
+      interpretation: postulable
+      confiance: moyenne
+      normalise: "avis de marché"
+    "cn-standard":
+      interpretation: postulable
+      confiance: moyenne
+      normalise: "avis de marché"
+    "contract-award":
+      interpretation: attribue
+      confiance: elevee
+      normalise: "avis d'attribution"
+    "can-standard":
+      interpretation: attribue
+      confiance: elevee
+      normalise: "avis d'attribution"
+    "pin":
+      interpretation: informatif
+      confiance: elevee
+      normalise: "avis de préinformation"
+    "pin-only":
+      interpretation: informatif
+      confiance: elevee
+      normalise: "avis de préinformation"
+    "corrigendum":
+      # Un rectificatif MODIFIE un avis, il ne le rouvre pas. Il ne conclut
+      # donc rien par lui-même : l'état vient de la procédure sous-jacente.
+      interpretation: a_evaluer
+      confiance: nulle
+      normalise: "rectificatif"
+      note: >
+        rectificatif : ne change pas l'état de la procédure. Si le marché
+        était attribué, il le reste — vérifier l'avis d'origine.
+
 cpv_cibles:
   - "60000000"
   - "60100000"

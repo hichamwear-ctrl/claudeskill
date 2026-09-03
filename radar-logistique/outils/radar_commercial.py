@@ -48,6 +48,7 @@ LOTS = [
     ("nouveau-metier.json", "entreprise"),
     ("signaux.json",       "signaux"),
     ("bourse_fret.json",   "bourse_fret"),
+    ("portail.json",       "portail"),
 ]
 
 
@@ -55,10 +56,20 @@ def _cfg(nom):
     return yaml.safe_load((RACINE / nom).read_text(encoding="utf-8"))
 
 
+def vocabulaires() -> dict:
+    """Le vocabulaire de procédure déclaré par chaque adaptateur."""
+    from radar.procedure import Vocabulaire
+    sortie = {}
+    for chemin in sorted((RACINE / "sources").glob("*.yaml")):
+        cfg = yaml.safe_load(chemin.read_text(encoding="utf-8")) or {}
+        sortie[cfg.get("source", chemin.stem)] = Vocabulaire(cfg)
+    return sortie
+
+
 def _moteur() -> Moteur:
     return Moteur(_cfg("profil.yaml"), _cfg("config/capacites.yaml"),
                   _cfg("config/geographie.yaml"), _cfg("config/ponderations.yaml"),
-                  _cfg("config/roles.yaml"))
+                  _cfg("config/roles.yaml"), vocabulaires=vocabulaires())
 
 
 def charger(fichier: str, source: str) -> list:

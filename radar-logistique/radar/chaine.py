@@ -16,9 +16,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+
+def _maintenant_utc():
+    return datetime.now(timezone.utc)
 
 from . import (construction, deduplication, envoi, memoire, nature as nat,
-               questions, statut as st)
+               procedure as proc, questions, statut as st)
 from .comptes import Livre
 from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
 from .entreprises import Registre as RegistreEntreprises
@@ -46,6 +51,7 @@ class Resultat:
     verdict: object
     construction: object = None
     nature: object = None
+    lecture: object = None          # l'état de procédure et ses preuves
 
 
 @dataclass
@@ -72,7 +78,8 @@ class BilanCycle:
 
 class Moteur:
     def __init__(self, profil, capacites, geographie, ponderations, roles,
-                 entreprises: RegistreEntreprises | None = None):
+                 entreprises: RegistreEntreprises | None = None,
+                 vocabulaires: dict | None = None):
         # Le registre d'entreprises est optionnel : le moteur fonctionne sans,
         # mais avec lui chaque opportunité nourrit la boucle commerciale.
         self.entreprises = entreprises if entreprises is not None else RegistreEntreprises()
@@ -84,6 +91,12 @@ class Moteur:
         self.bareme = Bareme(ponderations, profil)
         self.roles = DetecteurDeRole(roles)
         self.capacites = Capacites(profil, self.libelles)
+        # Un vocabulaire de procédure PAR SOURCE. Le moteur ne connaît aucun
+        # portail : il reçoit ce que chaque adaptateur a déclaré avoir observé.
+        self.vocabulaires = dict(vocabulaires or {})
+
+    def vocabulaire(self, source):
+        return self.vocabulaires.get(source) or proc.Vocabulaire()
 
     # ------------------------------------------------------- exigences --
     def _confronter(self, opp) -> Bilan:
@@ -125,6 +138,26 @@ class Moteur:
         bilan = self._confronter(opp)
         verdict = st.evaluer(opp, maintenant=maintenant_dt)
 
+        # ── B · l'état de la procédure, avec ses preuves ──────────────────
+        # Les dates n'arrivent qu'en rang 1 : elles éclairent, elles ne
+        # tranchent pas. Un « attribué » explicite les écrase ; une date
+        # dépassée ne produit jamais un ATTRIBUÉ.
+        lecture = proc.lire(
+            statut_source=opp.statut_source,
+            type_information=opp.type_information or opp.type_avis,
+            titre=opp.intitule, texte=opp.texte,
+            texte_autour_du_statut=opp.texte_statut or "",
+            documents=opp.documents, evenements=opp.evenements,
+            actions_possibles=opp.actions_possibles,
+            echeance=verdict.echeance, maintenant=maintenant_dt or _maintenant_utc(),
+            date_attribution=opp.attribue_le,
+            titulaire=opp.titulaire if opp.attribue else None,
+            vocabulaire=self.vocabulaire(opp.source), source=opp.source)
+        if opp.attribue and lecture.etat is not proc.Etat.ATTRIBUE:
+            lecture.a_verifier.append(
+                "la source déclare le marché attribué mais l'interprétation "
+                "ne le confirme pas — à vérifier")
+
         # 🟣 : évalué DÈS QUE la prestation n'est pas reconnue. C'est ce qui
         # remplace l'ancien rejet par absence de vocabulaire.
         constr = None
@@ -154,23 +187,39 @@ class Moteur:
             construction=constr,
             est_signal=opp.est_signal,
             source_privee=(opp.secteur_acheteur or "").lower().startswith("priv"),
-            nature=nature)
+            nature=nature, etat=lecture.etat,
+            procedure_detectee=lecture.procedure_detectee)
 
+        # Le score mesure la valeur ÉCONOMIQUE : chiffre d'affaires, effort,
+        # investissement, risque, marge, adéquation. L'état de la procédure n'y
+        # entre pas. Un marché fermé vaut ce qu'il vaut — c'est l'ACTION qui
+        # change, pas le potentiel. On classe donc une seconde fois « toutes
+        # portes ouvertes » pour obtenir le type qui traduit la capacité seule.
+        type_economique = classer(
+            role=role.role,
+            activite_reconnue=bool(corr.familles) or corr.domaine_transport,
+            exclusion=", ".join(corr.exclusions[:2]) if corr.exclusions else None,
+            zone_ok=zone.compatible,
+            zone_motif=zone.raisons[0] if zone.raisons else "",
+            deadline_ouverte=True, deadline_motif="", attribue=False, informatif=False,
+            bilan_capacite=bilan, construction=constr, est_signal=opp.est_signal,
+            source_privee=False, nature=nature,
+            etat=proc.Etat.POSTULABLE, procedure_detectee=False).type
         score = self.bareme.calculer(correspondance=corr, zone=zone, bilan=bilan, opp=opp,
-                                     type_opp=classement.type, cadence=opp.cadence,
+                                     type_opp=type_economique, cadence=opp.cadence,
                                      jours_restants=verdict.jours_restants)
         journal = questions.interroger(
             opp=opp, role=role.role, correspondance=corr, zone=zone, bilan=bilan,
             classement=classement, verdict=verdict, score=score,
             lots_retenus=[opp.lot_numero] if opp.lot_numero else [])
         fiche = self._fiche(opp, role, corr, zone, bilan, classement, verdict, score,
-                            constr, nature)
+                            constr, nature, lecture)
         return Resultat(classement, score, fiche, journal, role.role, zone, bilan,
-                        corr, verdict, constr, nature)
+                        corr, verdict, constr, nature, lecture)
 
     # ----------------------------------------------------------- fiche --
     def _fiche(self, opp, role, corr, zone, bilan, classement, verdict, score, constr,
-               nature=None):
+               nature=None, lecture=None):
         pourquoi = []
         for famille in corr.familles:
             libelle = self.ontologie.cfg["familles"][famille]["libelle"]
@@ -196,6 +245,8 @@ class Moteur:
                      or not (corr.familles or corr.domaine_transport))):
             manque += constr.manques
         manque += list(bilan.a_verifier)
+        if lecture is not None:
+            manque += list(lecture.a_verifier)
         # Un champ publié mais illisible n'est ni ignoré ni deviné : il est dit.
         for champ, valeur in (opp.champs_illisibles or {}).items():
             manque.append(f"{champ} publié mais illisible : « {valeur} » — À VÉRIFIER")
@@ -226,7 +277,12 @@ class Moteur:
             raisons_categorie=[classement.motif] + classement.raisons[:3],
             marge=score.marge_estimee, score=score.total, detail_score=score.detail(),
             lien=opp.lien_depot or opp.lien_dossier, source=opp.source,
-            reference=opp.ref_source, nature=nature)
+            reference=opp.ref_source, nature=nature,
+            etat=lecture.etat if lecture else None,
+            confiance_etat=lecture.confiance.value if lecture else "",
+            type_information=lecture.type_information_source if lecture else "",
+            preuves_etat=[str(p) for p in (lecture.preuves[:3] if lecture else [])],
+            contradictions=list(lecture.contradictions) if lecture else [])
 
 
 def _reecrire(cx, avis_id: int, r, opp) -> None:
@@ -333,6 +389,10 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
             avis_id = enregistrer_reponse(cx, opp.source, opp.ref_source, opp.brut or {}, emp)
             deja_ecrites[id(opp)] = avis_id
             r = moteur.analyser(opp, maintenant_dt)
+            # Toute formulation de statut jamais rencontrée est conservée, avec
+            # son contexte, pour être tranchée une fois — jamais devinée.
+            if r.lecture is not None and r.lecture.inconnues:
+                proc.memoriser(cx, opp.source, r.lecture, opp.intitule or "")
 
             if r.verdict.statut is st.Statut.ATTRIBUE:
                 m = memoire.memoriser(opp)
@@ -371,7 +431,8 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                  opp.devise, opp.duree_mois, opp.cadence, opp.contact,
                  "; ".join(str(k) for k in (opp.exigences or {})) or None,
                  r.verdict.echeance.isoformat() if r.verdict.echeance else None,
-                 r.verdict.jours_restants, opp.distance_depot_km, r.score.total, r.score.marge_estimee,
+                 r.verdict.jours_restants, opp.distance_depot_km,
+                 r.score.total, r.score.marge_estimee,
                  json.dumps(r.score.detail(), ensure_ascii=False),
                  json.dumps(r.journal.en_lignes(), ensure_ascii=False),
                  r.classement.motif, r.fiche.en_texte(), maintenant()))

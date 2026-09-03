@@ -25,6 +25,8 @@ class Lot:
     exigences: dict = field(default_factory=dict)
     pays_collecte: list[str] = field(default_factory=list)
     pays_livraison: list[str] = field(default_factory=list)
+    statut_source: str | None = None
+    type_information: str | None = None
 
     @property
     def libelle(self) -> str:
@@ -42,7 +44,9 @@ def lots_de(opp) -> list[Lot]:
                     montant=opp.montant, duree_mois=opp.duree_mois,
                     exigences=dict(opp.exigences or {}),
                     pays_collecte=list(opp.pays_collecte),
-                    pays_livraison=list(opp.pays_livraison))]
+                    pays_livraison=list(opp.pays_livraison),
+                    statut_source=opp.statut_source,
+                    type_information=opp.type_information)]
 
     sortie = []
     for lot in opp.lots:
@@ -58,7 +62,12 @@ def lots_de(opp) -> list[Lot]:
             duree_mois=lot.duree_mois if lot.duree_mois is not None else opp.duree_mois,
             exigences=herite,
             pays_collecte=lot.pays_collecte or list(opp.pays_collecte),
-            pays_livraison=lot.pays_livraison or list(opp.pays_livraison)))
+            pays_livraison=lot.pays_livraison or list(opp.pays_livraison),
+            # Le statut du LOT prime sur celui du marché parent : c'est tout
+            # l'intérêt d'éclater. Un marché « attribué » dont le lot 3 est
+            # encore ouvert doit produire trois situations distinctes.
+            statut_source=lot.statut_source or opp.statut_source,
+            type_information=lot.type_information or opp.type_information))
     return sortie
 
 
@@ -91,6 +100,8 @@ def eclater(opp) -> list:
         # inventer une valeur. Il reste NON PUBLIÉ.
         enfant.montant = lot.montant
         enfant.duree_mois = lot.duree_mois
+        enfant.statut_source = lot.statut_source
+        enfant.type_information = lot.type_information
         enfant.provenances = list(opp.provenances)
         sortie.append(enfant)
     return sortie

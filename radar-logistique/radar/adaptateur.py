@@ -44,6 +44,7 @@ class Adaptateur:
     champs: dict[str, list[str]]              # champ interne -> chemins candidats
     verifie: bool = False                     # une vraie réponse a-t-elle confirmé ?
     couverture: dict[str, int] = field(default_factory=dict)
+    vocabulaire: object = None                # ce que les statuts de CETTE source veulent dire
 
     @classmethod
     def depuis_config(cls, cfg: dict) -> "Adaptateur":
@@ -61,8 +62,12 @@ class Adaptateur:
             champs.setdefault("plateforme", ["plateforme", "lien_avis"])
             champs.setdefault("lien_documents", ["lien_documents", "lien_avis"])
 
+        # Le vocabulaire de procédure de CETTE source : ses valeurs de statut,
+        # ses types d'information, et ce qu'ils veulent dire chez elle.
+        from .procedure import Vocabulaire
         return cls(source=cfg.get("source", "?"), champs=champs,
-                   verifie=bool(cfg.get("verifie", False)))
+                   verifie=bool(cfg.get("verifie", False)),
+                   vocabulaire=Vocabulaire(cfg))
 
     def extraire(self, payload: dict) -> dict:
         """Premier chemin qui répond gagne. Aucun champ n'est fabriqué."""
@@ -161,6 +166,41 @@ def _entier(valeur, champ: str, illisibles: dict):
     return int(round(n)) if n is not None else None
 
 
+def _liste_texte(v) -> list:
+    """Une liste de libellés, quelle que soit la forme reçue. Rien n'est inventé."""
+    if v in (None, "", []):
+        return []
+    if isinstance(v, dict):
+        v = list(v.values())
+    if not isinstance(v, (list, tuple)):
+        v = [v]
+    sortie = []
+    for x in v:
+        if isinstance(x, dict):
+            x = x.get("nom") or x.get("titre") or x.get("libelle") or x.get("name")
+        if x:
+            sortie.append(str(x))
+    return sortie
+
+
+def _evenements_de(champs: dict) -> list:
+    """Les événements de procédure — chacun avec sa date quand elle est publiée."""
+    brut = champs.get("evenements")
+    if brut in (None, "", []):
+        return []
+    if not isinstance(brut, (list, tuple)):
+        brut = [brut]
+    sortie = []
+    for e in brut:
+        if isinstance(e, dict):
+            nom = e.get("type") or e.get("nom") or e.get("libelle") or e.get("name")
+            if nom:
+                sortie.append({"type": str(nom), "date": e.get("date")})
+        elif e:
+            sortie.append({"type": str(e), "date": None})
+    return sortie
+
+
 def _exigences_de(champs: dict) -> dict:
     """Ne retient que ce qui vient d'un champ NORMÉ : une exigence structurée
     peut bloquer, une exigence lue en texte libre ne le peut jamais."""
@@ -204,7 +244,11 @@ def _lots_de(charge: dict, adaptateur, illisibles: dict) -> list:
                                f"durée du lot {numero}", illisibles),
             exigences=_exigences_de(champs),
             pays_collecte=_liste(lot.get("pays_collecte")),
-            pays_livraison=_liste(lot.get("pays_livraison"))))
+            pays_livraison=_liste(lot.get("pays_livraison")),
+            # Un marché peut être « attribué » alors que son lot 3 est encore
+            # ouvert. Le lot garde donc SON statut, quand le portail le publie.
+            statut_source=champs.get("statut") or lot.get("statut"),
+            type_information=champs.get("type_information")))
     return sortie
 
 
@@ -258,6 +302,12 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
                                  "véhicules requis", illisibles),
         chauffeurs_requis=_entier(c.get("chauffeurs_requis"),
                                   "chauffeurs requis", illisibles),
+        type_information=c.get("type_information"),
+        statut_source=c.get("statut"),
+        texte_statut=c.get("texte_statut"),
+        evenements=_evenements_de(c),
+        documents=_liste_texte(c.get("documents")),
+        actions_possibles=_liste_texte(c.get("actions")),
         provenances=[{"source": source, "url": c.get("plateforme") or c.get("lien_documents"),
                       "consulte_le": (defauts or {}).get("consulte_le"),
                       "requete": (defauts or {}).get("requete")}],

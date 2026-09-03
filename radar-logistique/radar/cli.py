@@ -37,10 +37,27 @@ def _cfg(nom):
     return yaml.safe_load((RACINE / nom).read_text(encoding="utf-8"))
 
 
-def _moteur() -> Moteur:
+def _vocabulaires(cx=None) -> dict:
+    """Le vocabulaire de procédure de CHAQUE source déclarée.
+
+    Deux couches : ce que l'adaptateur déclare (écrit à la main, prioritaire)
+    et ce que la mémoire a appris des collectes précédentes.
+    """
+    from .procedure import Vocabulaire, fusionner_vocabulaires, vocabulaire_appris
+    sortie = {}
+    for chemin in sorted((RACINE / "sources").glob("*.yaml")):
+        cfg = yaml.safe_load(chemin.read_text(encoding="utf-8")) or {}
+        nom = cfg.get("source", chemin.stem)
+        declare = Vocabulaire(cfg)
+        appris = vocabulaire_appris(cx, nom) if cx is not None else None
+        sortie[nom] = fusionner_vocabulaires(appris, declare)
+    return sortie
+
+
+def _moteur(cx=None) -> Moteur:
     return Moteur(_cfg("profil.yaml"), _cfg("config/capacites.yaml"),
                   _cfg("config/geographie.yaml"), _cfg("config/ponderations.yaml"),
-                  _cfg("config/roles.yaml"))
+                  _cfg("config/roles.yaml"), vocabulaires=_vocabulaires(cx))
 
 
 def _source(nom):
@@ -104,7 +121,7 @@ def cmd_traiter(a) -> int:
     repris = envoi.reprendre_interrompus(cx)
     if repris:
         print(f"{repris} envoi(s) interrompu(s) marqué(s) ambigus — non réémis.")
-    b = traiter(cx, _moteur(), opportunites, mode=_mode(a))
+    b = traiter(cx, _moteur(cx), opportunites, mode=_mode(a))
     print(f"lus {b.lus} · lots éclatés {b.lots_eclates} · doublons {b.doublons}")
     print(f"🟢 {b.direct} direct · 🟡 {b.renforcement} renforcement · "
           f"🟣 {b.a_construire} à construire · 🔵 {b.prospect} prospect · "
@@ -217,7 +234,7 @@ def cmd_boucle(a) -> int:
         return 3
     reg = RegistreEnt()
     cx = ouvrir(_base(a))
-    mot = _moteur()
+    mot = _moteur(cx)
     mot.entreprises = reg
 
     # Un résultat de recherche N'EST PAS qu'un moyen de découvrir une
@@ -268,6 +285,51 @@ def cmd_rapport(a) -> int:
     print(texte)
     print(f"\nRapport écrit dans {chemin}")
     return 0
+
+
+def cmd_vocabulaire(a) -> int:
+    """Les formulations rencontrées que l'adaptateur ne savait pas lire.
+
+    Chacune bloque une opportunité en ÉTAT INCONNU. Les trancher, c'est
+    débloquer toutes les prochaines — et c'est un travail humain, pas une
+    devinette de la machine.
+    """
+    from .procedure import INTERPRETATIONS, reviser
+
+    if a.trancher:
+        cx = ouvrir(_base(a))
+        source, champ, expression, sens = a.trancher
+        reviser(cx, source, champ, expression, sens, motif=a.motif or "",
+                par=a.par or "manuel")
+        cx.commit()
+        print(f"« {expression} » ({source}/{champ}) → {sens}")
+        print("L'ancienne lecture est archivée, pas effacée.")
+        return 0
+
+    cx = ouvrir(_base(a), lecture_seule=True)
+    lignes = cx.execute(
+        "SELECT source, champ, expression, contexte, occurrences, interpretation,"
+        " revise_le FROM vocabulaire ORDER BY interpretation IS NOT NULL,"
+        " occurrences DESC").fetchall()
+    if not lignes:
+        print("Aucune formulation inconnue rencontrée.")
+        return 0
+    a_trancher = [l for l in lignes if l["interpretation"] is None]
+    print(f"{len(lignes)} formulation(s) mémorisée(s), "
+          f"{len(a_trancher)} restent à trancher\n")
+    for l in lignes:
+        sens = l["interpretation"] or "À TRANCHER"
+        print(f"  {l['source']:<12} {l['champ']:<18} ×{l['occurrences']:<4} "
+              f"{sens:<12} « {l['expression'][:40]} »")
+        if l["contexte"]:
+            print(f"  {'':<12} vu dans : {l['contexte'][:64]}")
+    if a_trancher:
+        print(f"\nPour trancher "
+              f"(interprétations : {', '.join(sorted(INTERPRETATIONS))}) :")
+        l = a_trancher[0]
+        print(f"  python -m radar.cli vocabulaire --trancher "
+              f"{l['source']} {l['champ']} \"{l['expression']}\" postulable")
+    return 1 if a_trancher else 0
 
 
 def cmd_incidents(a) -> int:
@@ -393,6 +455,15 @@ def principal(argv=None) -> int:
     ra.add_argument("--resume", action="store_true", help="sans les fiches détaillées")
     ra.add_argument("--sortie", default="rapports")
     ra.set_defaults(fn=cmd_rapport)
+
+    vo = s.add_parser("vocabulaire", help="formulations de statut rencontrées et non comprises")
+    vo.add_argument("--trancher", nargs=4,
+                    metavar=("SOURCE", "CHAMP", "EXPRESSION", "INTERPRÉTATION"))
+    vo.add_argument("--motif", help="pourquoi cette interprétation")
+    vo.add_argument("--par", help="qui a tranché")
+    vo.add_argument("--reel", action="store_true")
+    vo.add_argument("--base")
+    vo.set_defaults(fn=cmd_vocabulaire)
 
     inc = s.add_parser("incidents", help="avis non traités, conservés avec leur motif")
     inc.add_argument("--limite", type=int, default=30)

@@ -63,6 +63,11 @@ class Fiche:
     source: str = ""
     reference: str = ""
     nature: object = None          # FAIT · SIGNAL · HYPOTHÈSE
+    etat: object = None            # POSTULABLE · ATTRIBUÉ · FERMÉ · …
+    confiance_etat: str = ""
+    type_information: str = ""
+    preuves_etat: list = field(default_factory=list)
+    contradictions: list = field(default_factory=list)
 
     def en_texte(self, avec_detail_score=False) -> str:
         L = [f"{self.type.emoji} {self.type.value} — {self.titre}"]
@@ -70,6 +75,18 @@ class Fiche:
             L.append(f"   (LOT {self.lot} du marché {self.marche_parent})")
         L.append("")
 
+        # Quatre dimensions, quatre lignes. Jamais mélangées.
+        if self.etat is not None:
+            L.append(f"ÉTAT          {self.etat.emoji} {self.etat.value}"
+                     f" — {self.etat.libelle_long}")
+            if self.type_information:
+                L.append(f"TYPE (source) {self.type_information}")
+            if self.confiance_etat:
+                L.append(f"CONFIANCE     {self.confiance_etat}")
+            for preuve in self.preuves_etat:
+                L.append(f"PREUVE        {preuve}")
+            for c in self.contradictions[:2]:
+                L.append(f"CONTRADICTION {c}")
         if self.nature is not None:
             L.append(f"NATURE        {self.nature.emoji} {self.nature.value}"
                      f" — {self.nature.libelle}")

@@ -26,6 +26,9 @@ Et jamais : « est-ce que cette annonce contient le mot transport ? », ni
 | Ce que le radar voit | Ce que ça devient |
 |---|---|
 | marché public européen — distribution de colis, 36 mois | opportunité |
+| rubrique « Marchés en cours » d'un portail d'acheteur | opportunité, après lecture de l'état |
+| rubrique « Avis de préinformation » | futur besoin → DÉVELOPPER |
+| rubrique « Appels à projets » | analyse propre : objet, bénéficiaire, conditions |
 | marché public belge sous le seuil | opportunité |
 | « nous recherchons un partenaire transport » trouvé par un moteur | opportunité |
 | page « devenir partenaire transporteur » d'une PME | opportunité |
@@ -40,6 +43,119 @@ Aucune n'est secondaire parce qu'elle n'est pas un appel d'offres.
 ```bash
 python3 outils/radar_commercial.py   # les huit, dans le même moteur, un seul rapport
 ```
+
+## Quatre dimensions, jamais mélangées
+
+Une annonce n'a pas « un statut ». Elle a quatre choses distinctes, et les
+confondre produit les erreurs les plus coûteuses du radar.
+
+| | | |
+|---|---|---|
+| **A · TYPE D'INFORMATION** | ce que le portail appelle l'objet | « Marchés en cours », « Avis de préinformation », « Appels à projets », « Résultats » |
+| **B · ÉTAT DE PROCÉDURE** | où en est la procédure | `POSTULABLE` `ATTRIBUÉ` `FERMÉ` `ANNULÉ` `INFRUCTUEUX` `INFORMATIF` `INCONNU` |
+| **C · NATURE** | ce que vaut l'information | `FAIT` `SIGNAL` `HYPOTHÈSE` |
+| **D · ACTION** | ce que je fais demain matin | POSTULER · CONTACTER L'ACHETEUR · CONTACTER LE TITULAIRE · SURVEILLER · VÉRIFIER L'ÉTAT |
+
+`procedure.py` ne produit que **B**, et les preuves qui l'ont fait choisir.
+
+### Comprendre, pas reconnaître des mots
+
+Ce que le moteur ne fait **jamais** :
+
+```
+si le texte contient « attribué » → ATTRIBUÉ, sinon → POSTULABLE
+```
+
+Ce serait faux à peu près partout. « Aucun soumissionnaire n'a encore été
+désigné » contient le vocabulaire de l'attribution et dit l'inverse. Un
+document annexe nommé « avis d'attribution » ne dit rien de la page analysée.
+Une date limite dépassée ne prouve **aucune** attribution — seulement qu'on ne
+peut plus déposer.
+
+Le moteur travaille donc sur des **concepts**, déclinés en FR/NL/EN/DE, et sur
+leur composition : négation, futur, attente.
+
+| lu sur la page | conclu |
+|---|---|
+| « consultations ouvertes » · « inschrijving mogelijk » · « Angebote können eingereicht werden » | POSTULABLE |
+| « fournisseur retenu » · « gunning » · « der Zuschlag wurde erteilt » | ATTRIBUÉ |
+| « les offres ne sont plus acceptées » · « procédure clôturée » | FERMÉ |
+| « le marché sera attribué prochainement » | **pas** ATTRIBUÉ — annoncé, non prononcé |
+| « aucun soumissionnaire n'a encore été désigné » | ni ATTRIBUÉ, ni POSTULABLE |
+| « sélection en cours » | ni ATTRIBUÉ, ni POSTULABLE |
+| date limite dépassée, rien d'autre | FERMÉ — **attribution NON PUBLIÉE** |
+| « phase gamma » | INCONNU, mémorisé pour être tranché |
+
+### La hiérarchie des preuves
+
+```
+statut officiel déclaré  >  état explicite  >  rubrique du portail
+                         >  formulation indirecte  >  dates  >  inférence
+```
+
+Une annonce rangée dans « Marchés en cours » dont le texte dit « la procédure
+est clôturée » ressort **FERMÉ** : la rubrique est un classement de listing,
+souvent en retard ; la phrase parle de *cette* procédure. La contradiction
+reste affichée sur la fiche :
+
+```
+ÉTAT          🟠 FERMÉ — candidature terminée — attribution non publiée
+TYPE (source) Marchés en cours
+CONFIANCE     faible
+PREUVE        [état de procédure explicite] « description : « cloturee » » → FERMÉ
+CONTRADICTION rubrique du portail dit POSTULABLE — écarté par « cloturee »
+```
+
+Deux preuves de même rang qui se contredisent ne produisent pas un gagnant
+arbitraire : elles produisent `INCONNU`.
+
+### INCONNU n'est jamais promu
+
+`INCONNU` ne devient jamais `POSTULABLE` par défaut. L'opportunité reste dans
+le radar avec l'action **VÉRIFIER L'ÉTAT À LA SOURCE** — ni jetée, ni promue.
+Et si la source publie un statut que l'adaptateur ne sait pas lire, une date
+future ne suffit pas à conclure : ce serait substituer notre calcul à sa
+déclaration.
+
+### Le vocabulaire s'apprend, il ne s'invente pas
+
+Chaque `sources/*.yaml` déclare les valeurs **réellement observées** sur son
+portail, avec leur sens et leur niveau de confiance. Une valeur absente ne
+devient pas postulable par ressemblance : elle est mémorisée en base.
+
+```bash
+python -m radar.cli vocabulaire     # ce qui reste à trancher, avec son contexte
+python -m radar.cli vocabulaire --trancher portail statut "phase gamma" ferme \
+    --motif "vérifié sur le portail" --par hicham
+```
+
+Une révision **archive** l'ancienne lecture au lieu de l'effacer : les fiches
+produites avec la version fausse doivent rester retrouvables. Et ce qu'un
+humain écrit dans le YAML prime toujours sur ce que la mémoire a retenu.
+
+### Lot par lot
+
+Un marché parent `ATTRIBUÉ` dont le lot 3 est encore ouvert produit **trois
+situations distinctes**, pas une seule fiche. Le statut du lot prime sur celui
+du marché.
+
+### L'état change l'action, jamais le score
+
+```
+POSTULABLE  → POSTULER            ATTRIBUÉ    → CONTACTER LE TITULAIRE
+FERMÉ       → SURVEILLER          INFRUCTUEUX → CONTACTER L'ACHETEUR
+ANNULÉ      → SURVEILLER          INFORMATIF  → SURVEILLER (futur marché)
+INCONNU     → VÉRIFIER L'ÉTAT À LA SOURCE
+```
+
+Un marché fermé vaut économiquement ce qu'il vaut. Le score reste
+CA × effort × investissement × risque × marge × adéquation — **testé** : les
+quatre états ci-dessus, mêmes données par ailleurs, donnent le même score.
+
+Aucun de ces états n'est un rejet. Un marché annulé est très souvent relancé ;
+un marché infructueux signifie que l'acheteur cherche encore.
+
+---
 
 ## Avant, pendant, après
 
@@ -208,9 +324,11 @@ COLLECTE
    ↓
 NORMALISATION
    ↓
-FAIT / SIGNAL / HYPOTHÈSE          nature.py
+DÉTECTION DU BESOIN                role.py · activite.py · lots.py
    ↓
-BESOIN COMMERCIAL                  role.py · activite.py · lots.py
+ÉTAT DU BESOIN / DE LA PROCÉDURE   nature.py · procedure.py
+   ↓
+BESOIN COMMERCIAL
    ↓
 FAISABILITÉ                        capacite.py · geographie.py · construction.py
    ↓
@@ -234,7 +352,7 @@ jamais au moteur.
 | `config/geographie.yaml` | le corridor |
 | `config/ponderations.yaml` | les poids du score |
 | `config/sources.yaml` | catalogue : pourquoi, ce qu'elle apporte, filtre, classement, déduplication |
-| `sources/*.yaml` | un adaptateur par source — TED, BDA, moteur de recherche, page d'entreprise, signaux, bourse de fret |
+| `sources/*.yaml` | un adaptateur par capteur — TED, BDA, portail d'acheteur, moteur de recherche, page d'entreprise, signaux, bourse de fret — chacun avec **son** vocabulaire de procédure |
 
 **Aucune source n'a de priorité déclarée** : toutes les `priorite_initiale`
 valent `null  # NON MESURÉE`. La priorité se calcule sur le rendement observé —
@@ -400,7 +518,7 @@ concernée, correction, test de non-régression.
 
 ## Le cahier des charges est vérifiable
 
-Vingt-deux règles ont été validées puis verrouillées. Une règle peut se perdre lors
+Vingt-neuf règles ont été validées puis verrouillées. Une règle peut se perdre lors
 d'une réécriture — c'est arrivé une fois, les seize questions ont tourné sans
 test pendant plusieurs versions. L'audit le détecte :
 
@@ -416,7 +534,7 @@ Il vérifie que chaque règle a un module ET ses tests de comportement.
 python -m unittest discover -s tests
 ```
 
-168 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
+224 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
 chacun pose une question dont la mauvaise réponse coûte un contrat.
 
 Zéro dépendance hors PyYAML.

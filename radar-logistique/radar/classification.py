@@ -51,6 +51,7 @@ class Action(Enum):
     PROPOSER_PARTENARIAT = "PROPOSER PARTENARIAT"
     PROPOSER_GROUPEMENT = "PROPOSER UN GROUPEMENT"
     SURVEILLER = "SURVEILLER"
+    VERIFIER_ETAT = "VÉRIFIER L'ÉTAT À LA SOURCE"
     ABANDONNER = "ABANDONNER"
 
 
@@ -81,7 +82,8 @@ def _de_taille(message: str) -> bool:
 def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
             deadline_ouverte, deadline_motif, attribue, informatif,
             bilan_capacite, construction=None, est_signal=False,
-            source_privee=False, nature=None) -> Classement:
+            source_privee=False, nature=None, etat=None,
+            procedure_detectee=False) -> Classement:
     """Décide de la catégorie, du moteur et de l'action unique.
 
     Aucun paramètre ne nomme une source, et c'est délibéré : brancher TED,
@@ -112,22 +114,48 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
                           "signal d'un besoin logistique — à qualifier",
                           raisons=["inférence, pas un marché ouvert"])
 
-    # ── 3. Marché attribué : moteur DÉVELOPPER ──
-    if attribue:
+    # ── 3. L'ÉTAT DE LA PROCÉDURE décide de l'ACTION ──
+    #
+    # Aucun de ces cas n'est un rejet : un marché fermé, annulé ou attribué
+    # garde toute sa valeur commerciale. Il change seulement de moteur.
+    from .procedure import Etat as EtatProcedure
+    etat = etat or (EtatProcedure.ATTRIBUE if attribue else
+                    EtatProcedure.INFORMATIF if informatif else
+                    EtatProcedure.POSTULABLE if deadline_ouverte else EtatProcedure.FERME)
+
+    if etat is EtatProcedure.ATTRIBUE:
         return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.CONTACTER_TITULAIRE,
                           "marché déjà attribué — le titulaire devra exécuter",
-                          raisons=["le titulaire aura besoin de capacité locale"])
-
-    if informatif:
+                          raisons=["le titulaire aura besoin de capacité locale",
+                                   "anticiper la remise en concurrence"])
+    if etat is EtatProcedure.INFORMATIF:
         return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.SURVEILLER,
-                          "avis informatif — aucun dépôt attendu",
-                          raisons=["surveiller la publication du marché réel"])
-
-    if not deadline_ouverte:
-        # Une échéance dépassée ferme le dépôt, pas la relation commerciale.
+                          "préinformation — le besoin est annoncé, rien à déposer encore",
+                          raisons=["potentiel : futur marché",
+                                   "prendre contact avec l'acheteur avant la publication"])
+    if etat is EtatProcedure.ANNULE:
         return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.SURVEILLER,
-                          deadline_motif or "date limite dépassée",
-                          raisons=["hors délai pour déposer — surveiller le renouvellement"])
+                          "procédure annulée — le besoin, lui, n'a pas disparu",
+                          raisons=["une annulation est très souvent suivie d'une relance"])
+    if etat is EtatProcedure.INFRUCTUEUX:
+        return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.CONTACTER_ACHETEUR,
+                          "procédure sans suite — l'acheteur cherche toujours",
+                          raisons=["personne n'a répondu ou aucune offre n'a convenu",
+                                   "c'est le meilleur moment pour se faire connaître"])
+    if etat is EtatProcedure.FERME:
+        return Classement(Type.PROSPECT, Moteur.DEVELOPPER, Action.SURVEILLER,
+                          "FERMÉ — attribution NON PUBLIÉE",
+                          raisons=[deadline_motif or "dépôt clos",
+                                   "aucune attribution constatée : ce n'est PAS un "
+                                   "marché attribué",
+                                   "surveiller la publication du résultat"])
+    if etat is EtatProcedure.INCONNU and procedure_detectee:
+        # Le cas le plus important : on ne sait pas, et on le dit. L'opportunité
+        # reste dans le radar — elle n'est ni jetée, ni promue en POSTULABLE.
+        return Classement(Type.PROSPECT, Moteur.CAPTER, Action.VERIFIER_ETAT,
+                          "ÉTAT À VÉRIFIER — la source ne permet pas de conclure",
+                          raisons=["ni ouvert ni attribué de façon démontrable",
+                                   "vérifier à la source avant d'engager du temps"])
 
     # On ne dépose un dossier que sur un besoin PUBLIÉ. Sur une hypothèse —
     # une page qui dit « devenir partenaire transporteur », sans date ni

@@ -160,6 +160,44 @@ CREATE TABLE IF NOT EXISTS incidents (
 );
 CREATE INDEX IF NOT EXISTS idx_incidents_etape ON incidents(etape);
 
+-- MÉMOIRE DU VOCABULAIRE DÉCOUVERT.
+--
+-- Quand un portail emploie une formulation jamais rencontrée, elle n'est pas
+-- devinée : elle est CONSERVÉE ici, avec son contexte, pour être interprétée
+-- une fois — puis reconnue. Tant que personne n'a tranché, `interpretation`
+-- reste NULL et l'état de la procédure reste INCONNU.
+CREATE TABLE IF NOT EXISTS vocabulaire (
+    id            INTEGER PRIMARY KEY,
+    source        TEXT NOT NULL,
+    champ         TEXT NOT NULL,      -- statut | type_information
+    expression    TEXT NOT NULL,      -- ce que le portail a écrit, tel quel
+    langue        TEXT,
+    contexte      TEXT,               -- l'intitulé où elle est apparue
+    interpretation TEXT,              -- NULL = pas encore tranché
+    confiance     TEXT,
+    preuve        TEXT,
+    occurrences   INTEGER NOT NULL DEFAULT 1,
+    vu_le         TEXT NOT NULL,
+    revise_le     TEXT,
+    revise_par    TEXT,
+    UNIQUE (source, champ, expression)
+);
+CREATE INDEX IF NOT EXISTS idx_voc_a_trancher
+    ON vocabulaire(source) WHERE interpretation IS NULL;
+
+-- Une révision n'efface JAMAIS l'ancienne lecture : elle l'archive. Une
+-- mauvaise interprétation corrigée plus tard doit rester visible, sinon on ne
+-- saura jamais quelles fiches ont été produites avec la version fausse.
+CREATE TABLE IF NOT EXISTS vocabulaire_historique (
+    id             INTEGER PRIMARY KEY,
+    vocabulaire_id INTEGER NOT NULL REFERENCES vocabulaire(id) ON DELETE CASCADE,
+    interpretation TEXT,
+    confiance      TEXT,
+    motif          TEXT,
+    remplace_le    TEXT NOT NULL,
+    par            TEXT
+);
+
 CREATE TABLE IF NOT EXISTS filigrane (
     source TEXT PRIMARY KEY, valeur TEXT, gele INTEGER NOT NULL DEFAULT 0,
     raison TEXT, maj_le TEXT NOT NULL
