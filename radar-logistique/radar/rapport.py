@@ -28,6 +28,37 @@ class Selection:
 EMOJIS = {"DIRECT": "🟢", "RENFORCEMENT": "🟡", "A_CONSTRUIRE": "🟣",
           "PROSPECT": "🔵", "REJET": "🔴"}
 
+# Les familles de besoin, dans l'ordre où elles se lisent. Le classement se fait
+# sur des FAITS portés par l'opportunité — jamais sur le nom de la source :
+# un besoin privé peut arriver par un moteur de recherche, une page ou une
+# bourse de fret, et un besoin public par trois portails différents.
+FAMILLES_ORDRE = [
+    ("BESOINS PRIVÉS", None), ("MARCHÉS PUBLICS", None),
+    ("SOUS-TRAITANCE ET PARTENARIAT", None), ("ENTREPRISES À DÉMARCHER", None),
+    ("SIGNAUX ÉCONOMIQUES", None), ("RENOUVELLEMENTS À ANTICIPER", None),
+    ("MÉTIERS À CONSTRUIRE", None),
+]
+
+
+def famille_de(ligne) -> str:
+    """À quelle famille de besoin cette opportunité appartient.
+
+    Lu sur ce que l'opportunité EST, pas sur d'où elle vient.
+    """
+    if ligne["type"] == "A_CONSTRUIRE":
+        return "MÉTIERS À CONSTRUIRE"
+    if ligne["etat_procedure"] == "ATTRIBUÉ" or ligne["etat_procedure"] == "ANNONCÉ":
+        return "RENOUVELLEMENTS À ANTICIPER"
+    if ligne["nature"] in ("SIGNAL", "HYPOTHÈSE"):
+        return "SIGNAUX ÉCONOMIQUES"
+    if (ligne["action"] or "").startswith("PROPOSER"):
+        return "SOUS-TRAITANCE ET PARTENARIAT"
+    if (ligne["secteur"] or "").lower().startswith("pub"):
+        return "MARCHÉS PUBLICS"
+    if ligne["etat_procedure"] == "HORS PROCÉDURE" and not ligne["echeance"]:
+        return "ENTREPRISES À DÉMARCHER"
+    return "BESOINS PRIVÉS"
+
 CHAMPS_COMPLETUDE = (
     ("acheteur", "acheteur"), ("échéance", "echeance"), ("montant", "montant"),
     ("durée", "duree_mois"), ("cadence", "cadence"), ("lots", "lot_numero"),
@@ -64,6 +95,7 @@ class Rapport:
     signaux: list = field(default_factory=list)       # événements pouvant générer du CA
     a_verifier_liste: list = field(default_factory=list)   # informations ambiguës
     actions: dict = field(default_factory=dict)       # action -> [(score, titre, source)]
+    familles: dict = field(default_factory=dict)      # famille de besoin -> lignes
 
     def _pct(self, n: int) -> str:
         return f"{n:>5}  ({n / self.total:.0%})" if self.total else f"{n:>5}"
@@ -114,6 +146,18 @@ class Rapport:
                 L.append(f"        {motif[:66]}")
         else:
             L.append("  rien d'ambigu dans cet échantillon")
+
+        L += ["", "PAR FAMILLE DE BESOIN"]
+        if self.familles:
+            for titre, _ in FAMILLES_ORDRE:
+                trouvees = self.familles.get(titre, [])
+                L.append(f"  {titre:<32} {len(trouvees):>3}")
+                for score, intitule, source in trouvees[:3]:
+                    L.append(f"      [{score:>3}] {intitule[:48]:<48} {source}")
+            L.append("  Un appel d'offres est UNE famille parmi douze. Aucune n'a")
+            L.append("  de privilège : c'est l'économie qui classe.")
+        else:
+            L.append("  NON MESURÉ")
 
         L += ["", "TOP ACTIONS — ce que je fais demain matin"]
         if self.actions:
@@ -457,6 +501,15 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
                 " ORDER BY o.score DESC LIMIT ?", (limite_top,)):
             r.a_verifier_liste.append((l["score"], l["intitule"] or "(sans intitulé)",
                                        l["source"], l["motif"] or "état non démontré"))
+
+    if "nature" in connues:
+        for l in cx.execute(
+                "SELECT o.score, o.intitule, o.type, o.action, o.nature,"
+                " o.etat_procedure, o.echeance, o.secteur, a.source"
+                " FROM opportunites o JOIN avis a ON a.id = o.avis_id"
+                " WHERE o.type <> 'REJET' ORDER BY o.score DESC"):
+            r.familles.setdefault(famille_de(l), []).append(
+                (l["score"], l["intitule"] or "(sans intitulé)", l["source"]))
 
     # Ce qu'il y a à FAIRE, regroupé par geste. C'est la sortie du produit.
     for l in cx.execute(

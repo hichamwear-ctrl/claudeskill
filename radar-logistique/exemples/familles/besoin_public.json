@@ -1,0 +1,6 @@
+[{"identifiant":"BDA-2027-4412","intitule":"Transport et distribution de fournitures scolaires",
+  "objet":"Livraison hebdomadaire de fournitures vers 22 établissements communaux au départ d'un dépôt belge.",
+  "acheteur":"Ville de Gembloux","cpv":["60000000"],"montant":180000,"duree_mois":24,
+  "echeance":"2099-06-30","lieu":"Namur","pays":"BE","cadence":"hebdomadaire",
+  "statut":"en cours","type_information":"avis de marché",
+  "lien_avis":"https://exemple.be/bda/4412","contact_email":"marches@gembloux.be"}]

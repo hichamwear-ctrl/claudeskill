@@ -1,0 +1,6 @@
+[{"identifiant":"BDA-2027-9001","intitule":"Marché de services logistiques — 3 lots",
+  "objet":"Marché divisé en lots.","acheteur":"Province du Brabant wallon",
+  "cpv":["60000000"],"echeance":"2099-07-01","pays":"BE","statut":"en cours",
+  "lots":[{"numero":"1","intitule":"Transport de mobilier","montant":60000,"statut":"en cours"},
+          {"numero":"2","intitule":"Fourniture et livraison de poissons frais","montant":400000,"cpv":["15200000"]},
+          {"numero":"3","intitule":"Distribution régionale","montant":900000,"statut":"attribué","requirements":{"min-vehicles":12}}]}]

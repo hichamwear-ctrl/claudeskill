@@ -44,6 +44,43 @@ Aucune n'est secondaire parce qu'elle n'est pas un appel d'offres.
 python3 outils/radar_commercial.py   # les huit, dans le même moteur, un seul rapport
 ```
 
+## Douze familles de besoin — l'appel d'offres en est une
+
+```bash
+python3 outils/familles.py            # les douze, dans le même moteur
+python3 outils/familles.py --prive    # sans aucune source publique
+python3 outils/familles.py --public   # sans aucune source privée
+```
+
+| famille | ce que c'est |
+|---|---|
+| `besoin_prive` | une entreprise qui cherche un transporteur |
+| `besoin_public` | un marché belge sous le seuil |
+| `sous_traitance` | un opérateur qui cherche des sous-traitants |
+| `partenariat` | un réseau qui ouvre son référencement |
+| `entreprise_a_demarcher` | une société dont la flotte sature |
+| `signal_economique` | l'ouverture d'un centre logistique |
+| `emploi_signal` | 25 chauffeurs recherchés |
+| `attribution` | un marché de 2,9 M€ gagné par un tiers |
+| `preinformation` | un besoin annoncé pour 2027 |
+| `appel_offres` | un marché européen ouvert |
+| `lot` | un marché à trois lots, trois états |
+| `metier_inconnu` | des bornes de recharge, formation assurée |
+
+Les trois lots — douze familles, privé seul, public seul — se réconcilient
+tous à zéro. Retirer n'importe laquelle des douze ne casse rien : c'est testé
+famille par famille.
+
+**Le banc d'essai lui-même a été redressé.** Mesuré : `opp()` portait
+`type_avis="appel-offres"` et `cpv=["60000000"]`, donc **94 % des opportunités
+construites dans les tests étaient en forme de marché public**. Le moteur était
+indépendant, mais son banc d'essai lui apprenait implicitement « opportunité =
+marché public » — et un défaut n'apparaissant que sur une source privée serait
+passé inaperçu. Le défaut est maintenant un besoin nu ; les tests qui ont
+vraiment besoin d'un marché public le disent avec `avis_public()`.
+
+---
+
 ## Symétrie public / privé — trois asymétries corrigées
 
 Le cœur ne doit donner aucun privilège à une source officielle. Trois entorses
@@ -213,12 +250,20 @@ du marché.
 ### Le rapport est le produit, pas un compteur d'avis
 
 ```
-CAPTER        ce que je peux attaquer maintenant
-DÉVELOPPER    titulaires, renouvellements, préinformations, partenariats
-SIGNAUX       des événements, pas encore des contrats
-À VÉRIFIER    informations ambiguës, ni jetées ni promues
-TOP ACTIONS   ce que je fais demain matin, groupé par geste
+CAPTER                          ce que je peux attaquer maintenant
+DÉVELOPPER                      titulaires, renouvellements, préinformations
+SIGNAUX                         des événements, pas encore des contrats
+À VÉRIFIER                      informations ambiguës, ni jetées ni promues
+PAR FAMILLE DE BESOIN           besoins privés · marchés publics ·
+                                sous-traitance · entreprises à démarcher ·
+                                signaux · renouvellements · métiers à construire
+TOP ACTIONS                     ce que je fais demain matin, groupé par geste
 ```
+
+La famille se lit sur ce que l'opportunité **est** — son secteur, sa nature,
+son état — jamais sur d'où elle vient : un besoin public trouvé par un moteur
+de recherche va dans MARCHÉS PUBLICS, un besoin privé lu sur TED va dans
+BESOINS PRIVÉS.
 
 Les statistiques de collecte viennent **après**. Les sources y figurent comme
 provenances (« vu sur »), jamais comme classement.
@@ -670,7 +715,7 @@ concernée, correction, test de non-régression.
 
 ## Le cahier des charges est vérifiable
 
-Quarante-cinq règles ont été validées puis verrouillées. Une règle peut se perdre lors
+Cinquante et une règles ont été validées puis verrouillées. Une règle peut se perdre lors
 d'une réécriture — c'est arrivé une fois, les seize questions ont tourné sans
 test pendant plusieurs versions. L'audit le détecte :
 
@@ -700,7 +745,7 @@ l'objectif.*
 python -m unittest discover -s tests
 ```
 
-277 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
+299 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
 chacun pose une question dont la mauvaise réponse coûte un contrat.
 
 Zéro dépendance hors PyYAML.

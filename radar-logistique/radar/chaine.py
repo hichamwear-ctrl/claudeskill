@@ -221,8 +221,14 @@ class Moteur:
             zone_ok=zone.compatible,
             zone_motif=zone.raisons[0] if zone.raisons else "",
             deadline_ouverte=True, deadline_motif="", attribue=False, informatif=False,
-            bilan_capacite=bilan, construction=constr, est_signal=opp.est_signal,
-            source_privee=False, nature=nature,
+            bilan_capacite=bilan, construction=constr,
+            # AUCUNE des quatre dimensions n'entre ici. Ni l'état (B), ni la
+            # nature (C), ni la provenance. Un signal dont le besoin sous-jacent
+            # vaut 92 vaut 92 : ce qui change, c'est la CONFIANCE qu'on a dans
+            # l'information — et elle a son propre champ, la fiabilité.
+            # Le pondérer à la baisse reviendrait à cacher une bonne affaire
+            # parce qu'elle a été découverte autrement qu'en lisant un avis.
+            est_signal=False, source_privee=False, nature=None,
             etat=proc.Etat.POSTULABLE, procedure_detectee=False).type
         score = self.bareme.calculer(correspondance=corr, zone=zone, bilan=bilan, opp=opp,
                                      type_opp=type_economique, cadence=opp.cadence,
@@ -321,6 +327,7 @@ class Moteur:
 # ligne absente : on agit dessus.
 RECALCULEES = ("type", "moteur", "action", "role", "statut", "zone", "familles",
                "etat_procedure", "confiance_etat", "type_information", "nature",
+               "secteur",
                "fiabilite", "fiabilite_motif", "echeance", "jours_restants",
                "score", "marge", "detail_score", "journal", "motif", "fiche",
                "calcule_le")
@@ -329,8 +336,8 @@ _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "familles", "marche_ref", "lot_numero", "intitule", "acheteur",
              "montant", "devise", "duree_mois", "cadence", "contact", "exigences",
              "echeance", "jours_restants", "distance_km", "etat_procedure",
-             "confiance_etat", "type_information", "nature", "fiabilite",
-             "fiabilite_motif",
+             "confiance_etat", "type_information", "nature", "secteur",
+             "fiabilite", "fiabilite_motif",
              "score", "marge", "detail_score", "journal", "motif", "fiche",
              "calcule_le")
 
@@ -349,6 +356,7 @@ def _valeurs(avis_id, opp, r) -> tuple:
             lecture.confiance.value if lecture else None,
             lecture.type_information_source if lecture else None,
             r.nature.value if r.nature else None,
+            opp.secteur_acheteur,
             r.fiabilite.niveau.value if r.fiabilite else None,
             r.fiabilite.motif() if r.fiabilite else None,
             r.score.total, r.score.marge_estimee,

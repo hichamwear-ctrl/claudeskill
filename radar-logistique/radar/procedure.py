@@ -246,9 +246,20 @@ MARQUEURS = {
         "einreichen",
     ],
     "procedure": [
-        "procedure", "consultation", "consultations", "marche", "marches",
-        "appel", "appels", "concurrence", "adjudication", "phase",
-        "aanbesteding", "opdracht", "procedure", "vergabe", "verfahren",
+        # Ces mots doivent désigner une PROCÉDURE, pas n'importe quel appel.
+        # « Appel à sous-traitants » sur le site d'une PME est un besoin
+        # exprimé directement, pas une consultation dont l'état serait inconnu.
+        # Le mot « appel » seul faisait inventer une procédure fantôme, et
+        # l'opportunité ressortait « VÉRIFIER L'ÉTAT » au lieu de « CONTACTER ».
+        # Même prudence pour « marché », qui veut aussi dire « le marché ».
+        "procedure", "procedure de passation", "consultation", "consultations",
+        "appel d offres", "appel a la concurrence", "appel a concurrence",
+        "appel a candidatures", "en concurrence", "soumissionner",
+        "mise en concurrence", "marche public", "marches publics",
+        "adjudication", "cahier des charges", "pouvoir adjudicateur",
+        "aanbesteding", "overheidsopdracht", "bestek",
+        "public procurement", "call for tenders", "contract notice",
+        "vergabeverfahren", "ausschreibung",
     ],
     # ── ce qu'on en dit ───────────────────────────────────────────────────
     "ouverture": [

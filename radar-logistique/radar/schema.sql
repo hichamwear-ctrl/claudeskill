@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS opportunites (
     confiance_etat TEXT,
     type_information TEXT,            -- A · ce que la source appelle l'objet
     nature        TEXT,               -- C · FAIT | SIGNAL | HYPOTHÈSE
+    -- Qui achète : public ou privé. C'est un fait sur le DEMANDEUR, pas sur la
+    -- source — un besoin public peut arriver par un moteur de recherche.
+    secteur       TEXT,
     -- FIABILITÉ DE L'INFORMATION — jamais mélangée à la valeur économique.
     -- Une information peu fiable peut être excellente commercialement.
     fiabilite     TEXT,

@@ -1,0 +1,7 @@
+[{"publication-number":"TED-2027-118","notice-type":"contract-notice",
+  "title":{"fra":"Distribution de colis pour les services provinciaux — 36 mois"},
+  "description":{"fra":"Tournées quotidiennes de distribution au départ d'un dépôt belge."},
+  "buyer":{"name":{"fra":"Province de Namur"},"contact":{"email":"marches@province.be"}},
+  "classification-cpv":["60000000"],"estimated-value":{"amount":180000,"currency":"EUR"},
+  "duration-months":24,"frequency":"quotidienne","deadline-receipt-tender":"2099-05-15",
+  "place-of-delivery":{"country":"BE"},"submission-url":"https://exemple.eu/ted/TED-2027-118"}]

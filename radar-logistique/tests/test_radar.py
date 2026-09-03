@@ -53,12 +53,35 @@ def moteur():
 
 
 def opp(**kw):
-    base = dict(source="bda", ref_source="R1", intitule="Transport de colis",
+    """LE BESOIN PAR DÉFAUT DU BANC D'ESSAI — et il n'est PAS un appel d'offres.
+
+    Ce constructeur portait `type_avis="appel-offres"` et `cpv=["60000000"]`.
+    Mesuré : 94 % des opportunités construites dans ces tests étaient donc en
+    forme de marché public. Le moteur était théoriquement indépendant, mais son
+    banc d'essai lui apprenait implicitement « opportunité = marché public » —
+    et un défaut qui n'apparaît que sur une source privée serait passé inaperçu.
+
+    Le défaut est maintenant un besoin commercial nu : pas de CPV, pas de type
+    d'avis, pas de référence officielle. Les tests qui ont réellement besoin
+    d'un marché public le disent avec `avis_public()`.
+    """
+    base = dict(source="entreprise", ref_source="R1", intitule="Transport de colis",
                 texte="transport routier de marchandises et distribution",
-                type_avis="appel-offres", cpv=["60000000"], pays_livraison=["BE"],
-                echeance_brute=OUVERT)
+                pays_livraison=["BE"], echeance_brute=OUVERT)
     base.update(kw)
     return Opportunite(**base)
+
+
+def avis_public(**kw):
+    """Un besoin publié par un acheteur public — une FORME parmi d'autres.
+
+    Elle n'a aucun privilège : elle porte simplement des champs que le privé
+    n'a pas (CPV, type d'avis, référence officielle).
+    """
+    base = dict(source="bda", type_avis="appel-offres", cpv=["60000000"],
+                acheteur="Commune de Namur", secteur_acheteur="public")
+    base.update(kw)
+    return opp(**base)
 
 
 # ══════════════ §2 — l'entreprise est un point de départ, pas une limite
@@ -2094,18 +2117,18 @@ class ContradictionsFortes(unittest.TestCase):
 
 class EtatsParLot(unittest.TestCase):
     def test_un_marche_attribue_avec_quatre_lots_donne_quatre_etats(self):
-        marche = opp(ref_source="P", statut_source="attribué",
-                     intitule="Marché de services logistiques",
-                     texte="transport et distribution", acheteur="Province",
-                     pays_livraison=["BE"], echeance_brute=OUVERT,
-                     lots=[LotBrut(numero="1", intitule="Transport de mobilier",
-                                   statut_source="attribué"),
-                           LotBrut(numero="2", intitule="Transport de palettes",
-                                   statut_source="clôturé"),
-                           LotBrut(numero="3", intitule="Distribution urbaine",
-                                   statut_source="en cours"),
-                           LotBrut(numero="4", intitule="Manutention",
-                                   statut_source="infructueux")])
+        marche = avis_public(ref_source="P", statut_source="attribué",
+                             intitule="Marché de services logistiques",
+                             texte="transport et distribution", acheteur="Province",
+                             pays_livraison=["BE"], echeance_brute=OUVERT,
+                             lots=[LotBrut(numero="1", intitule="Transport de mobilier",
+                                           statut_source="attribué"),
+                                   LotBrut(numero="2", intitule="Transport de palettes",
+                                           statut_source="clôturé"),
+                                   LotBrut(numero="3", intitule="Distribution urbaine",
+                                           statut_source="en cours"),
+                                   LotBrut(numero="4", intitule="Manutention",
+                                           statut_source="infructueux")])
         cx = ouvrir(":memory:")
         voc = Vocabulaire(yaml.safe_load(
             (RACINE / "sources" / "bda.yaml").read_text(encoding="utf-8")))
@@ -2120,12 +2143,14 @@ class EtatsParLot(unittest.TestCase):
                                  "3": "POSTULABLE", "4": "INFRUCTUEUX"})
 
     def test_un_lot_attribue_dans_un_marche_ouvert_reste_attribue(self):
-        marche = opp(ref_source="Q", statut_source="en cours",
-                     intitule="Marché de transport", texte="transport de marchandises",
-                     acheteur="Commune", pays_livraison=["BE"], echeance_brute=OUVERT,
-                     lots=[LotBrut(numero="1", intitule="Transport A"),
-                           LotBrut(numero="2", intitule="Transport B",
-                                   statut_source="attribué")])
+        marche = avis_public(ref_source="Q", statut_source="en cours",
+                             intitule="Marché de transport",
+                             texte="transport de marchandises",
+                             acheteur="Commune", pays_livraison=["BE"],
+                             echeance_brute=OUVERT,
+                             lots=[LotBrut(numero="1", intitule="Transport A"),
+                                   LotBrut(numero="2", intitule="Transport B",
+                                           statut_source="attribué")])
         cx = ouvrir(":memory:")
         m = moteur()
         m.vocabulaires["bda"] = Vocabulaire(yaml.safe_load(
@@ -2167,11 +2192,12 @@ class FiabiliteSeparee(unittest.TestCase):
             "open": {"interpretation": "postulable", "confiance": "elevee"}}}})
         m = moteur()
         m.vocabulaires["bda"] = voc
-        propre = m.analyser(opp(ref_source="C1", acheteur="Ville",
-                                echeance_brute=OUVERT), MAINTENANT)
-        trouble = m.analyser(opp(ref_source="C2", acheteur="Ville",
-                                 echeance_brute=OUVERT, statut_source="open",
-                                 texte_statut="la procédure est clôturée"), MAINTENANT)
+        propre = m.analyser(avis_public(ref_source="C1", acheteur="Ville",
+                                        echeance_brute=OUVERT), MAINTENANT)
+        trouble = m.analyser(avis_public(ref_source="C2", acheteur="Ville",
+                                         echeance_brute=OUVERT, statut_source="open",
+                                         texte_statut="la procédure est clôturée"),
+                             MAINTENANT)
         self.assertEqual(propre.score.total, trouble.score.total)
         self.assertIn("cohérence", trouble.fiabilite.motif())
 
@@ -2527,3 +2553,319 @@ class QuatreDimensionsJamaisMelangees(unittest.TestCase):
             self.assertIn(bloc, texte)
         self.assertLess(texte.index("TOP ACTIONS"), texte.index("COLLECTE"),
                         "les actions passent avant les statistiques de source")
+
+
+# ══════════════ §10 — LE MÊME BESOIN ÉCONOMIQUE SOUS SIX FORMES
+#
+# Le besoin est identique : 180 000 € sur 24 mois, tournées quotidiennes en
+# Belgique, à 20 km du dépôt. Seule la FORME de l'information change.
+BESOIN = dict(montant=180000, duree_mois=24, cadence="quotidienne",
+              pays_livraison=["BE"], distance_depot_km=20,
+              intitule="Distribution urbaine de marchandises",
+              texte="tournées quotidiennes de distribution urbaine pour le "
+                    "compte de tiers")
+
+
+def _forme(nom, **kw):
+    base = dict(source=nom, ref_source=f"F-{nom}", acheteur="Client Exemple",
+                echeance_brute=OUVERT, cpv=[], type_avis=None)
+    base.update(BESOIN)
+    base.update(kw)
+    return Opportunite(**base)
+
+
+FORMES = {
+    # A · appel d'offres public : porte un CPV, un type d'avis, une référence
+    "appel_offres": _forme("ted", ref_source="TED-9001", cpv=["60000000"],
+                           type_avis="contract-notice", secteur_acheteur="public"),
+    # B · page privée : rien de tout cela
+    "page_privee": _forme("entreprise", secteur_acheteur="privé"),
+    # C · résultat de moteur de recherche
+    "recherche": _forme("brave", ref_source="https://ex.be/besoin",
+                        secteur_acheteur="privé"),
+    # D · bourse de fret
+    "bourse_fret": _forme("bourse_fret", secteur_acheteur="privé"),
+    # E · page d'entreprise avec contact
+    "page_entreprise": _forme("entreprise", ref_source="F-ent2",
+                              contact="logistique@ex.be", secteur_acheteur="privé"),
+    # F · signal économique — même besoin, mais déduit d'un événement
+    "signal": _forme("signaux", est_signal=True, signal_code="ouverture_site",
+                     secteur_acheteur="privé"),
+}
+
+
+class MemeBesoinSixFormes(unittest.TestCase):
+    """Capacité, économie et score IDENTIQUES. Seul change ce qui dépend
+    réellement de la nature de l'information : action, fiabilité, état, nature,
+    provenance."""
+
+    def setUp(self):
+        m = moteur()
+        self.r = {nom: m.analyser(o, MAINTENANT) for nom, o in FORMES.items()}
+
+    def _unique(self, extraire, quoi):
+        valeurs = {nom: extraire(r) for nom, r in self.r.items()}
+        self.assertEqual(len(set(valeurs.values())), 1, f"{quoi} diverge : {valeurs}")
+
+    def test_capacite_identique(self):
+        self._unique(lambda r: (tuple(r.bilan.atouts), tuple(r.bilan.bloquants),
+                                tuple(r.bilan.mobilisations), tuple(r.bilan.remedes)),
+                     "le bilan de capacité")
+
+    def test_economie_identique(self):
+        self._unique(lambda r: (r.score.marge_estimee,
+                                tuple(l.split(" ")[0] for l in r.score.detail())),
+                     "le détail économique")
+
+    def test_score_identique(self):
+        self._unique(lambda r: r.score.total, "le score")
+
+    def test_classification_identique(self):
+        """Sauf le signal, qui EST une catégorie d'information différente."""
+        sans_signal = {n: r.classement.type.value
+                       for n, r in self.r.items() if n != "signal"}
+        self.assertEqual(len(set(sans_signal.values())), 1, sans_signal)
+
+    def test_un_signal_reste_un_prospect_meme_a_economie_egale(self):
+        """Ce n'est PAS un biais de source : c'est la dimension C qui parle.
+        Une inférence ne se présente pas comme un contrat ouvert."""
+        self.assertEqual(self.r["signal"].classement.type.value, "PROSPECT")
+        self.assertEqual(self.r["signal"].nature.value, "SIGNAL")
+        self.assertEqual(self.r["signal"].score.total,
+                         self.r["appel_offres"].score.total,
+                         "mais son économie reste la même")
+
+    def test_l_action_a_LE_DROIT_de_changer(self):
+        actions = {n: r.classement.action.value for n, r in self.r.items()}
+        self.assertGreater(len(set(actions.values())), 1,
+                           "l'action doit dépendre de la nature de l'information")
+
+    def test_la_fiabilite_suit_les_PREUVES_pas_l_officialite(self):
+        """Ces six formes portent les mêmes preuves : leur fiabilité est donc
+        la même, y compris pour l'appel d'offres. Ce qui la fait bouger, c'est
+        un lien, un contact, une référence — jamais le caractère officiel."""
+        self.assertEqual(len({r.fiabilite.niveau for r in self.r.values()}), 1,
+                         "à preuves égales, fiabilité égale")
+        m = moteur()
+        nu = m.analyser(_forme("ted", ref_source="SANS-REF-x", acheteur=None,
+                               type_avis="contract-notice", cpv=["60000000"]),
+                        MAINTENANT)
+        etoffe = m.analyser(_forme("entreprise", ref_source="ENT-77",
+                                   plateforme="https://ex.be/partenaires",
+                                   contact="logistique@ex.be"), MAINTENANT)
+        ordre = ["NULLE", "FAIBLE", "MOYENNE", "FORTE"]
+        self.assertGreater(ordre.index(etoffe.fiabilite.niveau.value),
+                           ordre.index(nu.fiabilite.niveau.value),
+                           "une page privée bien documentée doit battre un avis "
+                           "officiel qui ne prouve rien")
+        self.assertEqual(nu.score.total, etoffe.score.total,
+                         "et la fiabilité ne touche jamais le score")
+
+
+class CentBesoinsPrivesSeuls(unittest.TestCase):
+    """§12 — cent besoins privés, aucun appel d'offres. Le radar doit tout
+    faire : analyser, classer, capacité, score, doublons, CAPTER/DÉVELOPPER,
+    actions, rapport complet."""
+
+    N = 100
+
+    def _lot(self, prefixe, publique: bool):
+        lot = []
+        for i in range(self.N):
+            commun = dict(intitule=f"Distribution urbaine — client {i}",
+                          texte="tournées quotidiennes de distribution pour le "
+                                "compte de tiers",
+                          acheteur=f"Client {i}", montant=90000 + i * 900,
+                          duree_mois=24, cadence="quotidienne",
+                          pays_livraison=["BE"], distance_depot_km=15 + i % 40,
+                          echeance_brute=OUVERT)
+            if publique:
+                lot.append(Opportunite(source="bda", ref_source=f"{prefixe}-{i}",
+                                       cpv=["60000000"], type_avis="avis de marché",
+                                       secteur_acheteur="public", **commun))
+            else:
+                lot.append(Opportunite(source="entreprise", ref_source=f"{prefixe}-{i}",
+                                       cpv=[], type_avis=None,
+                                       secteur_acheteur="privé", **commun))
+        # deux doublons volontaires, pour éprouver la déduplication
+        lot.append(Opportunite(source="brave", ref_source=f"{prefixe}-dup",
+                               cpv=[], type_avis=None,
+                               intitule="Distribution urbaine — client 3",
+                               texte="tournées quotidiennes de distribution pour "
+                                     "le compte de tiers",
+                               acheteur="Client 3", montant=92700, duree_mois=24,
+                               cadence="quotidienne", pays_livraison=["BE"],
+                               distance_depot_km=18, echeance_brute=OUVERT))
+        return lot
+
+    def _passer(self, publique):
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        b = traiter(cx, moteur(), self._lot("P" if publique else "V", publique),
+                    maintenant_dt=MAINTENANT)
+        return cx, b, construire(cx, Mode.DEMO,
+                                 cible={"montant_total_confortable_max": 1500000})
+
+    def _verifier(self, cx, b, r, contexte):
+        self.assertEqual(b.lus, self.N + 1, f"{contexte} : toutes les lignes lues")
+        self.assertEqual(b.livre.ecart(), 0, f"{contexte} : réconciliation")
+        self.assertEqual(b.doublons, 1, f"{contexte} : le doublon est détecté")
+        n = cx.execute("SELECT count(*) c FROM opportunites"
+                       " WHERE type <> 'REJET'").fetchone()["c"]
+        self.assertEqual(n, self.N, f"{contexte} : {self.N} opportunités")
+        # capacité, économie, actions
+        sans_capacite = cx.execute(
+            "SELECT count(*) c FROM opportunites WHERE fiche NOT LIKE '%CE QUE J''AI%'"
+        ).fetchone()["c"]
+        self.assertEqual(sans_capacite, 0, f"{contexte} : chaque fiche a sa capacité")
+        self.assertTrue(all(l["score"] > 0 for l in cx.execute(
+            "SELECT score FROM opportunites WHERE type <> 'REJET'")),
+            f"{contexte} : chaque opportunité est notée")
+        self.assertTrue(b.capter + b.developper > 0, f"{contexte} : CAPTER/DÉVELOPPER")
+        self.assertTrue(r.actions, f"{contexte} : des actions sont produites")
+        texte = r.en_texte(avec_fiches=False)
+        for bloc in ("CAPTER", "DÉVELOPPER", "TOP ACTIONS", "COLLECTE",
+                     "FIABILITÉ DE L'INFORMATION", "ÉCONOMIE"):
+            self.assertIn(bloc, texte, f"{contexte} : le rapport porte {bloc}")
+
+    def test_cent_besoins_prives_produisent_un_radar_complet(self):
+        cx, b, r = self._passer(publique=False)
+        self._verifier(cx, b, r, "100 % privé")
+        etats = {l["etat_procedure"] for l in cx.execute(
+            "SELECT etat_procedure FROM opportunites")}
+        self.assertNotIn("INCONNU", etats,
+                         "un besoin privé clair ne doit pas finir « à vérifier »")
+
+    def test_cent_appels_d_offres_produisent_un_radar_complet(self):
+        cx, b, r = self._passer(publique=True)
+        self._verifier(cx, b, r, "100 % public")
+
+    def test_les_deux_lots_donnent_les_memes_scores(self):
+        """Cent besoins identiques, l'un public l'autre privé : mêmes scores."""
+        cxv, _, _ = self._passer(publique=False)
+        cxp, _, _ = self._passer(publique=True)
+        prive = [l["score"] for l in cxv.execute(
+            "SELECT score FROM opportunites ORDER BY intitule")]
+        public = [l["score"] for l in cxp.execute(
+            "SELECT score FROM opportunites ORDER BY intitule")]
+        self.assertEqual(prive, public)
+
+
+class LAbsenceNEstPasUnAvantage(unittest.TestCase):
+    """Une source qui ne publie AUCUNE exigence produisait un bilan vide,
+    indistinguable de « tout est couvert » — et gagnait les points pleins.
+    Une annonce muette notait donc mieux qu'une annonce précise, et NON MESURÉ
+    était traité comme un zéro favorable."""
+
+    def _score(self, **kw):
+        base = dict(intitule="Distribution urbaine de marchandises",
+                    texte="tournées quotidiennes de distribution urbaine",
+                    acheteur="Client", montant=180000, duree_mois=24,
+                    cadence="quotidienne", pays_livraison=["BE"],
+                    echeance_brute=OUVERT)
+        base.update(kw)
+        return moteur().analyser(opp(**base), MAINTENANT)
+
+    def test_aucune_exigence_publiee_vaut_non_mesure_pas_couvert(self):
+        r = self._score(ref_service="x") if False else self._score()
+        lignes = " ".join(r.score.detail())
+        self.assertIn("aucune exigence publiée", lignes)
+        self.assertIn("NON MESURÉ", lignes)
+
+    def test_une_annonce_muette_ne_bat_pas_une_annonce_couverte(self):
+        muette = self._score(ref_source="M")
+        couverte = self._score(ref_source="C", exigences={"licence_transport": True})
+        self.assertGreater(couverte.score.total, muette.score.total,
+                           "publier des exigences qu'on couvre doit valoir mieux "
+                           "que ne rien publier")
+
+    def test_le_demarrage_non_publie_n_est_pas_un_demarrage_immediat(self):
+        lignes = " ".join(self._score().score.detail())
+        self.assertIn("moyens nécessaires NON PUBLIÉS", lignes)
+
+
+class RapportParFamilleDeBesoin(unittest.TestCase):
+    """Le rapport s'organise par FAMILLE DE BESOIN, pas par portail."""
+
+    def _rapport(self):
+        from outils.familles import FAMILLES, charger, moteur as m_familles
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        m = m_familles()
+        for nom, _, _, _ in FAMILLES:
+            traiter(cx, m, charger(nom), maintenant_dt=MAINTENANT)
+        return construire(cx, Mode.DEMO,
+                          cible={"montant_total_confortable_max": 1500000})
+
+    def test_les_sept_familles_sont_toujours_affichees(self):
+        texte = self._rapport().en_texte(avec_fiches=False)
+        for famille in ("BESOINS PRIVÉS", "MARCHÉS PUBLICS",
+                        "SOUS-TRAITANCE ET PARTENARIAT", "ENTREPRISES À DÉMARCHER",
+                        "SIGNAUX ÉCONOMIQUES", "RENOUVELLEMENTS À ANTICIPER",
+                        "MÉTIERS À CONSTRUIRE"):
+            self.assertIn(famille, texte)
+
+    def test_les_marches_publics_ne_sont_pas_la_famille_majoritaire(self):
+        r = self._rapport()
+        total = sum(len(v) for v in r.familles.values())
+        publics = len(r.familles.get("MARCHÉS PUBLICS", []))
+        self.assertLess(publics / total, 0.5,
+                        f"les marchés publics dominent le radar : {publics}/{total}")
+
+    def test_la_famille_se_lit_sur_le_besoin_pas_sur_la_source(self):
+        from radar.rapport import famille_de
+        besoin_public_via_google = {"type": "DIRECT", "nature": "FAIT",
+                                    "etat_procedure": "POSTULABLE", "action": "POSTULER",
+                                    "secteur": "public", "echeance": "2099-01-01"}
+        self.assertEqual(famille_de(besoin_public_via_google), "MARCHÉS PUBLICS")
+        besoin_prive_via_ted = dict(besoin_public_via_google, secteur="privé")
+        self.assertEqual(famille_de(besoin_prive_via_ted), "BESOINS PRIVÉS")
+
+    def test_les_familles_passent_avant_les_sources(self):
+        texte = self._rapport().en_texte(avec_fiches=False)
+        self.assertLess(texte.index("PAR FAMILLE DE BESOIN"), texte.index("COLLECTE"))
+
+
+class LesDouzeFamillesTraversentLeMoteur(unittest.TestCase):
+    """§3 — douze familles de besoin, publiques et privées, un seul moteur."""
+
+    def test_chaque_famille_produit_au_moins_une_opportunite(self):
+        from outils.familles import FAMILLES, charger, moteur as m_familles
+        m = m_familles()
+        for nom, _, _, _ in FAMILLES:
+            with self.subTest(famille=nom):
+                cx = ouvrir(":memory:")
+                b = traiter(cx, m, charger(nom), maintenant_dt=MAINTENANT)
+                self.assertEqual(b.livre.ecart(), 0)
+                retenues = cx.execute("SELECT count(*) c FROM opportunites"
+                                      " WHERE type <> 'REJET'").fetchone()["c"]
+                self.assertGreater(retenues, 0, f"« {nom} » ne produit rien")
+
+    def test_le_radar_tourne_sans_aucune_famille_publique(self):
+        from outils.familles import PRIVEES, passer
+        cx, b = passer(sorted(PRIVEES))
+        self.assertEqual(b.livre.ecart(), 0)
+        self.assertGreater(b.capter + b.developper, 0)
+
+    def test_le_radar_tourne_sans_aucune_famille_privee(self):
+        from outils.familles import PUBLIQUES, passer
+        cx, b = passer(sorted(PUBLIQUES))
+        self.assertEqual(b.livre.ecart(), 0)
+        self.assertGreater(b.capter + b.developper, 0)
+
+    def test_retirer_n_importe_quelle_famille_ne_casse_rien(self):
+        from outils.familles import FAMILLES, passer
+        noms = [f[0] for f in FAMILLES]
+        for exclue in noms:
+            with self.subTest(sans=exclue):
+                _, b = passer([n for n in noms if n != exclue])
+                self.assertEqual(b.livre.ecart(), 0)
+                self.assertGreater(b.capter + b.developper, 0)
+
+    def test_le_banc_d_essai_n_est_plus_majoritairement_public(self):
+        """Le biais mesuré : 94 % des opportunités construites portaient un CPV
+        et un type d'avis. Le défaut du constructeur est maintenant un besoin nu."""
+        o = opp()
+        self.assertEqual(o.cpv, [])
+        self.assertIsNone(o.type_avis)
+        self.assertEqual(avis_public().cpv, ["60000000"])

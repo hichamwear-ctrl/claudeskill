@@ -119,8 +119,20 @@ class Bareme:
             L.append(Ligne("adéquation opérationnelle", 0, "aucune famille reconnue"))
 
         # 2. Accessibilité pour une PME récente
+        #
+        # Piège : une source qui ne publie AUCUNE exigence produit un bilan
+        # vide, indistinguable d'un bilan « tout est couvert ». Récompenser ce
+        # vide revenait à mieux noter une annonce muette qu'une annonce précise
+        # — et à traiter NON MESURÉ comme un zéro favorable. Une opportunité
+        # dont on ne sait rien n'est pas une opportunité facile : c'est une
+        # opportunité qu'on n'a pas encore lue.
+        exigences_publiees = bool(opp.exigences or opp.chauffeurs_requis
+                                  or opp.vehicules_requis or opp.exigences_texte)
         if bilan.bloquants:
             acces, raison = 0, "exigence hors capacité"
+        elif not exigences_publiees:
+            acces = c["accessibilite_pme"] * 0.5
+            raison = "aucune exigence publiée — NON MESURÉ, ni bon ni mauvais"
         elif not bilan.a_verifier and not bilan.mobilisations:
             acces, raison = c["accessibilite_pme"], "exigences couvertes en l'état"
         elif bilan.mobilisations and not bilan.a_verifier:
@@ -160,10 +172,14 @@ class Bareme:
         pts, raison = self._palier_recurrence(cadence or opp.cadence)
         L.append(Ligne("récurrence", pts, raison))
 
-        # 7. Démarrage
+        # 7. Démarrage — même règle : ne pas confondre « rien à mobiliser » et
+        #    « on ne sait pas encore ce qu'il faudra mobiliser ».
         if bilan.mobilisations:
             L.append(Ligne("démarrage", round(c["rapidite_demarrage"] * 0.4, 1),
                            "conditionné à une location ou un recrutement"))
+        elif not exigences_publiees:
+            L.append(Ligne("démarrage", round(c["rapidite_demarrage"] * 0.5, 1),
+                           "moyens nécessaires NON PUBLIÉS — à confirmer"))
         else:
             L.append(Ligne("démarrage", c["rapidite_demarrage"],
                            "exécutable avec les moyens en place"))
