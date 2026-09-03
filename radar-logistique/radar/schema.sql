@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS opportunites (
     exigences     TEXT,
     echeance      TEXT,
     jours_restants INTEGER,
+    distance_km   REAL,               -- distance publiée au dépôt, NULL = NON PUBLIÉE
     score         INTEGER NOT NULL DEFAULT 0,
     detail_score  TEXT,
     motif         TEXT,

@@ -107,6 +107,60 @@ def _codes(v):
     return [str(x).strip() for x in (v if isinstance(v, (list, tuple)) else [v]) if x]
 
 
+# Espaces fines, insécables et séparateurs de milliers : une source publie
+# « 120 000 » aussi souvent que 120000.
+_ESPACES = "\u00a0\u202f\u2009 \t"
+
+
+def _nombre(valeur, champ: str, illisibles: dict):
+    """Lit un nombre publié sous n'importe quelle forme raisonnable.
+
+    Trois issues, et une seule est acceptable pour le reste de la chaîne :
+      · absent           → None, sans bruit ;
+      · lisible          → un float ;
+      · publié mais illisible → None ET une trace dans `illisibles`.
+
+    Ce qui n'arrive jamais : un zéro inventé pour boucher le trou, et une
+    exception qui ferait perdre tout le cycle. Un montant écrit « douze » ne
+    doit pas coûter les mille autres avis du fichier.
+    """
+    if valeur is None or valeur == "" or valeur == [] or valeur == {}:
+        return None
+    if isinstance(valeur, bool):
+        illisibles[champ] = valeur
+        return None
+    if isinstance(valeur, (int, float)):
+        return float(valeur)
+    if isinstance(valeur, (list, tuple)):
+        return _nombre(valeur[0], champ, illisibles) if len(valeur) == 1 else None
+    if isinstance(valeur, dict):
+        illisibles[champ] = valeur
+        return None
+
+    texte = str(valeur).strip()
+    for c in _ESPACES:
+        texte = texte.replace(c, "")
+    for jeton in ("€", "EUR", "eur", "mois", "km"):
+        texte = texte.replace(jeton, "")
+    if "," in texte and "." in texte:
+        texte = (texte.replace(".", "").replace(",", ".")
+                 if texte.rfind(",") > texte.rfind(".") else texte.replace(",", ""))
+    elif "," in texte:
+        # « 120,000 » est un séparateur de milliers ; « 12,5 » une décimale.
+        entier, _, reste = texte.rpartition(",")
+        texte = entier + reste if len(reste) == 3 and reste.isdigit() else texte.replace(",", ".")
+    try:
+        return float(texte)
+    except ValueError:
+        illisibles[champ] = valeur
+        return None
+
+
+def _entier(valeur, champ: str, illisibles: dict):
+    n = _nombre(valeur, champ, illisibles)
+    return int(round(n)) if n is not None else None
+
+
 def _exigences_de(champs: dict) -> dict:
     """Ne retient que ce qui vient d'un champ NORMÉ : une exigence structurée
     peut bloquer, une exigence lue en texte libre ne le peut jamais."""
@@ -120,7 +174,7 @@ def _exigences_de(champs: dict) -> dict:
     return sortie
 
 
-def _lots_de(charge: dict, adaptateur) -> list:
+def _lots_de(charge: dict, adaptateur, illisibles: dict) -> list:
     """Extrait les lots. Un marché sans lot déclaré en aura un : lui-même."""
     from .modele import LotBrut
 
@@ -132,14 +186,22 @@ def _lots_de(charge: dict, adaptateur) -> list:
     for i, lot in enumerate(brut, 1):
         if not isinstance(lot, dict):
             continue
-        champs = {c: lot.get(c) for c in lot}
+        # Les exigences d'un lot sont publiées avec les MÊMES chemins que celles
+        # du marché (« requirements.min-vehicles »). Lire le lot avec ses seules
+        # clés de premier niveau les perdait en silence : le lot ressortait
+        # « exécutable avec la structure actuelle » alors qu'il exigeait douze
+        # véhicules. On applique donc à chaque lot la carte déclarée de la source.
+        champs = {**lot, **adaptateur.extraire(lot)}
+        numero = str(lot.get("numero") or lot.get("lot-number") or i)
         sortie.append(LotBrut(
-            numero=str(lot.get("numero") or lot.get("lot-number") or i),
+            numero=numero,
             intitule=str(lot.get("intitule") or lot.get("title") or ""),
             texte=str(lot.get("description") or lot.get("objet") or ""),
             cpv=_codes(lot.get("cpv") or lot.get("classification-cpv")),
-            montant=lot.get("montant") or lot.get("estimated-value"),
-            duree_mois=lot.get("duree_mois") or lot.get("duration-months"),
+            montant=_nombre(lot.get("montant") or lot.get("estimated-value"),
+                            f"montant du lot {numero}", illisibles),
+            duree_mois=_entier(lot.get("duree_mois") or lot.get("duration-months"),
+                               f"durée du lot {numero}", illisibles),
             exigences=_exigences_de(champs),
             pays_collecte=_liste(lot.get("pays_collecte")),
             pays_livraison=_liste(lot.get("pays_livraison"))))
@@ -165,13 +227,14 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
             repr(sorted(charge.items())).encode()).hexdigest()[:12]
         ref = f"SANS-REF-{empreinte}"
     est_signal = bool(d.get("signal")) or bool(c.get("signal_code"))
+    illisibles: dict = {}
 
     texte = " ".join(str(c.get(k, "")) for k in ("objet", "intitule", "lieu", "conditions"))
     return Opportunite(
         source=source,
         ref_source=ref,
         intitule=str(c.get("intitule") or "(sans intitulé)"),
-        lots=_lots_de(charge, adaptateur),
+        lots=_lots_de(charge, adaptateur, illisibles),
         texte=texte,
         type_avis=c.get("type_avis") or d.get("type_avis"),
         est_signal=est_signal,
@@ -181,17 +244,20 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         secteur_acheteur=c.get("secteur") or d.get("secteur"),
         echeance_brute=c.get("echeance"),
         publie_le=c.get("publie_le"),
-        montant=c.get("montant"),
+        montant=_nombre(c.get("montant"), "montant", illisibles),
         devise=c.get("devise") or "EUR",
-        duree_mois=c.get("duree_mois"),
+        duree_mois=_entier(c.get("duree_mois"), "durée", illisibles),
         cadence=c.get("cadence"),
         date_demarrage=c.get("date_demarrage"),
-        km_annuels=c.get("km_annuels"),
-        distance_depot_km=c.get("distance_depot_km"),
+        km_annuels=_nombre(c.get("km_annuels"), "kilométrage annuel", illisibles),
+        distance_depot_km=_nombre(c.get("distance_depot_km"),
+                                  "distance au dépôt", illisibles),
         travail_nuit=c.get("travail_nuit"),
         travail_weekend=c.get("travail_weekend"),
-        vehicules_requis=c.get("vehicules_requis"),
-        chauffeurs_requis=c.get("chauffeurs_requis"),
+        vehicules_requis=_entier(c.get("vehicules_requis"),
+                                 "véhicules requis", illisibles),
+        chauffeurs_requis=_entier(c.get("chauffeurs_requis"),
+                                  "chauffeurs requis", illisibles),
         provenances=[{"source": source, "url": c.get("plateforme") or c.get("lien_documents"),
                       "consulte_le": (defauts or {}).get("consulte_le"),
                       "requete": (defauts or {}).get("requete")}],
@@ -207,5 +273,6 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         attribue=bool(c.get("attribue")),
         titulaire=c.get("titulaire"),
         attribue_le=c.get("attribue_le"),
+        champs_illisibles=illisibles,
         brut=charge,
     )

@@ -179,9 +179,18 @@ class Moteur:
         # Ce qui manque : les blocages, les moyens à mobiliser, les points non
         # confirmés, et ce qui empêche une montée en compétence.
         manque = list(bilan.bloquants) + list(bilan.mobilisations)
-        if constr and not constr.eligible:
+        # Les manques du test 🟣 ne concernent QUE les fiches où la montée en
+        # compétence est la question posée. Sur un lot de transport bloqué par
+        # six véhicules, « aucune formation mentionnée dans la source » n'est
+        # pas un manque : c'est du bruit, et le bruit fait des boîtes noires.
+        if (constr and not constr.eligible
+                and (classement.type is Type.A_CONSTRUIRE
+                     or not (corr.familles or corr.domaine_transport))):
             manque += constr.manques
         manque += list(bilan.a_verifier)
+        # Un champ publié mais illisible n'est ni ignoré ni deviné : il est dit.
+        for champ, valeur in (opp.champs_illisibles or {}).items():
+            manque.append(f"{champ} publié mais illisible : « {valeur} » — À VÉRIFIER")
 
         # Ce que l'entreprise a déjà : les exigences couvertes, plus les leviers
         # que le test 🟣 a identifiés — sinon une fiche « à construire » laisse
@@ -304,8 +313,9 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                 "INSERT INTO opportunites(avis_id, type, moteur, action, role, statut, zone,"
                 " familles, marche_ref, lot_numero, intitule, acheteur, montant, devise,"
                 " duree_mois, cadence, contact, exigences, echeance,"
-                " jours_restants, score, marge, detail_score, journal, motif, fiche, calcule_le)"
-                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                " jours_restants, distance_km,"
+                " score, marge, detail_score, journal, motif, fiche, calcule_le)"
+                " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
                 " ON CONFLICT(avis_id) DO UPDATE SET type=excluded.type, score=excluded.score,"
                 " fiche=excluded.fiche, motif=excluded.motif, calcule_le=excluded.calcule_le",
                 (avis_id, r.classement.type.value, r.classement.moteur.value,
@@ -315,7 +325,7 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                  opp.devise, opp.duree_mois, opp.cadence, opp.contact,
                  "; ".join(str(k) for k in (opp.exigences or {})) or None,
                  r.verdict.echeance.isoformat() if r.verdict.echeance else None,
-                 r.verdict.jours_restants, r.score.total, r.score.marge_estimee,
+                 r.verdict.jours_restants, opp.distance_depot_km, r.score.total, r.score.marge_estimee,
                  json.dumps(r.score.detail(), ensure_ascii=False),
                  json.dumps(r.journal.en_lignes(), ensure_ascii=False),
                  r.classement.motif, r.fiche.en_texte(), maintenant()))

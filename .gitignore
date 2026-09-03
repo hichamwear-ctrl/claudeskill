@@ -2,3 +2,6 @@
 *.pyc
 __pycache__/
 radar-logistique/*.sqlite3
+radar-logistique/*.sqlite3-shm
+radar-logistique/*.sqlite3-wal
+radar-logistique/rapports/

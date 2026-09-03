@@ -59,7 +59,8 @@ class Sondage:
             L.append(f"  /!\\ moins de {SEUIL_MIN} opportunités : aucun pourcentage n'est publié,")
             L.append("      il ne serait pas significatif.")
         L += ["", "CE QUE JE PEUX RÉELLEMENT ALLER CHERCHER"]
-        for t in (Type.DIRECT, Type.SOUS_TRAITANCE, Type.PROSPECT, Type.REJET):
+        for t in (Type.DIRECT, Type.RENFORCEMENT, Type.A_CONSTRUIRE,
+                  Type.PROSPECT, Type.REJET):
             L.append(f"  {t.emoji} {t.value:<16} {self._pct(self.par_type.get(t.value, 0))}")
         L.append(f"  dont sauvés par un seul lot : {self.marches_sauves_par_un_lot}")
 
@@ -93,7 +94,8 @@ class Sondage:
             L.append("  cadences : " + ", ".join(f"{c}×{n}" for c, n in self.par_cadence.most_common(5)))
         else:
             L.append(f"  cadences : {NON_MESURE}")
-        L.append(f"  demandes de sous-traitance ... {self._pct(self.par_type.get('SOUS_TRAITANCE', 0))}")
+        L.append(f"  à renforcer .................. {self._pct(self.par_type.get('RENFORCEMENT', 0))}")
+        L.append(f"  à construire ................. {self._pct(self.par_type.get('A_CONSTRUIRE', 0))}")
         L.append(f"  prospects commerciaux ........ {self._pct(self.par_type.get('PROSPECT', 0))}")
 
         L += ["", "ACHETEURS QUI REVIENNENT"]
@@ -125,7 +127,10 @@ class Sondage:
             L.append("  aucun champ critique manquant")
 
         L += ["", "VERDICT SUR LA SOURCE"]
-        utiles = self.par_type.get("DIRECT", 0) + self.par_type.get("SOUS_TRAITANCE", 0)
+        # « Exploitable » = tout ce qui n'est pas un rejet. Un marché trop gros
+        # pour la structure actuelle reste exploitable : il se renforce, il se
+        # groupe, il se sous-traite. Il ne se jette pas.
+        utiles = sum(n for t, n in self.par_type.items() if t != "REJET")
         if self.total:
             L.append(f"  {utiles} opportunité(s) exploitable(s) sur {self.total} lues")
             L.append("  → priorité à recalculer sur ce ratio, pas sur la notoriété de la source")
@@ -133,39 +138,58 @@ class Sondage:
 
 
 def sonder(moteur, opportunites, source: str, maintenant_dt=None) -> Sondage:
-    from .lots import lots_de
+    """Mesure la source EXACTEMENT comme la chaîne la traitera.
+
+    Un marché à lots produit une opportunité par lot : sonder devait le faire
+    aussi, sinon le sondage annonce un marché là où le traitement en trouvera
+    trois — et le premier rapport réel ne serait pas comparable au sondage qui
+    l'a précédé.
+    """
+    from .lots import eclater
 
     s = Sondage(source=source, total=len(opportunites))
-    for opp in opportunites:
-        r = moteur.analyser(opp, maintenant_dt)
-        s.lots_analyses += len(lots_de(opp))
-        if r.lots_retenus:
+    for marche in opportunites:
+        enfants = eclater(marche)
+        s.lots_analyses += len(enfants)
+        retenus = 0
+        for opp in enfants:
+            r = moteur.analyser(opp, maintenant_dt)
+            if r.classement.type is not Type.REJET:
+                retenus += 1
+            _compter(s, opp, r)
+        # Un marché « sauvé par un lot » : le marché entier aurait pu paraître
+        # incompatible, un seul de ses lots le rend exploitable.
+        if len(enfants) > 1 and retenus:
             s.marches_sauves_par_un_lot += 1
-        s.par_type[r.classement.type.value] += 1
-        s.par_role[r.role.value] += 1
-        s.par_zone[r.zone.zone.value] += 1
-        s.scores.append(r.score.total)
-        for f in r.correspondance.familles:
-            s.par_famille[f] += 1
-        for p in set(opp.pays_collecte) | set(opp.pays_livraison):
-            s.par_pays[p] += 1
-        for code in (opp.exigences or {}):
-            s.exigences[code] += 1
-        if opp.acheteur:
-            s.par_acheteur[opp.acheteur] += 1
-        if opp.cadence:
-            s.par_cadence[opp.cadence] += 1
-            if opp.cadence.lower() not in ("ponctuelle", "inconnue"):
-                s.recurrents += 1
-        if opp.montant:
-            s.montants.append(float(opp.montant))
-            if r.classement.type in (Type.DIRECT, Type.SOUS_TRAITANCE):
-                s.montants_accessibles.append(float(opp.montant))
-        if opp.attribue:
-            s.attribues += 1
-        if r.classement.raisons_rejet:
-            s.motifs_rejet[r.classement.raisons_rejet[0]] += 1
-        for champ in ("acheteur", "montant", "echeance_brute", "plateforme", "cadence"):
-            if not getattr(opp, champ, None):
-                s.champs_absents[champ] += 1
     return s
+
+
+def _compter(s: Sondage, opp, r) -> None:
+    """Une opportunité — un lot le plus souvent — entre dans la mesure."""
+    s.par_type[r.classement.type.value] += 1
+    s.par_role[r.role.value] += 1
+    s.par_zone[r.zone.zone.value] += 1
+    s.scores.append(r.score.total)
+    for f in r.correspondance.familles:
+        s.par_famille[f] += 1
+    for p in set(opp.pays_collecte) | set(opp.pays_livraison):
+        s.par_pays[p] += 1
+    for code in (opp.exigences or {}):
+        s.exigences[code] += 1
+    if opp.acheteur:
+        s.par_acheteur[opp.acheteur] += 1
+    if opp.cadence:
+        s.par_cadence[opp.cadence] += 1
+        if opp.cadence.lower() not in ("ponctuelle", "inconnue"):
+            s.recurrents += 1
+    if opp.montant:
+        s.montants.append(float(opp.montant))
+        if r.classement.type is not Type.REJET:
+            s.montants_accessibles.append(float(opp.montant))
+    if opp.attribue:
+        s.attribues += 1
+    if r.classement.raisons_rejet:
+        s.motifs_rejet[r.classement.raisons_rejet[0]] += 1
+    for champ in ("acheteur", "montant", "echeance_brute", "plateforme", "cadence"):
+        if not getattr(opp, champ, None):
+            s.champs_absents[champ] += 1

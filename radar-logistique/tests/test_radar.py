@@ -872,3 +872,208 @@ class SeizeQuestions(unittest.TestCase):
         l = cx.execute("SELECT type, motif FROM opportunites").fetchone()
         self.assertEqual(l["type"], "REJET")
         self.assertTrue(l["motif"], "un rejet sans motif est une boîte noire")
+
+
+# ══════════════ ce que la répétition générale a trouvé avant les vraies données
+class DonneesReellesMalFormees(unittest.TestCase):
+    """Trois défauts trouvés en faisant passer un lot volontairement hostile.
+
+    Chacun aurait coûté cher sur un vrai fichier TED : le premier faisait
+    perdre TOUT le cycle, le deuxième déclarait exécutable un lot qui ne
+    l'était pas, le troisième bruitait la fiche jusqu'à la rendre illisible.
+    """
+
+    @staticmethod
+    def _ted():
+        from radar.adaptateur import Adaptateur
+        cfg = yaml.safe_load((RACINE / "sources" / "ted.yaml").read_text(encoding="utf-8"))
+        return Adaptateur.depuis_config(cfg), cfg
+
+    def _lire(self, charge):
+        from radar.adaptateur import vers_opportunite
+        ad, cfg = self._ted()
+        return vers_opportunite(ad, charge, "ted", {"secteur": cfg.get("secteur_par_defaut")})
+
+    def test_un_montant_publie_en_texte_ne_fait_pas_perdre_le_cycle(self):
+        """« 120 000 » est un montant, pas une panne."""
+        o = self._lire({"publication-number": "X1", "title": {"fra": "Transport"},
+                        "estimated-value": {"amount": "120 000", "currency": "EUR"}})
+        self.assertEqual(o.montant, 120000.0)
+        self.assertEqual(o.champs_illisibles, {})
+
+    def test_un_nombre_illisible_est_signale_jamais_mis_a_zero(self):
+        o = self._lire({"publication-number": "X2", "title": {"fra": "Transport"},
+                        "duration-months": "douze"})
+        self.assertIsNone(o.duree_mois, "une durée illisible ne vaut pas zéro")
+        self.assertIn("durée", o.champs_illisibles)
+        self.assertEqual(o.champs_illisibles["durée"], "douze")
+
+    def test_un_champ_illisible_apparait_dans_la_fiche(self):
+        o = self._lire({"publication-number": "X3", "title": {"fra": "Transport de colis"},
+                        "duration-months": "douze",
+                        "place-of-delivery": {"country": "BE"}})
+        o.echeance_brute = OUVERT
+        fiche = moteur().analyser(o, MAINTENANT).fiche.en_texte()
+        self.assertIn("illisible", fiche)
+        self.assertIn("douze", fiche)
+
+    def test_une_exigence_de_lot_est_lue_avec_la_carte_de_la_source(self):
+        """Les exigences d'un lot sont publiées comme celles du marché.
+        Les lire avec les seules clés de premier niveau les perdait."""
+        o = self._lire({"publication-number": "X4", "title": {"fra": "Marché à lots"},
+                        "lots": [{"numero": "3", "intitule": "Distribution régionale",
+                                  "requirements": {"min-vehicles": 12}}]})
+        self.assertEqual(o.lots[0].exigences, {"vehicules_min": 12})
+
+    def test_un_lot_trop_gros_n_est_jamais_dit_executable_tel_quel(self):
+        cx = ouvrir(":memory:")
+        o = self._lire({"publication-number": "X5", "title": {"fra": "Marché à lots"},
+                        "classification-cpv": ["60000000"],
+                        "place-of-delivery": {"country": "BE"},
+                        "lots": [{"numero": "3", "intitule": "Distribution régionale",
+                                  "requirements": {"min-vehicles": 12}}]})
+        o.echeance_brute = OUVERT
+        traiter(cx, moteur(), [o], maintenant_dt=MAINTENANT)
+        l = cx.execute("SELECT type, fiche FROM opportunites").fetchone()
+        self.assertEqual(l["type"], "RENFORCEMENT")
+        self.assertIn("à louer", l["fiche"])
+
+    def test_les_manques_du_test_a_construire_ne_polluent_pas_un_lot_de_transport(self):
+        """« aucune formation mentionnée » n'a rien à faire sur une fiche
+        bloquée par six véhicules : le bruit fabrique des boîtes noires."""
+        o = self._lire({"publication-number": "X6",
+                        "title": {"fra": "Distribution régionale"},
+                        "classification-cpv": ["60000000"],
+                        "place-of-delivery": {"country": "BE"},
+                        "requirements": {"min-vehicles": 12}})
+        o.echeance_brute = OUVERT
+        fiche = moteur().analyser(o, MAINTENANT).fiche.en_texte()
+        self.assertIn("12 véhicules exigés", fiche)
+        self.assertNotIn("aucune formation mentionnée", fiche)
+
+
+class CollecteurTed(unittest.TestCase):
+    def test_un_avis_sans_identifiant_recoit_une_reference_derivee(self):
+        from outils.collecter_ted import reference_de
+        ref = reference_de({"title": {"fra": "Transport"}})
+        self.assertTrue(ref.startswith("SANS-REF-"))
+
+    def test_deux_avis_sans_identifiant_gardent_des_references_distinctes(self):
+        """Le bug des sept opportunités disparues, côté collecteur cette fois."""
+        from outils.collecter_ted import reference_de
+        a = reference_de({"title": {"fra": "Transport de colis"}})
+        b = reference_de({"title": {"fra": "Transport de palettes"}})
+        self.assertNotEqual(a, b)
+
+    def test_l_identifiant_officiel_prime_sur_la_reference_derivee(self):
+        from outils.collecter_ted import reference_de
+        self.assertEqual(reference_de({"publication-number": "123-2026"}), "123-2026")
+
+
+class RepetitionGenerale(unittest.TestCase):
+    """Le trajet complet sur un lot hostile. C'est la répétition que le vrai
+    fichier TED jouera pour de bon."""
+
+    def test_le_trajet_complet_ne_perd_aucune_ligne(self):
+        from outils.repetition_ted import lot_hostile, _passer
+        cx, b = _passer(lot_hostile(), Mode.DEMO)
+        self.assertEqual(b.lus, len(lot_hostile()))
+        self.assertEqual(b.livre.ecart(), 0)
+
+    def test_aucune_fixture_n_entre_dans_le_flux_reel(self):
+        from outils.repetition_ted import lot_hostile, _passer
+        cx, b = _passer(lot_hostile(), Mode.REEL)
+        self.assertEqual(b.livre.sorties, 0)
+        conserves = cx.execute("SELECT count(*) c FROM incidents").fetchone()["c"]
+        self.assertEqual(conserves, len(lot_hostile()),
+                         "un refus doit être conservé, jamais effacé")
+
+
+class RapportPremiereValidation(unittest.TestCase):
+    """Ce que le premier rapport réel doit porter, section par section."""
+
+    def _rapport(self):
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        o = opp(acheteur="Commune", montant=240000, duree_mois=24)
+        traiter(cx, moteur(), [o], maintenant_dt=MAINTENANT)
+        return construire(cx, Mode.DEMO,
+                          etats_sources={"ted": {"etat": "JAMAIS CONSULTÉE", "motif": None},
+                                         "google": {"etat": "NON DISPONIBLE",
+                                                    "motif": "clé absente"}},
+                          cible={"montant_total_confortable_max": 1500000})
+
+    def test_une_source_jamais_consultee_est_nommee_pas_omise(self):
+        texte = self._rapport().en_texte(avec_fiches=False)
+        self.assertIn("JAMAIS CONSULTÉE", texte)
+        self.assertIn("ted", texte)
+
+    def test_une_source_indisponible_dit_pourquoi(self):
+        texte = self._rapport().en_texte(avec_fiches=False)
+        self.assertIn("NON DISPONIBLE", texte)
+        self.assertIn("clé absente", texte)
+
+    def test_les_selections_sont_toujours_presentes_meme_vides(self):
+        texte = self._rapport().en_texte(avec_fiches=False)
+        for titre in ("PRÈS DU DÉPÔT", "CORRIDOR ÉTRANGER → BE",
+                      "PETITS CONTRATS À MA TAILLE",
+                      "TROP GROS SEUL — RENFORT OU PARTENARIAT",
+                      "À DÉVELOPPER — MARCHÉS DÉJÀ ATTRIBUÉS"):
+            self.assertIn(titre, texte)
+
+    def test_une_marge_non_mesuree_est_comptee_jamais_presentee_comme_nulle(self):
+        r = self._rapport()
+        self.assertEqual(r.marge_non_mesuree, 1)
+        self.assertIn("NON MESURÉE ne veut pas dire nulle",
+                      r.en_texte(avec_fiches=False))
+
+    def test_les_lots_sont_comptes_avec_leur_marche_parent(self):
+        r = self._rapport()
+        self.assertIn("lots", r.lots)
+        self.assertIn("marches", r.lots)
+
+
+class SondageAvantConstruction(unittest.TestCase):
+    """`sonder` est l'étape 2 du jour où les vraies données arriveront. Elle
+    tournait sur les quatre anciennes catégories et sur un attribut disparu :
+    elle levait une exception au lieu de mesurer."""
+
+    def _lot(self):
+        return [opp(ref_source="M1", acheteur="Commune", montant=240000),
+                opp(ref_source="M2", exigences={"vehicules_min": 12}),
+                opp(ref_source="M3", intitule="Fourniture de papier",
+                    texte="Achat de ramettes")]
+
+    def test_sonder_mesure_sans_lever_d_exception(self):
+        from radar.sondage import sonder
+        s = sonder(moteur(), self._lot(), "ted", MAINTENANT)
+        self.assertEqual(s.total, 3)
+        self.assertTrue(s.rapport())
+
+    def test_sonder_annonce_les_memes_categories_que_la_chaine(self):
+        """Un sondage qui promet autre chose que le traitement est un piège."""
+        from radar.sondage import sonder
+        lot = self._lot()
+        s = sonder(moteur(), lot, "ted", MAINTENANT)
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), self._lot(), maintenant_dt=MAINTENANT)
+        en_base = {l["type"]: l["n"] for l in cx.execute(
+            "SELECT type, count(*) n FROM opportunites GROUP BY type")}
+        self.assertEqual(dict(s.par_type), en_base)
+
+    def test_sonder_compte_les_lots_pas_seulement_les_marches(self):
+        from radar.sondage import sonder
+        marche = opp(ref_source="M4", lots=[
+            LotBrut(numero="1", intitule="Transport de mobilier"),
+            LotBrut(numero="2", intitule="Transport de palettes")])
+        s = sonder(moteur(), [marche], "ted", MAINTENANT)
+        self.assertEqual(s.total, 1)
+        self.assertEqual(s.lots_analyses, 2)
+
+    def test_un_marche_trop_gros_reste_exploitable_dans_le_verdict(self):
+        """« Exploitable » ne veut pas dire « exécutable tel quel » : un marché
+        à renforcer compte, il ne se jette pas."""
+        from radar.sondage import sonder
+        s = sonder(moteur(), [opp(ref_source="M5", exigences={"vehicules_min": 12})],
+                   "ted", MAINTENANT)
+        self.assertIn("1 opportunité(s) exploitable(s)", s.rapport())

@@ -31,7 +31,7 @@ import urllib.request
 import sys as _sys
 from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
-from radar.mode import estampiller                             # noqa: E402
+from radar.mode import empreinte_contenu, estampiller          # noqa: E402
 
 ENDPOINT = "https://api.ted.europa.eu/v3/notices/search"
 UA = "radar-logistique/1.0 (collecte de marchés publics; contact: exploitant)"
@@ -88,6 +88,21 @@ def extraire_lot(charge) -> list:
     return candidats[0][2]
 
 
+def reference_de(avis: dict) -> str:
+    """La référence officielle si l'avis en porte une, sinon une référence
+    dérivée du CONTENU.
+
+    Jamais de chaîne vide : deux avis sans identifiant partageraient la même
+    référence et le second écraserait le premier. C'est exactement le bug qui
+    avait fait disparaître sept opportunités en silence.
+    """
+    for cle in ("publication-number", "notice-id", "ND", "links.self"):
+        valeur = avis.get(cle)
+        if isinstance(valeur, (str, int)) and str(valeur).strip():
+            return str(valeur).strip()
+    return "SANS-REF-" + empreinte_contenu(avis)[:16]
+
+
 def principal(argv=None) -> int:
     p = argparse.ArgumentParser(description="Collecte de réponses TED brutes")
     p.add_argument("--pages", type=int, default=10)
@@ -129,8 +144,7 @@ def principal(argv=None) -> int:
             vus.add(cle)
             # Preuve de collecte, posée ICI et nulle part ailleurs : c'est ce
             # qui permettra à l'avis d'entrer en MODE RÉEL.
-            reference = str(avis.get("publication-number")
-                            or avis.get("notice-id") or url)
+            reference = reference_de(avis)
             tout.append(estampiller(avis, source="ted", reference=reference))
             neufs += 1
         print(f"page {page:>3} : {len(lot):>4} avis reçus, {neufs:>4} nouveaux "

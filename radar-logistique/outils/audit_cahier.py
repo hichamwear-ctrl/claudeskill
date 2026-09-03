@@ -35,9 +35,11 @@ REGLES = [
     ("7  l'économie prime sur le montant", ["score"],
      ["petit_contrat_recurrent_proche_bat", "marge_reste_non_mesuree"]),
     ("8  données manquantes jamais inventées", ["statut", "fiche"],
-     ["aucune_date_n_est_jamais_inventee", "montant_absent_n_est_jamais_invente"]),
+     ["aucune_date_n_est_jamais_inventee", "montant_absent_n_est_jamais_invente",
+      "nombre_illisible_est_signale_jamais_mis_a_zero"]),
     ("9  lot par lot et prestation ≠ fourniture", ["lots", "role"],
-     ["seul_le_lot_compatible_est_notifie", "fourniture_et_livraison_de_poissons"]),
+     ["seul_le_lot_compatible_est_notifie", "fourniture_et_livraison_de_poissons",
+      "exigence_de_lot_est_lue_avec_la_carte_de_la_source"]),
     ("10 déduplication à trois niveaux", ["deduplication"],
      ["sans_date_commune_reste_un_doublon_possible",
       "avec_meme_echeance_est_un_doublon_probable"]),
@@ -50,7 +52,19 @@ REGLES = [
     ("14 rapport de mesure, sans TOP forcé", ["rapport"],
      ["rapport_porte_son_mode_en_tete", "sans_opportunite_le_rapport_le_dit"]),
     ("15 jamais une boîte noire", ["questions", "fiche"],
-     ["journal_repond_aux_seize_questions", "chaque_rejet_porte_son_motif"]),
+     ["journal_repond_aux_seize_questions", "chaque_rejet_porte_son_motif",
+      "manques_du_test_a_construire_ne_polluent_pas"]),
+    # Règle ajoutée à l'entrée des données réelles : un fichier réel est sale,
+    # et un fichier sale ne doit jamais coûter les autres lignes du lot.
+    ("16 une donnée réelle mal formée ne perd rien", ["adaptateur", "comptes"],
+     ["montant_publie_en_texte_ne_fait_pas_perdre_le_cycle",
+      "trajet_complet_ne_perd_aucune_ligne",
+      "aucune_fixture_n_entre_dans_le_flux_reel"]),
+    # Le sondage annonce ce que le traitement fera. S'il annonce autre chose,
+    # la mesure d'avant et le rapport d'après ne sont pas comparables.
+    ("17 sonder mesure ce que la chaîne traitera", ["sondage"],
+     ["sonder_annonce_les_memes_categories_que_la_chaine",
+      "sonder_compte_les_lots_pas_seulement_les_marches"]),
 ]
 
 

@@ -19,6 +19,18 @@ def maintenant() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+# Colonnes ajoutées après coup. `CREATE TABLE IF NOT EXISTS` ne les poserait
+# pas sur une base existante : on les ajoute explicitement, sans rien effacer.
+AJOUTS = (("opportunites", "distance_km", "REAL"),)
+
+
+def _completer(cx) -> None:
+    for table, colonne, type_ in AJOUTS:
+        connues = {l[1] for l in cx.execute(f"PRAGMA table_info({table})")}
+        if colonne not in connues:
+            cx.execute(f"ALTER TABLE {table} ADD COLUMN {colonne} {type_}")
+
+
 def ouvrir(chemin, lecture_seule: bool = False) -> sqlite3.Connection:
     if lecture_seule:
         uri = f"file:{Path(chemin).resolve()}?mode=ro"
@@ -26,6 +38,7 @@ def ouvrir(chemin, lecture_seule: bool = False) -> sqlite3.Connection:
     else:
         cx = sqlite3.connect(chemin)
         cx.executescript(SCHEMA.read_text(encoding="utf-8"))
+        _completer(cx)
     cx.row_factory = sqlite3.Row
     cx.execute("PRAGMA foreign_keys = ON")
     return cx

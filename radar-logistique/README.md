@@ -264,6 +264,9 @@ la notoriété.
 ## Utilisation
 
 ```bash
+# 0bis. Répéter le trajet complet AVANT (aucun réseau nécessaire)
+python3 outils/repetition_ted.py
+
 # 0. Collecter de vraies réponses — depuis une machine ayant un accès réseau
 python3 outils/collecter_ted.py --pages 20 --sortie reponses.json
 
@@ -299,9 +302,38 @@ l'observation manque. Sous 30 opportunités il refuse de publier un pourcentage.
 
 ---
 
+## Avant les vraies données : la répétition générale
+
+Un fichier réel est sale. Un montant écrit « 120 000 », une durée écrite
+« douze », un avis sans identifiant, un enregistrement hors schéma : chacun de
+ces cas a déjà fait perdre des lignes sur le projet précédent.
+
+```bash
+python3 outils/repetition_ted.py   # code non nul si une ligne se perd
+```
+
+La répétition fait passer **17 enregistrements volontairement hostiles** par la
+chaîne entière et exige que le livre de comptes tombe juste à l'unité près.
+Elle ne mesure PAS le marché et le dit en tête de sa sortie : c'est le chemin
+qui est éprouvé, pas l'offre.
+
+Elle a déjà trouvé cinq défauts avant qu'aucune donnée réelle n'arrive — dont
+un lot exigeant douze véhicules que le moteur déclarait « exécutable avec la
+structure actuelle ». Le détail de chacun, avec la règle concernée et le test
+ajouté, est dans **[`PROTOCOLE-REEL.md`](PROTOCOLE-REEL.md)**, qui décrit aussi
+la séquence exacte du jour où le vrai export TED arrivera.
+
+Règle posée d'avance : si les vraies données révèlent une mauvaise
+classification, **le score n'est pas ajusté pour faire apparaître le résultat
+attendu**. Sept éléments sont produits — donnée source, ce que le moteur a
+compris, classification obtenue, pourquoi elle est fausse ou juste, règle
+concernée, correction, test de non-régression.
+
+---
+
 ## Le cahier des charges est vérifiable
 
-Quinze règles ont été validées puis verrouillées. Une règle peut se perdre lors
+Dix-sept règles ont été validées puis verrouillées. Une règle peut se perdre lors
 d'une réécriture — c'est arrivé une fois, les seize questions ont tourné sans
 test pendant plusieurs versions. L'audit le détecte :
 
@@ -317,7 +349,7 @@ Il vérifie que chaque règle a un module ET ses tests de comportement.
 python -m unittest discover -s tests
 ```
 
-67 tests de comportement, un par règle du cahier des charges. Aucun ne vérifie
-qu'une ligne de code existe.
+137 tests de comportement. Aucun ne vérifie qu'une ligne de code existe :
+chacun pose une question dont la mauvaise réponse coûte un contrat.
 
 Zéro dépendance hors PyYAML.

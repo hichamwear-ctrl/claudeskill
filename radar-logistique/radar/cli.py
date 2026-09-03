@@ -230,8 +230,14 @@ def cmd_rapport(a) -> int:
     from . import rapport as rapport_mod
 
     mode = _mode(a)
+    profil = _cfg("profil.yaml")
+    etats = {nom: {"etat": src.etat.value, "motif": src.motif_indisponible}
+             for nom, src in _registre().sources.items()}
+    proche = _cfg("config/ponderations.yaml").get("effort", {}).get(
+        "distance_depot_confortable_km", 50)
     cx = ouvrir(_base(a), lecture_seule=True)
-    r = rapport_mod.construire(cx, mode, limite_top=a.top)
+    r = rapport_mod.construire(cx, mode, limite_top=a.top, etats_sources=etats,
+                               cible=profil.get("cible_economique", {}), proche_km=proche)
     texte = r.en_texte(avec_fiches=not a.resume)
 
     dossier = _P(a.sortie)
@@ -261,9 +267,10 @@ def cmd_incidents(a) -> int:
     return 0
 
 
-def cmd_sources(a) -> int:
-    """Le registre : qui a été consulté, quand, et avec quel rendement."""
-    import yaml as _y
+def _registre():
+    """Le registre déclaré, AVANT toute consultation. Une source y entre à
+    l'état JAMAIS CONSULTÉE et rien d'autre qu'une consultation réelle ne le
+    change."""
     from .decouverte import charger_connecteur
     from .registre import Registre
 
@@ -278,6 +285,12 @@ def cmd_sources(a) -> int:
         google.indisponible(c.motif_indisponibilite)
     for nom in ("bourses_de_fret",):
         reg.declarer(nom, "transport", "api").indisponible("aucun abonnement fourni")
+    return reg
+
+
+def cmd_sources(a) -> int:
+    """Le registre : qui a été consulté, quand, et avec quel rendement."""
+    reg = _registre()
     print(reg.rapport())
     print()
     print(reg.rendement())

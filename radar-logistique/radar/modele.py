@@ -97,4 +97,9 @@ class Opportunite:
     # Provenances : un même besoin peut venir de Google ET du BDA.
     provenances: list = field(default_factory=list)   # [{source, url, consulte_le, requete}]
 
+    # Champs publiés mais ILLISIBLES : « 120 000 » là où un nombre est attendu,
+    # « douze » pour une durée. La valeur n'est pas inventée, elle n'est pas
+    # mise à zéro non plus — elle est signalée, avec ce que la source a écrit.
+    champs_illisibles: dict = field(default_factory=dict)   # champ -> valeur brute
+
     brut: dict = field(default_factory=dict)
