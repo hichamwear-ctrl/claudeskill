@@ -3351,3 +3351,190 @@ class ComplétudeAdapteeAuBesoin(unittest.TestCase):
         manquants = [k for k, v in grille.items() if v is not None and v < total]
         self.assertEqual(manquants, [],
                          f"un besoin privé complet paraît incomplet : {manquants}")
+
+
+# ══════════════ LE PRODUIT N'EST PAS UN RADAR D'APPELS D'OFFRES
+#
+# Dix formulations privées RÉELLES et imparfaites — pas la version propre
+# « nous recherchons un transporteur pour nos livraisons ».
+FORMULATIONS_PRIVEES = [
+    ("Nous ouvrons un nouveau dépôt à Gand", "SIGNAL"),
+    ("Nous cherchons à externaliser une partie de nos livraisons", "FAIT"),
+    ("Besoin de partenaires régionaux pour accompagner notre croissance", "FAIT"),
+    ("15 chauffeurs recherchés pour notre nouveau site", "SIGNAL"),
+    ("Nous souhaitons référencer plusieurs transporteurs", "FAIT"),
+    ("Notre activité logistique va doubler l'année prochaine", "SIGNAL"),
+    ("Nous cherchons un partenaire pour les tournées Benelux", "FAIT"),
+    ("Prestataire actuel : contrat arrivant à échéance prochainement", "SIGNAL"),
+    ("Recherche fournisseur capable d'assurer la distribution quotidienne", "FAIT"),
+    ("Nous étudions différentes solutions pour nos livraisons", "HYPOTHÈSE"),
+]
+
+
+class LeProduitNEstPasUnRadarDAppelsDOffres(unittest.TestCase):
+    """Un corpus SANS le moindre marqueur de marché public.
+
+    Aucun CPV, aucun publication-number, aucune procédure, aucune référence
+    officielle, aucune date limite. Si cette classe échoue, le produit ne sait
+    fonctionner qu'avec la structure d'un avis, et ce n'est pas un radar
+    commercial.
+
+    TESTÉ SUR FIXTURE — aucune de ces phrases n'a été observée sur une page
+    réelle.
+    """
+
+    def _corpus(self):
+        return [Opportunite(
+            source="brave", ref_source=f"PRV-{i}", cpv=[], type_avis=None,
+            statut_source=None, echeance_brute=None, intitule=t,
+            texte=f"{t} — transport et distribution en Belgique",
+            acheteur=f"Société {i}", secteur_acheteur="privé",
+            pays_livraison=["BE"])
+            for i, (t, _) in enumerate(FORMULATIONS_PRIVEES)]
+
+    def test_aucune_entree_ne_porte_de_structure_d_avis_public(self):
+        for o in self._corpus():
+            self.assertEqual(o.cpv, [])
+            self.assertIsNone(o.type_avis)
+            self.assertIsNone(o.statut_source)
+            self.assertIsNone(o.echeance_brute)
+            self.assertFalse(o.lots)
+
+    def test_la_chaine_complete_fonctionne_sur_ce_corpus(self):
+        cx = ouvrir(":memory:")
+        b = traiter(cx, moteur(), self._corpus(), maintenant_dt=MAINTENANT)
+        self.assertEqual(b.livre.ecart(), 0)
+        retenues = cx.execute("SELECT count(*) c FROM opportunites"
+                              " WHERE type <> 'REJET'").fetchone()["c"]
+        self.assertEqual(retenues, len(FORMULATIONS_PRIVEES))
+        for l in cx.execute("SELECT * FROM opportunites"):
+            for champ in ("type", "moteur", "action", "nature", "fiabilite",
+                          "zone", "journal", "fiche"):
+                self.assertTrue(l[champ], f"{l['intitule'][:30]} : {champ} vide")
+            self.assertGreater(l["score"], 0)
+
+    def test_chaque_formulation_recoit_la_bonne_nature(self):
+        """FAIT, SIGNAL et HYPOTHÈSE ne se confondent pas — c'est ce qui évite
+        de transformer un événement en contrat imaginaire."""
+        from radar.nature import qualifier
+        for texte, attendue in FORMULATIONS_PRIVEES:
+            with self.subTest(texte=texte[:40]):
+                o = Opportunite(source="brave", ref_source="x", intitule=texte,
+                                texte=texte)
+                self.assertEqual(qualifier(o).value, attendue)
+
+    def test_aucune_de_ces_opportunites_n_invente_de_procedure(self):
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), self._corpus(), maintenant_dt=MAINTENANT)
+        etats = {l["etat_procedure"] for l in cx.execute(
+            "SELECT etat_procedure FROM opportunites")}
+        self.assertEqual(etats, {"HORS PROCÉDURE"},
+                         "un besoin privé n'a pas d'état de procédure")
+
+    def test_aucun_montant_n_est_fabrique(self):
+        """Aucune de ces pages ne publie de montant. Le radar ne doit pas en
+        inventer un — ni le déduire d'une moyenne."""
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), self._corpus(), maintenant_dt=MAINTENANT)
+        for l in cx.execute("SELECT intitule, montant, marge FROM opportunites"):
+            self.assertIsNone(l["montant"], f"{l['intitule'][:30]} : montant inventé")
+            self.assertEqual(l["marge"], "NON MESURÉE")
+
+    def test_un_signal_ne_devient_pas_un_contrat(self):
+        """« Nous recrutons 15 chauffeurs » ne veut pas dire « ils cherchent un
+        sous-traitant ». Les deux niveaux restent séparés."""
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), self._corpus(), maintenant_dt=MAINTENANT)
+        for l in cx.execute("SELECT intitule, nature, action, type FROM opportunites"
+                            " WHERE nature = 'SIGNAL'"):
+            self.assertNotIn("POSTULER", l["action"])
+            self.assertEqual(l["type"], "PROSPECT",
+                             f"{l['intitule'][:30]} : un signal n'est pas un contrat")
+
+    def test_le_rapport_produit_un_pipeline_commercial_complet(self):
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), self._corpus(), maintenant_dt=MAINTENANT)
+        r = construire(cx, Mode.DEMO, cible={"montant_total_confortable_max": 1500000})
+        texte = r.en_texte(avec_fiches=False)
+        for bloc in ("CAPTER", "DÉVELOPPER", "SIGNAUX", "PAR FAMILLE DE BESOIN",
+                     "TOP ACTIONS"):
+            self.assertIn(bloc, texte)
+        self.assertEqual(r.familles.get("MARCHÉS PUBLICS", []), [])
+        self.assertTrue(r.actions, "le radar doit dire quoi faire demain matin")
+
+    def test_les_objets_commerciaux_ne_sont_pas_confondus(self):
+        """Un besoin explicite, un signal et une entreprise à prospecter sont
+        trois objets différents, avec trois actions différentes."""
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), self._corpus(), maintenant_dt=MAINTENANT)
+        par_nature = {}
+        for l in cx.execute("SELECT nature, action FROM opportunites"):
+            par_nature.setdefault(l["nature"], set()).add(l["action"])
+        self.assertIn("FAIT", par_nature)
+        self.assertIn("SIGNAL", par_nature)
+        self.assertTrue(any("CONTACTER" in a for a in par_nature["FAIT"]))
+
+
+class LeCPVNEstPasUneAutorite(unittest.TestCase):
+    """Le CPV est une preuve, jamais un arbitre.
+
+    Il tranchait tout : « Prestations de transport et distribution quotidienne »
+    ressortait FOURNISSEUR parce qu'un CPV indiquait des fournitures de bureau.
+    Une nomenclature propre aux marchés publics écrasait la description du
+    besoin — et un besoin privé, qui n'a jamais de CPV, ne pouvait par
+    construction jamais en bénéficier.
+    """
+
+    def _role(self, texte, cpv):
+        import yaml as _y
+        from radar.role import DetecteurDeRole
+        d = DetecteurDeRole(_y.safe_load(
+            (RACINE / "config" / "roles.yaml").read_text(encoding="utf-8")))
+        return d.analyser(texte, cpv)
+
+    PRESTATION = "Prestations de transport et distribution quotidienne pour compte de tiers"
+
+    def test_un_cpv_de_fourniture_n_ecrase_pas_un_texte_de_prestation(self):
+        a = self._role(self.PRESTATION, ["30190000"])
+        self.assertIs(a.role, Role.A_VERIFIER)
+        self.assertTrue(any("contradiction" in c for c in a.contre_preuves))
+
+    def test_un_cpv_de_transport_n_ecrase_pas_un_texte_de_fourniture(self):
+        a = self._role("Fourniture et livraison de mobilier de bureau", ["60000000"])
+        self.assertIs(a.role, Role.A_VERIFIER)
+
+    def test_un_cpv_de_travaux_n_ecrase_pas_un_texte_de_transport(self):
+        a = self._role("Transport de marchandises, tournées quotidiennes", ["45000000"])
+        self.assertIs(a.role, Role.A_VERIFIER)
+
+    def test_sans_cpv_un_texte_clair_conclut_seul(self):
+        self.assertIs(self._role(self.PRESTATION, []).role, Role.PRESTATAIRE)
+
+    def test_le_prive_atteint_le_meme_niveau_de_reconnaissance_que_le_public(self):
+        """Un besoin privé bien décrit doit valoir un besoin public bien décrit."""
+        public = self._role("Transport de marchandises, tournées quotidiennes",
+                            ["60000000"])
+        prive = self._role("Nous cherchons un transporteur pour nos tournées "
+                           "quotidiennes de distribution", [])
+        self.assertIs(public.role, prive.role)
+
+    def test_les_deux_preuves_concordantes_donnent_une_conclusion_nette(self):
+        a = self._role("Transport de marchandises, tournées quotidiennes",
+                       ["60000000"])
+        self.assertIs(a.role, Role.PRESTATAIRE)
+        self.assertEqual(a.cpv_decisif, "60000000")
+
+    def test_un_texte_mixte_laisse_le_cpv_departager_sans_ecraser(self):
+        """« Fourniture ET livraison » est réellement ambigu : là, le CPV
+        éclaire au lieu d'écraser. C'est le seul cas où il départage."""
+        a = self._role("Fourniture et livraison de poissons frais", ["15200000"])
+        self.assertIs(a.role, Role.FOURNISSEUR)
+
+    def test_une_contradiction_ne_produit_jamais_un_rejet(self):
+        """A_VERIFIER n'est pas REJET : l'opportunité reste dans le radar."""
+        o = opp(ref_source="CONTRA", cpv=["30190000"],
+                intitule="Prestations de transport",
+                texte=self.PRESTATION, acheteur="Client")
+        r = moteur().analyser(o, MAINTENANT)
+        self.assertIsNot(r.classement.type, Type.REJET)

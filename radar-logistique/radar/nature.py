@@ -73,7 +73,48 @@ BESOIN_DIRECT = (
     "wij zoeken", "wij werken samen", "word partner", "gezocht",
     "we are looking for", "we seek", "join our", "become a", "wanted",
     "wir suchen", "gesucht",
+    # Formes réelles rencontrées sur des pages commerciales, moins propres que
+    # « nous recherchons un transporteur » — mais tout aussi explicites.
+    "besoin de", "besoins de", "recherche fournisseur", "recherche transporteur",
+    "recherche prestataire", "recherche partenaire", "recherche de partenaires",
+    "souhaitons referencer", "souhaitons confier", "cherchons a externaliser",
+    "externaliser une partie", "referencer plusieurs", "faisons appel a",
 )
+
+# ── ÉVÉNEMENTS OBSERVABLES ────────────────────────────────────────────────
+# Un fait qui se produit chez quelqu'un d'autre, et dont on DÉDUIT un besoin
+# possible. La distinction avec BESOIN_DIRECT est tout le produit :
+#
+#   « nous cherchons un transporteur »   → FAIT      : ils le disent
+#   « nous ouvrons un dépôt à Gand »     → SIGNAL    : ils ne demandent rien
+#   « ils auront besoin de sous-traiter » → HYPOTHÈSE : c'est NOUS qui le disons
+#
+# Sans cette liste, la nature d'un événement dépendait d'un drapeau posé par
+# l'adaptateur — donc un même événement trouvé par un moteur de recherche
+# tombait en HYPOTHÈSE, alors qu'il est parfaitement observable.
+EVENEMENT_OBSERVABLE = (
+    "nous ouvrons", "ouverture de", "ouverture d un", "nouveau depot",
+    "nouveau site", "nouveau centre", "nouvelle plateforme", "nouvelle agence",
+    "s implante", "implantation", "nous inaugurons", "mise en service",
+    "recrute", "recrutons", "recrutement", "recherches", "recherchees",
+    "chauffeurs recherches", "postes a pourvoir", "va doubler", "vont doubler",
+    "en forte croissance", "double sa capacite", "etend son activite",
+    "arrivant a echeance", "arrive a echeance", "fin de contrat",
+    "renouvellement du contrat", "prestataire actuel", "titulaire actuel",
+    "remporte un contrat", "a remporte", "change de prestataire",
+    "opent", "opening", "opens new", "wij openen", "recruteert",
+    "eroffnet", "expands", "is expanding",
+)
+
+
+def _evenement_observable(opp) -> bool:
+    import re
+    import unicodedata
+    texte = f"{getattr(opp, 'intitule', '') or ''} {getattr(opp, 'texte', '') or ''}"
+    plat = unicodedata.normalize("NFKD", texte)
+    plat = "".join(c for c in plat if not unicodedata.combining(c)).lower()
+    plat = " " + re.sub(r"[^a-z0-9]+", " ", plat).strip() + " "
+    return any(f" {m} " in plat for m in EVENEMENT_OBSERVABLE)
 
 
 def _besoin_exprime(opp) -> bool:
@@ -110,8 +151,12 @@ def qualifier(opp) -> Nature:
     # client, et rangeait une entreprise à prospecter parmi les besoins exprimés.
     objet = bool((getattr(opp, "intitule", "") or "").strip()
                  and (opp.intitule or "").strip() != "(sans intitulé)")
+    # Un besoin ÉNONCÉ prime sur un événement : si l'entreprise ouvre un dépôt
+    # ET dit chercher un transporteur, c'est la demande qui compte.
     if objet and _besoin_exprime(opp):
         return Nature.FAIT
+    if objet and _evenement_observable(opp):
+        return Nature.SIGNAL
     quand = bool(getattr(opp, "echeance_brute", None)
                  or getattr(opp, "date_demarrage", None))
     if objet and quand:

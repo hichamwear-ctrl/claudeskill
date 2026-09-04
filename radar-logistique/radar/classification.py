@@ -108,12 +108,6 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
                           zone_motif or "zone incompatible",
                           raisons_rejet=[zone_motif or "zone incompatible"])
 
-    # ── 2. Signal privé : un prospect, jamais un contrat ──
-    if est_signal:
-        return Classement(Type.PROSPECT, Moteur.CAPTER, Action.CONTACTER_ENTREPRISE,
-                          "signal d'un besoin logistique — à qualifier",
-                          raisons=["inférence, pas un marché ouvert"])
-
     # ── 3. L'ÉTAT DE LA PROCÉDURE décide de l'ACTION ──
     #
     # Aucun de ces cas n'est un rejet : un marché fermé, annulé ou attribué
@@ -158,6 +152,22 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
                                    "aucune attribution constatée : ce n'est PAS un "
                                    "marché attribué",
                                    "surveiller la publication du résultat"])
+    # ── Signal : un prospect, jamais un contrat ──
+    #
+    # On lit la NATURE (dimension C), pas un drapeau posé par l'adaptateur : un
+    # événement — « nous ouvrons un dépôt à Gand » — trouvé par un moteur de
+    # recherche ne portait aucun drapeau et ressortait 🟢 DIRECT. Un événement
+    # observé devenait un contrat prêt à signer.
+    #
+    # Ce test vient APRÈS les états de procédure : une attribution est elle
+    # aussi un signal, mais un signal dont on connaît déjà l'action —
+    # contacter le titulaire, pas « qualifier ».
+    from .nature import Nature
+    if est_signal or nature is Nature.SIGNAL:
+        return Classement(Type.PROSPECT, Moteur.CAPTER, Action.CONTACTER_ENTREPRISE,
+                          "signal d'un besoin logistique — à qualifier",
+                          raisons=["inférence, pas un marché ouvert"])
+
     if etat is EtatProcedure.INCONNU and procedure_detectee:
         # Le cas le plus important : on ne sait pas, et on le dit. L'opportunité
         # reste dans le radar — elle n'est ni jetée, ni promue en POSTULABLE.

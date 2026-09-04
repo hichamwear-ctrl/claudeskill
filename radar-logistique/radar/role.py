@@ -66,41 +66,98 @@ class DetecteurDeRole:
         return None, None
 
     def analyser(self, texte: str, cpv=None) -> Analyse:
+        """Le CPV est UNE preuve, pas une autorité.
+
+        Il tranchait tout : un texte disant « prestations de transport et
+        distribution quotidienne » ressortait FOURNISSEUR parce qu'un CPV
+        indiquait des fournitures de bureau. Une nomenclature propre aux
+        marchés publics écrasait donc la description du besoin — et un besoin
+        privé, qui n'a jamais de CPV, ne pouvait par construction jamais
+        bénéficier de cette autorité. C'était un privilège structurel.
+
+        Même logique de résolution que pour l'état de procédure :
+          · les deux preuves concordent  → conclusion, confiance haute ;
+          · une seule preuve existe      → elle conclut ;
+          · les deux se contredisent     → A_VERIFIER, les deux affichées.
+        Aucun gagnant arbitraire.
+        """
         plat = normaliser(texte)
         famille, code = self._classer_cpv(cpv)
 
-        trouves_f = [m for m in self.mots_fourniture if f" {m} " in plat or plat.startswith(f" {m}")]
+        trouves_f = [m for m in self.mots_fourniture
+                     if f" {m} " in plat or plat.startswith(f" {m}")]
         trouves_p = [m for m in self.mots_prestation if f" {m} " in plat]
 
-        # 1. Le CPV tranche quand il est présent.
-        if famille == "prestation":
-            return Analyse(Role.PRESTATAIRE,
-                           preuves=[f"CPV {code} : services de transport ou de logistique"]
-                                   + [f"« {m} »" for m in trouves_p[:2]],
-                           contre_preuves=[f"« {m} »" for m in trouves_f[:2]],
-                           cpv_decisif=code)
-        if famille == "travaux":
-            return Analyse(Role.FOURNISSEUR,
-                           contre_preuves=[f"CPV {code} : marché de travaux"], cpv_decisif=code)
-        if famille == "fourniture" and self.regles.get("cpv_fourniture_domine", True):
-            # Le piège classique : « fourniture ET livraison ». Le mot livraison
-            # ne rachète pas un CPV de fourniture au niveau du marché entier —
-            # mais un LOT pourra isoler la prestation.
-            return Analyse(Role.FOURNISSEUR,
-                           preuves=[f"« {m} »" for m in trouves_p[:2]],
-                           contre_preuves=[f"CPV {code} : l'acheteur acquiert un bien"]
-                                          + [f"« {m} »" for m in trouves_f[:2]],
+        # Ce que dit le TEXTE, seul.
+        if trouves_p and not trouves_f:
+            texte_dit = "prestation"
+        elif trouves_f and not trouves_p:
+            texte_dit = "fourniture"
+        elif trouves_f and trouves_p:
+            texte_dit = "mixte"
+        else:
+            texte_dit = None
+
+        # Ce que dit le CPV, seul. « travaux » se comporte comme « fourniture » :
+        # l'acheteur n'achète pas une prestation de transport.
+        cpv_dit = {"prestation": "prestation", "fourniture": "fourniture",
+                   "travaux": "fourniture"}.get(famille)
+
+        preuves_p = [f"« {m} »" for m in trouves_p[:2]]
+        preuves_f = [f"« {m} »" for m in trouves_f[:2]]
+        libelle_cpv = {
+            "prestation": f"CPV {code} : services de transport ou de logistique",
+            "fourniture": f"CPV {code} : l'acheteur acquiert un bien",
+            "travaux": f"CPV {code} : marché de travaux",
+        }.get(famille)
+
+        # 1. Aucune des deux preuves : on ne sait pas, et on le dit.
+        if cpv_dit is None and texte_dit is None:
+            return Analyse(Role.A_VERIFIER,
+                           contre_preuves=["aucun signal permettant de dire "
+                                           "qui fournit quoi"])
+
+        # 2. Une seule preuve disponible : elle conclut, sans privilège.
+        if cpv_dit is None:
+            if texte_dit == "prestation":
+                return Analyse(Role.PRESTATAIRE, preuves=preuves_p)
+            if texte_dit == "fourniture":
+                return Analyse(Role.FOURNISSEUR, contre_preuves=preuves_f)
+            return Analyse(Role.A_VERIFIER, preuves=preuves_p,
+                           contre_preuves=preuves_f)
+        if texte_dit is None:
+            role = Role.PRESTATAIRE if cpv_dit == "prestation" else Role.FOURNISSEUR
+            return Analyse(role, cpv_decisif=code,
+                           preuves=[libelle_cpv] if role is Role.PRESTATAIRE else [],
+                           contre_preuves=[] if role is Role.PRESTATAIRE
+                           else [libelle_cpv])
+
+        # 3. Les deux concordent : conclusion nette.
+        if texte_dit == cpv_dit == "prestation":
+            return Analyse(Role.PRESTATAIRE, preuves=[libelle_cpv] + preuves_p,
+                           contre_preuves=preuves_f, cpv_decisif=code)
+        if texte_dit == cpv_dit == "fourniture":
+            return Analyse(Role.FOURNISSEUR, preuves=preuves_p,
+                           contre_preuves=[libelle_cpv] + preuves_f, cpv_decisif=code)
+
+        # 4. Un texte MIXTE — « fourniture ET livraison » — laisse le CPV
+        #    départager : il n'écrase rien, il éclaire une ambiguïté réelle.
+        if texte_dit == "mixte":
+            role = Role.PRESTATAIRE if cpv_dit == "prestation" else Role.FOURNISSEUR
+            return Analyse(role, preuves=([libelle_cpv] if role is Role.PRESTATAIRE
+                                          else []) + preuves_p,
+                           contre_preuves=([] if role is Role.PRESTATAIRE
+                                           else [libelle_cpv]) + preuves_f,
                            cpv_decisif=code)
 
-        # 2. Sans CPV, on arbitre sur le lexique.
-        if trouves_p and not trouves_f:
-            return Analyse(Role.PRESTATAIRE, preuves=[f"« {m} »" for m in trouves_p[:3]])
-        if trouves_f and not trouves_p:
-            return Analyse(Role.FOURNISSEUR,
-                           contre_preuves=[f"« {m} »" for m in trouves_f[:3]])
-        if trouves_f and trouves_p:
-            return Analyse(Role.A_VERIFIER,
-                           preuves=[f"« {m} »" for m in trouves_p[:2]],
-                           contre_preuves=[f"« {m} »" for m in trouves_f[:2]])
+        # 5. CONTRADICTION FRANCHE entre la nomenclature et la description.
+        #    Personne ne gagne : on conserve les deux et on demande à vérifier.
+        #    A_VERIFIER n'est pas un rejet — l'opportunité reste dans le radar.
         return Analyse(Role.A_VERIFIER,
-                       contre_preuves=["aucun signal permettant de dire qui fournit quoi"])
+                       preuves=([libelle_cpv] if cpv_dit == "prestation" else [])
+                               + preuves_p,
+                       contre_preuves=([libelle_cpv] if cpv_dit == "fourniture" else [])
+                                      + preuves_f
+                               + [f"la nomenclature dit {cpv_dit}, le texte dit "
+                                  f"{texte_dit} — contradiction à trancher"],
+                       cpv_decisif=code)
