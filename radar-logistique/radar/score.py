@@ -35,9 +35,24 @@ class Score:
     total: int
     lignes: list[Ligne] = field(default_factory=list)
     marge_estimee: str = NON_MESUREE
+    # Faux quand AUCUN fait économique n'a été observé. Découvert en mesurant
+    # une vraie page : une page qui ne portait ni montant, ni durée, ni
+    # cadence, ni exigence, ni métier reconnu ressortait à 24/100 — un nombre
+    # entièrement composé de points « neutres » accordés à des absences.
+    # Chaque neutralité est juste prise isolément (NON MESURÉ n'est pas zéro) ;
+    # leur somme, elle, fabriquait une note à partir de rien. 24 se comparait
+    # alors à un vrai 84 sur la même échelle.
+    mesurable: bool = True
 
     def detail(self) -> list[str]:
         return [f"{l.critere} : {l.points:+g} — {l.raison}" for l in self.lignes]
+
+    @property
+    def affichage(self) -> str:
+        """Ce qui doit s'écrire sur une fiche. NON MESURABLE ≠ 0, et ≠ 24."""
+        if not self.mesurable:
+            return "NON MESURABLE — aucun fait économique observé"
+        return f"{self.total}/100"
 
 
 class Bareme:
@@ -290,4 +305,16 @@ class Bareme:
         # trancher. On normalise donc au lieu de tronquer : l'ordre est
         # conservé, et 100 ne s'atteint que sur un cas réellement parfait.
         note = 100 * total / self.plafond if self.plafond else total
-        return Score(max(0, min(100, round(note))), L, marge_estimee=marge)
+
+        # Un score n'est une MESURE que si quelque chose a été mesuré. On
+        # compte les faits économiques réellement publiés — pas les critères
+        # évalués : ceux-là le sont toujours, y compris pour dire « neutre ».
+        faits = [opp.montant, opp.duree_mois, cadence or opp.cadence,
+                 opp.km_annuels, opp.vehicules_requis, opp.chauffeurs_requis,
+                 opp.distance_depot_km]
+        mesurable = bool(
+            any(f not in (None, "", 0) for f in faits)
+            or opp.exigences or correspondance.familles
+            or correspondance.domaine_transport or bilan.atouts or bilan.bloquants)
+        return Score(max(0, min(100, round(note))), L, marge_estimee=marge,
+                     mesurable=mesurable)

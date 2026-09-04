@@ -342,6 +342,18 @@ REGLES = [
      ["chaque_formulation_recoit_la_bonne_nature",
       "un_signal_ne_devient_pas_un_contrat",
       "les_objets_commerciaux_ne_sont_pas_confondus"]),
+    # Les deux règles verrouillées par la PREMIÈRE MESURE RÉELLE (4/9/2026).
+    ("une page sans fait commercial n'est ni une opportunité ni un rejet",
+     ["classification.Type.OBSERVATION", "score.Score.mesurable"],
+     ["une_page_sans_aucun_fait_commercial_nest_pas_une_opportunite",
+      "ce_nest_pas_un_rejet",
+      "un_besoin_en_vocabulaire_inconnu_reste_une_opportunite",
+      "une_absence_nest_jamais_un_argument_commercial"]),
+    ("le nombre de tests ne vaut jamais validation commerciale",
+     ["validation.Etat", "validation.inscrire"],
+     ["le_compteur_reel_ne_sinvente_pas_dans_une_phrase",
+      "la_formule_interdite_napparait_dans_aucune_sortie",
+      "une_meme_page_relue_ne_compte_pas_deux_fois"]),
     ("le radar fonctionne sans aucun marché public",
      ["chaine.traiter", "rapport.construire"],
      ["la_chaine_va_jusqu_au_bout",
@@ -388,6 +400,11 @@ def _symboles_du_module(nom: str) -> set:
     trouves = set(re.findall(r"^(?:class|def) (\w+)", texte, re.M))
     trouves |= set(re.findall(r"^    (?:async )?def (\w+)", texte, re.M))
     trouves |= set(re.findall(r"^(\w+) *[:=]", texte, re.M))
+    # Membres d'énumération et champs de dataclass : indentés d'un niveau, ils
+    # échappaient aux trois motifs ci-dessus. L'audit ne pouvait donc citer
+    # aucun mécanisme porté par une valeur d'énumération — `Type.OBSERVATION`
+    # y compris, alors que c'est exactement là que vit la règle.
+    trouves |= set(re.findall(r"^    ([A-Za-z_]\w*) *(?::[^=\n]+)?= *", texte, re.M))
     return trouves
 
 

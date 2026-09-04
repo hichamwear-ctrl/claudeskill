@@ -1,0 +1,16 @@
+[
+  {
+    "url": "https://pypi.org/project/requests/",
+    "titre": "requests 2.34.2",
+    "description": "Python HTTP for Humans.",
+    "entreprise": "PyPI",
+    "_note": "TRANSCRIPTION D'UNE PAGE RÉELLEMENT COLLECTÉE le 2026-09-04 (sha256 ef41f74e…, conservée dans validation/pages_reelles/). Les trois valeurs ci-dessus sont celles que le lecteur générique a réellement extraites. Cette famille manquait : les douze autres décrivent toutes une opportunité, aucune ne décrivait une page qu'on lit et qui ne donne rien. Le radar la classait 🔵 PROSPECT à 24/100."
+  },
+  {
+    "url": "https://exemple.be/actualites/nouvelle-identite",
+    "titre": "Notre société change son logo",
+    "description": "Nous dévoilons notre nouvelle identité visuelle, fruit d'un an de travail avec notre agence.",
+    "entreprise": "Bral SA",
+    "_note": "FICTIF, et déclaré comme tel. Le cas nommé par le propriétaire du produit : une actualité d'entreprise qui n'est pas une opportunité. Attendu ⚪, jamais 🔴 — rien ne dit que cette société n'aura pas de besoin de transport demain."
+  }
+]

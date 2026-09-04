@@ -3796,3 +3796,239 @@ class AucuneSourceNestIndispensable(unittest.TestCase):
             src = (RACINE / "radar" / f"{module}.py").read_text(encoding="utf-8")
             for nom in ('"ted"', '"bda"', '"google"', '"brave"', '"portail"'):
                 self.assertNotIn(nom, src, f"{module}.py nomme {nom}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  §16 — CE QUE LA PREMIÈRE PAGE RÉELLE A RÉVÉLÉ
+#
+#  Ces tests ne sortent d'aucune imagination. Chacun verrouille un comportement
+#  qu'une VRAIE page — https://pypi.org/project/requests/, 251 417 octets,
+#  sha256 ef41f74e…, conservée dans validation/pages_reelles/ — a pris en
+#  défaut le 4 septembre 2026. Le fichier est joint : chaque assertion est
+#  recontrôlable sur les octets d'origine.
+#
+#  La page choisie n'a AUCUN rapport avec le transport. C'est le but : c'est
+#  le seul cas que les fixtures ne contenaient pas — une page qu'on lit et qui
+#  ne donne rien. Les douze familles de fixtures décrivaient toutes une
+#  opportunité ; aucune ne décrivait une non-opportunité.
+# ═══════════════════════════════════════════════════════════════════════════
+
+PAGE_REELLE = RACINE / "validation" / "pages_reelles"
+
+
+def _page_reelle():
+    fichiers = sorted(PAGE_REELLE.glob("*.html"))
+    return fichiers[0] if fichiers else None
+
+
+class CeQueLaPremierePageReelleARevele(unittest.TestCase):
+    """Défaut observé : le texte d'un <script> entrait dans l'analyse sémantique.
+
+    Sur la page mesurée, le balisage pèse 95 % du fichier. Le lecteur ramassait
+    le contenu des <script> comme du texte de page : le moteur sémantique
+    analysait du JavaScript. Une fixture, elle, est du texte pur — le défaut
+    était structurellement invisible.
+    """
+
+    def test_le_javascript_nest_pas_du_texte_de_page(self):
+        from radar.extraction import analyser
+        r = analyser('<body><h1>Partenaires</h1>'
+                     '<script>var t="marché attribué le 12/03 au titulaire";</script>'
+                     '<style>.a{content:"appel d\'offres clôturé"}</style>'
+                     '<p>Nous cherchons un transporteur.</p></body>')
+        texte = r.texte()
+        self.assertIn("Nous cherchons un transporteur", texte)
+        self.assertNotIn("marché attribué", texte)
+        self.assertNotIn("clôturé", texte)
+
+    def test_une_page_sans_aucun_fait_commercial_nest_pas_une_opportunite(self):
+        """Défaut observé : 🔵 PROSPECT, score 24/100, action « SURVEILLER ».
+
+        La page ne parlait que d'une bibliothèque HTTP. Les 24 points étaient
+        entièrement composés de neutralités accordées à des absences — chacune
+        juste isolément, toutes ensemble une note fabriquée à partir de rien.
+        """
+        # Fidèle à la page mesurée : ni échéance, ni pays, ni montant, ni
+        # durée, ni cadence, ni exigence. Le banc d'essai en fournit deux par
+        # défaut (`echeance_brute`, `pays_livraison`) — une vraie page
+        # d'entreprise n'en offre aucun.
+        r = moteur().analyser(opp(
+            intitule="requests 2.34.2", texte="Python HTTP for Humans.",
+            acheteur="PyPI", secteur_acheteur="prive",
+            echeance_brute=None, pays_livraison=[]))
+        self.assertIs(r.classement.type, Type.OBSERVATION)
+        self.assertFalse(r.classement.type.notifiable,
+                         "une observation ne doit pas réveiller le commercial")
+        self.assertFalse(r.score.mesurable)
+        self.assertIn("NON MESURABLE", r.fiche.score_affiche)
+
+    def test_ce_nest_pas_un_rejet(self):
+        """⚪ n'est pas 🔴. Rien ne dit que cette entreprise n'aura pas de besoin."""
+        r = moteur().analyser(opp(intitule="Notre société change son logo",
+                                  texte="Nouvelle identité visuelle.",
+                                  acheteur="Bral SA", secteur_acheteur="prive",
+                                  echeance_brute=None, pays_livraison=[]))
+        self.assertIs(r.classement.type, Type.OBSERVATION)
+        self.assertNotEqual(r.classement.type, Type.REJET)
+        self.assertTrue(any("pas un rejet" in x for x in r.classement.raisons))
+
+    def test_un_besoin_en_vocabulaire_inconnu_reste_une_opportunite(self):
+        """⚪ ne doit JAMAIS devenir un rejet par absence de mot-clé.
+
+        La règle regarde l'absence de TOUT fait — pas l'absence d'un mot connu.
+        Un besoin écrit dans un métier inconnu, mais daté et chiffré, est ancré.
+        """
+        r = moteur().analyser(opp(
+            intitule="Convoyage de mâts d'éoliennes",
+            texte="Nous recherchons un prestataire pour du convoyage exceptionnel.",
+            montant=180000, duree_mois=24, cadence="hebdomadaire",
+            acheteur="Windco", secteur_acheteur="prive",
+            pays_livraison=["BE"]))
+        self.assertIsNot(r.classement.type, Type.OBSERVATION,
+                         "un métier inconnu mais chiffré et daté reste une affaire")
+
+    def test_une_absence_nest_jamais_un_argument_commercial(self):
+        """Défaut observé : « POURQUOI C'EST INTÉRESSANT · aucun lieu publié ».
+
+        Une zone A_VERIFIER produisait sa raison dans la rubrique des arguments.
+        Le radar vendait une absence.
+        """
+        r = moteur().analyser(opp(intitule="Transport de palettes",
+                                  texte="Distribution de palettes en Belgique."))
+        for p in r.fiche.pourquoi:
+            self.assertNotIn("aucun lieu publié", p)
+            self.assertNotIn("à vérifier", p.lower())
+
+    def test_ajouter_une_categorie_ne_casse_pas_la_chaine(self):
+        """Défaut observé : un dict indexé par Type a levé KeyError en ajoutant ⚪.
+
+        Toute la chaîne d'analyse tombait. Aucun test ne couvrait « une valeur
+        d'énumération que ce dictionnaire ne connaît pas ».
+        """
+        from radar import questions
+        for t in Type:
+            with self.subTest(type=t):
+                self.assertIn(t, {Type.DIRECT, Type.RENFORCEMENT, Type.A_CONSTRUIRE,
+                                  Type.PROSPECT, Type.OBSERVATION, Type.REJET})
+        src = (RACINE / "radar" / "questions.py").read_text(encoding="utf-8")
+        self.assertIn("}.get(classement.type", src,
+                      "l'accès par Type doit tolérer une catégorie ajoutée")
+
+
+class LeNiveauObserveEstVerifieEtNonDeclare(unittest.TestCase):
+    """Le journal de provenance doit pouvoir CONTREDIRE celui qui l'appelle."""
+
+    def test_une_valeur_absente_de_la_page_ne_peut_pas_etre_observee(self):
+        from radar.provenance import Journal, Niveau
+        j = Journal("Nous cherchons un transporteur pour Gand.")
+        c = j.observer("montant", "120 000 EUR")
+        self.assertIs(c.niveau, Niveau.INTERPRETE)
+        self.assertIn("refusé", c.retrograde)
+
+    def test_une_valeur_presente_est_observee_avec_sa_position(self):
+        from radar.provenance import Journal, Niveau
+        j = Journal("Nous cherchons un transporteur pour Gand.")
+        c = j.observer("intitulé", "transporteur")
+        self.assertIs(c.niveau, Niveau.OBSERVE)
+        self.assertIsNotNone(c.position)
+        self.assertIn("transporteur", c.extrait)
+
+    def test_le_balisage_est_distingue_du_texte_visible(self):
+        """Défaut observé : « mailto:me@… ne figure pas dans la page » — c'était faux.
+
+        L'adresse figurait bien dans le fichier, dans un attribut href. Le
+        journal ne comparait qu'au texte visible et adressait donc un reproche
+        inexact. Un lecteur humain ne voit pourtant pas cette valeur : les deux
+        niveaux existent, et ils ne se valent pas.
+        """
+        from radar.provenance import Journal, Niveau
+        j = Journal("Kenneth Reitz", '<a href="mailto:me@kennethreitz.org">Kenneth Reitz</a>')
+        c = j.observer("contact", "me@kennethreitz.org")
+        self.assertIs(c.niveau, Niveau.OBSERVE_BALISAGE)
+        self.assertIn("invisible", c.ligne())
+
+    def test_inconnu_porte_une_question_et_jamais_un_zero(self):
+        from radar.provenance import Journal, Niveau
+        j = Journal("page sans montant")
+        c = j.inconnu("montant", question="Quel volume annuel ?")
+        self.assertIs(c.niveau, Niveau.INCONNU)
+        self.assertEqual(c.affichage, "INCONNU")
+        self.assertNotEqual(c.affichage, "0")
+        self.assertTrue(c.question)
+
+
+class LeLecteurDePageGeneriqueNInventeRien(unittest.TestCase):
+    def _profil(self):
+        import yaml
+        return yaml.safe_load((RACINE / "sources" / "page_web.yaml").read_text(
+            encoding="utf-8"))
+
+    def test_un_champ_introuvable_reste_absent(self):
+        from radar.page import lire
+        lec = lire("<html><body><p>rien</p></body></html>", self._profil())
+        self.assertNotIn("contact_email", lec.champs)
+        self.assertIn("contact_email", lec.non_trouves)
+
+    def test_le_prefixe_mailto_est_retire(self):
+        """Défaut observé : le contact sortait « mailto:me@kennethreitz.org »."""
+        from radar.page import lire
+        lec = lire('<html><body><a href="mailto:jan@transco.be?subject=Devis">'
+                   'Nous écrire</a></body></html>', self._profil())
+        self.assertEqual(lec.champs.get("contact_email"), "jan@transco.be")
+
+    def test_deux_pistes_qui_se_contredisent_sont_signalees(self):
+        """Observé : <h1> disait « requests 2.34.2 », <title> « requests »."""
+        from radar.page import lire
+        lec = lire("<html><head><title>Transco — accueil</title></head>"
+                   "<body><h1>Devenir partenaire</h1></body></html>", self._profil())
+        self.assertEqual(lec.champs["intitule"], "Devenir partenaire")
+        self.assertIn("intitule", lec.variantes)
+
+    def test_les_absences_attendues_deviennent_des_questions(self):
+        from radar.page import lire
+        lec = lire("<html><body><h1>Transco</h1></body></html>", self._profil())
+        self.assertIn("montant", lec.questions)
+        self.assertTrue(lec.questions["montant"].endswith("?"))
+
+
+class LesDeuxCompteursNeSeMelangentJamais(unittest.TestCase):
+    """« 373 tests » ne doit jamais pouvoir se lire comme une validation."""
+
+    def test_le_compteur_reel_ne_sinvente_pas_dans_une_phrase(self):
+        from radar import validation
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            vide = Path(d) / "mesures.json"
+            e = validation.Etat(tests_coherence=validation.compter_tests(),
+                                mesures=validation.lire_registre(vide))
+            self.assertEqual(len(e.mesures), 0)
+            self.assertGreater(e.tests_coherence, 0)
+            rendu = e.rendu()
+            self.assertIn("COMPORTEMENTS OBSERVÉS SUR DONNÉES RÉELLES : 0", rendu)
+            self.assertIn("ne mesurent AUCUNE capacité", rendu)
+
+    def test_la_formule_interdite_napparait_dans_aucune_sortie(self):
+        from radar import validation
+        interdites = ("n'importe quelle source", "toutes les sources",
+                      "toute source du web")
+        for fichier in list((RACINE / "radar").glob("*.py")) + \
+                list((RACINE / "outils").glob("*.py")) + [RACINE / "README.md"]:
+            texte = fichier.read_text(encoding="utf-8")
+            for phrase in interdites:
+                self.assertNotIn(
+                    f"opportunités provenant de {phrase}", texte,
+                    f"{fichier.name} promet plus que ce qui a été mesuré")
+        self.assertIn("différentes familles de sources prévues par l'architecture",
+                      validation.FORMULE_AUTORISEE)
+
+    def test_une_meme_page_relue_ne_compte_pas_deux_fois(self):
+        from radar import validation
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "m.json"
+            m = validation.Mesure(horodatage="2026-09-04T00:00:00+00:00",
+                                  famille="page_web", origine="test",
+                                  reference="http://x", empreinte="abc123")
+            validation.inscrire(m, f)
+            validation.inscrire(m, f)
+            self.assertEqual(len(validation.lire_registre(f)), 1)

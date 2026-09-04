@@ -25,16 +25,25 @@ class Type(Enum):
     RENFORCEMENT = "RENFORCEMENT"
     A_CONSTRUIRE = "A_CONSTRUIRE"
     PROSPECT = "PROSPECT"
+    # ⚪ Ni une opportunité, ni un rejet : une page qu'on a lue et qui ne
+    # contient, à cette date, aucun fait commercial. « Notre société vient de
+    # changer son logo » en est une. Découvert en mesurant une VRAIE page :
+    # une page sans le moindre rapport avec le transport ressortait 🔵
+    # PROSPECT à 24/100, avec pour action « SURVEILLER ». Un radar qui met en
+    # file d'attente tout ce qu'il croise ne trie plus rien.
+    OBSERVATION = "PAS ENCORE UNE OPPORTUNITÉ"
     REJET = "REJET"
 
     @property
     def emoji(self) -> str:
         return {"DIRECT": "🟢", "RENFORCEMENT": "🟡", "A_CONSTRUIRE": "🟣",
-                "PROSPECT": "🔵", "REJET": "🔴"}[self.value]
+                "PROSPECT": "🔵", "PAS ENCORE UNE OPPORTUNITÉ": "⚪",
+                "REJET": "🔴"}[self.value]
 
     @property
     def notifiable(self) -> bool:
-        return self is not Type.REJET
+        """Ni un rejet ni une observation ne réveillent le commercial."""
+        return self not in (Type.REJET, Type.OBSERVATION)
 
 
 class Moteur(Enum):
@@ -51,6 +60,7 @@ class Action(Enum):
     PROPOSER_PARTENARIAT = "PROPOSER PARTENARIAT"
     PROPOSER_GROUPEMENT = "PROPOSER UN GROUPEMENT"
     SURVEILLER = "SURVEILLER"
+    CLASSER_SANS_SUITE = "CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT"
     VERIFIER_ETAT = "VÉRIFIER L'ÉTAT À LA SOURCE"
     ABANDONNER = "ABANDONNER"
 
@@ -83,7 +93,7 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
             deadline_ouverte, deadline_motif, attribue, informatif,
             bilan_capacite, construction=None, est_signal=False,
             source_privee=False, nature=None, etat=None,
-            procedure_detectee=False) -> Classement:
+            procedure_detectee=False, ancrage_commercial=True) -> Classement:
     """Décide de la catégorie, du moteur et de l'action unique.
 
     Aucun paramètre ne nomme une source, et c'est délibéré : brancher TED,
@@ -208,6 +218,28 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
         return Classement(Type.PROSPECT, Moteur.CAPTER, action,
                           f"trop grand pour être porté seul — {de_taille[0]}",
                           raisons=raisons)
+
+    # ── 4bis. RIEN. Pas un rejet : une absence de matière ──
+    #
+    # `ancrage_commercial` est FAUX quand la page ne porte AUCUN fait
+    # exploitable : ni métier reconnu, ni montant, ni cadence, ni durée, ni
+    # échéance, ni date de démarrage, ni exigence, ni besoin exprimé, ni
+    # événement observable. Ce n'est PAS un rejet par absence de mot-clé — un
+    # besoin écrit dans un vocabulaire inconnu porte encore une date, un
+    # volume ou une demande, et passe donc par le test 🟣 comme avant.
+    #
+    # C'est l'absence de TOUTE prise, quel que soit le vocabulaire.
+    if (not ancrage_commercial and nature is Nature.HYPOTHESE
+            and not procedure_detectee
+            and not (construction is not None and construction.eligible)):
+        return Classement(
+            Type.OBSERVATION, Moteur.CAPTER, Action.CLASSER_SANS_SUITE,
+            "aucun fait commercial observé sur cette page",
+            raisons=["ce n'est pas un rejet : rien ne dit que cette entreprise "
+                     "n'aura jamais de besoin",
+                     "ce n'est pas non plus une opportunité : il n'y a, à cette "
+                     "date, rien à travailler",
+                     "à reprendre si un besoin, une date ou un volume apparaît"])
 
     # ── 5. Métier reconnu ou non ──
     if not activite_reconnue:

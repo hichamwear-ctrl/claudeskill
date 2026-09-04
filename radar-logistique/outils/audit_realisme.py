@@ -379,13 +379,20 @@ def principal(argv=None) -> int:
     p.add_argument("--detail", action="store_true")
     a = p.parse_args(argv)
 
+    # Le compteur réel se LIT dans le registre de mesures. Écrit en dur, il
+    # disait « 0 » pour toujours — et il aurait dit « 12 » tout aussi
+    # facilement. Un chiffre qu'une phrase peut changer ne mesure rien.
+    from radar.validation import etat as etat_validation
+    e = etat_validation()
     print("╔" + "═" * 70 + "╗")
-    print("║  AUDIT DE RÉALISME — RADAR COMMERCIAL                                 ║")
-    print("║                                                                      ║")
+    print("║  " + "AUDIT DE RÉALISME — RADAR COMMERCIAL".ljust(68) + "║")
+    print("║" + " " * 70 + "║")
     print("║  MODE : TEST — toutes les formulations sont ÉCRITES, pas observées.  ║")
-    print("║  DONNÉES RÉELLES OBSERVÉES : 0                                       ║")
-    print("║  Aucune page réelle n'a été consultée. Cet audit mesure ce que le    ║")
-    print("║  moteur comprend de phrases vraisemblables — pas du monde réel.      ║")
+    print("║  " + f"TESTS DE COHÉRENCE (données fabriquées) : {e.tests_coherence}".ljust(68) + "║")
+    print("║  " + f"COMPORTEMENTS OBSERVÉS SUR DONNÉES RÉELLES : {len(e.mesures)}".ljust(68) + "║")
+    print("║  " + f"PAGES RÉELLES COMPLÈTES CONSERVÉES : {e.pages_completes}".ljust(68) + "║")
+    print("║  Les deux compteurs ne s'additionnent pas et ne se remplacent pas.   ║")
+    print("║  Le premier protège des régressions. Seul le second parle du monde.  ║")
     print("╚" + "═" * 70 + "╝")
 
     m = Matrice()
@@ -403,7 +410,11 @@ def principal(argv=None) -> int:
     print(f"\n  formulations non comprises : {len(incomprises)}")
     print(f"  formulations mal comprises : {len(ambigues)}"
           + ("   ⚠ chacune est une affaire potentiellement perdue" if ambigues else ""))
-    print("  DONNÉES RÉELLES OBSERVÉES  : 0")
+    print(f"  TESTS DE COHÉRENCE         : {e.tests_coherence}"
+          "   (données fabriquées — aucune capacité réelle prouvée)")
+    print(f"  COMPORTEMENTS OBSERVÉS SUR DONNÉES RÉELLES : {len(e.mesures)}")
+    print(f"  FAMILLES RÉELLEMENT MESURÉES : "
+          f"{', '.join(e.familles_mesurees) or 'aucune'}")
 
     print("\n" + "─" * 72)
     print("CE QUE CET AUDIT NE PROUVE PAS")
@@ -424,8 +435,13 @@ def principal(argv=None) -> int:
     · qu'une vraie page se lit comme une chaîne de caractères propre.
 
   La seule chose qui lèvera ce doute est une page réellement collectée. Tant
-  que la ligne « DONNÉES RÉELLES OBSERVÉES » affiche 0, ce rapport décrit une
-  cohérence interne, pas une compétence face au monde.""")
+  que « COMPORTEMENTS OBSERVÉS SUR DONNÉES RÉELLES » reste bas, ce rapport
+  décrit une cohérence interne, pas une compétence face au monde.
+
+  Ce que le produit a le droit d'affirmer : il détecte des opportunités
+  provenant de DIFFÉRENTES FAMILLES DE SOURCES PRÉVUES PAR L'ARCHITECTURE.
+  Pas « de n'importe quelle source » : une famille prévue n'est pas une
+  famille mesurée.""")
     return 1 if m.incorrects else 0
 
 

@@ -54,13 +54,17 @@ def interroger(*, opp, role, correspondance, zone, bilan, classement, verdict,
     r["10. y a-t-il une exigence bloquante ?"] = (
         "; ".join(bilan.bloquants) if bilan.bloquants else "aucune détectée")
     r["11. la deadline est-elle ouverte ?"] = verdict.motif or A_VERIFIER
+    # `.get` et non `[...]` : une catégorie ajoutée plus tard ne doit pas
+    # faire tomber toute la chaîne d'analyse sur un KeyError. C'est arrivé en
+    # ajoutant ⚪, sur une vraie page.
     r["12. puis-je être titulaire ?"] = {
         Type.DIRECT: "oui, avec la structure actuelle",
         Type.RENFORCEMENT: "oui, après location ou recrutement",
         Type.A_CONSTRUIRE: "oui, après montée en compétence",
         Type.PROSPECT: "non",
+        Type.OBSERVATION: "question prématurée — aucun besoin identifié",
         Type.REJET: "non",
-    }[classement.type]
+    }.get(classement.type, A_VERIFIER)
     r["13. sinon, sous-traitant ou partenaire ?"] = (
         "oui — " + classement.action.value
         if classement.action in (Action.PROPOSER_SOUS_TRAITANCE,

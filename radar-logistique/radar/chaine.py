@@ -201,8 +201,25 @@ class Moteur:
                 jours_avant_demarrage=jours, duree_mois=opp.duree_mois,
                 cadence=opp.cadence)
 
+        # L'ANCRAGE COMMERCIAL : y a-t-il, sur cette page, le moindre fait
+        # exploitable ? On ne cherche pas un mot — on cherche un FAIT : un
+        # métier reconnu, un chiffre, une date, une exigence, un besoin
+        # exprimé, un événement. Aucun des huit n'est un vocabulaire métier :
+        # une page rédigée dans un jargon inconnu qui annonce « démarrage en
+        # mars, 12 tournées par semaine » reste ancrée.
+        ancrage = bool(
+            corr.familles or corr.domaine_transport
+            or opp.montant or opp.cadence or opp.duree_mois
+            or opp.echeance_brute or opp.date_demarrage
+            or opp.exigences or opp.exigences_texte
+            or opp.vehicules_requis or opp.chauffeurs_requis
+            or opp.km_annuels or opp.lots and len(opp.lots) > 1
+            or opp.est_signal or nature is not nat.Nature.HYPOTHESE
+            or lecture.procedure_detectee)
+
         classement = classer(
             role=role.role,
+            ancrage_commercial=ancrage,
             activite_reconnue=bool(corr.familles) or corr.domaine_transport,
             exclusion=", ".join(corr.exclusions[:2]) if corr.exclusions else None,
             zone_ok=zone.compatible,
@@ -267,7 +284,14 @@ class Moteur:
             pourquoi.append(libelle + (f" — « {preuves[0]} »" if preuves else ""))
         if not corr.familles and corr.preuve_domaine:
             pourquoi.append(f"domaine reconnu — {corr.preuve_domaine}")
-        pourquoi += zone.raisons
+        # « POURQUOI C'EST INTÉRESSANT » ne prend que des faits POSITIFS. Une
+        # zone A_VERIFIER produisait la raison « aucun lieu publié — zone à
+        # vérifier », et une page réelle sans le moindre rapport avec le
+        # transport affichait donc une absence en guise d'argument commercial.
+        # Ce qui manque a déjà sa rubrique, plus bas.
+        from .geographie import Zone as _Zone
+        if zone.zone is not _Zone.A_VERIFIER:
+            pourquoi += zone.raisons
         if role.preuves:
             pourquoi.append("prestation logistique : " + role.preuves[0])
         if constr and constr.eligible:
@@ -315,7 +339,8 @@ class Moteur:
             pourquoi=pourquoi, j_ai_deja=j_ai, il_me_manque=manque,
             comment_combler=bilan.remedes or bilan.mobilisations,
             raisons_categorie=[classement.motif] + classement.raisons[:3],
-            marge=score.marge_estimee, score=score.total, detail_score=score.detail(),
+            marge=score.marge_estimee, score=score.total, score_affiche=score.affichage,
+            detail_score=score.detail(),
             lien=opp.lien_depot or opp.lien_dossier, source=opp.source,
             reference=opp.ref_source, nature=nature,
             etat=lecture.etat if lecture else None,
@@ -338,8 +363,8 @@ RECALCULEES = ("type", "moteur", "action", "role", "statut", "zone", "familles",
                "etat_procedure", "confiance_etat", "type_information", "nature",
                "secteur",
                "fiabilite", "fiabilite_motif", "echeance", "jours_restants",
-               "score", "marge", "detail_score", "journal", "motif", "fiche",
-               "calcule_le")
+               "score", "score_mesurable", "marge", "detail_score", "journal",
+               "motif", "fiche", "calcule_le")
 
 _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "familles", "marche_ref", "lot_numero", "intitule", "acheteur",
@@ -347,8 +372,8 @@ _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "echeance", "jours_restants", "distance_km", "etat_procedure",
              "confiance_etat", "type_information", "nature", "secteur",
              "fiabilite", "fiabilite_motif",
-             "score", "marge", "detail_score", "journal", "motif", "fiche",
-             "calcule_le")
+             "score", "score_mesurable", "marge", "detail_score", "journal",
+             "motif", "fiche", "calcule_le")
 
 
 def _valeurs(avis_id, opp, r) -> tuple:
@@ -368,7 +393,7 @@ def _valeurs(avis_id, opp, r) -> tuple:
             opp.secteur_acheteur,
             r.fiabilite.niveau.value if r.fiabilite else None,
             r.fiabilite.motif() if r.fiabilite else None,
-            r.score.total, r.score.marge_estimee,
+            r.score.total, 1 if r.score.mesurable else 0, r.score.marge_estimee,
             json.dumps(r.score.detail(), ensure_ascii=False),
             json.dumps(r.journal.en_lignes(), ensure_ascii=False),
             r.classement.motif, r.fiche.en_texte(), maintenant())
@@ -391,12 +416,14 @@ def _reecrire(cx, avis_id: int, r, opp) -> None:
     motif et les provenances. Le brut d'origine n'est jamais touché.
     """
     cx.execute(
-        "UPDATE opportunites SET type=?, moteur=?, action=?, score=?, marge=?,"
+        "UPDATE opportunites SET type=?, moteur=?, action=?, score=?,"
+        " score_mesurable=?, marge=?,"
         " motif=?, fiche=?, journal=?, acheteur=COALESCE(acheteur, ?),"
         " montant=COALESCE(montant, ?), echeance=COALESCE(echeance, ?),"
         " contact=COALESCE(contact, ?), calcule_le=? WHERE avis_id=?",
         (r.classement.type.value, r.classement.moteur.value, r.classement.action.value,
-         r.score.total, r.score.marge_estimee, r.classement.motif, r.fiche.en_texte(),
+         r.score.total, 1 if r.score.mesurable else 0,
+         r.score.marge_estimee, r.classement.motif, r.fiche.en_texte(),
          json.dumps(r.journal.en_lignes(), ensure_ascii=False),
          opp.acheteur, opp.montant,
          r.verdict.echeance.isoformat() if r.verdict.echeance else None,

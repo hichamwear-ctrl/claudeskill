@@ -50,6 +50,12 @@ FAMILLES = [
     ("appel_offres",           "appel_offres.json",           "ted",         "public"),
     ("lot",                    "lot.json",                    "bda",         "public"),
     ("metier_inconnu",         "metier_inconnu.json",         "entreprise",  "prive"),
+    # La treizième famille n'est pas une opportunité — et c'est pour ça
+    # qu'elle manquait. Ajoutée après avoir mesuré une VRAIE page : douze
+    # familles décrivaient douze façons de gagner de l'argent, aucune ne
+    # décrivait une page qu'on lit et qui ne donne rien.
+    ("pas_encore_une_opportunite", "pas_encore_une_opportunite.json",
+                                                                "page_web",    "prive"),
 ]
 
 PRIVEES = {f for f, _, _, s in FAMILLES if s == "prive"}
@@ -123,10 +129,14 @@ def principal(argv=None) -> int:
     print(f"réconciliation : écart {b.livre.ecart()}\n")
 
     for l in cx.execute(
-            "SELECT o.score, o.type, o.moteur, o.action, o.nature, o.etat_procedure,"
+            "SELECT o.score, o.score_mesurable, o.type, o.moteur, o.action,"
+            " o.nature, o.etat_procedure,"
             " o.intitule, a.source FROM opportunites o JOIN avis a ON a.id = o.avis_id"
             " WHERE o.type <> 'REJET' ORDER BY o.score DESC"):
-        print(f"  [{l['score']:>3}] {(l['intitule'] or '')[:40]:<42}"
+        # « — » quand rien d'économique n'a été observé : un nombre affiché
+        # prétend être une mesure, et se compare à celui d'à côté.
+        note = l["score"] if l["score_mesurable"] else "—"
+        print(f"  [{note:>3}] {(l['intitule'] or '')[:40]:<42}"
               f"{l['type'][:12]:<13}{(l['nature'] or '?')[:9]:<10}"
               f"{(l['action'] or '?')[:22]:<24}{l['source']}")
 

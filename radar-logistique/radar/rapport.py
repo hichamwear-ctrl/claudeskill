@@ -37,6 +37,12 @@ BLOCS_PIPELINE = [
     ("🔄 RENOUVELLEMENTS / ATTRIBUTIONS", "renouvellement"),
     ("🎓 NOUVEAUX MÉTIERS ACCESSIBLES", "metier"),
     ("⚠️ À VÉRIFIER", "verifier"),
+    # Lues, comprises, et sans matière commerciale à cette date. Ni un rejet
+    # (rien ne dit que l'entreprise n'aura jamais de besoin), ni une file
+    # d'attente (il n'y a rien à surveiller). Ce bloc existe parce qu'une
+    # vraie page mesurée y est tombée : sans lui, elle encombrait « à
+    # surveiller » avec un score de 24/100.
+    ("⚪ PAS ENCORE DES OPPORTUNITÉS", "observation"),
     ("❌ REJETS MOTIVÉS", "rejet"),
 ]
 
@@ -49,6 +55,8 @@ def bloc_de(ligne) -> str:
     """
     if ligne["type"] == "REJET":
         return "rejet"
+    if ligne["type"] == "PAS ENCORE UNE OPPORTUNITÉ":
+        return "observation"
     action = (ligne["action"] or "").upper()
     if ligne["type"] == "A_CONSTRUIRE":
         return "metier"
@@ -193,7 +201,11 @@ class Rapport:
         qu'il y a à gagner. La source arrive tout au bout de chaque ligne,
         comme une provenance, et le détail par source vient à la fin.
         """
-        L = ["RADAR COMMERCIAL", "=" * 72, ""]
+        L = ["RADAR COMMERCIAL", "=" * 72,
+             "Opportunités de chiffre d'affaires provenant de DIFFÉRENTES FAMILLES",
+             "DE SOURCES PRÉVUES PAR L'ARCHITECTURE — qualifiées économiquement,",
+             "faits, signaux et hypothèses distingués.",
+             ""]
         for titre, cle in BLOCS_PIPELINE:
             lignes = self.pipeline.get(cle, [])
             L.append(f"{titre}   ({len(lignes)})")
@@ -207,6 +219,20 @@ class Rapport:
             if len(lignes) > 6:
                 L.append(f"    … et {len(lignes) - 6} autre(s)")
         L.append("")
+        # Deux compteurs, jamais mélangés — et jamais dans la même phrase que
+        # le nombre d'opportunités trouvées, pour qu'aucun des deux ne se lise
+        # comme une validation de l'autre.
+        try:
+            from .validation import etat as _etat
+            e = _etat()
+            L.append(f"  TESTS DE COHÉRENCE : {e.tests_coherence} (données fabriquées)"
+                     f"  ·  DONNÉES RÉELLES OBSERVÉES : {len(e.mesures)}"
+                     f"  ·  PAGES RÉELLES PORTANT UN BESOIN : "
+                     f"{e.pages_portant_un_besoin}")
+            L.append("  Le premier compteur ne valide rien commercialement.")
+            L.append("")
+        except Exception:            # noqa: BLE001 — un rapport ne meurt pas là-dessus
+            pass
         L.append("  DÉTECTER → QUALIFIER → CONTACTER → CONVERTIR → EXÉCUTER")
         L.append("  → RENOUVELER → DÉVELOPPER.  Un marché ouvert n'est qu'UN cas")
         L.append("  du premier stade.")
@@ -662,12 +688,16 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
             r.completude_par_famille[famille] = mesures
 
     if "nature" in connues:
+        mesurable = ("o.score_mesurable" if "score_mesurable" in connues
+                     else "1 AS score_mesurable")
         for l in cx.execute(
-                "SELECT o.score, o.intitule, o.type, o.action, o.nature,"
+                f"SELECT o.score, {mesurable}, o.intitule, o.type, o.action, o.nature,"
                 " o.etat_procedure, o.motif, a.source FROM opportunites o"
                 " JOIN avis a ON a.id = o.avis_id ORDER BY o.score DESC"):
+            # « — » et non « 24 » : un nombre affiché prétend être une mesure.
+            note = l["score"] if l["score_mesurable"] else "—"
             r.pipeline.setdefault(bloc_de(l), []).append(
-                (l["score"], l["intitule"] or "(sans intitulé)",
+                (note, l["intitule"] or "(sans intitulé)",
                  l["action"] if l["type"] != "REJET" else (l["motif"] or "")[:22],
                  l["source"], l["etat_procedure"], l["nature"]))
 

@@ -1,0 +1,84 @@
+# UNE PAGE WEB QUELCONQUE — la source qui n'a aucune structure connue.
+#
+# TED publie du XML normé. Un portail publie des rubriques. Une page
+# d'entreprise ne publie RIEN de convenu : pas de champ statut, pas de
+# référence, pas de CPV, pas de montant, souvent pas de date. Le besoin y est
+# écrit en prose, par celui qui l'a.
+#
+# Ce fichier ne décrit donc pas UN site : il décrit ce qu'on va CHERCHER dans
+# n'importe quelle page HTML, et dans quel ordre de préférence. Chaque piste
+# qui ne trouve rien laisse le champ vide — jamais une valeur inventée.
+#
+# Les champs qu'on sait d'avance ne pas trouver ici (référence officielle,
+# statut de procédure, CPV, montant estimé) ne sont pas des défauts de la
+# source : ils sont INCONNUS, et INCONNU n'est pas zéro.
+#
+# verifie: false — se remplit à `true` le jour où une page réelle a été lue
+# ET où les pistes ci-dessous ont été confirmées sur cette page.
+
+source: page_web
+verifie: false
+secteur_par_defaut: prive
+
+champs:
+  identifiant:      [url]
+  intitule:         [intitule, titre, title]
+  objet:            [objet, description, texte]
+  acheteur:         [acheteur, entreprise, societe]
+  contact_email:    [contact_email]
+  plateforme:       [url]
+  lieu:             [lieu]
+  echeance:         [echeance]
+  montant:          [montant]
+  cadence:          [cadence]
+  vehicules_requis: [vehicules_requis]
+  chauffeurs_requis: [chauffeurs_requis]
+
+# ═══ CE QU'ON CHERCHE, ET DANS QUEL ORDRE ═══
+# La première piste qui répond gagne. Les suivantes sont conservées comme
+# variantes : quand deux pistes se contredisent, c'est une information.
+lecture_generique:
+  intitule:
+    - {balise: h1, attribut: texte}
+    - {balise: meta, attrs: {property: "og:title"}, attribut: content}
+    - {balise: title, attribut: texte}
+
+  acheteur:
+    - {balise: meta, attrs: {property: "og:site_name"}, attribut: content}
+    - {balise: meta, attrs: {name: "author"}, attribut: content}
+
+  objet:
+    - {balise: meta, attrs: {name: "description"}, attribut: content}
+    - {balise: meta, attrs: {property: "og:description"}, attribut: content}
+
+  contact_email:
+    - {motif_texte: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"}
+    # `retirer_prefixe` : un href porte « mailto: » devant l'adresse, et
+    # `couper_a` retire les « ?subject=… » que certains sites ajoutent.
+    - {balise: a, attrs: {href: "mailto:"}, attribut: href,
+       retirer_prefixe: "mailto:", couper_a: "?"}
+
+  telephone:
+    # Format belge et international. Une suite de chiffres SEULE ne suffit pas :
+    # il faut un indicatif ou un préfixe reconnaissable, sinon on ramasse des
+    # numéros de TVA et des références de produit.
+    - {motif_texte: "(?:\\+32|0032|\\+33|\\+31|\\+49)[\\s./-]?[0-9][\\s./-]?(?:[0-9][\\s./-]?){7,9}"}
+    - {balise: a, attrs: {href: "tel:"}, attribut: href, retirer_prefixe: "tel:"}
+
+  langue:
+    - {balise: html, attribut: lang, soi_meme: true}
+    - {balise: meta, attrs: {"http-equiv": "content-language"}, attribut: content}
+
+  canonique:
+    - {balise: link, attrs: {rel: canonical}, attribut: href}
+
+# ═══ CE QU'UNE PAGE D'ENTREPRISE NE PORTE PRESQUE JAMAIS ═══
+# Déclaré ici pour que l'absence soit ATTENDUE et non comptée comme un échec
+# d'extraction. Chacun devient INCONNU, avec la question à poser au client.
+absences_attendues:
+  reference_officielle: "Cette page a-t-elle une référence de dossier interne ?"
+  statut_procedure:     "Le besoin est-il déjà attribué à un transporteur ?"
+  cpv:                  "—"
+  montant:              "Quel volume annuel, ou quel budget ?"
+  echeance:             "Pour quelle date le besoin doit-il être couvert ?"
+  duree_mois:           "S'agit-il d'un contrat, et pour combien de temps ?"

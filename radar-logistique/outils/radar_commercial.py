@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""LE RADAR, toutes sources confondues — la démonstration de l'architecture.
+"""LE RADAR — la démonstration de l'ARCHITECTURE, pas une validation.
+
+Le radar détecte des opportunités de chiffre d'affaires provenant de
+DIFFÉRENTES FAMILLES DE SOURCES PRÉVUES PAR L'ARCHITECTURE. Ce script le
+montre en faisant entrer des formes de besoin sans rien de commun dans un
+seul moteur. Il ne montre PAS que ces familles ont été mesurées sur du
+réel : `python3 -m radar.cli validation` dit où en est cette mesure.
 
 Le centre du radar n'est pas la source. Ce n'est pas non plus l'appel d'offres.
 C'est le BESOIN COMMERCIAL et sa RENTABILITÉ.
@@ -51,6 +57,9 @@ LOTS = [
     ("signaux.json",       "signaux"),
     ("bourse_fret.json",   "bourse_fret"),
     ("portail.json",       "portail"),
+    # Une page réelle transcrite, et une actualité d'entreprise : deux
+    # cas où la bonne réponse est « ce n'est pas encore une opportunité ».
+    ("../familles/pas_encore_une_opportunite.json", "page_web"),
 ]
 
 
@@ -84,6 +93,7 @@ def charger(fichier: str, source: str) -> list:
     ad = Adaptateur.depuis_config(cfg)
     charges = json.loads((RACINE / "exemples" / "sources" / fichier).read_text(
         encoding="utf-8"))
+    charges = [c for c in charges if isinstance(c, dict)]
     defauts = {"signal": cfg.get("signal"), "secteur": cfg.get("secteur_par_defaut")}
     return [vers_opportunite(ad, c, c.get("fournisseur") or source, defauts)
             for c in charges]

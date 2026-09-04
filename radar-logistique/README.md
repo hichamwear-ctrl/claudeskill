@@ -1,8 +1,17 @@
 # RADAR COMMERCIAL MULTI-SOURCES — transport et logistique
 
-Un radar qui cherche des **occasions de chiffre d'affaires**, partout où elles
-se trouvent, et qui ne garde que celles que cette entreprise peut réellement
-gagner **et exécuter**.
+Le radar détecte des opportunités de chiffre d'affaires provenant de
+**différentes familles de sources prévues par l'architecture**, les qualifie
+économiquement, distingue les **faits** des **signaux** et des **hypothèses**,
+puis indique comment les **attaquer**, les **développer**, les **surveiller**
+ou les **convertir**.
+
+> Ce n'est pas « de n'importe quelle source ». Une famille **prévue** par
+> l'architecture n'est pas une famille **validée sur le monde réel**. L'état
+> exact de la validation se lit avec `python3 -m radar.cli validation` — et
+> il distingue toujours deux compteurs qui ne s'additionnent pas :
+> **TESTS DE COHÉRENCE** (données fabriquées, protègent des régressions) et
+> **COMPORTEMENTS OBSERVÉS SUR DONNÉES RÉELLES** (le seul qui parle du monde).
 
 Ce n'est pas un moteur d'appels d'offres. Ce n'est pas un radar TED. L'appel
 d'offres est **une catégorie d'opportunités parmi d'autres** ; TED est **un
@@ -20,6 +29,26 @@ La question posée à chaque étage :
 
 Et jamais : « est-ce que cette annonce contient le mot transport ? », ni
 « est-ce que ça vient d'une source officielle ? ».
+
+## Ce que le radar sait dire — y compris « non »
+
+Cinq catégories pour ce qui vaut quelque chose, et une sixième pour ce qui
+n'en vaut pas — **encore** :
+
+| | |
+|---|---|
+| 🟢 DIRECT | exécutable avec la structure actuelle |
+| 🟡 RENFORCEMENT | possible après location ou recrutement |
+| 🟣 À CONSTRUIRE | métier nouveau, accessible par montée en compétence |
+| 🔵 PROSPECT | pas un contrat aujourd'hui, une porte d'entrée |
+| ⚪ PAS ENCORE UNE OPPORTUNITÉ | lue, comprise, aucun fait commercial à cette date |
+| 🔴 REJET | motivé — fourniture, activité exclue, hors zone |
+
+⚪ n'est **pas** 🔴. « Notre société change son logo » n'est pas une affaire
+aujourd'hui ; rien ne dit que cette société n'aura pas de besoin demain. Cette
+catégorie n'existe que parce qu'une **vraie page** l'a rendue nécessaire : le
+radar la classait 🔵 PROSPECT avec un score de 24/100 et l'action
+« SURVEILLER ». Voir `validation/PREMIERE-MESURE-REELLE.md`.
 
 ## Huit formes de besoin, un seul moteur
 

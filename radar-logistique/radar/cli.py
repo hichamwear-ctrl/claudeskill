@@ -486,8 +486,24 @@ def cmd_notifier(a) -> int:
     return 0
 
 
+def cmd_validation(a) -> int:
+    """Ce qui est prouvé, et par quoi. Deux compteurs, jamais mélangés."""
+    from . import validation
+    print(validation.etat().rendu())
+    return 0
+
+
+DESCRIPTION = (
+    "Radar commercial logistique — détecte des opportunités de chiffre "
+    "d'affaires provenant de DIFFÉRENTES FAMILLES DE SOURCES PRÉVUES PAR "
+    "L'ARCHITECTURE, les qualifie économiquement, distingue les faits des "
+    "signaux et des hypothèses, puis indique comment les attaquer, les "
+    "développer, les surveiller ou les convertir. "
+    "« Familles prévues » n'est pas « familles validées » : voir `radar validation`.")
+
+
 def principal(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="radar", description="Radar commercial logistique")
+    p = argparse.ArgumentParser(prog="radar", description=DESCRIPTION)
     p.add_argument("--base", default=None,
                    help="par défaut : radar-demo.sqlite3 ou radar-reel.sqlite3 selon le mode")
     p.add_argument("--reel", action="store_true",
@@ -559,6 +575,10 @@ def principal(argv=None) -> int:
 
     c = s.add_parser("calendrier", help="remises en concurrence calculées")
     c.set_defaults(fn=cmd_calendrier)
+
+    v = s.add_parser("validation",
+                     help="état de validation : architecture, fixtures, réel")
+    v.set_defaults(fn=cmd_validation)
 
     n = s.add_parser("notifier", help="vider la file d'envoi")
     n.add_argument("--pour-de-vrai", action="store_true")

@@ -15,6 +15,11 @@ from html.parser import HTMLParser
 
 AUTO_FERMANTES = {"br", "img", "input", "meta", "link", "hr", "source"}
 
+# Le contenu de ces balises n'est PAS du texte de page. Sur une vraie page, un
+# bloc <script> de suivi publicitaire pèse dix fois le texte visible : le
+# ramasser revient à faire analyser du JavaScript au moteur sémantique.
+NON_TEXTUELLES = {"script", "style", "noscript", "template", "svg"}
+
 
 @dataclass
 class Noeud:
@@ -68,8 +73,11 @@ class _Constructeur(HTMLParser):
                 return
 
     def handle_data(self, data):
-        if data.strip():
-            self.pile[-1].texte_direct += " " + data.strip()
+        if not data.strip():
+            return
+        if any(n.balise in NON_TEXTUELLES for n in self.pile):
+            return
+        self.pile[-1].texte_direct += " " + data.strip()
 
 
 def analyser(html: str) -> Noeud:

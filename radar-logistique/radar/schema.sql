@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS opportunites (
     fiabilite     TEXT,
     fiabilite_motif TEXT,
     score         INTEGER NOT NULL DEFAULT 0,
+    -- 0 quand aucun fait économique n'a été observé. Le rapport doit
+    -- alors écrire « — » : un nombre affiché prétend être une mesure.
+    score_mesurable INTEGER NOT NULL DEFAULT 1,
     detail_score  TEXT,
     motif         TEXT,
     fiche         TEXT,

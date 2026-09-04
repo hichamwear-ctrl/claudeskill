@@ -1,0 +1,9 @@
+{
+  "url": "https://pypi.org/project/requests/",
+  "origine_de_la_donnee": "curl depuis le conteneur le 2026-09-04 ; pypi.org fait partie des rares domaines que la politique reseau laisse passer",
+  "famille": "page_web",
+  "collecte_le": "2026-09-04T08:00:58+00:00",
+  "octets": 251417,
+  "sha256": "ef41f74ee5879fbdb105a1b8eafcf0b646f2267e039941f401eb7329097b6c15",
+  "fichier": "2026-09-04-page_web-ef41f74ee587.html"
+}

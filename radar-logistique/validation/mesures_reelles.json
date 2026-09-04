@@ -1,0 +1,28 @@
+{
+  "avertissement": "Écrit UNIQUEMENT par un collecteur réel. Ne pas remplir à la main.",
+  "mesures": [
+    {
+      "horodatage": "2026-09-04T08:00:58+00:00",
+      "famille": "page_web",
+      "origine": "curl depuis le conteneur le 2026-09-04 ; pypi.org fait partie des rares domaines que la politique reseau laisse passer",
+      "reference": "https://pypi.org/project/requests/",
+      "empreinte": "ef41f74ee5879fbdb105a1b8eafcf0b646f2267e039941f401eb7329097b6c15",
+      "page_conservee": "2026-09-04-page_web-ef41f74ee587.html",
+      "completude": "page complète",
+      "verdict": "⚪ PAS ENCORE UNE OPPORTUNITÉ · score NON MESURABLE — aucun fait économique observé · CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT",
+      "porte_un_besoin": false,
+      "constats": {
+        "OBSERVÉ RÉELLEMENT": 4,
+        "OBSERVÉ DANS LE BALISAGE": 2,
+        "INTERPRÉTÉ": 2,
+        "DÉDUIT": 6,
+        "INCONNU": 7
+      },
+      "enseignements": [
+        "densité de texte 5% : les fixtures sont du texte pur, une vraie page est majoritairement du balisage",
+        "pistes muettes : telephone",
+        "plus d'INCONNUS que d'OBSERVÉS : c'est le régime normal d'une page privée, et le score doit y survivre"
+      ]
+    }
+  ]
+}

@@ -58,6 +58,7 @@ class Fiche:
     raisons_categorie: list[str] = field(default_factory=list)
     marge: str = "NON MESURÉE"
     score: int = 0
+    score_affiche: str = ""        # « 84/100 » ou « NON MESURABLE — … »
     detail_score: list[str] = field(default_factory=list)
     lien: str | None = None
     source: str = ""
@@ -123,7 +124,8 @@ class Fiche:
         L += ["", "CE QU'IL FAUT FAIRE", f"  {_ou(self.objet, 'A_VERIFIER')}"]
 
         L += ["", "POURQUOI C'EST INTÉRESSANT POUR MOI"]
-        L += [f"  · {p}" for p in self.pourquoi] or ["  · A_VERIFIER"]
+        L += ([f"  · {p}" for p in self.pourquoi] or
+              ["  · rien dans cette source ne constitue un argument commercial"])
 
         L += ["", "CE QUE J'AI DÉJÀ"]
         L += [f"  ✔️ {a}" for a in self.j_ai_deja] or ["  · rien de confirmé automatiquement"]
@@ -137,7 +139,8 @@ class Fiche:
         if self.raisons_categorie:
             L += [f"  → {r}" for r in self.raisons_categorie]
 
-        L += ["", f"ÉCONOMIE      score {self.score}/100 · marge {self.marge}"]
+        L += ["", f"ÉCONOMIE      score {self.score_affiche or f'{self.score}/100'}"
+                  f" · marge {self.marge}"]
         if avec_detail_score:
             L += [f"    {d}" for d in self.detail_score]
 
