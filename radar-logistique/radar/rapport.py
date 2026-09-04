@@ -215,6 +215,7 @@ class Rapport:
     risques: list = field(default_factory=list)     # (score, titre, risque)
     potentiel: dict = field(default_factory=dict)   # mensuel chiffré / non chiffré
     affaires: dict = field(default_factory=dict)    # bloc -> [Affaire]
+    couverture: object = None                      # potentiel mesuré/estimé/inconnu
     rendement_valeur: dict = field(default_factory=dict)  # source -> volume vs valeur
 
     def _pct(self, n: int) -> str:
@@ -323,6 +324,8 @@ class Rapport:
         else:
             L.append("  NON MESURÉ")
 
+        if self.couverture is not None:
+            L += [""] + self.couverture.rendu()
         L += self._volume_contre_valeur()
         L += ["", "TOP ACTIONS — ce que je fais demain matin"]
         if self.actions:
@@ -352,11 +355,19 @@ class Rapport:
             L += ["", titre, ""]
             for a in lignes[:5]:
                 rang += 1
+                # DEUX nombres, jamais fondus : ce que ça rapporte, et à quel
+                # point c'est à ma portée. Les écraser en un seul rendait
+                # 540 000 € d'écart de CA totalement invisibles.
+                annuel = (f"{a['ca_annuel']:,.0f} €/an".replace(",", " ")
+                          if a["ca_annuel"] else "NON MESURABLE")
                 note = a["score"] if a["mesurable"] else "—"
-                L.append(f"{rang}. [{note:>3}] {a['titre'][:56]}")
-                L.append(f"   CA         : {a['ca'] or 'NON PUBLIÉ'}")
-                if a["duree"]:
-                    L.append(f"   Durée      : {a['duree']} mois")
+                L.append(f"{rang}. {annuel:>16}   ·   adéquation [{note:>3}]"
+                         f"   {a['titre'][:44]}")
+                L.append(f"   CA         : {a['ca'] or 'NON PUBLIÉ'}"
+                         + (f"   ({a['duree']} mois)" if a["duree"] else ""))
+                if a["intensite"]:
+                    L.append(f"   Intensité  : {a['intensite']:,.0f} €/an par véhicule exigé"
+                             .replace(",", " "))
                 L.append(f"   Nature     : {a['nature'] or 'INCONNUE'}"
                          f"   ·   État : {a['etat'] or 'HORS PROCÉDURE'}")
                 if a["capacite"]:
@@ -368,6 +379,8 @@ class Rapport:
                 if a["risques"]:
                     L.append(f"   Réserve    : {a['risques'][0][:56]}")
                 L.append(f"   Action     : {a['action']}")
+                if a.get("priorite"):
+                    L.append(f"   Pourquoi   : {a['priorite']}")
                 L.append(f"   Vu sur     : {a['source']}")
                 L.append("")
         if rang == 0:
@@ -958,9 +971,15 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
                 "SELECT o.score, o.score_mesurable, o.intitule, o.type, o.action,"
                 " o.nature, o.etat_procedure, o.ca_ligne, o.ca_mensuel, o.ca_etat,"
                 " o.capacite, o.duree_mois, o.manques, o.leviers, o.risques,"
+                " o.ca_annuel, o.intensite, o.priorite,"
                 " a.source FROM opportunites o JOIN avis a ON a.id = o.avis_id"
                 " WHERE o.type NOT IN ('REJET', 'PAS ENCORE UNE OPPORTUNITÉ')"
-                " ORDER BY o.score DESC"):
+                # LE CLASSEMENT COMMERCIAL : les affaires CHIFFRÉES d'abord,
+                # par CA décroissant ; les autres ensuite, par adéquation.
+                # Trier par score revenait à classer sur une dimension qui,
+                # au-delà de 25 000 €/mois, ne bouge plus du tout.
+                " ORDER BY CASE WHEN o.ca_annuel IS NULL THEN 1 ELSE 0 END,"
+                " o.ca_annuel DESC, o.score DESC"):
             r.affaires.setdefault(bloc_de(l), []).append({
                 "score": l["score"], "mesurable": bool(l["score_mesurable"]),
                 "titre": l["intitule"] or "(sans intitulé)",
@@ -969,9 +988,22 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
                 "nature": l["nature"], "etat": l["etat_procedure"],
                 "capacite": l["capacite"], "action": l["action"],
                 "source": l["source"],
+                "ca_annuel": l["ca_annuel"], "intensite": l["intensite"],
+                "priorite": l["priorite"],
                 "manques": json.loads(l["manques"] or "[]"),
                 "leviers": json.loads(l["leviers"] or "[]"),
                 "risques": json.loads(l["risques"] or "[]")})
+
+        # §12 — « détectée » ne veut pas dire « valorisée ».
+        from .chiffre_affaires import CA, Etat as EtatCA
+        from .priorite import Couverture
+        r.couverture = Couverture()
+        for l in cx.execute(
+                "SELECT o.ca_etat, o.ca_mensuel, o.action FROM opportunites o"
+                " WHERE o.type NOT IN ('REJET', 'PAS ENCORE UNE OPPORTUNITÉ')"):
+            etat = next((e for e in EtatCA if e.value == l["ca_etat"]), EtatCA.INCONNU)
+            r.couverture.ajouter(CA(etat, mensuel=l["ca_mensuel"]),
+                                 a_verifier="VÉRIFIER" in (l["action"] or ""))
 
         # VOLUME ≠ VALEUR. Une source qui produit cent résultats médiocres peut
         # valoir moins qu'une source qui en produit cinq excellents. On mesure

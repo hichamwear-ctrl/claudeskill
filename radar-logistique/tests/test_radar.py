@@ -21,6 +21,7 @@ from radar.capacite import Capacites, Niveau
 from radar.chaine import Moteur, traiter
 from radar.classification import Action, Moteur as MoteurSortie, Type
 from radar.decouverte import Generateur
+from radar.nature import Nature
 from radar.moteurs_recherche import (
     Brave, Google, RechercheIndisponible, depuis_environnement)
 from radar.geographie import Geographie, Zone
@@ -4609,3 +4610,258 @@ class AucuneSourceNestLeModeleImplicite(unittest.TestCase):
         m = moteur()
         notes = {n: m.analyser(o).score.total for n, o in audit.huit_formes()}
         self.assertEqual(len(set(notes.values())), 1, f"scores divergents : {notes}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  §VALEUR — LE RADAR TROUVE-T-IL L'ARGENT, ET SAIT-IL PAR QUOI COMMENCER ?
+#
+#  Deux vrais défauts derrière ces tests. Le premier coûtait un marché entier ;
+#  le second rendait 540 000 € d'écart de CA strictement invisibles.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _affaire(mensuel, mois=36, **kw):
+    """Le MÊME besoin, tout identique sauf l'économie."""
+    base = dict(source="entreprise", secteur_acheteur="prive", acheteur="Client",
+                ref_source=f"R{mensuel}", intitule="Distribution régionale de colis",
+                texte="Transport de marchandises et distribution régionale de colis.",
+                montant=mensuel * mois, duree_mois=mois, cadence="quotidienne",
+                km_annuels=48000, chauffeurs_requis=2, vehicules_requis=2,
+                distance_depot_km=20, pays_livraison=["BE"],
+                exigences={"vehicules_min": 3})
+    base.update(kw)
+    return opp(**base)
+
+
+class LeScoreEstUneAdequationPasUnClassementDeCA(unittest.TestCase):
+    """MESURÉ, pas supposé — sur des affaires identiques sauf le CA :
+
+        8 000 €/mois → 83      25 000 €/mois → 87
+       12 000 €/mois → 84      40 000 €/mois → 87
+       15 000 €/mois → 84
+
+    12 000 et 15 000 sont à égalité : 108 000 € invisibles.
+    25 000 et 40 000 sont à égalité : 540 000 € invisibles.
+
+    Ce N'EST PAS un défaut du barème : `taille_adaptee` vaut explicitement
+    « à ma capacité, PAS au montant le plus élevé ». C'est un défaut d'USAGE —
+    se servir d'un score d'adéquation pour classer commercialement.
+    """
+
+    def _score(self, mensuel):
+        return moteur().analyser(_affaire(mensuel), MAINTENANT).score.total
+
+    def test_le_score_sature_au_dela_du_confortable(self):
+        """Au-delà de 25 000 €/mois, aucun montant ne fait gagner un point."""
+        # Bornes MESURÉES, pas supposées. De 25 000 à 50 000 €/mois — soit
+        # 900 000 à 1 800 000 € de total sur 36 mois — le score ne bouge pas
+        # d'un point. Au-delà, d'autres critères entrent (2,16 M€ → 77,
+        # 2,88 M€ → 67) : ce n'est plus de la saturation, c'est le gabarit,
+        # et il est couvert par le test suivant.
+        haut = self._score(25000)
+        for mensuel in (30000, 40000, 50000):
+            self.assertEqual(self._score(mensuel), haut,
+                             "le score bougerait au-delà du confortable : "
+                             "la mesure qui justifie la séparation a changé")
+
+    def test_au_dela_du_gabarit_le_score_chute_au_lieu_de_monter(self):
+        """Troisième comportement, et il est volontaire : un contrat de 7 M€
+        n'est pas « meilleur », il est hors de portée en titulaire direct."""
+        self.assertLess(self._score(200000), self._score(25000))
+
+    def test_deux_affaires_tres_differentes_ont_le_meme_score(self):
+        """Le cas exact redouté : même note, économie sans commune mesure."""
+        self.assertEqual(self._score(25000), self._score(40000))
+        # 180 000 € d'écart annuel, zéro point d'écart.
+        self.assertEqual((40000 - 25000) * 12, 180000)
+
+    def test_le_potentiel_lui_distingue_ces_deux_affaires(self):
+        """C'est LE point : ce que le score ne peut pas dire, le CA le dit."""
+        m = moteur()
+        a = m.analyser(_affaire(25000), MAINTENANT)
+        b = m.analyser(_affaire(40000), MAINTENANT)
+        self.assertEqual(a.score.total, b.score.total)
+        self.assertLess(a.priorite.rang_ca, b.priorite.rang_ca)
+        self.assertLess(b.priorite.cle_de_tri, a.priorite.cle_de_tri,
+                        "à adéquation égale, le plus gros CA doit passer devant")
+
+    def test_le_classement_commercial_suit_le_CA_pas_le_score(self):
+        m = moteur()
+        rangs = sorted(((m.analyser(_affaire(x), MAINTENANT), x)
+                        for x in (8000, 40000, 15000, 25000, 12000)),
+                       key=lambda p: p[0].priorite.cle_de_tri)
+        self.assertEqual([x for _, x in rangs], [40000, 25000, 15000, 12000, 8000])
+
+
+class GrosseAffaireNestPasGrosseAffaireAdaptee(unittest.TestCase):
+    """§3 — « beaucoup de CA » et « beaucoup de CA pour ce que ça consomme »
+    sont deux choses différentes."""
+
+    def _cas(self, mensuel, vehicules):
+        return moteur().analyser(_affaire(
+            mensuel, vehicules_requis=vehicules,
+            exigences={"vehicules_min": vehicules}), MAINTENANT)
+
+    def test_l_intensite_distingue_deux_affaires_de_meme_CA(self):
+        maigre = self._cas(40000, 20)
+        dense = self._cas(40000, 4)
+        self.assertEqual(maigre.priorite.rang_ca, dense.priorite.rang_ca)
+        self.assertLess(maigre.priorite.intensite, dense.priorite.intensite)
+
+    def test_une_petite_affaire_dense_bat_une_grosse_affaire_maigre_en_intensite(self):
+        petite = self._cas(18000, 3)      # 216 000 €/an pour 3 véhicules
+        grosse = self._cas(40000, 20)     # 480 000 €/an pour 20 véhicules
+        self.assertGreater(petite.priorite.intensite, grosse.priorite.intensite)
+
+    def test_la_marge_reste_NON_MESUREE_sans_couts_au_profil(self):
+        """CA élevé ne veut pas dire rentable, et on ne le prétend pas."""
+        r = self._cas(40000, 20)
+        self.assertEqual(r.score.marge_estimee, "NON MESURÉE")
+
+
+class UnAvisPublieSePostule(unittest.TestCase):
+    """LE DÉFAUT LE PLUS COÛTEUX TROUVÉ ICI.
+
+    Un avis de marché publié — rubrique normée, état POSTULABLE, guichet de
+    dépôt, montant, durée — sortait FAIT côté état et HYPOTHÈSE côté nature,
+    parce que `nature.qualifier` lisait `type_information` et jamais
+    `type_avis`, alors que la lecture d'état fait `type_information or
+    type_avis`. Or `depot_attendu` ne vaut que sur un FAIT.
+
+    Résultat : « CONTACTER L'ENTREPRISE » sur un appel d'offres déposable. On
+    téléphone au pouvoir adjudicateur au lieu de remettre une offre, et le
+    marché est perdu sans qu'aucune ligne du rapport ne le signale.
+
+    Invisible sur les fixtures, qui portent TOUTES une échéance — laquelle
+    rattrapait la nature plus bas. Le cas apparaît dès qu'un avis publie son
+    type et son montant mais laisse la date limite dans les documents.
+    """
+
+    def _avis_sans_echeance(self, **kw):
+        base = dict(source="bda", secteur_acheteur="public", ref_source="P1",
+                    intitule="Distribution de colis communaux",
+                    texte="Transport de marchandises et distribution de colis.",
+                    type_avis="avis de marché", cpv=["60000000"],
+                    lien_depot="https://exemple.be/depot",
+                    montant=216000, duree_mois=24, cadence="quotidienne",
+                    pays_livraison=["BE"], echeance_brute=None)
+        base.update(kw)
+        return opp(**base)
+
+    def test_un_avis_sans_echeance_publiee_reste_un_FAIT(self):
+        r = moteur().analyser(self._avis_sans_echeance(), MAINTENANT)
+        self.assertIs(r.nature, Nature.FAIT)
+
+    def test_et_donc_se_postule(self):
+        r = moteur().analyser(self._avis_sans_echeance(), MAINTENANT)
+        self.assertEqual(r.classement.action, Action.POSTULER)
+
+    def test_les_deux_etages_lisent_le_type_de_la_meme_facon(self):
+        """La contradiction venait de deux lectures divergentes du même champ."""
+        src = (RACINE / "radar" / "nature.py").read_text(encoding="utf-8")
+        self.assertIn("type_avis", src,
+                      "nature.py doit lire le type d'avis comme la lecture d'état")
+
+    def test_une_page_privee_nue_reste_une_HYPOTHESE(self):
+        """Le correctif ne doit pas promouvoir n'importe quoi en FAIT."""
+        r = moteur().analyser(opp(
+            source="entreprise", secteur_acheteur="prive", acheteur="Bral SA",
+            intitule="Notre flotte", texte="Notre entreprise possède 50 camions.",
+            echeance_brute=None, pays_livraison=[]), MAINTENANT)
+        self.assertIs(r.nature, Nature.HYPOTHESE)
+
+
+class UneOpportuniteNonChiffreeResteExploitable(unittest.TestCase):
+    """§5 — ni rejetée, ni artificiellement valorisée."""
+
+    def setUp(self):
+        self.r = moteur().analyser(opp(
+            source="entreprise", secteur_acheteur="prive", acheteur="Delhaize",
+            intitule="Nous recherchons un transporteur",
+            texte="Nous recherchons un transporteur pour nos tournées régionales.",
+            pays_livraison=["BE"], distance_depot_km=12), MAINTENANT)
+
+    def test_elle_nest_pas_rejetee(self):
+        self.assertIsNot(self.r.classement.type, Type.REJET)
+        self.assertIsNot(self.r.classement.type, Type.OBSERVATION)
+
+    def test_son_CA_est_NON_PUBLIE_et_son_potentiel_NON_MESURABLE(self):
+        from radar.chiffre_affaires import Etat as EtatCA
+        self.assertIs(self.r.ca.etat, EtatCA.INCONNU)
+        self.assertFalse(self.r.priorite.ca_mesurable)
+
+    def test_laction_est_de_contacter(self):
+        self.assertEqual(self.r.classement.action, Action.CONTACTER_ENTREPRISE)
+
+    def test_elle_porte_une_question_explicite(self):
+        self.assertTrue(self.r.ca.detail())
+        self.assertIn("?", self.r.ca.detail()[0])
+
+    def test_elle_ne_passe_pas_devant_une_affaire_chiffree(self):
+        """Non chiffrée ≠ moins bonne, mais moins DÉCIDABLE : elle se traite
+        en appelant, pas en la classant au milieu des affaires mesurées."""
+        chiffree = moteur().analyser(_affaire(8000), MAINTENANT)
+        self.assertLess(chiffree.priorite.cle_de_tri, self.r.priorite.cle_de_tri)
+
+
+class UneEstimationNeSePresenteJamaisCommeUnFait(unittest.TestCase):
+    """§8 — une fourchette inventée est pire qu'un trou."""
+
+    def test_lestimation_porte_toujours_sa_methode(self):
+        from radar.chiffre_affaires import Etat as EtatCA, mesurer
+        ca = mesurer(opp(vehicules_requis=4),
+                     {"references_economiques": {"ca_mensuel_par_vehicule": 3500}})
+        self.assertIs(ca.etat, EtatCA.ESTIMABLE)
+        self.assertIn("ESTIMATION", ca.ligne())
+        self.assertIn("MÉTHODE", ca.detail()[0])
+        self.assertIn("±", ca.detail()[0])
+
+    def test_une_estimation_ne_saffiche_jamais_comme_un_montant_nu(self):
+        from radar.chiffre_affaires import mesurer
+        ligne = mesurer(opp(vehicules_requis=4),
+                        {"references_economiques": {"ca_mensuel_par_vehicule": 3500}}).ligne()
+        self.assertTrue(ligne.startswith("~"), "une fourchette doit se voir")
+        self.assertIn("ESTIMATION", ligne)
+
+    def test_le_profil_ne_declare_aucune_base_donc_aucune_estimation(self):
+        import yaml
+        profil = yaml.safe_load((RACINE / "profil.yaml").read_text(encoding="utf-8"))
+        self.assertFalse(profil.get("references_economiques"),
+                         "une base d'estimation non observée fabriquerait des chiffres")
+
+
+class LaCouvertureNeSeConfondPasAvecLaDetection(unittest.TestCase):
+    """§12 — « 12 détectées » ≠ « 12 valorisées »."""
+
+    def test_les_trois_potentiels_ne_sadditionnent_pas(self):
+        from radar.chiffre_affaires import CA, Etat as EtatCA
+        from radar.priorite import Couverture
+        c = Couverture()
+        c.ajouter(CA(EtatCA.PUBLIE, mensuel=10000))
+        c.ajouter(CA(EtatCA.ESTIMABLE, mensuel=5000))
+        c.ajouter(CA(EtatCA.INCONNU))
+        texte = "\n".join(c.rendu())
+        self.assertEqual(c.n_publie, 1)
+        self.assertEqual(c.n_estime, 1)
+        self.assertEqual(c.n_non_mesurable, 1)
+        self.assertIn("ne s'additionnent pas", texte)
+        self.assertIn("3 opportunité(s) détectée(s), 2 réellement valorisée(s)", texte)
+
+
+class LaMemeAffaireVueCinqFoisResteUneAffaire(unittest.TestCase):
+    """§7 — le CA ne se multiplie pas par le nombre de sources."""
+
+    def test_cinq_provenances_un_seul_CA(self):
+        cx = ouvrir(":memory:")
+        lot = [opp(source=s, ref_source=f"{s}-1",
+                   intitule="Distribution régionale de colis",
+                   texte="Transport de marchandises pour la Ville de Namur.",
+                   acheteur="Ville de Namur", montant=200000, duree_mois=12,
+                   cadence="quotidienne", pays_livraison=["BE"],
+                   plateforme="https://exemple.be/marche/7781")
+               for s in ("ted", "recherche", "entreprise", "portail", "bda")]
+        traiter(cx, moteur(), lot, maintenant_dt=MAINTENANT)
+        l = cx.execute("SELECT count(*) n, sum(montant) m, sum(ca_annuel) a"
+                       " FROM opportunites").fetchone()
+        self.assertEqual(l["n"], 1)
+        self.assertEqual(l["m"], 200000)
+        self.assertEqual(round(l["a"]), 200000)

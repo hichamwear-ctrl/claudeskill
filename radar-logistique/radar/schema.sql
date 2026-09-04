@@ -70,6 +70,9 @@ CREATE TABLE IF NOT EXISTS opportunites (
     ca_mensuel    REAL,
     ca_etat       TEXT,       -- PUBLIÉ | ESTIMATION | NON PUBLIÉ
     capacite      TEXT,       -- « 8/10 véhicules » ou « en l'état »
+    ca_annuel     REAL,       -- €/an, la dimension de CLASSEMENT
+    intensite     REAL,       -- €/an par véhicule exigé
+    priorite      TEXT,       -- pourquoi cette affaire est à cette place
 
     detail_score  TEXT,
     motif         TEXT,

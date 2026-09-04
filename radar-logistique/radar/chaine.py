@@ -37,6 +37,7 @@ def proc_collecte(opp):
     return lire_collecte(getattr(opp, "brut", None) or {})
 
 from . import (chiffre_affaires, construction, deduplication, envoi,
+               priorite as prio,
                fiabilite as fia, memoire,
                nature as nat, procedure as proc, questions, statut as st,
                transitions as tr)
@@ -70,6 +71,7 @@ class Resultat:
     lecture: object = None          # l'état de procédure et ses preuves
     fiabilite: object = None        # à quel point c'est prouvé — JAMAIS dans le score
     ca: object = None               # PUBLIÉ · ESTIMATION · NON PUBLIÉ
+    priorite: object = None         # adéquation ET potentiel, jamais fondus
 
 
 @dataclass
@@ -277,8 +279,13 @@ class Moteur:
             lots_retenus=[opp.lot_numero] if opp.lot_numero else [])
         fiche = self._fiche(opp, role, corr, zone, bilan, classement, verdict, score,
                             constr, nature, lecture, fiab, fil)
+        # PRIORITÉ — assemble adéquation et potentiel SANS les écraser l'un
+        # dans l'autre. Le score dit « puis-je le faire » ; le CA dit
+        # « combien ça rapporte ». Les additionner reviendrait à refaire le
+        # défaut qu'on vient de mesurer.
+        priorite = prio.evaluer(ca, score, bilan, classement, opp)
         return Resultat(classement, score, fiche, journal, role.role, zone, bilan,
-                        corr, verdict, constr, nature, lecture, fiab, ca)
+                        corr, verdict, constr, nature, lecture, fiab, ca, priorite)
 
     # ----------------------------------------------------------- fiche --
     def _fiche(self, opp, role, corr, zone, bilan, classement, verdict, score, constr,
@@ -371,7 +378,8 @@ RECALCULEES = ("type", "moteur", "action", "role", "statut", "zone", "familles",
                "fiabilite", "fiabilite_motif", "echeance", "jours_restants",
                "score", "score_mesurable", "marge", "detail_score", "journal",
                "motif", "fiche", "manques", "leviers", "risques",
-               "ca_ligne", "ca_mensuel", "ca_etat", "capacite", "calcule_le")
+               "ca_ligne", "ca_mensuel", "ca_etat", "capacite",
+               "ca_annuel", "intensite", "priorite", "calcule_le")
 
 _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "familles", "marche_ref", "lot_numero", "intitule", "acheteur",
@@ -381,7 +389,8 @@ _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "fiabilite", "fiabilite_motif",
              "score", "score_mesurable", "marge", "detail_score", "journal",
              "motif", "fiche", "manques", "leviers", "risques",
-             "ca_ligne", "ca_mensuel", "ca_etat", "capacite", "calcule_le")
+             "ca_ligne", "ca_mensuel", "ca_etat", "capacite",
+             "ca_annuel", "intensite", "priorite", "calcule_le")
 
 
 def _valeurs(avis_id, opp, r) -> tuple:
@@ -409,6 +418,7 @@ def _valeurs(avis_id, opp, r) -> tuple:
             json.dumps(_leviers_de(r), ensure_ascii=False),
             json.dumps(_risques(r), ensure_ascii=False),
             r.ca.ligne(), r.ca.mensuel, r.ca.etat.value, _capacite_de(r),
+            r.priorite.rang_ca or None, r.priorite.intensite, r.priorite.ligne(),
             maintenant())
 
 

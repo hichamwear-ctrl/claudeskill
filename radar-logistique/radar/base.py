@@ -46,6 +46,11 @@ AJOUTS = (
     ("opportunites", "ca_mensuel", "REAL"),
     ("opportunites", "ca_etat", "TEXT"),
     ("opportunites", "capacite", "TEXT"),
+    # Le POTENTIEL, séparé de l'adéquation — les fondre en un nombre rendait
+    # 108 000 € puis 540 000 € d'écart de CA strictement invisibles.
+    ("opportunites", "ca_annuel", "REAL"),
+    ("opportunites", "intensite", "REAL"),
+    ("opportunites", "priorite", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),
     ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
     ("vocabulaire_historique", "version", "INTEGER"),

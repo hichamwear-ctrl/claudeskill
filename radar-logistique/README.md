@@ -39,6 +39,39 @@ La question posée à chaque étage :
 Et jamais : « est-ce que cette annonce contient le mot transport ? », ni
 « est-ce que ça vient d'une source officielle ? ».
 
+## Deux nombres, jamais fondus en un
+
+Le barème mesure l'**ADÉQUATION** — est-ce mon métier, est-ce à ma portée,
+puis-je démarrer. Il le dit lui-même : `taille_adaptee` vaut « à ma capacité,
+**PAS** au montant le plus élevé ».
+
+Il ne mesure pas, et ne doit pas mesurer, **combien ça rapporte**. Mesuré sur
+des affaires identiques en tout sauf le CA :
+
+| CA/mois | score | | CA/mois | score |
+|---:|---:|---|---:|---:|
+| 8 000 | 83 | | 25 000 | 87 |
+| 12 000 | 84 | | 40 000 | 87 |
+| 15 000 | 84 | | 50 000 | 87 |
+
+12 000 et 15 000 sont à égalité : **108 000 € d'écart invisibles**. 25 000 et
+40 000 aussi : **540 000 €**. Entre 25 000 et 50 000 €/mois, aucun montant ne
+fait gagner un seul point.
+
+Ce n'est pas un défaut du barème — c'est un défaut d'**usage** : se servir
+d'un score d'adéquation pour classer commercialement. Le radar affiche donc
+les deux séparément, et **classe sur le potentiel** à l'intérieur de ce qui
+est attaquable :
+
+```
+    360 000 €/an   adéquation [ 63]   Distribution multi-sites
+      POURQUOI  CA PUBLIÉ 360 000 €/an · 40 000 €/an par véhicule exigé
+                · faisable après mobilisation · adéquation 63/100
+```
+
+`python3 outils/audit_valeur.py` pose la question en entier : sept affaires
+contradictoires, et la décision lisible ligne par ligne.
+
 ## La règle qui gouverne toutes les autres
 
 > **AUCUNE SOURCE NE PEUT ÊTRE LE MODÈLE IMPLICITE DU PRODUIT.**

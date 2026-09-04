@@ -164,7 +164,22 @@ def qualifier(opp) -> Nature:
     # Une source qui déclare un TYPE ou un STATUT a publié quelque chose de
     # structuré : c'est un fait, même sans date. Un avis de préinformation
     # ressortait HYPOTHÈSE alors qu'il est une publication officielle.
+    #
+    # `type_avis` DOIT être lu ici comme il l'est par la lecture d'état, qui
+    # fait déjà `type_information or type_avis`. Il ne l'était pas, et les deux
+    # étages se contredisaient : un avis de marché publié — rubrique normée,
+    # état POSTULABLE, guichet de dépôt, montant, durée — sortait FAIT côté
+    # état et HYPOTHÈSE côté nature. Or `depot_attendu` ne vaut que sur un
+    # FAIT : l'action devenait « CONTACTER L'ENTREPRISE » sur un appel
+    # d'offres parfaitement déposable. On téléphone à un pouvoir adjudicateur
+    # au lieu de remettre une offre, et le marché est perdu.
+    #
+    # Le cas ne se voyait pas sur les fixtures, qui portent toutes une
+    # échéance — laquelle suffisait, plus bas, à rattraper la nature. Il
+    # apparaît dès qu'un avis publie son type et son montant mais laisse la
+    # date limite dans les documents, ce qui est courant.
     if objet and (getattr(opp, "type_information", None)
+                  or getattr(opp, "type_avis", None)
                   or getattr(opp, "statut_source", None)):
         return Nature.FAIT
     quand = bool(getattr(opp, "echeance_brute", None)
