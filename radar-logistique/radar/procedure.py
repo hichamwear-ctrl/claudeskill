@@ -286,10 +286,16 @@ MARQUEURS = {
         "cloture", "cloturee", "cloturees", "ferme", "fermee", "termine", "terminee",
         "expire", "expiree", "depasse", "depassee", "echu", "echue", "close", "closes",
         "fin de", "plus de",
+        # « achevee » manquait : « procédure achevée » ressortait POSTULABLE —
+        # le pire des états à se tromper, puisqu'il envoie préparer un dossier
+        # sur un marché fini. Ajouté avec ses voisins du même registre.
+        "acheve", "achevee", "achevees", "aboutie", "soldee", "revolue",
+        "n'est plus", "n est plus", "hors delai", "forclos", "forclose",
         "gesloten", "afgesloten", "beeindigd", "verstreken", "verlopen",
+        "voltooid", "afgerond", "niet meer",
         "closed", "expired", "ended", "no longer", "deadline has passed",
-        "has passed", "past the deadline",
-        "abgelaufen", "geschlossen", "beendet",
+        "has passed", "past the deadline", "completed", "concluded",
+        "abgelaufen", "geschlossen", "beendet", "abgeschlossen", "nicht mehr",
     ],
     "attribution": [
         "attribue", "attribuee", "attribution", "adjuge", "adjugee", "adjudicataire",

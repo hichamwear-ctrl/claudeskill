@@ -33,6 +33,13 @@ AJOUTS = (
     # 0 quand aucun fait économique n'a été observé : le rapport doit
     # écrire « — » et non « 24 ». Un nombre affiché est une mesure.
     ("opportunites", "score_mesurable", "INTEGER NOT NULL DEFAULT 1"),
+    # Ce qui manque pour exécuter, et par quoi le combler — en clair, pas noyé
+    # dans le texte de la fiche. Le rapport commercial doit pouvoir répondre
+    # « quelle capacité me manque » et « comment la combler » sans relire des
+    # fiches à la main.
+    ("opportunites", "manques", "TEXT"),
+    ("opportunites", "leviers", "TEXT"),
+    ("opportunites", "risques", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),
     ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
     ("vocabulaire_historique", "version", "INTEGER"),

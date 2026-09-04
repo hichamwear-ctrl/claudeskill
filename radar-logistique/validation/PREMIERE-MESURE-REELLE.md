@@ -15,6 +15,19 @@ python3 outils/premiere_page_reelle.py \
 
 ---
 
+## CLASSEMENT DE CETTE MESURE
+
+```
+DONNÉE RÉELLE OBSERVÉE        ✓
+OPPORTUNITÉ COMMERCIALE       ✗  NON TESTÉE
+FAMILLE                       hors plan — aucune des huit
+```
+
+Cette page prouve **uniquement** que le système sait rencontrer une vraie page
+sans inventer un besoin. **Ce n'est pas une validation commerciale**, et elle
+ne doit pas être présentée comme telle. Les deux dimensions restent séparées
+partout : voir `validation/PLAN-DE-MESURE.md` et `radar validation`.
+
 ## AVERTISSEMENT — CE QUE CETTE MESURE N'EST PAS
 
 **Ce n'est pas la page d'entreprise demandée.** Le réseau sortant de cet

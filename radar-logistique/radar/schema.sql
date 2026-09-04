@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS opportunites (
     -- 0 quand aucun fait économique n'a été observé. Le rapport doit
     -- alors écrire « — » : un nombre affiché prétend être une mesure.
     score_mesurable INTEGER NOT NULL DEFAULT 1,
+    manques       TEXT,       -- capacités qui manquent, en JSON
+    leviers       TEXT,       -- comment les combler, en JSON
+    risques       TEXT,       -- ce qui peut faire perdre l'affaire
+
     detail_score  TEXT,
     motif         TEXT,
     fiche         TEXT,

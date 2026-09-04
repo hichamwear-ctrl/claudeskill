@@ -395,7 +395,10 @@ def principal(argv=None) -> int:
     p.add_argument("--origine", default="",
                    help="comment la donnée a été obtenue, exactement")
     p.add_argument("--famille", default="entreprise",
-                   help="famille de source prévue par l'architecture")
+                   choices=[c for _, c, _ in val.FAMILLES_PREVUES] + ["page_web"],
+                   help="famille de source prévue par l'architecture ; "
+                        "« page_web » = hors plan, une page réelle d'aucune "
+                        "des huit familles commerciales")
     p.add_argument("--completude", default="page complète",
                    choices=["page complète", "extrait de listing", "fragment"])
     p.add_argument("--protocole", action="store_true",

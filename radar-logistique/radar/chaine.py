@@ -364,7 +364,7 @@ RECALCULEES = ("type", "moteur", "action", "role", "statut", "zone", "familles",
                "secteur",
                "fiabilite", "fiabilite_motif", "echeance", "jours_restants",
                "score", "score_mesurable", "marge", "detail_score", "journal",
-               "motif", "fiche", "calcule_le")
+               "motif", "fiche", "manques", "leviers", "risques", "calcule_le")
 
 _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "familles", "marche_ref", "lot_numero", "intitule", "acheteur",
@@ -373,7 +373,7 @@ _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "confiance_etat", "type_information", "nature", "secteur",
              "fiabilite", "fiabilite_motif",
              "score", "score_mesurable", "marge", "detail_score", "journal",
-             "motif", "fiche", "calcule_le")
+             "motif", "fiche", "manques", "leviers", "risques", "calcule_le")
 
 
 def _valeurs(avis_id, opp, r) -> tuple:
@@ -396,7 +396,63 @@ def _valeurs(avis_id, opp, r) -> tuple:
             r.score.total, 1 if r.score.mesurable else 0, r.score.marge_estimee,
             json.dumps(r.score.detail(), ensure_ascii=False),
             json.dumps(r.journal.en_lignes(), ensure_ascii=False),
-            r.classement.motif, r.fiche.en_texte(), maintenant())
+            r.classement.motif, r.fiche.en_texte(),
+            json.dumps(_manques_de_capacite(r), ensure_ascii=False),
+            json.dumps(_leviers_de(r), ensure_ascii=False),
+            json.dumps(_risques(r), ensure_ascii=False),
+            maintenant())
+
+
+def _leviers_de(r) -> list:
+    """COMMENT combler. Les remèdes chiffrés, les moyens mobilisables, et ce
+    que le test 🟣 a identifié comme levier existant."""
+    leviers = list(r.bilan.remedes or [])
+    # Quand un blocage est objectif, le plan chiffré remplace le silence.
+    leviers += r.bilan.plan_de_faisabilite()
+    if r.construction is not None and r.construction.leviers:
+        leviers += [f"moyen déjà en place, réutilisable : {l}"
+                    for l in r.construction.leviers]
+    return leviers
+
+
+def _manques_de_capacite(r) -> list:
+    """CE QUI MANQUE POUR EXÉCUTER — rien d'autre.
+
+    `fiche.il_me_manque` mélange trois choses pour un lecteur humain : les
+    capacités qui manquent, les points à vérifier, et les manques du test 🟣.
+    C'est bien pour lire une fiche, et faux pour répondre à « quelle capacité
+    me manque » : la question 6 du rapport listait « TYPE D'INFORMATION
+    INCONNU » comme s'il fallait acheter un camion pour le combler.
+    Un manque se COMBLE (louer, recruter, former, s'associer) ; un point à
+    vérifier se LÈVE en passant un appel — il est en question 9, le risque.
+    """
+    manques = list(r.bilan.bloquants) + list(r.bilan.mobilisations)
+    if r.construction is not None and not r.construction.eligible:
+        from .classification import Type
+        if (r.classement.type is Type.A_CONSTRUIRE
+                or not (r.correspondance.familles or r.correspondance.domaine_transport)):
+            manques += list(r.construction.manques)
+    return manques
+
+
+def _risques(r) -> list:
+    """Ce qui peut faire PERDRE l'affaire — distinct de ce qui manque pour
+    l'exécuter. Un risque se lève en vérifiant ; un manque se comble."""
+    risques = []
+    if r.fiabilite is not None and r.fiabilite.niveau.value in ("FAIBLE", "NULLE"):
+        risques.append(f"information peu prouvée ({r.fiabilite.niveau.value}) — "
+                       f"{r.fiabilite.motif()}")
+    if r.lecture is not None:
+        risques += [c for c in r.lecture.contradictions]
+        risques += [a for a in r.lecture.a_verifier]
+    if r.nature is not None and r.nature.value == "HYPOTHÈSE":
+        risques.append("besoin non confirmé : personne n'a encore dit le vouloir")
+    if r.verdict.jours_restants is not None and 0 <= r.verdict.jours_restants <= 7:
+        risques.append(f"il reste {r.verdict.jours_restants} jour(s) — "
+                       "délai très court pour monter un dossier")
+    for champ, valeur in (r.fiche.__dict__.get("champs_illisibles") or {}).items():
+        risques.append(f"{champ} illisible : « {valeur} »")
+    return risques
 
 
 def _ecrire_opportunite(cx, avis_id: int, opp, r) -> None:

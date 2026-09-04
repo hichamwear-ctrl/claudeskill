@@ -65,6 +65,31 @@ class Bilan:
             if r.besoin and r.couvert is not None:
                 self.couverture.append((r.besoin, r.couvert))
 
+    def plan_de_faisabilite(self) -> list[str]:
+        """CE QUI RENDRAIT L'AFFAIRE FAISABLE, chiffré.
+
+        Un blocage disait seulement « au-delà du maximum mobilisable ». C'est
+        vrai et inutile : ma taille n'est pas un filtre de rejet, c'est un point
+        de départ. Il faut donc dire combien il manque, et par quelles voies.
+        """
+        if not self.couverture:
+            return []
+        besoin = sum(b for b, _ in self.couverture)
+        couvert = sum(c for _, c in self.couverture)
+        manque = besoin - couvert
+        part = couvert / besoin if besoin else 0
+        plan = [f"couvert {couvert} sur {besoin} — il manque {manque}"]
+        plan.append("location : à chiffrer auprès d'un loueur pour la durée du contrat")
+        if part >= 0.25:
+            plan.append(f"groupement momentané : j'apporte {part:.0%}, "
+                        "un ou deux associés apportent le reste")
+        else:
+            plan.append(f"part trop faible pour un groupement ({part:.0%}) — "
+                        "entrer par une zone ou une tournée en sous-traitance")
+        plan.append("entrée par un lot plutôt que par le marché entier")
+        plan.append("se placer comme sous-traitant du futur titulaire")
+        return plan
+
     def part_couverte(self) -> float | None:
         """Quelle part du besoin bloquant je couvre ? Sert au groupement."""
         if not self.couverture:

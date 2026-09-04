@@ -48,8 +48,29 @@ GEO, PONDS = cfg("config/geographie.yaml"), cfg("config/ponderations.yaml")
 ROLES, DECOUVERTE = cfg("config/roles.yaml"), cfg("config/decouverte.yaml")
 
 
-def moteur():
-    return Moteur(PROFIL, CAPACITES, GEO, PONDS, ROLES)
+def vocabulaires():
+    """Le vocabulaire réellement déclaré par chaque source.
+
+    Le banc d'essai construisait le moteur SANS vocabulaire. Conséquence
+    mesurée : `statut_source` et `type_information` — les rangs 5 et 4, les
+    deux preuves les plus fortes de la hiérarchie — ressortaient toujours
+    « INCONNU » dans les 390 tests. Toute la partie haute de la hiérarchie des
+    preuves n'était donc jamais exercée, et une contradiction entre deux
+    preuves fortes ne pouvait pas se produire ici. C'est le même défaut que le
+    banc à 94 % en forme de marché public : le moteur était correct, son banc
+    d'essai ne savait pas le mettre à l'épreuve.
+    """
+    from radar.procedure import Vocabulaire
+    return {(c := cfg(f"sources/{f.name}")).get("source", f.stem): Vocabulaire(c)
+            for f in sorted((RACINE / "sources").glob("*.yaml"))}
+
+
+VOCABULAIRES = vocabulaires()
+
+
+def moteur(avec_vocabulaire=True):
+    return Moteur(PROFIL, CAPACITES, GEO, PONDS, ROLES,
+                  vocabulaires=VOCABULAIRES if avec_vocabulaire else None)
 
 
 def opp(**kw):
@@ -4004,7 +4025,9 @@ class LesDeuxCompteursNeSeMelangentJamais(unittest.TestCase):
             self.assertEqual(len(e.mesures), 0)
             self.assertGreater(e.tests_coherence, 0)
             rendu = e.rendu()
-            self.assertIn("COMPORTEMENTS OBSERVÉS SUR DONNÉES RÉELLES : 0", rendu)
+            # Les deux dimensions, chacune à zéro et affichée séparément.
+            self.assertIn(f"{validation.DONNEE_OBSERVEE:<34} : 0", rendu)
+            self.assertIn(f"{validation.OPPORTUNITE_TESTEE:<34} : 0", rendu)
             self.assertIn("ne mesurent AUCUNE capacité", rendu)
 
     def test_la_formule_interdite_napparait_dans_aucune_sortie(self):
@@ -4032,3 +4055,303 @@ class LesDeuxCompteursNeSeMelangentJamais(unittest.TestCase):
             validation.inscrire(m, f)
             validation.inscrire(m, f)
             self.assertEqual(len(validation.lire_registre(f)), 1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  §2026-09 — LE RADAR CHERCHE DU CHIFFRE D'AFFAIRES, PAS DES APPELS D'OFFRES
+#
+#  Ces tests viennent d'une vérification EXÉCUTÉE des points verrouillés, pas
+#  d'une relecture. Trois ont trouvé un défaut réel ; deux ont trouvé une
+#  erreur dans mon banc d'essai, ce qui est un défaut aussi.
+# ═══════════════════════════════════════════════════════════════════════════
+
+class LeSensDeLaFormulationPasLeMotClef(unittest.TestCase):
+    """Point 4 : comprendre ce que la phrase VEUT DIRE, en quatre langues."""
+
+    def _etat(self, texte=None, **kw):
+        return moteur().analyser(
+            avis_public(intitule="Distribution de colis", texte=texte or "", **kw),
+            MAINTENANT).lecture.etat_affiche
+
+    def test_les_formulations_de_cloture_sont_comprises(self):
+        """« procédure achevée » ressortait POSTULABLE — le pire des faux sens,
+        puisqu'il envoie préparer un dossier sur un marché fini. Mesuré, pas
+        supposé : « achevée » n'était dans aucune liste de marqueurs."""
+        for texte in ("procédure clôturée", "procédure achevée",
+                      "les offres ne sont plus acceptées", "délai de remise dépassé",
+                      "consultation terminée", "nous sommes hors délai",
+                      "de procedure is voltooid", "procedure afgerond",
+                      "the procedure is completed", "das Verfahren ist abgeschlossen"):
+            with self.subTest(texte=texte):
+                self.assertEqual(self._etat(texte), "FERMÉ")
+
+    def test_les_formulations_douverture_ne_basculent_pas(self):
+        for texte in ("Procédure ouverte", "Vous pouvez remettre votre offre",
+                      "Les offres sont acceptées jusqu'au 30 novembre 2026",
+                      "Angebote können eingereicht werden",
+                      "Deadline for submissions: 30 November 2026"):
+            with self.subTest(texte=texte):
+                self.assertEqual(self._etat(texte), "POSTULABLE")
+
+    def test_les_formulations_dattribution_sont_comprises(self):
+        for texte in ("marché attribué", "contrat attribué à Transalux",
+                      "Zuschlag erteilt", "Auftrag vergeben",
+                      "contract awarded to Transalux"):
+            with self.subTest(texte=texte):
+                self.assertEqual(self._etat(texte), "ATTRIBUÉ")
+
+    def test_une_attribution_annoncee_nest_pas_une_attribution(self):
+        for texte in ("Le marché sera attribué prochainement.",
+                      "La décision d'attribution est à venir.",
+                      "Attribution prévue au premier trimestre.",
+                      "Beslissing volgt later.", "Entscheidung steht noch aus."):
+            with self.subTest(texte=texte):
+                self.assertNotEqual(self._etat(texte), "ATTRIBUÉ")
+
+
+class LeBancDEssaiDoitExercerLesPreuvesFortes(unittest.TestCase):
+    """Le banc construisait le moteur SANS vocabulaire.
+
+    Conséquence mesurée : `statut_source` et `type_information` — les rangs 5
+    et 4, les deux preuves les plus fortes — ressortaient toujours INCONNU dans
+    les 390 tests. Toute la partie haute de la hiérarchie n'était jamais
+    exercée. Même défaut que le banc à 94 % en forme de marché public : le
+    moteur était correct, son banc ne savait pas le mettre à l'épreuve.
+    """
+
+    def test_le_moteur_de_test_charge_bien_les_vocabulaires(self):
+        self.assertTrue(VOCABULAIRES, "aucun vocabulaire chargé")
+        self.assertIn("bda", VOCABULAIRES)
+        self.assertTrue(VOCABULAIRES["bda"].statuts,
+                        "le vocabulaire bda ne déclare aucun statut")
+
+    def test_un_statut_declare_produit_bien_une_preuve_de_rang_5(self):
+        r = moteur().analyser(avis_public(intitule="Distribution de colis",
+                                          statut_source="attribué"), MAINTENANT)
+        rangs = {p.rang for p in r.lecture.preuves}
+        self.assertIn(5, rangs, "le statut déclaré n'a produit aucune preuve forte")
+        self.assertEqual(r.lecture.etat_affiche, "ATTRIBUÉ")
+
+    def test_deux_preuves_fortes_contradictoires_donnent_INCONNU(self):
+        """Point 5 : le radar n'invente pas, il demande une vérification."""
+        r = moteur().analyser(
+            avis_public(intitule="Distribution de colis", statut_source="attribué",
+                        evenements=[{"type": "procédure annulée", "date": None}]),
+            MAINTENANT)
+        self.assertEqual(r.lecture.etat_affiche, "INCONNU")
+        self.assertEqual(r.classement.action, Action.VERIFIER_ETAT)
+        self.assertIsNot(r.classement.type, Type.REJET)
+        self.assertTrue(any("s'excluent" in a for a in r.lecture.a_verifier))
+
+    def test_la_preuve_la_plus_precise_bat_la_rubrique(self):
+        r = moteur().analyser(
+            avis_public(intitule="Distribution de colis",
+                        type_information="avis de marché",
+                        texte="La procédure est clôturée."), MAINTENANT)
+        self.assertEqual(r.lecture.etat_affiche, "FERMÉ")
+        self.assertTrue(any("rubrique du portail" in c for c in r.lecture.contradictions),
+                        "la contradiction doit être AFFICHÉE, pas absorbée")
+
+
+class LaFiabiliteNeRecompensePasLOfficialite(unittest.TestCase):
+    """« NE JAMAIS confondre source publique avec opportunité meilleure » —
+    appliqué à la fiabilité.
+
+    Le critère « état démontré / probable » ne pouvait être gagné que par une
+    source publiant une rubrique normée. Une page d'entreprise n'en publie
+    jamais. C'était une prime à l'officialité déguisée en mesure de fiabilité,
+    invisible tant que le banc tournait sans vocabulaire.
+    """
+
+    def test_la_fiabilite_ne_lit_pas_letat_de_procedure(self):
+        """Lu sur le CODE EXÉCUTABLE seul : les commentaires du module
+        expliquent précisément pourquoi ce critère a été retiré, et les citer
+        ferait échouer le test sur sa propre explication."""
+        import io
+        import tokenize
+        src = (RACINE / "radar" / "fiabilite.py").read_text(encoding="utf-8")
+        code = []
+        for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+            if tok.type not in (tokenize.COMMENT, tokenize.STRING):
+                code.append(tok.string)
+        code = " ".join(code)
+        for interdit in ("Confiance.ELEVEE", "Confiance.MOYENNE"):
+            self.assertNotIn(interdit, code,
+                             "la fiabilité recompte l'état de procédure")
+
+    def test_meme_preuves_meme_fiabilite_quelle_que_soit_la_source(self):
+        commun = dict(intitule="Transport de palettes",
+                      texte="Transport de palettes en Belgique.",
+                      acheteur="Client", plateforme="https://exemple.be/x",
+                      pays_livraison=["BE"])
+        niveaux = set()
+        for source, secteur in (("entreprise", "prive"), ("bda", "public"),
+                                ("recherche", "prive"), ("ted", "public"),
+                                ("bourse_fret", "prive")):
+            r = moteur().analyser(opp(source=source, ref_source="R-1",
+                                      secteur_acheteur=secteur, **commun), MAINTENANT)
+            niveaux.add(r.fiabilite.niveau)
+        self.assertEqual(len(niveaux), 1,
+                         "à preuves égales, la source ne doit rien changer")
+
+
+class LeScoreEstAveugleALaSource(unittest.TestCase):
+    """Point 7, vérifié à texte IDENTIQUE — sinon on mesure la rédaction."""
+
+    def test_six_sources_meme_economie_meme_score(self):
+        eco = dict(intitule="Livraisons régionales",
+                   texte="Transport de marchandises et distribution régionale de colis.",
+                   montant=180000, duree_mois=12, cadence="quotidienne",
+                   pays_livraison=["BE"], km_annuels=60000, chauffeurs_requis=2,
+                   vehicules_requis=2)
+        notes = set()
+        for source, secteur, extra in (
+                ("entreprise", "prive", {}), ("recherche", "prive", {}),
+                ("bourse_fret", "prive", {}),
+                ("bda", "public", {"type_avis": "appel-offres", "cpv": ["60000000"]}),
+                ("ted", "public", {"type_avis": "appel-offres", "cpv": ["60000000"]}),
+                ("signaux", "prive", {"est_signal": True,
+                                      "signal_code": "ouverture_site"})):
+            r = moteur().analyser(opp(source=source, acheteur="X",
+                                      secteur_acheteur=secteur, **extra, **eco),
+                                  MAINTENANT)
+            notes.add(r.score.total)
+        self.assertEqual(len(notes), 1,
+                         f"la source influe sur le score : {sorted(notes)}")
+
+    def test_un_besoin_prive_de_15k_bat_un_marche_public_de_8k(self):
+        commun = dict(texte="Transport de marchandises et distribution de colis.",
+                      duree_mois=12, cadence="quotidienne", pays_livraison=["BE"])
+        prive = moteur().analyser(opp(source="entreprise", acheteur="Delhaize",
+                                      secteur_acheteur="prive", intitule="Livraisons",
+                                      montant=180000, **commun), MAINTENANT)
+        public = moteur().analyser(avis_public(intitule="Livraisons", montant=96000,
+                                               **commun), MAINTENANT)
+        self.assertGreater(prive.score.total, public.score.total)
+
+
+class MaTailleNestJamaisUnFiltreDeRejet(unittest.TestCase):
+    """Point 8 : 100 000 €/mois, 20 véhicules, j'en ai 10."""
+
+    def _gros(self):
+        return moteur().analyser(
+            avis_public(intitule="Distribution nationale de colis",
+                        texte="Marché de distribution de colis.", montant=1200000,
+                        duree_mois=12, cadence="quotidienne", pays_livraison=["BE"],
+                        exigences={"vehicules_min": 20}), MAINTENANT)
+
+    def test_trop_gros_nest_pas_un_rejet(self):
+        r = self._gros()
+        self.assertIsNot(r.classement.type, Type.REJET)
+        self.assertIn(r.classement.action, (Action.PROPOSER_GROUPEMENT,
+                                            Action.PROPOSER_SOUS_TRAITANCE))
+
+    def test_le_plan_de_faisabilite_est_chiffre(self):
+        """« au-delà du maximum mobilisable » est vrai et inutile. Il faut
+        dire combien il manque, et par quelles voies y arriver."""
+        plan = self._gros().bilan.plan_de_faisabilite()
+        self.assertTrue(plan, "aucun plan pour une affaire bloquée")
+        self.assertTrue(any("il manque" in p for p in plan))
+        self.assertTrue(any("groupement" in p or "sous-trait" in p for p in plan))
+        self.assertTrue(any("lot" in p for p in plan))
+
+
+class LeRapportRepondAuxDixQuestions(unittest.TestCase):
+    def setUp(self):
+        cx = ouvrir(":memory:")
+        m = moteur()
+        traiter(cx, m, [
+            avis_public(ref_source="A", intitule="Tournée régionale de palettes",
+                        texte="Transport de palettes en Wallonie.", montant=96000,
+                        duree_mois=12, cadence="hebdomadaire", pays_livraison=["BE"]),
+            avis_public(ref_source="B", intitule="Distribution nationale de colis",
+                        texte="Marché de distribution de colis.", montant=1200000,
+                        duree_mois=12, cadence="quotidienne", pays_livraison=["BE"],
+                        exigences={"vehicules_min": 20}),
+            opp(source="entreprise", ref_source="C", intitule="Changement de logo",
+                texte="Nouvelle identité visuelle.", acheteur="Bral SA",
+                secteur_acheteur="prive", echeance_brute=None, pays_livraison=[]),
+            # Une affaire RETENUE dont la source ne publie aucun montant : le
+            # cas normal du privé, et celui que la question 8 doit compter à
+            # part au lieu de l'additionner comme un zéro.
+            opp(source="entreprise", ref_source="D",
+                intitule="Nous recherchons un transporteur pour nos livraisons",
+                texte="Nous recherchons un transporteur pour nos livraisons "
+                      "de palettes en Wallonie.",
+                acheteur="Delhaize", secteur_acheteur="prive", pays_livraison=["BE"]),
+        ], maintenant_dt=MAINTENANT)
+        from radar.rapport import construire
+        self.texte = "\n".join(construire(
+            cx, Mode.DEMO, cible={}, proche_km=50)._decision())
+
+    def test_les_dix_questions_sont_toutes_posees(self):
+        for n, question in enumerate((
+                "QUOI ATTAQUER MAINTENANT", "QUI CONTACTER", "QUOI SURVEILLER",
+                "QUOI DÉVELOPPER", "QUOI IGNORER", "QUELLE CAPACITÉ ME MANQUE",
+                "COMMENT LA COMBLER", "QUEL EST LE POTENTIEL ÉCONOMIQUE",
+                "QUEL EST LE RISQUE", "QUELLE EST LA PROCHAINE ACTION CONCRÈTE"), 1):
+            with self.subTest(question=question):
+                self.assertIn(f"{n}. {question}", self.texte)
+
+    def test_la_capacite_manquante_ne_contient_pas_de_points_a_verifier(self):
+        """Défaut mesuré : la question 6 listait « TYPE D'INFORMATION INCONNU »
+        comme s'il fallait acheter un camion pour le combler. Un manque se
+        COMBLE ; un point à vérifier se LÈVE par un appel — il est en risque."""
+        bloc = self.texte.split("6. QUELLE CAPACITÉ ME MANQUE")[1].split("7.")[0]
+        for bruit in ("TYPE D'INFORMATION INCONNU", "à confirmer à la source",
+                      "STATUT SOURCE INCONNU", "analyser objet"):
+            self.assertNotIn(bruit, bloc)
+
+    def test_le_potentiel_ne_compte_jamais_un_montant_absent_comme_zero(self):
+        bloc = self.texte.split("8. QUEL EST LE POTENTIEL")[1].split("9.")[0]
+        self.assertIn("NON CHIFFRÉES", bloc)
+        self.assertIn("pas zéro", bloc)
+
+    def test_ce_qui_est_ignore_nest_pas_melange_a_ce_qui_est_a_surveiller(self):
+        ignorer = self.texte.split("5. QUOI IGNORER")[1].split("6.")[0]
+        surveiller = self.texte.split("3. QUOI SURVEILLER")[1].split("4.")[0]
+        self.assertIn("Changement de logo", ignorer)
+        self.assertNotIn("Changement de logo", surveiller)
+
+
+class LePlanDeMesureNaPasDeSourcePrincipale(unittest.TestCase):
+    def test_les_huit_familles_sont_declarees(self):
+        from radar import validation
+        lettres = [l for l, _, _ in validation.FAMILLES_PREVUES]
+        self.assertEqual(lettres, list("ABCDEFGH"))
+
+    def test_les_deux_dimensions_ne_se_deduisent_pas_lune_de_lautre(self):
+        """Une donnée réelle observée n'est PAS une opportunité testée."""
+        from radar import validation
+        e = validation.Etat(tests_coherence=1, mesures=[
+            validation.Mesure(horodatage="2026-09-04T00:00:00+00:00",
+                              famille="page_web", origine="test",
+                              reference="http://x", empreinte="a1",
+                              completude="page complète", porte_un_besoin=False)])
+        self.assertEqual(e.donnees_observees(), 1)
+        self.assertEqual(e.opportunites_testees(), 0)
+        self.assertIn("OPPORTUNITÉ COMMERCIALE TESTÉE ✗", e.rendu())
+
+    def test_une_famille_hors_plan_ne_couvre_aucune_des_huit(self):
+        from radar import validation
+        e = validation.Etat(tests_coherence=1, mesures=[
+            validation.Mesure(horodatage="2026-09-04T00:00:00+00:00",
+                              famille="page_web", origine="test",
+                              reference="http://x", empreinte="a1",
+                              porte_un_besoin=True)])
+        self.assertEqual(len(e.hors_plan), 1)
+        for *_, etat, _ in e.plan_de_mesure():
+            self.assertEqual(etat, "NON MESURÉE")
+
+    def test_la_prochaine_mesure_vise_une_famille_non_couverte(self):
+        """Jamais une seconde page de la famille déjà mesurée : c'est ainsi
+        qu'une source devient « la principale » sans que personne le décide."""
+        from radar import validation
+        e = validation.Etat(tests_coherence=1, mesures=[
+            validation.Mesure(horodatage="2026-09-04T00:00:00+00:00",
+                              famille="entreprise", origine="test",
+                              reference="http://x", empreinte="a1",
+                              porte_un_besoin=True)])
+        suite = e.prochaine_mesure()
+        self.assertIn("jamais mesurée", suite)
+        self.assertNotIn("A. entreprise", suite)

@@ -189,6 +189,11 @@ class Rapport:
     pipeline: dict = field(default_factory=dict)     # bloc commercial -> lignes
     completude_par_famille: dict = field(default_factory=dict)
     familles_effectif: dict = field(default_factory=dict)
+    # ── de quoi répondre aux dix questions de décision ──
+    manques: dict = field(default_factory=dict)     # manque -> [(score, titre)]
+    leviers: dict = field(default_factory=dict)     # levier -> nombre
+    risques: list = field(default_factory=list)     # (score, titre, risque)
+    potentiel: dict = field(default_factory=dict)   # mensuel chiffré / non chiffré
 
     def _pct(self, n: int) -> str:
         return f"{n:>5}  ({n / self.total:.0%})" if self.total else f"{n:>5}"
@@ -307,8 +312,96 @@ class Rapport:
             L.append("  rien à faire sur cet échantillon")
         return L
 
+    # ------------------------------------------------- ce qu'il faut décider --
+    def _decision(self) -> list:
+        """LES DIX QUESTIONS. C'est la première page, et c'est commercial.
+
+        Le rapport ne s'ouvre pas sur « combien d'avis telle source a publiés ».
+        Il s'ouvre sur ce qu'il faut faire, avec qui, et ce que ça peut rapporter.
+        Tout ce qui suit — collecte, complétude, rendement — est de la mesure de
+        machine : utile pour entretenir le radar, inutile pour vendre.
+        """
+        def _lignes(bloc, limite=5):
+            return self.pipeline.get(bloc, [])[:limite]
+
+        def _bloc(numero, titre, lignes, vide):
+            out = [f"{numero}. {titre}"]
+            if not lignes:
+                out.append(f"     {vide}")
+                return out
+            for score, intitule, action, source, etat, nature in lignes:
+                out.append(f"     [{score:>3}] {intitule[:44]:<46}{(action or '')[:24]:<26}"
+                           f"vu sur {source}")
+            return out
+
+        L = ["CE QU'IL FAUT DÉCIDER", "=" * 72, ""]
+        L += _bloc("1", "QUOI ATTAQUER MAINTENANT", _lignes("attaquer"),
+                   "rien de postulable aujourd'hui — ce n'est pas une panne, "
+                   "c'est une mesure")
+        L += [""] + _bloc("2", "QUI CONTACTER",
+                          _lignes("contacter") + _lignes("partenariat", 3),
+                          "aucun interlocuteur identifié")
+        L += [""] + _bloc("3", "QUOI SURVEILLER", _lignes("surveiller"),
+                          "rien à surveiller")
+        L += [""] + _bloc("4", "QUOI DÉVELOPPER",
+                          _lignes("renouvellement") + _lignes("metier", 3),
+                          "aucune piste de développement")
+        L += [""] + _bloc("5", "QUOI IGNORER",
+                          _lignes("observation", 3) + _lignes("rejet", 3),
+                          "rien à écarter")
+
+        L += ["", "6. QUELLE CAPACITÉ ME MANQUE"]
+        if self.manques:
+            for manque, lignes in sorted(self.manques.items(),
+                                         key=lambda x: -max(l[0] for l in x[1]))[:6]:
+                titres = ", ".join(t[:28] for _, t in lignes[:2])
+                L.append(f"     ✗ {manque[:52]:<54} bloque {len(lignes)} affaire(s)")
+                L.append(f"       {titres}")
+        else:
+            L.append("     rien ne bloque : tout ce qui est retenu est exécutable en l'état")
+
+        L += ["", "7. COMMENT LA COMBLER"]
+        if self.leviers:
+            for levier, n in sorted(self.leviers.items(), key=lambda x: -x[1])[:6]:
+                L.append(f"     🔧 {levier[:56]:<58} sur {n} affaire(s)")
+        else:
+            L.append("     aucun levier identifié automatiquement — à qualifier à la main")
+
+        L += ["", "8. QUEL EST LE POTENTIEL ÉCONOMIQUE"]
+        chiffre = self.potentiel.get("mensuel_chiffre", 0)
+        n_chiffre = self.potentiel.get("n_chiffre", 0)
+        n_muet = self.potentiel.get("n_non_chiffre", 0)
+        if n_chiffre:
+            L.append(f"     {chiffre:,.0f} €/mois cumulés sur {n_chiffre} affaire(s) "
+                     "dont la source publie un montant".replace(",", " "))
+        else:
+            L.append("     AUCUN MONTANT PUBLIÉ sur les affaires retenues")
+        if n_muet:
+            L.append(f"     + {n_muet} affaire(s) NON CHIFFRÉES — non mesuré, pas zéro :")
+            L.append("       leur valeur se demande au client, elle ne se devine pas")
+
+        L += ["", "9. QUEL EST LE RISQUE"]
+        if self.risques:
+            for score, titre, risque in self.risques[:6]:
+                L.append(f"     ⚠ [{score:>3}] {titre[:36]:<38} {risque[:60]}")
+        else:
+            L.append("     aucun risque relevé sur les affaires retenues")
+
+        L += ["", "10. QUELLE EST LA PROCHAINE ACTION CONCRÈTE"]
+        premiere = _lignes("attaquer", 1) or _lignes("contacter", 1) or \
+            _lignes("partenariat", 1) or _lignes("surveiller", 1)
+        if premiere:
+            score, intitule, action, source, etat, nature = premiere[0]
+            L.append(f"     👉 {action} — {intitule[:52]}")
+            L.append(f"        vu sur {source} · état {etat or 'HORS PROCÉDURE'} "
+                     f"· nature {nature or '?'} · score {score}")
+        else:
+            L.append("     👉 élargir la collecte : aucune affaire actionnable ici")
+        return L
+
     def en_texte(self, avec_fiches=True) -> str:
-        L = [self.mode.bandeau(), ""] + self._pipeline() + ["", "=" * 72, ""]
+        L = [self.mode.bandeau(), ""] + self._decision() + ["", "=" * 72, ""]
+        L += self._pipeline() + ["", "=" * 72, ""]
         L += self._occasions()
         L += ["", "=" * 72, "",
               f"MESURE — générée le {self.genere_le}", ""]
@@ -700,6 +793,35 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
                 (note, l["intitule"] or "(sans intitulé)",
                  l["action"] if l["type"] != "REJET" else (l["motif"] or "")[:22],
                  l["source"], l["etat_procedure"], l["nature"]))
+
+    # ── de quoi répondre aux dix questions de décision ──────────────────────
+    #
+    # On ne lit que les affaires RETENUES : ni les rejets, ni les observations.
+    # Ce que le radar écarte n'a pas de capacité manquante à combler.
+    if "manques" in connues:
+        for l in cx.execute(
+                "SELECT o.score, o.score_mesurable, o.intitule, o.manques, o.leviers,"
+                " o.risques, o.montant, o.duree_mois FROM opportunites o"
+                " WHERE o.type NOT IN ('REJET', 'PAS ENCORE UNE OPPORTUNITÉ')"
+                " ORDER BY o.score DESC"):
+            titre = l["intitule"] or "(sans intitulé)"
+            for manque in json.loads(l["manques"] or "[]"):
+                r.manques.setdefault(manque, []).append((l["score"], titre))
+            for levier in json.loads(l["leviers"] or "[]"):
+                r.leviers[levier] = r.leviers.get(levier, 0) + 1
+            for risque in json.loads(l["risques"] or "[]"):
+                r.risques.append((l["score"], titre, risque))
+            # Le potentiel : on additionne ce qui est PUBLIÉ, et on compte à
+            # part ce qui ne l'est pas. Additionner un montant absent comme un
+            # zéro donnerait un total faux et rassurant.
+            if l["montant"]:
+                r.potentiel["mensuel_chiffre"] = (
+                    r.potentiel.get("mensuel_chiffre", 0)
+                    + l["montant"] / max(l["duree_mois"] or 12, 1))
+                r.potentiel["n_chiffre"] = r.potentiel.get("n_chiffre", 0) + 1
+            else:
+                r.potentiel["n_non_chiffre"] = r.potentiel.get("n_non_chiffre", 0) + 1
+        r.risques.sort(key=lambda x: -x[0])
 
     # Ce qu'il y a à FAIRE, regroupé par geste. C'est la sortie du produit.
     for l in cx.execute(

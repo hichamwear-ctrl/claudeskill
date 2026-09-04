@@ -7,11 +7,20 @@ puis indique comment les **attaquer**, les **développer**, les **surveiller**
 ou les **convertir**.
 
 > Ce n'est pas « de n'importe quelle source ». Une famille **prévue** par
-> l'architecture n'est pas une famille **validée sur le monde réel**. L'état
-> exact de la validation se lit avec `python3 -m radar.cli validation` — et
-> il distingue toujours deux compteurs qui ne s'additionnent pas :
-> **TESTS DE COHÉRENCE** (données fabriquées, protègent des régressions) et
-> **COMPORTEMENTS OBSERVÉS SUR DONNÉES RÉELLES** (le seul qui parle du monde).
+> l'architecture n'est pas une famille **validée sur le monde réel**.
+
+L'état exact se lit avec `python3 -m radar.cli validation`, qui ne mélange
+jamais ce qui ne se déduit pas l'un de l'autre :
+
+| compteur | ce qu'il prouve |
+|---|---|
+| **TESTS DE COHÉRENCE** | des régressions ne passeront plus, sur des données **fabriquées**. Aucune capacité réelle. |
+| **DONNÉE RÉELLE OBSERVÉE** | le radar a traversé une donnée qu'il n'a pas fabriquée, sans casser ni inventer. |
+| **OPPORTUNITÉ COMMERCIALE TESTÉE** | cette donnée portait un **besoin économique** — le seul compteur qui parle de valeur commerciale. |
+
+Le plan de mesure couvre **huit familles**, et aucune n'est la principale : le
+premier flux disponible ne doit pas le devenir par accident. Voir
+`validation/PLAN-DE-MESURE.md`.
 
 Ce n'est pas un moteur d'appels d'offres. Ce n'est pas un radar TED. L'appel
 d'offres est **une catégorie d'opportunités parmi d'autres** ; TED est **un

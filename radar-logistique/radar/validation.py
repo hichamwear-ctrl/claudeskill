@@ -38,6 +38,37 @@ FORMULE_AUTORISEE = ("des opportunités provenant de différentes familles de "
                      "sources prévues par l'architecture")
 FORMULE_INTERDITE = "de n'importe quelle source"
 
+# ═══ LES HUIT FAMILLES DE SOURCES PRÉVUES PAR L'ARCHITECTURE ═══
+#
+# Le plan de mesure s'organise autour d'elles, et AUCUNE n'est la principale.
+# Le premier flux réellement disponible ne doit pas devenir « la source » : ce
+# serait refaire, avec un autre nom, l'obsession qu'on a mis des mois à défaire.
+#
+# Chacune alimente le MÊME pipeline :
+#   SOURCE → COLLECTE → PREUVE → EXTRACTION → NORMALISATION → NATURE
+#          → ÉTAT (si applicable) → CAPACITÉ → ÉCONOMIE → SCORE → ACTION
+#          → FIL DE VIE
+# et aucune étape métier n'a le droit de demander « est-ce TED ? ».
+FAMILLES_PREVUES = [
+    ("A", "entreprise",    "entreprise privée exprimant un besoin"),
+    ("B", "bourse_fret",   "bourse de fret"),
+    ("C", "recherche",     "moteur de recherche"),
+    ("D", "marche_public", "portail de marchés publics"),
+    ("E", "attribution",   "attribution de marché"),
+    ("F", "signal",        "signal économique"),
+    ("G", "renouvellement", "renouvellement de contrat"),
+    ("H", "partenariat",   "partenariat / sous-traitance"),
+]
+
+# LES DEUX DIMENSIONS, QUI NE SE CONFONDENT JAMAIS.
+#
+# Une page réelle sans besoin — la page PyPI mesurée le 4/9/2026 — prouve
+# UNIQUEMENT que le système sait rencontrer une vraie page sans inventer un
+# besoin. Ce n'est pas une validation commerciale, et elle ne doit plus jamais
+# être présentée comme telle.
+DONNEE_OBSERVEE = "DONNÉE RÉELLE OBSERVÉE"
+OPPORTUNITE_TESTEE = "OPPORTUNITÉ COMMERCIALE TESTÉE"
+
 
 @dataclass
 class Mesure:
@@ -132,28 +163,70 @@ class Etat:
         n'éprouve ni le score, ni les capacités, ni l'action commerciale."""
         return sum(1 for m in self.mesures if m.porte_un_besoin)
 
+    # ── LES DEUX DIMENSIONS, SÉPARÉES ────────────────────────────────────
+    def donnees_observees(self) -> int:
+        """Dimension 1 : combien de fois une donnée non fabriquée est entrée."""
+        return len(self.mesures)
+
+    def opportunites_testees(self) -> int:
+        """Dimension 2 : combien portaient réellement un besoin économique.
+
+        Ne se déduit JAMAIS de la première. Une page réelle peut être une
+        information générale, un ancien contrat, une entreprise sans besoin.
+        """
+        return self.pages_portant_un_besoin
+
+    @property
+    def hors_plan(self) -> list:
+        """Mesures qui n'appartiennent à AUCUNE des huit familles.
+
+        Elles comptent comme DONNÉE RÉELLE OBSERVÉE — elles éprouvent la
+        chaîne — et jamais comme couverture d'une famille commerciale. La page
+        PyPI est de celles-là : réelle, et hors sujet.
+        """
+        connues = {cle for _, cle, _ in FAMILLES_PREVUES}
+        return [m for m in self.mesures if m.famille not in connues]
+
+    def plan_de_mesure(self) -> list:
+        """L'état de chacune des huit familles. Aucune n'est la principale."""
+        par_famille = {}
+        for m in self.mesures:
+            par_famille.setdefault(m.famille, []).append(m)
+        plan = []
+        for lettre, cle, libelle in FAMILLES_PREVUES:
+            faites = par_famille.get(cle, [])
+            avec_besoin = [m for m in faites if m.porte_un_besoin]
+            if avec_besoin:
+                etat, marque = "OPPORTUNITÉ COMMERCIALE TESTÉE", "✓"
+            elif faites:
+                etat, marque = "donnée observée, opportunité NON TESTÉE", "~"
+            else:
+                etat, marque = "NON MESURÉE", "✗"
+            plan.append((lettre, cle, libelle, marque, etat, len(faites)))
+        return plan
+
     def prochaine_mesure(self) -> str:
-        """Ce que la prochaine mesure doit lever, en une phrase."""
-        if not self.mesures:
-            return ("UNE vraie page d'entreprise, conservée en brut. C'est la "
-                    "zone qui porte le plus d'incertitude technique : ni champ "
-                    "normé, ni statut, ni référence, ni montant.")
-        if not self.pages_portant_un_besoin:
-            return ("UNE page réelle qui PORTE UN BESOIN. Les pages mesurées "
-                    "jusqu'ici n'en contenaient aucun : elles ont éprouvé "
-                    "l'extraction et le tri, pas le score, ni les capacités, "
-                    "ni l'action commerciale.")
-        if not self.pages_completes:
-            return ("UNE page d'entreprise COMPLÈTE. Les mesures faites portent "
-                    "sur des extraits, pas sur une page entière : la structure "
-                    "HTML réelle n'a pas encore été confrontée à l'extracteur.")
-        manquantes = [f for f in ("entreprise", "marche_public", "bourse_fret",
-                                  "recherche", "signaux")
-                      if f not in self.familles_mesurees]
-        if manquantes:
-            return (f"une source réelle de la famille « {manquantes[0] } » — "
-                    f"famille prévue par l'architecture, jamais mesurée.")
-        return "une seconde page par famille, pour distinguer l'accident de la règle."
+        """Ce que la prochaine mesure doit lever, en une phrase.
+
+        Elle vise TOUJOURS une famille non couverte, jamais une seconde page
+        de celle déjà mesurée : c'est ainsi qu'une source devient « la source
+        principale » sans que personne ne l'ait décidé.
+        """
+        plan = self.plan_de_mesure()
+        jamais = [(l, lib) for l, _, lib, _, etat, _ in plan if etat == "NON MESURÉE"]
+        sans_besoin = [(l, lib) for l, _, lib, _, etat, _ in plan
+                       if etat.startswith("donnée observée")]
+        if jamais:
+            liste = " · ".join(f"{l}. {lib}" for l, lib in jamais[:3])
+            return (f"une donnée réelle PORTANT UN BESOIN, dans une famille encore "
+                    f"jamais mesurée. {len(jamais)} des huit sont à zéro — "
+                    f"au choix : {liste}.")
+        if sans_besoin:
+            l, lib = sans_besoin[0]
+            return (f"une donnée de la famille {l}. {lib} qui porte un besoin : "
+                    "cette famille a été rencontrée, mais jamais avec une "
+                    "opportunité commerciale dedans.")
+        return "une seconde par famille, pour distinguer l'accident de la règle."
 
     def rendu(self) -> str:
         L = []
@@ -197,23 +270,39 @@ class Etat:
                      else ("~" if self.mesures else "✗"))
         A(f"  RÉEL                                                            {etat_reel}")
         A("─" * 70)
-        A(f"  COMPORTEMENTS OBSERVÉS SUR DONNÉES RÉELLES : {len(self.mesures)}")
-        A(f"  PAGES RÉELLES COMPLÈTES CONSERVÉES         : {self.pages_completes}")
-        A(f"  DONT PORTANT UN BESOIN COMMERCIAL          : "
-          f"{self.pages_portant_un_besoin}")
-        familles = ", ".join(self.familles_mesurees) or "aucune"
-        A(f"  FAMILLES RÉELLEMENT MESURÉES               : {familles}")
-        A(f"  ADAPTATEURS VALIDÉS SUR DU RÉEL            : "
-          f"{len([m for m in self.mesures if m.completude == 'page complète'])}")
+        A("  DEUX DIMENSIONS, JAMAIS CONFONDUES :")
+        A(f"    {DONNEE_OBSERVEE:<34} : {self.donnees_observees()}")
+        A(f"    {OPPORTUNITE_TESTEE:<34} : {self.opportunites_testees()}")
+        A("    Une page réelle sans besoin prouve que le radar sait rencontrer")
+        A("    le monde sans inventer une affaire. Elle ne prouve RIEN de sa")
+        A("    capacité commerciale : la seconde ligne seule en parle.")
+        A("")
+        A("  PLAN DE MESURE — huit familles, aucune n'est la principale")
+        for lettre, _, libelle, marque, etat, n in self.plan_de_mesure():
+            suffixe = f" ({n} mesure{'s' if n > 1 else ''})" if n else ""
+            A(f"    {marque} {lettre}. {libelle:<44} {etat}{suffixe}")
+        couvertes = sum(1 for *_, etat, _ in self.plan_de_mesure()
+                        if etat == "OPPORTUNITÉ COMMERCIALE TESTÉE")
+        A(f"    → {couvertes}/8 familles ont vu une opportunité réelle.")
+        A("")
+        if self.hors_plan:
+            A("  MESURES HORS PLAN — réelles, mais d'aucune des huit familles")
+            for m in self.hors_plan:
+                A(f"    · {m.famille} — {m.reference[:52]}")
+            A("    Elles éprouvent la chaîne. Elles ne couvrent aucune famille.")
+            A("")
         if not self.mesures:
             A("  Aucune donnée non fabriquée n'est encore entrée dans la chaîne.")
         else:
+            A("  MESURES INSCRITES")
             for m in self.mesures:
-                A(f"   · {m.horodatage[:10]}  {m.famille:<12} {m.completude}")
+                A(f"   · {m.horodatage[:10]}  {m.famille:<14} {m.completude}")
                 A(f"     origine : {m.origine}")
                 A(f"     {m.reference[:64]}")
                 if m.verdict:
                     A(f"     verdict : {m.verdict}")
+                A(f"     {DONNEE_OBSERVEE} ✓  ·  {OPPORTUNITE_TESTEE} "
+                  f"{'✓' if m.porte_un_besoin else '✗ — cette page ne portait aucun besoin'}")
         A("")
         A("─" * 70)
         A("  PROCHAINE MESURE")

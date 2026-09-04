@@ -89,22 +89,33 @@ def evaluer(opp, *, nature=None, lecture=None, collecte=None) -> Evaluation:
     else:
         manques.append("demandeur nommé")
 
-    # 4. L'état de la procédure est-il démontré ?
-    if lecture is not None:
-        from .procedure import Confiance
-        if lecture.confiance is Confiance.ELEVEE:
-            points += 2
-            motifs.append("état démontré")
-        elif lecture.confiance is Confiance.MOYENNE:
-            points += 1
-            motifs.append("état probable")
-        else:
-            manques.append("état démontrable")
-        if lecture.contradictions:
-            points -= 1
-            # En tête : quand deux informations se contredisent, c'est la
-            # première chose à dire, pas la quatrième.
-            manques.insert(0, "cohérence interne")
+    # 4. L'information se contredit-elle elle-même ?
+    #
+    # CE QUI A ÉTÉ RETIRÉ ICI, ET POURQUOI. Ce bloc accordait un ou deux points
+    # selon la CONFIANCE dans l'état de procédure : « état démontré », « état
+    # probable ». Mesuré en branchant enfin le vocabulaire réel sur le banc
+    # d'essai — six formes du MÊME besoin, mêmes preuves — la seule forme
+    # publique montait d'un cran de fiabilité. La raison : elle seule publie
+    # une rubrique normée qui énonce son propre état. Une page d'entreprise ne
+    # peut pas en publier, jamais.
+    #
+    # C'était donc un point que seules les sources publiques structurées
+    # pouvaient gagner : une prime à l'officialité déguisée en mesure de
+    # fiabilité. Le module jurait ne nommer aucune source — c'était vrai à la
+    # lettre, et faux en substance.
+    #
+    # Et le critère était de toute façon mal placé : savoir si un dépôt est
+    # ouvert est un fait sur la PROCÉDURE, pas sur la véracité du besoin. Il a
+    # son champ, sa confiance et ses preuves affichées à part — les compter ici
+    # revenait à les compter deux fois.
+    #
+    # Ce qui RESTE est une vraie propriété de l'information, et n'importe
+    # quelle source peut l'avoir : se contredire.
+    if lecture is not None and lecture.contradictions:
+        points -= 1
+        # En tête : quand deux informations se contredisent, c'est la
+        # première chose à dire, pas la quatrième.
+        manques.insert(0, "cohérence interne")
 
     # 5. La nature de l'information. Une hypothèse reste une hypothèse — on le
     #    DIT, on ne la punit pas dans le score.
