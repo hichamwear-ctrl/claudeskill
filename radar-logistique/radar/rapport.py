@@ -502,7 +502,10 @@ class Rapport:
                    f"{self.potentiel.get('n_non_chiffre', 0)} non chiffrée(s))")
         L.append(f"  OPPORTUNITÉS POSTULABLES    : {n('attaquer')}")
         L.append(f"  OPPORTUNITÉS À CONTACTER    : {n('contacter') + n('partenariat')}")
-        L.append(f"  SIGNAUX                     : "
+        # « SIGNAUX COMMERCIAUX » et non « SIGNAUX » : il existe aussi une
+        # SOURCE nommée « signaux », et la ligne se lisait comme un compte par
+        # source — exactement ce que le rapport ne doit jamais faire.
+        L.append(f"  SIGNAUX COMMERCIAUX         : "
                  f"{sum(1 for b in self.affaires.values() for a in b if a['nature'] == 'SIGNAL')}")
         L.append(f"  OPPORTUNITÉS À SURVEILLER   : {n('surveiller') + n('renouvellement')}")
         L.append(f"  CAPACITÉS MANQUANTES        : {len(self.manques)}")

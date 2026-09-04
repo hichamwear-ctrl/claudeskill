@@ -39,6 +39,30 @@ La question posée à chaque étage :
 Et jamais : « est-ce que cette annonce contient le mot transport ? », ni
 « est-ce que ça vient d'une source officielle ? ».
 
+## La règle qui gouverne toutes les autres
+
+> **AUCUNE SOURCE NE PEUT ÊTRE LE MODÈLE IMPLICITE DU PRODUIT.**
+
+Elle se vérifie en une commande, qui **exécute** le moteur au lieu de relire
+le code :
+
+```
+python3 outils/audit_biais.py --detail
+```
+
+Seize détecteurs. Le même besoin commercial est présenté sous **huit formes**
+— avis public, page d'entreprise, recherche web, bourse de fret,
+sous-traitance, partenariat, renouvellement, signal — avec la même économie et
+les mêmes exigences. Ce qui **peut** changer : la source, la fiabilité, la
+nature, l'état, l'action. Ce qui ne change **jamais** : le score économique,
+l'analyse de capacité, la classification métier.
+
+Il mesure aussi ce qu'aucun test unitaire ne mesure : le radar reste **entier**
+avec 0 marché public, entier avec 0 donnée privée, et survit au retrait de
+n'importe quel capteur pris un par un. Un capteur inédit, aux noms de champs
+inventés, obtient exactement le même traitement — sans qu'une ligne du moteur
+change.
+
 ## Ce que le radar sait dire — y compris « non »
 
 Cinq catégories pour ce qui vaut quelque chose, et une sixième pour ce qui

@@ -173,7 +173,7 @@ class Moteur:
             date_attribution=opp.attribue_le,
             titulaire=opp.titulaire if opp.attribue else None,
             vocabulaire=self.vocabulaire(opp.source), source=opp.source,
-            est_signal=opp.est_signal)
+            est_signal=opp.est_signal, lien_depot=opp.lien_depot)
         if opp.attribue and lecture.etat is not proc.Etat.ATTRIBUE:
             lecture.a_verifier.append(
                 "la source déclare le marché attribué mais l'interprétation "
@@ -233,9 +233,9 @@ class Moteur:
             bilan_capacite=bilan,
             construction=constr,
             est_signal=opp.est_signal,
-            source_privee=(opp.secteur_acheteur or "").lower().startswith("priv"),
             nature=nature, etat=lecture.etat,
-            procedure_detectee=lecture.procedure_detectee)
+            procedure_detectee=lecture.procedure_detectee,
+            depot_organise=lecture.depot_organise)
 
         # Le score mesure la valeur ÉCONOMIQUE : chiffre d'affaires, effort,
         # investissement, risque, marge, adéquation. L'état de la procédure n'y
@@ -256,7 +256,7 @@ class Moteur:
             # l'information — et elle a son propre champ, la fiabilité.
             # Le pondérer à la baisse reviendrait à cacher une bonne affaire
             # parce qu'elle a été découverte autrement qu'en lisant un avis.
-            est_signal=False, source_privee=False, nature=None,
+            est_signal=False, nature=None,
             etat=proc.Etat.POSTULABLE, procedure_detectee=False).type
         # LE CHIFFRE D'AFFAIRES, avec son ÉTAT : publié, estimé, ou inconnu.
         # Mesuré AVANT le score, parce que le score doit noter le MÊME chiffre

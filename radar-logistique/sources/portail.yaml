@@ -52,6 +52,7 @@ champs:
   lieu:             [lieu]
   lots:             [lots]
   contact_email:    [contact_email, email]
+  lien_depot:       [lien_depot, url_depot]
   plateforme:       [url, lien]
   titulaire:        [titulaire]
   attribue_le:      [date_attribution]

@@ -92,8 +92,9 @@ def _de_taille(message: str) -> bool:
 def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
             deadline_ouverte, deadline_motif, attribue, informatif,
             bilan_capacite, construction=None, est_signal=False,
-            source_privee=False, nature=None, etat=None,
-            procedure_detectee=False, ancrage_commercial=True) -> Classement:
+            nature=None, etat=None,
+            procedure_detectee=False, depot_organise=False,
+            ancrage_commercial=True) -> Classement:
     """Décide de la catégorie, du moteur et de l'action unique.
 
     Aucun paramètre ne nomme une source, et c'est délibéré : brancher TED,
@@ -186,10 +187,29 @@ def classer(*, role, activite_reconnue, exclusion, zone_ok, zone_motif,
                           raisons=["ni ouvert ni attribué de façon démontrable",
                                    "vérifier à la source avant d'engager du temps"])
 
-    # On ne dépose un dossier que sur un besoin PUBLIÉ. Sur une hypothèse —
-    # une page qui dit « devenir partenaire transporteur », sans date ni
-    # demandeur nommé — l'action juste est d'appeler, pas de candidater.
-    depot = nature.depot_attendu and not source_privee
+    # POSTULER OU APPELER : ce n'est pas le SECTEUR de l'acheteur qui décide,
+    # c'est l'existence d'une PROCÉDURE dans laquelle déposer.
+    #
+    # La règle lisait un `source_privee` dérivé de `secteur_acheteur` — un
+    # paramètre désormais SUPPRIMÉ de la signature : le cœur ne peut pas lire
+    # ce qu'il ne reçoit plus. Deux
+    # erreurs commerciales symétriques en découlaient :
+    #
+    #   · une entreprise PRIVÉE qui organise une vraie consultation — dossier,
+    #     date limite, remise d'offre — recevait « CONTACTER L'ENTREPRISE ».
+    #     On téléphone au lieu de déposer, et on rate la date. Le contrat est
+    #     perdu sans qu'aucune ligne du rapport ne le signale ;
+    #   · un acheteur PUBLIC publiant une page « devenir fournisseur », sans
+    #     procédure ouverte, recevait « POSTULER ». On prépare un dossier qui
+    #     n'a nulle part où aller.
+    #
+    # `depot_organise` répond à la seule question qui compte : y a-t-il un
+    # dossier à remettre ? Et le mot « public » disparaît du cœur.
+    #
+    # `procedure_detectee` ne suffisait pas : une date de validité la rend
+    # vraie, si bien qu'une tournée de bourse de fret — qu'on prend en
+    # décrochant son téléphone — ressortait « POSTULER ».
+    depot = nature.depot_attendu and depot_organise
     action_defaut = Action.POSTULER if depot else Action.CONTACTER_ENTREPRISE
 
     # ── 4. Blocages de capacité : taille ou nature ? ──

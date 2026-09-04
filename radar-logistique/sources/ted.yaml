@@ -26,6 +26,7 @@ champs:
   duree_mois:       [duration-months, contract-duration]
   echeance:         [deadline-receipt-tender, submission-deadline, date-deadline]
   publie_le:        [publication-date, dispatch-date]
+  lien_depot:       [submission-url]
   plateforme:       [submission-url, procedure-url]
   lien_documents:   [documents-url, access-url]
   cpv:              [classification-cpv, cpv-main]

@@ -181,6 +181,11 @@ class Lecture:
     # Lui coller « ÉTAT À VÉRIFIER » serait une fausse alerte, et pousserait
     # l'utilisateur à vérifier quelque chose qui n'existe pas.
     procedure_detectee: bool = False
+    # Y a-t-il quelque chose OÙ DÉPOSER ? Question distincte de la précédente.
+    # Une bourse de fret porte une date de validité — donc une procédure à
+    # qualifier — mais aucun dossier à remettre. C'est ce champ, et lui seul,
+    # qui autorise l'action POSTULER.
+    depot_organise: bool = False
 
     @property
     def etat_affiche(self) -> str:
@@ -603,7 +608,8 @@ class Vocabulaire:
 def lire(*, statut_source=None, type_information=None, titre="", texte="",
          texte_autour_du_statut="", documents=(), evenements=(), actions_possibles=(),
          echeance=None, date_attribution=None, titulaire=None, maintenant=None,
-         vocabulaire: Vocabulaire | None = None, source="", est_signal=False) -> Lecture:
+         vocabulaire: Vocabulaire | None = None, source="", est_signal=False,
+         lien_depot=None) -> Lecture:
     """Assemble toutes les preuves disponibles et applique la hiérarchie.
 
     `documents` et `actions_possibles` sont volontairement séparés du texte :
@@ -625,6 +631,28 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
         statut_source or type_information or evenements or echeance is not None
         or date_attribution or trouver("procedure", plat_global)
         or trouver("depot", plat_global))
+
+    # ── « Y A-T-IL QUELQUE CHOSE OÙ DÉPOSER ? » — une question distincte ──
+    #
+    # `procedure_detectee` est LARGE à dessein : une simple date limite suffit
+    # à mériter qu'on regarde l'état. Mais elle ne suffit PAS à conclure qu'il
+    # existe un dossier à remettre.
+    #
+    # Une annonce de bourse de fret porte une date de validité. Elle a donc
+    # `procedure_detectee = True` — et si l'ACTION se décidait là-dessus, le
+    # radar dirait « POSTULER » sur une tournée qu'on prend en décrochant son
+    # téléphone. Une bourse de fret n'est pas une consultation.
+    #
+    # `depot_organise` demande une preuve qu'un dépôt EXISTE : un mécanisme de
+    # remise (bouton, lien), un vocabulaire de dépôt dans le texte, ou une
+    # rubrique/un statut normé qui désigne une procédure. Une date seule, non.
+    actions_plates = normaliser(" ".join(str(a) for a in (actions_possibles or [])))
+    lecture.depot_organise = bool(
+        lien_depot
+        or trouver("depot", plat_global)
+        or trouver("depot", actions_plates)
+        or trouver("procedure", plat_global)
+        or statut_source or type_information or evenements)
 
     # ── rang 5 : le statut déclaré par la source ────────────────────────────
     if statut_source:

@@ -61,7 +61,10 @@ detail:
     objet:            {balise: div, attrs: {class: description}}
     montant:          {balise: span, attrs: {class: value}, motif: "([0-9][0-9 .,]*)"}
     duree_mois:       {balise: span, attrs: {class: duration}, motif: "([0-9]+)"}
+    # Le bouton de remise d'offre EST le guichet de dépôt : c'est ce qui
+    # autorise l'action POSTULER. Non vérifié sur une page réelle.
     plateforme:       {balise: a, attrs: {class: submit}, attribut: href}
+    lien_depot:       {balise: a, attrs: {class: submit}, attribut: href}
     lien_documents:   {balise: a, attrs: {class: documents}, attribut: href}
     contact_email:    {balise: a, attrs: {href: "mailto:"}, attribut: href}
     lots:             {balise: div, attrs: {class: lot}}

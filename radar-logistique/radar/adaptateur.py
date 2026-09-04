@@ -321,7 +321,13 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         exigences=_exigences_de(c),
         exigences_texte=[t for t in (c.get("exigences_texte") or []) if t],
         lien_dossier=c.get("lien_documents") or c.get("plateforme"),
-        lien_depot=c.get("plateforme"),
+        # `lien_depot` = OÙ REMETTRE UNE OFFRE. Il se déclare ; il ne se
+        # dérive pas de `plateforme`. Sur une page d'entreprise, `plateforme`
+        # est mappé sur `url` — l'adresse de la page elle-même. Le radar
+        # concluait donc qu'il existait un guichet de dépôt sur toute page
+        # ayant une URL, c'est-à-dire sur toutes, et proposait « POSTULER »
+        # là où il fallait décrocher son téléphone.
+        lien_depot=c.get("lien_depot"),
         plateforme=c.get("plateforme"),
         attribue=bool(c.get("attribue")),
         titulaire=c.get("titulaire"),

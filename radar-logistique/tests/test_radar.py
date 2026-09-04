@@ -1942,9 +1942,15 @@ class FilDeVie(unittest.TestCase):
         self.m = moteur()
 
     def _collecter(self, **kw):
-        o = opp(ref_source="M1", intitule="Distribution de colis",
-                texte="tournées quotidiennes de distribution", acheteur="Ville",
-                montant=240000, pays_livraison=["BE"], echeance_brute=OUVERT, **kw)
+        # `avis_public` et non `opp` : ce scénario suit un MARCHÉ dont l'état
+        # passe de POSTULABLE à ATTRIBUÉ, donc une procédure avec un dépôt.
+        # Le besoin privé nu que rend `opp()` n'a rien où déposer — l'action
+        # juste y est CONTACTER, et l'attendre à POSTULER testait l'inverse
+        # de ce que le produit doit faire.
+        o = avis_public(ref_source="M1", intitule="Distribution de colis",
+                        texte="tournées quotidiennes de distribution", acheteur="Ville",
+                        montant=240000, pays_livraison=["BE"],
+                        echeance_brute=OUVERT, **kw)
         return traiter(self.cx, self.m, [o], maintenant_dt=MAINTENANT)
 
     def _historique(self):
@@ -4497,3 +4503,109 @@ class LeBulletinCommercialPasseAvantLaMachine(unittest.TestCase):
         self.assertEqual(sources, sorted(sources),
                          "les sources doivent être en ordre alphabétique, "
                          "jamais classées par volume")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  §17 — AUCUNE SOURCE N'EST LE MODÈLE IMPLICITE DU PRODUIT
+#
+#  Un seul vrai défaut derrière ces tests, mais il coûtait des contrats dans
+#  les DEUX sens : l'action POSTULER / CONTACTER se décidait sur le SECTEUR de
+#  l'acheteur (`source_privee`, dérivé de `secteur_acheteur`), et non sur
+#  l'existence d'un guichet de dépôt.
+# ═══════════════════════════════════════════════════════════════════════════
+
+class PostulerOuAppelerNeDependPasDuSecteur(unittest.TestCase):
+    """Ce qui décide, c'est : y a-t-il un dossier à remettre ?"""
+
+    def test_une_entreprise_privee_qui_consulte_se_postule(self):
+        """Le radar disait « CONTACTER L'ENTREPRISE ». On téléphone au lieu de
+        déposer, on rate la date limite, et le contrat est perdu sans qu'aucune
+        ligne du rapport ne le signale."""
+        r = moteur().analyser(opp(
+            source="entreprise", secteur_acheteur="prive", acheteur="Delhaize",
+            intitule="Consultation transport régional",
+            texte="Consultation ouverte : remise des offres avant le 30 novembre "
+                  "2026. Dossier de consultation disponible sur demande.",
+            montant=540000, duree_mois=36, cadence="quotidienne",
+            pays_livraison=["BE"]), MAINTENANT)
+        self.assertEqual(r.lecture.etat_affiche, "POSTULABLE")
+        self.assertEqual(r.classement.action, Action.POSTULER)
+
+    def test_un_acheteur_public_sans_procedure_se_contacte(self):
+        """L'erreur symétrique : préparer un dossier qui n'a nulle part où aller."""
+        r = moteur().analyser(opp(
+            source="portail", secteur_acheteur="public", acheteur="Ville de Namur",
+            intitule="Devenir fournisseur de la Ville",
+            texte="Nous recherchons des transporteurs pour nos livraisons.",
+            echeance_brute=None, pays_livraison=["BE"]), MAINTENANT)
+        self.assertEqual(r.lecture.etat_affiche, "HORS PROCÉDURE")
+        self.assertEqual(r.classement.action, Action.CONTACTER_ENTREPRISE)
+
+    def test_une_date_de_validite_ne_fait_pas_un_guichet_de_depot(self):
+        """Une annonce de bourse de fret porte une date de validité, donc une
+        procédure à qualifier — mais aucun dossier à remettre. On prend la
+        tournée en décrochant son téléphone."""
+        r = moteur().analyser(opp(
+            source="bourse_fret", secteur_acheteur="prive", acheteur="Négociant",
+            intitule="Tournée régulière Rotterdam → Bruxelles",
+            texte="Palettes filmées, chargement le matin, 3 rotations par semaine.",
+            montant=4200, montant_unite="par_periode", cadence="hebdomadaire",
+            echeance_brute=OUVERT, pays_livraison=["BE"]), MAINTENANT)
+        self.assertFalse(r.lecture.depot_organise)
+        self.assertEqual(r.classement.action, Action.CONTACTER_ENTREPRISE)
+
+    def test_un_avis_public_normal_reste_postulable(self):
+        r = moteur().analyser(avis_public(
+            intitule="Distribution de colis", texte="Transport de marchandises."),
+            MAINTENANT)
+        self.assertEqual(r.classement.action, Action.POSTULER)
+
+    def test_le_coeur_ne_recoit_meme_plus_la_provenance(self):
+        """`source_privee` est retiré de la signature : le cœur ne peut pas
+        lire ce qu'il ne reçoit plus."""
+        import inspect
+        from radar import classification
+        params = inspect.signature(classification.classer).parameters
+        for interdit in ("source_privee", "secteur_acheteur", "source"):
+            self.assertNotIn(interdit, params)
+
+    def test_une_url_de_page_nest_pas_un_guichet_de_depot(self):
+        """`lien_depot` était dérivé de `plateforme`, elle-même mappée sur
+        `url` pour une page d'entreprise. Le radar concluait donc qu'il
+        existait un guichet sur toute page ayant une adresse."""
+        import yaml
+        from radar.adaptateur import Adaptateur, vers_opportunite
+        cfg = yaml.safe_load(
+            (RACINE / "sources" / "entreprise.yaml").read_text(encoding="utf-8"))
+        o = vers_opportunite(Adaptateur.depuis_config(cfg),
+                             {"url": "https://pme.be/devenir-partenaire",
+                              "titre": "Devenir partenaire transporteur",
+                              "texte": "Nous confions des tournées à des partenaires."},
+                             "entreprise", {"secteur": "prive"})
+        self.assertIsNone(o.lien_depot)
+        self.assertEqual(o.plateforme, "https://pme.be/devenir-partenaire")
+
+
+class AucuneSourceNestLeModeleImplicite(unittest.TestCase):
+    """Les seize détecteurs de `outils/audit_biais.py`, exécutés ici aussi.
+
+    L'outil sert à MESURER en développement ; ce test empêche une régression
+    de passer inaperçue entre deux exécutions manuelles.
+    """
+
+    def test_les_seize_detecteurs_passent(self):
+        import importlib
+        audit = importlib.import_module("outils.audit_biais")
+        echecs = []
+        for libelle, fn in audit.DETECTEURS:
+            ok, message, _ = fn(False)
+            if not ok:
+                echecs.append(f"{libelle} : {message}")
+        self.assertEqual(echecs, [], "biais de source détecté(s)")
+
+    def test_le_meme_besoin_sous_huit_formes_vaut_le_meme_score(self):
+        import importlib
+        audit = importlib.import_module("outils.audit_biais")
+        m = moteur()
+        notes = {n: m.analyser(o).score.total for n, o in audit.huit_formes()}
+        self.assertEqual(len(set(notes.values())), 1, f"scores divergents : {notes}")

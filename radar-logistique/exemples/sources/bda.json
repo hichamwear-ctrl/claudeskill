@@ -1,11 +1,22 @@
 [
- {"identifiant":"BDA-2026-7781",
-  "intitule":"Livraison de repas à domicile — marché de services",
-  "objet":"Livraison quotidienne de repas en liaison froide sur le territoire communal, au départ d'un dépôt belge.",
-  "acheteur":"CPAS de Molenbeek",
-  "cpv":["60000000"],"montant":96000,"duree_mois":24,
-  "echeance":"2099-04-30","lieu":"Bruxelles","pays":"BE","cadence":"quotidienne",
-  "lien_avis":"https://exemple.be/bda/7781",
-  "contact_email":"marches@cpas-molenbeek.be",
-  "exige_afsca":true}
+ {
+  "identifiant": "BDA-2026-7781",
+  "intitule": "Livraison de repas à domicile — marché de services",
+  "objet": "Livraison quotidienne de repas en liaison froide sur le territoire communal, au départ d'un dépôt belge.",
+  "acheteur": "CPAS de Molenbeek",
+  "cpv": [
+   "60000000"
+  ],
+  "montant": 96000,
+  "duree_mois": 24,
+  "echeance": "2099-04-30",
+  "lieu": "Bruxelles",
+  "pays": "BE",
+  "cadence": "quotidienne",
+  "lien_avis": "https://exemple.be/bda/7781",
+  "contact_email": "marches@cpas-molenbeek.be",
+  "exige_afsca": true,
+  "type_avis": "avis de marché",
+  "lien_depot": "https://exemple.be/bda/7781"
+ }
 ]
