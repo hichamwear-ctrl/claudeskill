@@ -49,9 +49,14 @@ marge:
 taille:
   mensuel_ideal_min: 5000
   mensuel_ideal_max: 60000
+  # Le sommet de la cloche : au-delà, un contrat n'est pas « meilleur », il est
+  # plus lourd à porter. Entre le minimum et ce seuil, les points montent avec
+  # le récurrent mensuel — sinon 8 000, 12 000 et 15 000 €/mois valent pareil.
+  mensuel_confortable: 25000
   total_confortable_max: 1500000
   hors_gabarit_au_dela: 3000000
-  points_dans_la_cible: 15
+  points_dans_la_cible: 15         # atteint au sommet de la cloche
+  points_bas_de_cible: 9           # tout juste dans la cible
   points_proche: 9
   points_hors_cible: 3
   points_hors_gabarit: 0

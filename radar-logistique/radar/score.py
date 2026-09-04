@@ -50,6 +50,13 @@ class Bareme:
         self.conc = config["concurrence"]
         self.effort = config.get("effort", {})
         self.cfg_marge = config.get("marge", {})
+        # Le maximum réellement atteignable, calculé depuis la configuration —
+        # jamais une constante écrite à la main qui se désynchroniserait au
+        # premier réglage de poids.
+        self.plafond = (sum(self.c.values())
+                        + sum(v for v in config.get("criteres_supplementaires", {}).values()
+                              if isinstance(v, (int, float)))
+                        + 5)              # bonus « corridor éprouvé »
         self.facteurs = config["facteurs"]
         self.profil = profil or {}
 
@@ -85,7 +92,21 @@ class Bareme:
                 f"{montant:,.0f} € — hors gabarit en titulaire direct".replace(",", " "))
         mensuel = montant / max(duree_mois or 12, 1)
         if t["mensuel_ideal_min"] <= mensuel <= t["mensuel_ideal_max"]:
-            return t["points_dans_la_cible"], (
+            # DANS la cible, plus de récurrent mensuel vaut plus. Un forfait
+            # unique donnait le même nombre de points à 8 000, 12 000 et
+            # 15 000 €/mois : trois affaires très différentes ressortaient à
+            # égalité, et le radar ne savait plus dire laquelle attaquer.
+            #
+            # La montée s'arrête au « confortable » du profil : au-delà, ce
+            # n'est plus un meilleur contrat, c'est un contrat plus lourd —
+            # d'où la cloche, et non une pente sans fin.
+            confortable = t.get("mensuel_confortable", t["mensuel_ideal_max"])
+            haut = max(confortable, t["mensuel_ideal_min"] + 1)
+            part = min((mensuel - t["mensuel_ideal_min"])
+                       / (haut - t["mensuel_ideal_min"]), 1.0)
+            plancher = t.get("points_bas_de_cible", t["points_dans_la_cible"] * 0.6)
+            points = plancher + (t["points_dans_la_cible"] - plancher) * part
+            return round(points, 1), (
                 f"{mensuel:,.0f} €/mois — dans la cible économique".replace(",", " "))
         if montant <= t["total_confortable_max"]:
             return t["points_proche"], f"{mensuel:,.0f} €/mois — proche de la cible".replace(",", " ")
@@ -260,4 +281,13 @@ class Bareme:
         if facteur != 1.0:
             total *= facteur
             L.append(Ligne("type", 0, f"{type_opp.value} — pondéré ×{facteur}"))
-        return Score(max(0, min(100, round(total))), L, marge_estimee=marge)
+        # RAMENER À 100 PLUTÔT QUE COUPER À 100.
+        #
+        # Les critères plafonnaient à 100 sur une somme atteignable d'environ
+        # 120 : tout ce qui dépassait était rogné, et les meilleures affaires
+        # arrivaient à égalité. Un contrat à 8 000 €/mois, un à 12 000 et un à
+        # 15 000 ressortaient tous à 100 — exactement là où le radar doit
+        # trancher. On normalise donc au lieu de tronquer : l'ordre est
+        # conservé, et 100 ne s'atteint que sur un cas réellement parfait.
+        note = 100 * total / self.plafond if self.plafond else total
+        return Score(max(0, min(100, round(note))), L, marge_estimee=marge)

@@ -79,6 +79,10 @@ BESOIN_DIRECT = (
     "recherche prestataire", "recherche partenaire", "recherche de partenaires",
     "souhaitons referencer", "souhaitons confier", "cherchons a externaliser",
     "externaliser une partie", "referencer plusieurs", "faisons appel a",
+    # « Appel à sous-traitants » est une demande explicite, pas une déduction :
+    # l'entreprise dit ce qu'elle cherche. Elle ressortait HYPOTHÈSE.
+    "appel a sous traitants", "appel a partenaires", "appel a candidatures",
+    "avis de recherche", "consultation fournisseurs", "referencement ouvert",
 )
 
 # ── ÉVÉNEMENTS OBSERVABLES ────────────────────────────────────────────────
@@ -157,6 +161,12 @@ def qualifier(opp) -> Nature:
         return Nature.FAIT
     if objet and _evenement_observable(opp):
         return Nature.SIGNAL
+    # Une source qui déclare un TYPE ou un STATUT a publié quelque chose de
+    # structuré : c'est un fait, même sans date. Un avis de préinformation
+    # ressortait HYPOTHÈSE alors qu'il est une publication officielle.
+    if objet and (getattr(opp, "type_information", None)
+                  or getattr(opp, "statut_source", None)):
+        return Nature.FAIT
     quand = bool(getattr(opp, "echeance_brute", None)
                  or getattr(opp, "date_demarrage", None))
     if objet and quand:

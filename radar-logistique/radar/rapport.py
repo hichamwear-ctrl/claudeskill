@@ -28,6 +28,43 @@ class Selection:
 EMOJIS = {"DIRECT": "🟢", "RENFORCEMENT": "🟡", "A_CONSTRUIRE": "🟣",
           "PROSPECT": "🔵", "REJET": "🔴"}
 
+# LES HUIT BLOCS DU PIPELINE COMMERCIAL, dans l'ordre où on agit.
+BLOCS_PIPELINE = [
+    ("🔥 À ATTAQUER MAINTENANT", "attaquer"),
+    ("📞 À CONTACTER", "contacter"),
+    ("🤝 SOUS-TRAITANCE / PARTENARIAT", "partenariat"),
+    ("👀 À SURVEILLER", "surveiller"),
+    ("🔄 RENOUVELLEMENTS / ATTRIBUTIONS", "renouvellement"),
+    ("🎓 NOUVEAUX MÉTIERS ACCESSIBLES", "metier"),
+    ("⚠️ À VÉRIFIER", "verifier"),
+    ("❌ REJETS MOTIVÉS", "rejet"),
+]
+
+
+def bloc_de(ligne) -> str:
+    """Dans quel bloc du pipeline cette opportunité tombe.
+
+    Lu sur ce qu'il y a À FAIRE, jamais sur la provenance : un besoin privé
+    exploitable et un marché public ouvert sont tous deux « à attaquer ».
+    """
+    if ligne["type"] == "REJET":
+        return "rejet"
+    action = (ligne["action"] or "").upper()
+    if ligne["type"] == "A_CONSTRUIRE":
+        return "metier"
+    if "VÉRIFIER" in action:
+        return "verifier"
+    if ligne["etat_procedure"] in ("ATTRIBUÉ", "ANNONCÉ"):
+        return "renouvellement"
+    if action.startswith("PROPOSER"):
+        return "partenariat"
+    if action == "POSTULER":
+        return "attaquer"
+    if "CONTACTER" in action:
+        # Un besoin ÉNONCÉ s'attaque ; un signal se qualifie d'abord.
+        return "contacter" if ligne["nature"] == "FAIT" else "surveiller"
+    return "surveiller"
+
 # Les familles de besoin, dans l'ordre où elles se lisent. Le classement se fait
 # sur des FAITS portés par l'opportunité — jamais sur le nom de la source :
 # un besoin privé peut arriver par un moteur de recherche, une page ou une
@@ -141,6 +178,7 @@ class Rapport:
     a_verifier_liste: list = field(default_factory=list)   # informations ambiguës
     actions: dict = field(default_factory=dict)       # action -> [(score, titre, source)]
     familles: dict = field(default_factory=dict)      # famille de besoin -> lignes
+    pipeline: dict = field(default_factory=dict)     # bloc commercial -> lignes
     completude_par_famille: dict = field(default_factory=dict)
     familles_effectif: dict = field(default_factory=dict)
 
@@ -148,6 +186,32 @@ class Rapport:
         return f"{n:>5}  ({n / self.total:.0%})" if self.total else f"{n:>5}"
 
     # ------------------------------------------------------- ce qu'on va faire --
+    def _pipeline(self) -> list:
+        """LE PIPELINE COMMERCIAL — huit blocs, dans l'ordre où on agit.
+
+        Le rapport ne commence pas par « TED : 132 avis ». Il commence par ce
+        qu'il y a à gagner. La source arrive tout au bout de chaque ligne,
+        comme une provenance, et le détail par source vient à la fin.
+        """
+        L = ["RADAR COMMERCIAL", "=" * 72, ""]
+        for titre, cle in BLOCS_PIPELINE:
+            lignes = self.pipeline.get(cle, [])
+            L.append(f"{titre}   ({len(lignes)})")
+            if not lignes:
+                L.append("    — rien dans cet échantillon")
+                continue
+            for score, intitule, action, source, etat, nature in lignes[:6]:
+                L.append(f"    [{score:>3}] {intitule[:44]:<46}"
+                         f"{(action or '')[:22]:<24}{(nature or '')[:9]:<10}"
+                         f"vu sur {source}")
+            if len(lignes) > 6:
+                L.append(f"    … et {len(lignes) - 6} autre(s)")
+        L.append("")
+        L.append("  DÉTECTER → QUALIFIER → CONTACTER → CONVERTIR → EXÉCUTER")
+        L.append("  → RENOUVELER → DÉVELOPPER.  Un marché ouvert n'est qu'UN cas")
+        L.append("  du premier stade.")
+        return L
+
     def _occasions(self) -> list:
         """Les occasions de chiffre d'affaires, avant toute statistique.
 
@@ -155,7 +219,7 @@ class Rapport:
         combien d'avis telle source a publiés. La source figure au bout de
         chaque ligne, comme une provenance — pas comme un classement.
         """
-        L = ["RADAR COMMERCIAL", "=" * 72, ""]
+        L = ["DEUX MOTEURS", "=" * 72, ""]
         L.append("CAPTER — ce que je peux attaquer maintenant")
         if self.capter:
             for score, typ, action, source, titre, etat in self.capter:
@@ -218,7 +282,8 @@ class Rapport:
         return L
 
     def en_texte(self, avec_fiches=True) -> str:
-        L = [self.mode.bandeau(), ""] + self._occasions()
+        L = [self.mode.bandeau(), ""] + self._pipeline() + ["", "=" * 72, ""]
+        L += self._occasions()
         L += ["", "=" * 72, "",
               f"MESURE — générée le {self.genere_le}", ""]
 
@@ -595,6 +660,16 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
                     f" AND {colonne} IS NOT NULL AND {colonne} <> ''",
                     ids).fetchone()["c"]
             r.completude_par_famille[famille] = mesures
+
+    if "nature" in connues:
+        for l in cx.execute(
+                "SELECT o.score, o.intitule, o.type, o.action, o.nature,"
+                " o.etat_procedure, o.motif, a.source FROM opportunites o"
+                " JOIN avis a ON a.id = o.avis_id ORDER BY o.score DESC"):
+            r.pipeline.setdefault(bloc_de(l), []).append(
+                (l["score"], l["intitule"] or "(sans intitulé)",
+                 l["action"] if l["type"] != "REJET" else (l["motif"] or "")[:22],
+                 l["source"], l["etat_procedure"], l["nature"]))
 
     # Ce qu'il y a à FAIRE, regroupé par geste. C'est la sortie du produit.
     for l in cx.execute(

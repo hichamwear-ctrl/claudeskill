@@ -3090,13 +3090,23 @@ class LePlafondDuScoreEstUneLimiteConnue(unittest.TestCase):
         base.update(kw)
         return moteur().analyser(Opportunite(**base), MAINTENANT).score.total
 
-    def test_deux_opportunites_excellentes_plafonnent_ensemble(self):
-        proche = self._tres_bon(ref_source="A", distance_depot_km=5)
-        un_peu_moins = self._tres_bon(ref_source="B", distance_depot_km=45)
-        self.assertEqual(proche, 100)
-        self.assertEqual(un_peu_moins, 100)
-        self.assertEqual(proche, un_peu_moins,
-                         "limite connue : au plafond, le score ne départage plus")
+    def test_deux_excellentes_opportunites_restent_departageables(self):
+        """Limite LEVÉE. Le score coupait à 100 sur une somme atteignable
+        d'environ 120 : les meilleures affaires arrivaient à égalité, exactement
+        là où le radar doit trancher. Il normalise désormais au lieu de
+        tronquer — l'ordre est conservé jusqu'en haut."""
+        # 5 km et 45 km sont dans la MÊME bande « confortable » : ils valent
+        # bien le même nombre de points, et c'est voulu. On compare donc deux
+        # bandes différentes, ce qui est la vraie question économique.
+        proche = self._tres_bon(ref_source="A", distance_depot_km=20)
+        loin = self._tres_bon(ref_source="B", distance_depot_km=200)
+        self.assertGreater(proche, loin)
+        self.assertLessEqual(proche, 100)
+
+    def test_le_plafond_ne_s_atteint_que_sur_un_cas_parfait(self):
+        ordinaire = self._tres_bon(ref_source="C", distance_depot_km=45,
+                                   cadence="hebdomadaire")
+        self.assertLess(ordinaire, 100)
 
     def test_sous_le_plafond_les_variations_restent_visibles(self):
         loin = self._tres_bon(ref_source="C", distance_depot_km=400,
@@ -3538,3 +3548,251 @@ class LeCPVNEstPasUneAutorite(unittest.TestCase):
                 texte=self.PRESTATION, acheteur="Client")
         r = moteur().analyser(o, MAINTENANT)
         self.assertIsNot(r.classement.type, Type.REJET)
+
+
+# ══════════════ LE RADAR CHERCHE DU CHIFFRE D'AFFAIRES, PAS DES AVIS
+def _besoin(ref, **kw):
+    base = dict(source="entreprise", ref_source=ref, cpv=[], type_avis=None,
+                statut_source=None, texte="tournées quotidiennes de distribution "
+                "urbaine pour le compte de tiers", pays_livraison=["BE"],
+                distance_depot_km=20, cadence="quotidienne", duree_mois=36,
+                secteur_acheteur="privé", exigences={"licence_transport": True})
+    base.update(kw)
+    return Opportunite(**base)
+
+
+class LeRadarNestPasUnMoteurDAppelsOffres(unittest.TestCase):
+    """Un lot TOTALEMENT privé : contrat, sous-traitance, partenariat,
+    recrutement, entreprise à contacter, renouvellement, signal d'expansion,
+    besoin exprimé, nouveau métier. Aucun CPV, aucun publication-number,
+    aucune procédure publique, aucun portail.
+
+    TESTÉ SUR FIXTURE — données réelles observées : 0.
+    """
+
+    def _lot(self):
+        return [
+            _besoin("CONTRAT", intitule="Nous recherchons un transporteur régional",
+                    acheteur="Industrie SA", montant=12000 * 36),
+            _besoin("SST", intitule="Appel à sous-traitants pour nos tournées",
+                    acheteur="Grand Opérateur", montant=15000 * 36),
+            _besoin("PART", intitule="Devenir partenaire transporteur du réseau",
+                    acheteur="Réseau Froid", montant=9000 * 36),
+            _besoin("RECRUT", source="brave",
+                    intitule="20 chauffeurs recherchés pour notre nouveau site",
+                    acheteur="Messagerie SA", montant=None),
+            _besoin("PROSPECT", source="brave",
+                    intitule="Distributeur régional, trois sites en Belgique",
+                    texte="livraisons quotidiennes, flotte interne saturée",
+                    acheteur="Distributeur SA", montant=None),
+            _besoin("RENOUV", source="brave",
+                    intitule="Prestataire actuel : contrat arrivant à échéance",
+                    acheteur="Groupe Alimentaire", montant=11000 * 36),
+            _besoin("EXPANSION", source="brave",
+                    intitule="Nous ouvrons un nouveau dépôt à Gand",
+                    acheteur="Groupe Agro", montant=None),
+            _besoin("METIER", intitule="Recherche de partenaires installation bornes",
+                    texte="véhicules utilitaires et personnel de terrain, formation "
+                          "complète de trois semaines assurée au démarrage",
+                    acheteur="Opérateur Énergie", montant=8000 * 36,
+                    echeance_brute="2028-03-01T12:00:00+01:00",
+                    date_demarrage="2028-09-01"),
+        ]
+
+    def setUp(self):
+        from radar.rapport import construire
+        self.cx = ouvrir(":memory:")
+        self.bilan = traiter(self.cx, moteur(), self._lot(), maintenant_dt=MAINTENANT)
+        self.rapport = construire(self.cx, Mode.DEMO,
+                                  cible={"montant_total_confortable_max": 1500000})
+
+    def test_le_lot_ne_contient_aucun_marqueur_public(self):
+        for o in self._lot():
+            self.assertEqual(o.cpv, [])
+            self.assertIsNone(o.type_avis)
+            self.assertIsNone(o.statut_source)
+            self.assertFalse((o.ref_source or "").startswith("TED"))
+
+    def test_le_radar_produit_un_resultat_commercial_complet(self):
+        self.assertEqual(self.bilan.livre.ecart(), 0)
+        retenues = self.cx.execute("SELECT count(*) c FROM opportunites"
+                                   " WHERE type <> 'REJET'").fetchone()["c"]
+        self.assertEqual(retenues, 8)
+        self.assertGreater(self.bilan.capter + self.bilan.developper, 0)
+
+    def test_le_pipeline_commercial_est_alimente_sans_aucun_avis(self):
+        """Les blocs qui comptent doivent être remplis par du privé seul."""
+        pipeline = self.rapport.pipeline
+        self.assertTrue(pipeline.get("contacter"), "personne à contacter")
+        self.assertTrue(pipeline.get("surveiller"), "rien à surveiller")
+        self.assertTrue(pipeline.get("metier"), "aucun métier à construire")
+
+    def test_chaque_objet_commercial_a_son_action_propre(self):
+        actions = {l["ref_source"]: l["action"] for l in self.cx.execute(
+            "SELECT a.ref_source, o.action FROM opportunites o"
+            " JOIN avis a ON a.id = o.avis_id")}
+        self.assertIn("CONTACTER", actions["CONTRAT"])
+        self.assertIn("CONTACTER", actions["SST"])
+        self.assertNotIn("POSTULER", actions["RECRUT"])
+        self.assertNotIn("POSTULER", actions["EXPANSION"])
+
+    def test_les_signaux_ne_deviennent_pas_des_contrats(self):
+        for ref in ("RECRUT", "EXPANSION"):
+            l = self.cx.execute(
+                "SELECT o.nature, o.type, o.etat_procedure FROM opportunites o"
+                " JOIN avis a ON a.id = o.avis_id WHERE a.ref_source = ?",
+                (ref,)).fetchone()
+            self.assertEqual(l["nature"], "SIGNAL")
+            self.assertEqual(l["type"], "PROSPECT")
+            self.assertEqual(l["etat_procedure"], "HORS PROCÉDURE")
+
+    def test_aucune_procedure_n_est_inventee(self):
+        """Un état n'est fabriqué que lorsque RIEN ne le fonde.
+
+        La fixture « nouveau métier » publie, elle, une date limite : son
+        POSTULABLE est donc mérité, pas inventé. Ce qu'on vérifie, c'est
+        qu'aucune opportunité sans le moindre élément de procédure n'en reçoit
+        un — et qu'aucune ne finit en INCONNU, qui ferait vérifier un état
+        inexistant.
+        """
+        lignes = {l["ref_source"]: l["etat_procedure"] for l in self.cx.execute(
+            "SELECT a.ref_source, o.etat_procedure FROM opportunites o"
+            " JOIN avis a ON a.id = o.avis_id")}
+        self.assertNotIn("INCONNU", set(lignes.values()))
+        for ref in ("CONTRAT", "SST", "PART", "RECRUT", "PROSPECT", "RENOUV",
+                    "EXPANSION"):
+            self.assertEqual(lignes[ref], "HORS PROCÉDURE",
+                             f"{ref} n'a aucune procédure — aucun état ne doit "
+                             f"lui être inventé")
+        self.assertEqual(lignes["METIER"], "POSTULABLE",
+                         "cette page publie une date limite : l'état est mérité")
+
+    def test_aucun_montant_n_est_fabrique_quand_il_manque(self):
+        for ref in ("RECRUT", "PROSPECT", "EXPANSION"):
+            l = self.cx.execute(
+                "SELECT o.montant, o.marge FROM opportunites o JOIN avis a"
+                " ON a.id = o.avis_id WHERE a.ref_source = ?", (ref,)).fetchone()
+            self.assertIsNone(l["montant"])
+            self.assertEqual(l["marge"], "NON MESURÉE")
+
+    def test_le_meilleur_score_va_a_la_meilleure_economie(self):
+        scores = {l["ref_source"]: l["score"] for l in self.cx.execute(
+            "SELECT a.ref_source, o.score FROM opportunites o"
+            " JOIN avis a ON a.id = o.avis_id")}
+        self.assertGreater(scores["SST"], scores["PART"],
+                           "15 000 €/mois doit battre 9 000 €/mois")
+
+
+class UnBesoinPriveFortBatUnMarchePublicFaible(unittest.TestCase):
+    """§4 — le classement suit l'économie, jamais la provenance."""
+
+    def _lot(self):
+        return [
+            Opportunite(source="bda", ref_source="PUB", cpv=["60000000"],
+                        type_avis="avis de marché", secteur_acheteur="public",
+                        intitule="Marché public de distribution", acheteur="Commune",
+                        texte="tournées quotidiennes de distribution urbaine",
+                        montant=8000 * 36, duree_mois=36, cadence="quotidienne",
+                        pays_livraison=["BE"], distance_depot_km=20,
+                        echeance_brute=OUVERT,
+                        exigences={"licence_transport": True}),
+            _besoin("PRV", intitule="Nous recherchons un transporteur régional",
+                    acheteur="Industrie SA", montant=12000 * 36),
+            _besoin("SST", intitule="Appel à sous-traitants pour nos tournées",
+                    acheteur="Grand Opérateur", montant=15000 * 36),
+            _besoin("SIG", source="brave", montant=None,
+                    intitule="Nous ouvrons un nouveau dépôt à Gand",
+                    acheteur="Groupe Agro"),
+        ]
+
+    def setUp(self):
+        self.cx = ouvrir(":memory:")
+        traiter(self.cx, moteur(), self._lot(), maintenant_dt=MAINTENANT)
+        self.scores = {l["ref_source"]: l["score"] for l in self.cx.execute(
+            "SELECT a.ref_source, o.score FROM opportunites o"
+            " JOIN avis a ON a.id = o.avis_id")}
+
+    def test_le_prive_a_12k_bat_le_public_a_8k(self):
+        self.assertGreater(self.scores["PRV"], self.scores["PUB"])
+
+    def test_la_sous_traitance_a_15k_bat_le_public_a_8k(self):
+        self.assertGreater(self.scores["SST"], self.scores["PUB"])
+
+    def test_le_signal_sans_economie_connue_passe_derriere(self):
+        for ref in ("PUB", "PRV", "SST"):
+            self.assertGreater(self.scores[ref], self.scores["SIG"],
+                               "une économie inconnue ne doit pas dominer")
+
+    def test_memes_donnees_economiques_sources_differentes_meme_score(self):
+        commun = dict(intitule="Distribution urbaine de marchandises",
+                      texte="tournées quotidiennes de distribution urbaine",
+                      acheteur="Client", montant=12000 * 36, duree_mois=36,
+                      cadence="quotidienne", pays_livraison=["BE"],
+                      distance_depot_km=20, echeance_brute=OUVERT,
+                      exigences={"licence_transport": True})
+        m = moteur()
+        scores = {}
+        for src, extra in (("ted", dict(cpv=["60000000"], type_avis="contract-notice")),
+                           ("bda", dict(cpv=["60000000"])),
+                           ("brave", {}), ("entreprise", {}),
+                           ("bourse_fret", {}), ("signaux", {})):
+            o = Opportunite(source=src, ref_source=f"S-{src}",
+                            **{**commun, **{"cpv": [], "type_avis": None}, **extra})
+            scores[src] = m.analyser(o, MAINTENANT).score.total
+        self.assertEqual(len(set(scores.values())), 1, scores)
+
+    def test_source_identique_economies_differentes_scores_differents(self):
+        m = moteur()
+        petit = m.analyser(_besoin("A", intitule="Distribution urbaine",
+                                   acheteur="C", montant=6000 * 36), MAINTENANT)
+        gros = m.analyser(_besoin("B", intitule="Distribution urbaine",
+                                  acheteur="C", montant=20000 * 36), MAINTENANT)
+        self.assertNotEqual(petit.score.total, gros.score.total)
+        self.assertGreater(gros.score.total, petit.score.total)
+
+
+class RetirerTEDNeChangePasLeProduit(unittest.TestCase):
+    def _mesurer(self, exclues=()):
+        from outils.familles import FAMILLES, charger, moteur as m_familles
+        cx = ouvrir(":memory:")
+        m = m_familles()
+        for nom, _, source, _ in FAMILLES:
+            if source in exclues:
+                continue
+            traiter(cx, m, charger(nom), maintenant_dt=MAINTENANT)
+        return {l["intitule"]: (l["score"], l["type"], l["action"], l["nature"])
+                for l in cx.execute("SELECT intitule, score, type, action, nature"
+                                    " FROM opportunites")}
+
+    def test_retirer_ted_ne_change_rien_aux_autres(self):
+        avec, sans = self._mesurer(), self._mesurer({"ted"})
+        for titre, valeurs in sans.items():
+            self.assertEqual(valeurs, avec[titre],
+                             f"« {titre} » change quand on retire TED")
+
+    def test_sans_ted_le_radar_produit_encore_un_pipeline(self):
+        self.assertGreater(len(self._mesurer({"ted"})), 0)
+
+
+class AucuneSourceNestIndispensable(unittest.TestCase):
+    def test_chaque_adaptateur_peut_etre_retire(self):
+        from outils.familles import FAMILLES, charger, moteur as m_familles
+        sources = sorted({s for _, _, s, _ in FAMILLES})
+        for exclue in sources:
+            with self.subTest(sans=exclue):
+                cx = ouvrir(":memory:")
+                m = m_familles()
+                for nom, _, source, _ in FAMILLES:
+                    if source == exclue:
+                        continue
+                    traiter(cx, m, charger(nom), maintenant_dt=MAINTENANT)
+                n = cx.execute("SELECT count(*) c FROM opportunites"
+                               " WHERE type <> 'REJET'").fetchone()["c"]
+                self.assertGreater(n, 0, f"le radar meurt sans « {exclue} »")
+
+    def test_le_coeur_ne_nomme_aucun_adaptateur(self):
+        for module in ("score", "capacite", "classification", "nature", "fiabilite",
+                       "deduplication", "transitions", "questions"):
+            src = (RACINE / "radar" / f"{module}.py").read_text(encoding="utf-8")
+            for nom in ('"ted"', '"bda"', '"google"', '"brave"', '"portail"'):
+                self.assertNotIn(nom, src, f"{module}.py nomme {nom}")
