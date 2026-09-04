@@ -49,20 +49,65 @@ def famille_de(ligne) -> str:
         return "MÉTIERS À CONSTRUIRE"
     if ligne["etat_procedure"] == "ATTRIBUÉ" or ligne["etat_procedure"] == "ANNONCÉ":
         return "RENOUVELLEMENTS À ANTICIPER"
+    # Hors procédure et sans échéance : c'est la NATURE qui départage.
+    #   « nous recherchons un transporteur »  → besoin EXPRIMÉ (FAIT)
+    #   « distributeur, trois sites »         → besoin DÉDUIT (hypothèse)
+    # Trancher sur la seule absence d'échéance rangeait le premier parmi les
+    # entreprises à démarcher : on aurait prospecté quelqu'un qui a déjà écrit
+    # ce qu'il cherche.
+    if ligne["etat_procedure"] == "HORS PROCÉDURE" and not ligne["echeance"]:
+        if ligne["nature"] == "FAIT":
+            return "BESOINS PRIVÉS"
+        if ligne["nature"] == "HYPOTHÈSE":
+            return "ENTREPRISES À DÉMARCHER"
     if ligne["nature"] in ("SIGNAL", "HYPOTHÈSE"):
         return "SIGNAUX ÉCONOMIQUES"
     if (ligne["action"] or "").startswith("PROPOSER"):
         return "SOUS-TRAITANCE ET PARTENARIAT"
     if (ligne["secteur"] or "").lower().startswith("pub"):
         return "MARCHÉS PUBLICS"
-    if ligne["etat_procedure"] == "HORS PROCÉDURE" and not ligne["echeance"]:
-        return "ENTREPRISES À DÉMARCHER"
     return "BESOINS PRIVÉS"
 
+# LA COMPLÉTUDE DÉPEND DU TYPE DE BESOIN, PAS D'UNE GRILLE UNIQUE.
+#
+# Une seule liste de champs — acheteur, échéance, montant, durée, lots… — est
+# la fiche signalétique d'un avis de marché public. L'appliquer à tout mesurait
+# un signal de recrutement à l'aune de champs qui n'existent pas chez lui :
+# « lots 0 % », « échéance 14 % ». Un besoin privé paraissait incomplet alors
+# qu'il était complet POUR CE QU'IL EST.
+#
+# Chaque famille déclare donc ce qui compte chez elle. Un champ absent de sa
+# grille n'est pas un trou : il est hors sujet.
+CHAMPS_PAR_FAMILLE = {
+    "MARCHÉS PUBLICS": (
+        ("acheteur", "acheteur"), ("échéance", "echeance"), ("montant", "montant"),
+        ("durée", "duree_mois"), ("lots", "lot_numero"), ("zone", "zone"),
+        ("exigences", "exigences"), ("état", "etat_procedure")),
+    "BESOINS PRIVÉS": (
+        ("entreprise", "acheteur"), ("besoin", "intitule"), ("zone", "zone"),
+        ("volume/montant", "montant"), ("cadence", "cadence"),
+        ("contact", "contact")),
+    "SOUS-TRAITANCE ET PARTENARIAT": (
+        ("entreprise", "acheteur"), ("besoin", "intitule"), ("zone", "zone"),
+        ("cadence", "cadence"), ("contact", "contact")),
+    "ENTREPRISES À DÉMARCHER": (
+        ("entreprise", "acheteur"), ("zone", "zone"), ("contact", "contact"),
+        ("indice de besoin", "intitule")),
+    "SIGNAUX ÉCONOMIQUES": (
+        ("entreprise", "acheteur"), ("nature du signal", "nature"),
+        ("zone", "zone"), ("date de détection", "calcule_le")),
+    "RENOUVELLEMENTS À ANTICIPER": (
+        ("acheteur", "acheteur"), ("titulaire", "intitule"), ("montant", "montant"),
+        ("durée", "duree_mois"), ("zone", "zone"), ("état", "etat_procedure")),
+    "MÉTIERS À CONSTRUIRE": (
+        ("entreprise", "acheteur"), ("besoin", "intitule"), ("zone", "zone"),
+        ("durée", "duree_mois"), ("cadence", "cadence")),
+}
+
+# Grille de repli quand la famille n'est pas connue : le strict minimum qu'un
+# besoin commercial doit porter, quelle que soit sa forme.
 CHAMPS_COMPLETUDE = (
-    ("acheteur", "acheteur"), ("échéance", "echeance"), ("montant", "montant"),
-    ("durée", "duree_mois"), ("cadence", "cadence"), ("lots", "lot_numero"),
-    ("contact", "contact"), ("zone", "zone"), ("exigences", "exigences"),
+    ("demandeur", "acheteur"), ("besoin", "intitule"), ("zone", "zone"),
 )
 
 
@@ -96,6 +141,8 @@ class Rapport:
     a_verifier_liste: list = field(default_factory=list)   # informations ambiguës
     actions: dict = field(default_factory=dict)       # action -> [(score, titre, source)]
     familles: dict = field(default_factory=dict)      # famille de besoin -> lignes
+    completude_par_famille: dict = field(default_factory=dict)
+    familles_effectif: dict = field(default_factory=dict)
 
     def _pct(self, n: int) -> str:
         return f"{n:>5}  ({n / self.total:.0%})" if self.total else f"{n:>5}"
@@ -232,12 +279,28 @@ class Rapport:
         else:
             L.append("  NON MESURÉ")
 
-        L += ["", "COMPLÉTUDE DES DONNÉES"]
-        for libelle, n in self.completude.items():
-            if n is None:
-                L.append(f"  {libelle:<16} NON MESURÉ — champ absent du schéma")
-            else:
-                L.append(f"  {libelle:<16} {self._pct(n)}")
+        L += ["", "COMPLÉTUDE — mesurée avec la grille de CHAQUE famille"]
+        if self.completude_par_famille:
+            for famille, champs in self.completude_par_famille.items():
+                total = self.familles_effectif.get(famille, 0)
+                if not total:
+                    continue
+                L.append(f"  {famille}  ({total})")
+                for libelle, n in champs.items():
+                    if n is None:
+                        L.append(f"      {libelle:<18} NON MESURÉ — hors schéma")
+                    else:
+                        L.append(f"      {libelle:<18} {n:>3}/{total}"
+                                 f"   {n / total:.0%}")
+            L.append("  Un champ absent d'une grille n'est pas un trou : il est")
+            L.append("  hors sujet. On ne mesure pas un signal avec les champs")
+            L.append("  d'un avis de marché.")
+        else:
+            for libelle, n in self.completude.items():
+                if n is None:
+                    L.append(f"  {libelle:<16} NON MESURÉ — champ absent du schéma")
+                else:
+                    L.append(f"  {libelle:<16} {self._pct(n)}")
 
         L += ["", "CLASSIFICATION"]
         for emoji, cle in (("🟢", "DIRECT"), ("🟡", "RENFORCEMENT"), ("🟣", "A_CONSTRUIRE"),
@@ -503,13 +566,35 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
                                        l["source"], l["motif"] or "état non démontré"))
 
     if "nature" in connues:
+        par_famille: dict = {}
         for l in cx.execute(
-                "SELECT o.score, o.intitule, o.type, o.action, o.nature,"
+                "SELECT o.avis_id, o.score, o.intitule, o.type, o.action, o.nature,"
                 " o.etat_procedure, o.echeance, o.secteur, a.source"
                 " FROM opportunites o JOIN avis a ON a.id = o.avis_id"
                 " WHERE o.type <> 'REJET' ORDER BY o.score DESC"):
-            r.familles.setdefault(famille_de(l), []).append(
+            famille = famille_de(l)
+            r.familles.setdefault(famille, []).append(
                 (l["score"], l["intitule"] or "(sans intitulé)", l["source"]))
+            par_famille.setdefault(famille, []).append(l["avis_id"])
+
+        # Chaque famille est mesurée avec SA grille. Compter les champs d'un
+        # avis public sur un signal de recrutement produisait « lots 0 % » —
+        # un trou qui n'en est pas un.
+        for famille, ids in par_famille.items():
+            r.familles_effectif[famille] = len(ids)
+            grille = CHAMPS_PAR_FAMILLE.get(famille, CHAMPS_COMPLETUDE)
+            mesures: dict = {}
+            marques = ",".join("?" * len(ids))
+            for libelle, colonne in grille:
+                if colonne not in connues:
+                    mesures[libelle] = None
+                    continue
+                mesures[libelle] = cx.execute(
+                    f"SELECT count(*) c FROM opportunites"
+                    f" WHERE avis_id IN ({marques})"
+                    f" AND {colonne} IS NOT NULL AND {colonne} <> ''",
+                    ids).fetchone()["c"]
+            r.completude_par_famille[famille] = mesures
 
     # Ce qu'il y a à FAIRE, regroupé par geste. C'est la sortie du produit.
     for l in cx.execute(

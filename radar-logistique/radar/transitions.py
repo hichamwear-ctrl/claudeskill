@@ -84,12 +84,17 @@ REGLES = {
 
 EFFET_PAR_DEFAUT = Effet("silencieuse", "changement d'état enregistré")
 
+# Les règles sont écrites avec des membres d'`Etat` pour rester lisibles ; on
+# les indexe par libellé parce que l'état stocké peut aussi valoir
+# « HORS PROCÉDURE », qui n'appartient à aucune énumération.
+REGLES_PAR_LIBELLE = {(a.value, b.value): e for (a, b), e in REGLES.items()}
+
 
 @dataclass
 class Transition:
     avis_id: int
-    ancien: Etat | None
-    nouveau: Etat
+    ancien: str | None          # libellé tel qu'il est écrit en base
+    nouveau: str
     ancienne_confiance: str | None
     nouvelle_confiance: str
     preuve: str
@@ -107,27 +112,33 @@ class Transition:
         """Une transition mérite-t-elle de réveiller quelqu'un ?"""
         if self.premiere_observation or self.origine != COLLECTE:
             return False
-        if self.nouveau is Etat.INCONNU:
+        if self.nouveau in (Etat.INCONNU.value, "HORS PROCÉDURE"):
             return False
         if self.nouvelle_confiance in (Confiance.FAIBLE.value, Confiance.NULLE.value):
             return False
         return self.effet.intensite in ("forte", "normale")
 
     def libelle(self) -> str:
-        depuis = self.ancien.value if self.ancien else "première observation"
-        return f"{depuis} → {self.nouveau.value} : {self.effet.message}"
+        depuis = self.ancien or "première observation"
+        return f"{depuis} → {self.nouveau} : {self.effet.message}"
 
 
 def etat_precedent(cx, avis_id: int):
+    """L'état déjà en base, sous la forme EXACTE qui y est écrite.
+
+    On compare des libellés, pas des membres d'énumération. « HORS PROCÉDURE »
+    est un libellé légitime — c'est ce que porte tout besoin privé — mais ce
+    n'est pas une valeur de `Etat`. Le convertir levait une ValueError, l'état
+    précédent ressortait None, et CHAQUE collecte d'un besoin privé écrivait
+    une transition « découverte ». Le fil de vie se remplissait de bruit pour
+    exactement la moitié privée du produit.
+    """
     ligne = cx.execute(
         "SELECT etat_procedure, confiance_etat FROM opportunites WHERE avis_id=?",
         (avis_id,)).fetchone()
     if ligne is None or not ligne["etat_procedure"]:
         return None, None
-    try:
-        return Etat(ligne["etat_procedure"]), ligne["confiance_etat"]
-    except ValueError:                       # état écrit par une version passée
-        return None, ligne["confiance_etat"]
+    return ligne["etat_procedure"], ligne["confiance_etat"]
 
 
 def constater(cx, avis_id: int, lecture, source: str, *, origine: str = COLLECTE,
@@ -139,24 +150,24 @@ def constater(cx, avis_id: int, lecture, source: str, *, origine: str = COLLECTE
     collecteur.
     """
     ancien, ancienne_conf = etat_precedent(cx, avis_id)
-    if ancien is lecture.etat:
+    nouveau = lecture.etat_affiche
+    if ancien == nouveau:
         return None
 
     preuve = (str(lecture.preuves[0]) if lecture.preuves
               else "aucune preuve — état non démontré")
     t = Transition(
-        avis_id=avis_id, ancien=ancien, nouveau=lecture.etat,
+        avis_id=avis_id, ancien=ancien, nouveau=nouveau,
         ancienne_confiance=ancienne_conf, nouvelle_confiance=lecture.confiance.value,
         preuve=preuve, source=source, origine=origine,
         version_vocabulaire=version_vocabulaire,
-        effet=REGLES.get((ancien, lecture.etat), EFFET_PAR_DEFAUT))
+        effet=REGLES_PAR_LIBELLE.get((ancien, nouveau), EFFET_PAR_DEFAUT))
     cx.execute(
         "INSERT INTO etats_historique(avis_id, ancien_etat, nouvel_etat,"
         " ancienne_confiance, nouvelle_confiance, preuve, source, origine,"
         " version_vocabulaire, constate_le) VALUES(?,?,?,?,?,?,?,?,?,?)",
-        (avis_id, ancien.value if ancien else None, lecture.etat.value,
-         ancienne_conf, lecture.confiance.value, preuve, source, origine,
-         version_vocabulaire, maintenant()))
+        (avis_id, ancien, nouveau, ancienne_conf, lecture.confiance.value,
+         preuve, source, origine, version_vocabulaire, maintenant()))
     return t
 
 
@@ -171,12 +182,12 @@ def appliquer(cx, t: Transition, opp, corps: str) -> str | None:
             "UPDATE envois SET etat='perime',"
             " erreur='état devenu ' || ? || ' avant l''envoi', maj_le=?"
             " WHERE source=? AND ref_source=? AND etat='a_envoyer'",
-            (t.nouveau.value, maintenant(), opp.source, opp.ref_source))
+            (t.nouveau, maintenant(), opp.source, opp.ref_source))
 
     if not t.alerte:
         return None
 
-    motif = f"{(t.ancien.value if t.ancien else 'NOUVEAU')}->{t.nouveau.value}"
+    motif = f"{t.ancien or 'NOUVEAU'}->{t.nouveau}"
     entete = (f"⚡ {t.effet.message}\n" if t.effet.intensite == "forte"
               else f"{t.effet.message}\n")
     envoi.mettre_en_file(cx, opp.source, opp.ref_source,

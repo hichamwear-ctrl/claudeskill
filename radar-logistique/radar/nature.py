@@ -99,15 +99,21 @@ def qualifier(opp) -> Nature:
         # laisse deviner est un signal. C'est ce besoin-là qui nous intéresse.
         return Nature.SIGNAL
 
-    # Un besoin est un FAIT quand la source dit ce qui est demandé ET par qui,
-    # ou ce qui est demandé ET pour quand.
+    # Un besoin est un FAIT à DEUX conditions seulement :
+    #   · quelqu'un l'énonce — « nous recherchons un transporteur » ; ou
+    #   · il est daté, donc publié dans un cadre — échéance ou démarrage.
+    #
+    # Le nom du demandeur ne suffit PAS. « Distributeur régional, trois sites,
+    # flotte saturée » nomme une entreprise réelle et ne déclare aucun besoin :
+    # le besoin, c'est NOUS qui le déduisons de « flotte saturée ». Compter ce
+    # cas comme un fait présentait notre propre inférence comme la parole du
+    # client, et rangeait une entreprise à prospecter parmi les besoins exprimés.
     objet = bool((getattr(opp, "intitule", "") or "").strip()
                  and (opp.intitule or "").strip() != "(sans intitulé)")
     if objet and _besoin_exprime(opp):
         return Nature.FAIT
-    demandeur = bool(getattr(opp, "acheteur", None))
     quand = bool(getattr(opp, "echeance_brute", None)
                  or getattr(opp, "date_demarrage", None))
-    if objet and (demandeur or quand):
+    if objet and quand:
         return Nature.FAIT
     return Nature.HYPOTHESE

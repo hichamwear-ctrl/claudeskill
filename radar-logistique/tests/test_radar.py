@@ -3190,3 +3190,164 @@ class AuditDeRealisme(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             epreuve_cent(m, False)
         self.assertEqual(m.par_dimension["familles retrouvées"]["INCORRECT"], 0)
+
+
+class LeRadarFonctionneSansMarchesPublics(unittest.TestCase):
+    """Aucun marché public. Aucun CPV. Aucun publication-number. Aucune
+    procédure. Le radar doit produire une chaîne COMPLÈTE.
+
+    Si cette classe échoue, le projet n'est pas un radar commercial : c'est un
+    moteur d'appels d'offres auquel on a ajouté des sources privées autour.
+    """
+
+    FAMILLES = ("besoin_prive", "sous_traitance", "partenariat",
+                "entreprise_a_demarcher", "signal_economique", "emploi_signal",
+                "metier_inconnu")
+
+    def setUp(self):
+        from outils.familles import charger, moteur as m_familles
+        from radar.rapport import construire
+        self.cx = ouvrir(":memory:")
+        m = m_familles()
+        self.entrees = []
+        for f in self.FAMILLES:
+            self.entrees += charger(f)
+        self.bilan = traiter(self.cx, m, self.entrees, maintenant_dt=MAINTENANT)
+        self.rapport = construire(self.cx, Mode.DEMO,
+                                  cible={"montant_total_confortable_max": 1500000})
+
+    def test_aucune_entree_ne_porte_de_marqueur_de_marche_public(self):
+        for o in self.entrees:
+            self.assertEqual(o.cpv, [], f"{o.ref_source} porte un CPV")
+            self.assertFalse((o.ref_source or "").startswith("TED-"))
+            self.assertNotEqual((o.secteur_acheteur or "").lower(), "public")
+
+    def test_la_chaine_va_jusqu_au_bout(self):
+        self.assertEqual(self.bilan.livre.ecart(), 0)
+        for l in self.cx.execute("SELECT * FROM opportunites WHERE type <> 'REJET'"):
+            ref = l["intitule"]
+            self.assertTrue(l["type"], f"{ref} : pas de classification")
+            self.assertTrue(l["moteur"], f"{ref} : pas de moteur")
+            self.assertTrue(l["action"], f"{ref} : pas d'action")
+            self.assertTrue(l["nature"], f"{ref} : pas de nature")
+            self.assertTrue(l["fiabilite"], f"{ref} : pas de fiabilité")
+            self.assertGreater(l["score"], 0, f"{ref} : score nul")
+            self.assertIn("CE QUE J'AI", l["fiche"], f"{ref} : pas de capacité")
+            self.assertTrue(l["zone"], f"{ref} : pas de zone")
+            self.assertTrue(l["journal"], f"{ref} : pas de journal")
+
+    def test_le_rapport_est_complet_sans_le_moindre_marche_public(self):
+        texte = self.rapport.en_texte(avec_fiches=False)
+        for bloc in ("CAPTER", "DÉVELOPPER", "SIGNAUX", "PAR FAMILLE DE BESOIN",
+                     "TOP ACTIONS", "COMPLÉTUDE", "FIABILITÉ DE L'INFORMATION"):
+            self.assertIn(bloc, texte)
+        self.assertEqual(self.rapport.familles.get("MARCHÉS PUBLICS", []), [])
+
+    def test_la_deduplication_fonctionne_sans_reference_officielle(self):
+        besoin = dict(intitule="Nous recherchons un transporteur — site de Gand",
+                      texte="livraisons quotidiennes pour le compte de tiers",
+                      acheteur="Société Gand", cpv=[], type_avis=None,
+                      pays_livraison=["BE"], montant=120000, secteur_acheteur="privé")
+        cx = ouvrir(":memory:")
+        b = traiter(cx, moteur(), [
+            Opportunite(source="entreprise", ref_source="E1", **besoin),
+            Opportunite(source="brave", ref_source="B1", **besoin)],
+            maintenant_dt=MAINTENANT)
+        self.assertEqual(b.doublons, 1)
+        self.assertEqual(cx.execute("SELECT count(*) c FROM opportunites"
+                                    ).fetchone()["c"], 1)
+
+    def test_le_suivi_fonctionne_sans_procedure(self):
+        """Un besoin privé qui disparaît puis revient garde son fil de vie."""
+        cx = ouvrir(":memory:")
+        m = moteur()
+        o = lambda: Opportunite(  # noqa: E731
+            source="entreprise", ref_source="S1", cpv=[], type_avis=None,
+            intitule="Nous recherchons un transporteur", texte="livraisons",
+            acheteur="Société", pays_livraison=["BE"], secteur_acheteur="privé")
+        traiter(cx, m, [o()], maintenant_dt=MAINTENANT)
+        traiter(cx, m, [o()], maintenant_dt=MAINTENANT)
+        hist = cx.execute("SELECT count(*) c FROM etats_historique").fetchone()["c"]
+        self.assertEqual(hist, 1, "une observation identique ne crée pas d'événement")
+
+    def test_aucun_champ_de_marche_public_n_est_invente(self):
+        for l in self.cx.execute("SELECT * FROM opportunites"):
+            self.assertIsNone(l["echeance"] if l["nature"] == "SIGNAL" else None)
+            self.assertNotIn("CPV", l["fiche"] or "",
+                             "aucun CPV ne doit apparaître sur un besoin privé")
+
+
+class LesMarchesPublicsNeSontQuUnCapteur(unittest.TestCase):
+    """Ajouter ou retirer les marchés publics ne change RIEN à l'économie des
+    besoins déjà détectés."""
+
+    def _mesurer(self, avec_public: bool):
+        from outils.familles import PRIVEES, PUBLIQUES, charger, moteur as m_familles
+        cx = ouvrir(":memory:")
+        m = m_familles()
+        familles = sorted(PRIVEES) + (sorted(PUBLIQUES) if avec_public else [])
+        for f in familles:
+            traiter(cx, m, charger(f), maintenant_dt=MAINTENANT)
+        return {l["intitule"]: (l["score"], l["type"], l["action"], l["nature"])
+                for l in cx.execute(
+                    "SELECT intitule, score, type, action, nature FROM opportunites")}
+
+    def test_ajouter_les_marches_publics_ne_change_pas_les_besoins_prives(self):
+        sans = self._mesurer(False)
+        avec = self._mesurer(True)
+        for titre, valeurs in sans.items():
+            self.assertIn(titre, avec, f"« {titre} » a disparu")
+            self.assertEqual(valeurs, avec[titre],
+                             f"« {titre} » change quand on ajoute du public")
+
+    def test_les_marches_publics_ne_prennent_pas_toute_la_place(self):
+        avec = self._mesurer(True)
+        from radar.rapport import famille_de
+        self.assertGreater(len(avec), len(self._mesurer(False)),
+                           "ajouter un capteur doit ajouter des observations")
+
+    def test_retirer_les_adaptateurs_publics_laisse_un_radar_entier(self):
+        """Les fichiers ted.yaml, bda.yaml, portail.yaml peuvent être supprimés
+        du disque : le cœur ne les importe jamais."""
+        import ast
+        for module in ("chaine", "score", "classification", "capacite", "nature",
+                       "fiabilite", "rapport"):
+            src = (RACINE / "radar" / f"{module}.py").read_text(encoding="utf-8")
+            for nom in ("ted", "bda", "portail", "tenderned"):
+                self.assertNotIn(f'"{nom}"', src,
+                                 f"{module}.py nomme l'adaptateur {nom}")
+
+
+class ComplétudeAdapteeAuBesoin(unittest.TestCase):
+    """La complétude d'un signal ne se mesure pas avec les champs d'un avis."""
+
+    def _rapport(self, familles):
+        from outils.familles import charger, moteur as m_familles
+        from radar.rapport import construire
+        cx = ouvrir(":memory:")
+        m = m_familles()
+        for f in familles:
+            traiter(cx, m, charger(f), maintenant_dt=MAINTENANT)
+        return construire(cx, Mode.DEMO)
+
+    def test_un_signal_n_est_pas_mesure_sur_lots_et_echeance(self):
+        r = self._rapport(["signal_economique", "emploi_signal"])
+        grille = r.completude_par_famille.get("SIGNAUX ÉCONOMIQUES", {})
+        self.assertTrue(grille)
+        self.assertNotIn("lots", grille)
+        self.assertNotIn("échéance", grille)
+        self.assertIn("nature du signal", grille)
+
+    def test_un_marche_public_garde_sa_grille_complete(self):
+        r = self._rapport(["appel_offres", "lot"])
+        grille = r.completude_par_famille.get("MARCHÉS PUBLICS", {})
+        for champ in ("acheteur", "échéance", "montant", "lots", "exigences"):
+            self.assertIn(champ, grille)
+
+    def test_un_besoin_prive_est_complet_sur_sa_propre_grille(self):
+        r = self._rapport(["besoin_prive"])
+        grille = r.completude_par_famille.get("BESOINS PRIVÉS", {})
+        total = r.familles_effectif["BESOINS PRIVÉS"]
+        manquants = [k for k, v in grille.items() if v is not None and v < total]
+        self.assertEqual(manquants, [],
+                         f"un besoin privé complet paraît incomplet : {manquants}")
