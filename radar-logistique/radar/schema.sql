@@ -66,6 +66,10 @@ CREATE TABLE IF NOT EXISTS opportunites (
     manques       TEXT,       -- capacités qui manquent, en JSON
     leviers       TEXT,       -- comment les combler, en JSON
     risques       TEXT,       -- ce qui peut faire perdre l'affaire
+    ca_ligne      TEXT,       -- « 15 000 €/mois — PUBLIÉ »
+    ca_mensuel    REAL,
+    ca_etat       TEXT,       -- PUBLIÉ | ESTIMATION | NON PUBLIÉ
+    capacite      TEXT,       -- « 8/10 véhicules » ou « en l'état »
 
     detail_score  TEXT,
     motif         TEXT,

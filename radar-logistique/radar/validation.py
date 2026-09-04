@@ -80,6 +80,7 @@ class Mesure:
     empreinte: str
     page_conservee: str = ""
     completude: str = ""    # ex. « page complète » ou « extrait de listing »
+    ca_identifie: float = 0.0       # €/mois réellement identifiés sur cette mesure
     verdict: str = ""       # ce que le radar a conclu de cette page
     porte_un_besoin: bool = False   # la page contenait-elle une opportunité ?
     constats: dict = field(default_factory=dict)   # niveau -> nombre
@@ -204,6 +205,72 @@ class Etat:
                 etat, marque = "NON MESURÉE", "✗"
             plan.append((lettre, cle, libelle, marque, etat, len(faites)))
         return plan
+
+    def tableau_des_familles(self) -> str:
+        """Le tableau des huit. ZÉRO N'EST PAS « NON MESURÉ ».
+
+        « 0 opportunité » veut dire : on a regardé, il n'y avait rien.
+        « NON MESURÉ » veut dire : on n'a pas regardé. Confondre les deux fait
+        croire qu'une famille a été explorée et qu'elle est stérile, alors que
+        personne n'y est jamais allé. C'est la porte d'entrée pour abandonner
+        une famille sans l'avoir ouverte.
+        """
+        L = ["  {:<30} {:>8} {:>14} {:>12}   {}".format(
+            "FAMILLE", "DONNÉES", "OPPORTUNITÉS", "CA €/mois", "MESURE")]
+        L.append("  " + "─" * 84)
+        par_famille = {}
+        for m in self.mesures:
+            par_famille.setdefault(m.famille, []).append(m)
+        for lettre, cle, libelle in FAMILLES_PREVUES:
+            faites = par_famille.get(cle, [])
+            if not faites:
+                # Jamais observée : tout est NON MESURÉ, pas zéro.
+                L.append("  {:<30} {:>8} {:>14} {:>12}   {}".format(
+                    f"{lettre}. {libelle}"[:30], "—", "—", "—", "NON MESURÉE"))
+                continue
+            opportunites = sum(1 for m in faites if m.porte_un_besoin)
+            ca = sum(m.ca_identifie for m in faites)
+            L.append("  {:<30} {:>8} {:>14} {:>12}   {}".format(
+                f"{lettre}. {libelle}"[:30], len(faites), opportunites,
+                f"{ca:,.0f}".replace(",", " ") if ca else "0",
+                "MESURÉE" if opportunites else "observée, sans opportunité"))
+        L.append("  " + "─" * 84)
+        L.append("  « — » = NON MESURÉ : personne n'y est allé.")
+        L.append("  « 0 »  = on a regardé, il n'y avait rien. Ce n'est pas la même chose.")
+        return "\n".join(L)
+
+    def ca_identifie(self) -> float:
+        return sum(m.ca_identifie for m in self.mesures)
+
+    def bulletin(self) -> str:
+        """LE STATUT COMMERCIAL DU PROJET — la première chose à lire.
+
+        Pas « combien de tests ». Ce que le radar a réellement trouvé.
+        """
+        L = []
+        A = L.append
+        reel = self.opportunites_testees()
+        A("╔" + "═" * 68 + "╗")
+        A("║  " + "RADAR COMMERCIAL — STATUT RÉEL".ljust(66) + "║")
+        A("╚" + "═" * 68 + "╝")
+        A("")
+        A(f"  DONNÉES RÉELLES OBSERVÉES        : {self.donnees_observees()}")
+        A(f"  OPPORTUNITÉS RÉELLES             : {reel}")
+        A(f"  CA POTENTIEL IDENTIFIÉ           : "
+          f"{self.ca_identifie():,.0f} €/mois".replace(",", " "))
+        A("")
+        if not reel:
+            A("  ─────────────────────────────────────────────────────────────")
+            A("  MESURE COMMERCIALE : NON DISPONIBLE")
+            A("  ─────────────────────────────────────────────────────────────")
+            A("  Aucune donnée réelle portant un besoin n'est encore entrée.")
+            A("  Le radar n'est PAS validé commercialement. Les tests de")
+            A("  cohérence ne changent rien à cette ligne, et ne le doivent pas.")
+            A("")
+        A("  COUVERTURE DES HUIT FAMILLES")
+        A("")
+        A(self.tableau_des_familles())
+        return "\n".join(L)
 
     def prochaine_mesure(self) -> str:
         """Ce que la prochaine mesure doit lever, en une phrase.

@@ -4355,3 +4355,145 @@ class LePlanDeMesureNaPasDeSourcePrincipale(unittest.TestCase):
         suite = e.prochaine_mesure()
         self.assertIn("jamais mesurée", suite)
         self.assertNotIn("A. entreprise", suite)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  §CA — TROIS ÉTATS DU CHIFFRE D'AFFAIRES, ET L'UNITÉ QUI SE DÉCLARE
+#
+#  Un seul défaut réel derrière ces tests, mais il coûtait cher : le montant
+#  était toujours traité comme un TOTAL réparti sur la durée. Une tournée de
+#  bourse de fret à 4 200 € ressortait donc à 350 €/mois au lieu de 18 186.
+#  L'erreur allait dans le sens qui fait RATER une bonne affaire.
+# ═══════════════════════════════════════════════════════════════════════════
+
+class LeChiffreDAffairesADroitATroisEtats(unittest.TestCase):
+    def test_publie(self):
+        from radar.chiffre_affaires import Etat, mesurer
+        ca = mesurer(opp(montant=180000, duree_mois=12))
+        self.assertIs(ca.etat, Etat.PUBLIE)
+        self.assertEqual(round(ca.mensuel), 15000)
+        self.assertIn("PUBLIÉ", ca.ligne())
+
+    def test_inconnu_nest_ni_zero_ni_bonus(self):
+        from radar.chiffre_affaires import Etat, mesurer
+        ca = mesurer(opp())
+        self.assertIs(ca.etat, Etat.INCONNU)
+        self.assertIsNone(ca.mensuel)
+        self.assertNotIn("0 €", ca.ligne())
+        self.assertTrue(ca.detail(), "un CA inconnu doit dire ce qu'il faut demander")
+
+    def test_aucune_estimation_sans_base_declaree_au_profil(self):
+        """Une fourchette inventée est pire qu'un trou : un trou se voit."""
+        from radar.chiffre_affaires import Etat, mesurer
+        self.assertIs(mesurer(opp(vehicules_requis=4)).etat, Etat.INCONNU)
+        ca = mesurer(opp(vehicules_requis=4),
+                     {"references_economiques": {"ca_mensuel_par_vehicule": 3500}})
+        self.assertIs(ca.etat, Etat.ESTIMABLE)
+        self.assertLess(ca.bas, ca.mensuel)
+        self.assertGreater(ca.haut, ca.mensuel)
+        self.assertIn("MÉTHODE", ca.detail()[0])
+
+    def test_la_fourchette_saffiche_sans_perdre_un_facteur_dix(self):
+        """« 10.5 k€ » arrondi puis dépouillé de son zéro devenait « 1 k€ »."""
+        from radar.chiffre_affaires import mesurer
+        ligne = mesurer(opp(vehicules_requis=4),
+                        {"references_economiques": {"ca_mensuel_par_vehicule": 3500}}).ligne()
+        self.assertIn("10", ligne)
+        self.assertIn("18", ligne)
+
+    def test_un_prix_recurrent_nest_pas_un_total_annuel(self):
+        from radar.chiffre_affaires import Etat, mesurer
+        ca = mesurer(opp(montant=4200, cadence="hebdomadaire",
+                         montant_unite="par_periode"))
+        self.assertIs(ca.etat, Etat.PUBLIE)
+        self.assertGreater(ca.mensuel, 15000)
+
+    def test_un_prix_recurrent_sans_cadence_ne_se_devine_pas(self):
+        from radar.chiffre_affaires import Etat, mesurer
+        ca = mesurer(opp(montant=4200, montant_unite="par_periode", cadence=None))
+        self.assertIs(ca.etat, Etat.INCONNU)
+        self.assertIn("cadence", ca.manque)
+
+    def test_le_score_note_le_meme_chiffre_que_la_fiche(self):
+        """La fiche affichait 18 186 €/mois et le score notait 350."""
+        r = moteur().analyser(opp(source="bourse_fret", intitule="Tournée régulière",
+                                  texte="Transport de palettes, 3 rotations.",
+                                  montant=4200, cadence="hebdomadaire",
+                                  montant_unite="par_periode", pays_livraison=["BE"]),
+                              MAINTENANT)
+        taille = [l for l in r.score.lignes if l.critere == "taille adaptée"][0]
+        self.assertIn("18", taille.raison)
+
+
+class ZeroNestPasNonMesure(unittest.TestCase):
+    """§11 : « 0 » veut dire « on a regardé, il n'y avait rien ».
+    « NON MESURÉ » veut dire « personne n'y est allé ». Les confondre fait
+    abandonner une famille sans l'avoir ouverte."""
+
+    def test_une_famille_jamais_observee_affiche_un_tiret_pas_un_zero(self):
+        from radar import validation
+        tableau = validation.Etat(tests_coherence=1, mesures=[]).tableau_des_familles()
+        self.assertIn("NON MESURÉE", tableau)
+        for ligne in tableau.splitlines():
+            if "NON MESURÉE" in ligne:
+                self.assertNotIn(" 0 ", ligne, "une famille non mesurée affiche 0")
+
+    def test_une_famille_observee_sans_opportunite_affiche_bien_zero(self):
+        from radar import validation
+        e = validation.Etat(tests_coherence=1, mesures=[
+            validation.Mesure(horodatage="2026-09-04T00:00:00+00:00",
+                              famille="entreprise", origine="test",
+                              reference="http://x", empreinte="a1",
+                              porte_un_besoin=False)])
+        ligne = [l for l in e.tableau_des_familles().splitlines()
+                 if "A. entreprise" in l][0]
+        self.assertIn("observée, sans opportunité", ligne)
+        self.assertNotIn("NON MESURÉE", ligne)
+
+    def test_le_bulletin_dit_non_disponible_quand_rien_de_reel(self):
+        from radar import validation
+        b = validation.Etat(tests_coherence=999, mesures=[]).bulletin()
+        self.assertIn("MESURE COMMERCIALE : NON DISPONIBLE", b)
+        self.assertNotIn("999", b, "le nombre de tests n'a rien à faire ici")
+
+
+class LeBulletinCommercialPasseAvantLaMachine(unittest.TestCase):
+    def setUp(self):
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), [
+            avis_public(ref_source="A", intitule="Tournée régionale de palettes",
+                        texte="Transport de palettes en Wallonie.", montant=96000,
+                        duree_mois=12, cadence="hebdomadaire", pays_livraison=["BE"]),
+            opp(source="entreprise", ref_source="B",
+                intitule="Nous recherchons un transporteur",
+                texte="Nous recherchons un transporteur pour nos livraisons.",
+                acheteur="Delhaize", secteur_acheteur="prive", pays_livraison=["BE"]),
+        ], maintenant_dt=MAINTENANT)
+        from radar.rapport import construire
+        self.r = construire(cx, Mode.DEMO, cible={}, proche_km=50)
+        self.texte = self.r.en_texte(avec_fiches=False)
+
+    def test_le_bulletin_ouvre_le_rapport(self):
+        entete = self.texte.split("=" * 72)[0]
+        for ligne in ("DONNÉES RÉELLES OBSERVÉES", "OPPORTUNITÉS RÉELLES",
+                      "CA RÉELLEMENT IDENTIFIÉ", "OPPORTUNITÉS POSTULABLES",
+                      "OPPORTUNITÉS À CONTACTER", "SIGNAUX",
+                      "OPPORTUNITÉS À SURVEILLER", "CAPACITÉS MANQUANTES",
+                      "TOP 5 DES ACTIONS"):
+            self.assertIn(ligne, entete)
+
+    def test_chaque_affaire_porte_son_ca_et_son_action(self):
+        bloc = self.texte.split("🔥 À ATTAQUER MAINTENANT")[1][:600]
+        self.assertIn("CA         :", bloc)
+        self.assertIn("Action     :", bloc)
+
+    def test_le_tableau_des_sources_ne_classe_pas_par_volume(self):
+        """VOLUME ≠ VALEUR : le tableau ne désigne aucune source principale."""
+        self.assertIn("VOLUME ≠ VALEUR", self.texte)
+        self.assertIn("aucune « source principale »", self.texte)
+        bloc = self.texte.split("VOLUME ≠ VALEUR")[1].split("TOP ACTIONS")[0]
+        sources = [l.split()[0] for l in bloc.splitlines()
+                   if l.startswith("  ") and l.strip() and not l.strip().startswith(("source", "─", "Une", "qu'une", "tableau"))]
+        self.assertEqual(sources, sorted(sources),
+                         "les sources doivent être en ordre alphabétique, "
+                         "jamais classées par volume")

@@ -98,14 +98,22 @@ class Bareme:
                f"{marge:,.0f} €/mois ({taux:.0%})".replace(",", " ")
 
     # ------------------------------------------------------------ taille --
-    def _taille(self, montant, duree_mois) -> tuple[float, str]:
+    def _taille(self, montant, duree_mois, mensuel=None) -> tuple[float, str]:
+        """`mensuel` est le CA mensuel DÉJÀ mesuré, avec son unité résolue.
+
+        Le barème le recalculait lui-même en montant/durée. Sur une bourse de
+        fret, dont le prix est récurrent, la fiche affichait 18 186 €/mois et
+        le score notait 350 : deux chiffres pour la même affaire, dans le même
+        rapport. C'est chiffre_affaires.py qui fait foi.
+        """
         t = self.taille
-        if not montant:
+        if not montant and mensuel is None:
             return t["points_non_publie"], "montant NON PUBLIÉ — neutre, jamais pénalisant"
-        if montant > t["hors_gabarit_au_dela"]:
+        if montant and montant > t["hors_gabarit_au_dela"]:
             return t["points_hors_gabarit"], (
                 f"{montant:,.0f} € — hors gabarit en titulaire direct".replace(",", " "))
-        mensuel = montant / max(duree_mois or 12, 1)
+        if mensuel is None:
+            mensuel = montant / max(duree_mois or 12, 1)
         if t["mensuel_ideal_min"] <= mensuel <= t["mensuel_ideal_max"]:
             # DANS la cible, plus de récurrent mensuel vaut plus. Un forfait
             # unique donnait le même nombre de points à 8 000, 12 000 et
@@ -136,7 +144,7 @@ class Bareme:
 
     # ------------------------------------------------------------ calcul --
     def calculer(self, *, correspondance, zone, bilan, opp, type_opp: Type,
-                 cadence=None, jours_restants=None) -> Score:
+                 cadence=None, jours_restants=None, ca=None) -> Score:
         L: list[Ligne] = []
         c, e = self.c, self.effort
 
@@ -230,7 +238,8 @@ class Bareme:
             L.append(Ligne("proximité", 0, f"{d:g} km du dépôt — éloigné"))
 
         # 5. Taille adaptée
-        pts, raison = self._taille(opp.montant, opp.duree_mois)
+        pts, raison = self._taille(opp.montant, opp.duree_mois,
+                                   mensuel=getattr(ca, "mensuel", None))
         L.append(Ligne("taille adaptée", pts, raison))
 
         # 6. Récurrence
@@ -309,7 +318,8 @@ class Bareme:
         # Un score n'est une MESURE que si quelque chose a été mesuré. On
         # compte les faits économiques réellement publiés — pas les critères
         # évalués : ceux-là le sont toujours, y compris pour dire « neutre ».
-        faits = [opp.montant, opp.duree_mois, cadence or opp.cadence,
+        faits = [opp.montant, getattr(ca, "mensuel", None), opp.duree_mois,
+                 cadence or opp.cadence,
                  opp.km_annuels, opp.vehicules_requis, opp.chauffeurs_requis,
                  opp.distance_depot_km]
         mesurable = bool(

@@ -47,6 +47,26 @@ BLOCS_PIPELINE = [
 ]
 
 
+# Les blocs d'affaires, dans l'ordre où on agit. Les emojis ne sont pas de la
+# décoration : ils rendent le bloc reconnaissable d'un coup d'œil dans un
+# terminal, ce qui est exactement le geste qu'on fait le matin.
+BLOCS_AFFAIRES = [
+    ("🔥 À ATTAQUER MAINTENANT", "attaquer"),
+    ("📞 À CONTACTER", "contacter"),
+    ("🤝 À DÉVELOPPER", "partenariat"),
+    ("🔄 RENOUVELLEMENTS / ATTRIBUTIONS", "renouvellement"),
+    ("👀 À SURVEILLER", "surveiller"),
+    ("🎓 NOUVEAUX MÉTIERS ACCESSIBLES", "metier"),
+    ("⚠️ À VÉRIFIER", "verifier"),
+]
+
+
+def _ca_ou_null(cx) -> str:
+    """`ca_ligne` n'existe pas dans les bases antérieures à la migration."""
+    connues = {l[1] for l in cx.execute("PRAGMA table_info(opportunites)")}
+    return "ca_ligne" if "ca_ligne" in connues else "NULL"
+
+
 def bloc_de(ligne) -> str:
     """Dans quel bloc du pipeline cette opportunité tombe.
 
@@ -194,6 +214,8 @@ class Rapport:
     leviers: dict = field(default_factory=dict)     # levier -> nombre
     risques: list = field(default_factory=list)     # (score, titre, risque)
     potentiel: dict = field(default_factory=dict)   # mensuel chiffré / non chiffré
+    affaires: dict = field(default_factory=dict)    # bloc -> [Affaire]
+    rendement_valeur: dict = field(default_factory=dict)  # source -> volume vs valeur
 
     def _pct(self, n: int) -> str:
         return f"{n:>5}  ({n / self.total:.0%})" if self.total else f"{n:>5}"
@@ -301,6 +323,7 @@ class Rapport:
         else:
             L.append("  NON MESURÉ")
 
+        L += self._volume_contre_valeur()
         L += ["", "TOP ACTIONS — ce que je fais demain matin"]
         if self.actions:
             for action, lignes in sorted(self.actions.items(),
@@ -310,6 +333,46 @@ class Rapport:
                     L.append(f"      [{score:>3}] {titre[:52]:<52} {source}")
         else:
             L.append("  rien à faire sur cet échantillon")
+        return L
+
+    # ---------------------------------------------------- LE RADAR, en clair --
+    def _affaires(self) -> list:
+        """Les affaires, dans l'ordre où on les attaque. Format demandé.
+
+        Une ligne par affaire, et sur chaque ligne tout ce qu'il faut pour
+        décider sans ouvrir autre chose : ce que ça rapporte, si c'est
+        faisable, ce qui manque, comment le combler, et quoi faire.
+        """
+        L = ["RADAR COMMERCIAL", "=" * 72]
+        rang = 0
+        for titre, cle in BLOCS_AFFAIRES:
+            lignes = self.affaires.get(cle, [])
+            if not lignes:
+                continue
+            L += ["", titre, ""]
+            for a in lignes[:5]:
+                rang += 1
+                note = a["score"] if a["mesurable"] else "—"
+                L.append(f"{rang}. [{note:>3}] {a['titre'][:56]}")
+                L.append(f"   CA         : {a['ca'] or 'NON PUBLIÉ'}")
+                if a["duree"]:
+                    L.append(f"   Durée      : {a['duree']} mois")
+                L.append(f"   Nature     : {a['nature'] or 'INCONNUE'}"
+                         f"   ·   État : {a['etat'] or 'HORS PROCÉDURE'}")
+                if a["capacite"]:
+                    L.append(f"   Capacité   : {a['capacite']}")
+                if a["manques"]:
+                    L.append(f"   Manque     : {a['manques'][0][:56]}")
+                if a["leviers"]:
+                    L.append(f"   Solution   : {a['leviers'][0][:56]}")
+                if a["risques"]:
+                    L.append(f"   Réserve    : {a['risques'][0][:56]}")
+                L.append(f"   Action     : {a['action']}")
+                L.append(f"   Vu sur     : {a['source']}")
+                L.append("")
+        if rang == 0:
+            L += ["", "AUCUNE AFFAIRE DANS CET ÉCHANTILLON.",
+                  "Ce n'est pas une panne : c'est une mesure."]
         return L
 
     # ------------------------------------------------- ce qu'il faut décider --
@@ -399,8 +462,95 @@ class Rapport:
             L.append("     👉 élargir la collecte : aucune affaire actionnable ici")
         return L
 
+    def bulletin(self) -> list:
+        """LE STATUT, dans l'ordre demandé. C'est ce qu'on lit en premier.
+
+        Jamais « X tests ajoutés ». Ce que le radar a trouvé, ce que ça peut
+        rapporter, et ce qu'il faut faire — ou l'aveu qu'il n'a rien trouvé.
+        """
+        try:
+            from .validation import etat as _etat
+            reel = _etat()
+        except Exception:                     # noqa: BLE001
+            reel = None
+
+        def n(bloc):
+            return len(self.affaires.get(bloc, []))
+
+        L = ["╔" + "═" * 68 + "╗",
+             "║  " + "RADAR COMMERCIAL — BULLETIN".ljust(66) + "║",
+             "╚" + "═" * 68 + "╝", ""]
+        if reel is not None:
+            L.append(f"  DONNÉES RÉELLES OBSERVÉES   : {reel.donnees_observees()}")
+            L.append(f"  OPPORTUNITÉS RÉELLES        : {reel.opportunites_testees()}")
+            L.append(f"  CA RÉELLEMENT IDENTIFIÉ     : "
+                     f"{reel.ca_identifie():,.0f} €/mois".replace(",", " "))
+            L.append("")
+            if not reel.opportunites_testees():
+                L += ["  ┌" + "─" * 66 + "┐",
+                      "  │ MESURE COMMERCIALE : NON DISPONIBLE" + " " * 30 + "│",
+                      "  └" + "─" * 66 + "┘",
+                      "  Aucune donnée réelle portant un besoin n'est encore entrée.",
+                      "  Tout ce qui suit vient de FIXTURES : c'est une démonstration",
+                      "  de l'architecture, pas une mesure du marché.", ""]
+
+        # Ce que contient CE lot — fixtures ou réel, la ligne du dessus le dit.
+        chiffre = self.potentiel.get("mensuel_chiffre", 0)
+        L.append(f"  CA POTENTIEL DANS CE LOT    : "
+                 f"{chiffre:,.0f} €/mois".replace(",", " ")
+                 + f"  ({self.potentiel.get('n_chiffre', 0)} chiffrée(s), "
+                   f"{self.potentiel.get('n_non_chiffre', 0)} non chiffrée(s))")
+        L.append(f"  OPPORTUNITÉS POSTULABLES    : {n('attaquer')}")
+        L.append(f"  OPPORTUNITÉS À CONTACTER    : {n('contacter') + n('partenariat')}")
+        L.append(f"  SIGNAUX                     : "
+                 f"{sum(1 for b in self.affaires.values() for a in b if a['nature'] == 'SIGNAL')}")
+        L.append(f"  OPPORTUNITÉS À SURVEILLER   : {n('surveiller') + n('renouvellement')}")
+        L.append(f"  CAPACITÉS MANQUANTES        : {len(self.manques)}")
+        for manque, lignes in sorted(self.manques.items(),
+                                     key=lambda x: -max(l[0] for l in x[1]))[:3]:
+            L.append(f"      ✗ {manque[:56]}")
+
+        L += ["", "  TOP 5 DES ACTIONS"]
+        toutes = [a for _, cle in BLOCS_AFFAIRES for a in self.affaires.get(cle, [])]
+        toutes.sort(key=lambda a: -a["score"])
+        if toutes:
+            for i, a in enumerate(toutes[:5], 1):
+                note = a["score"] if a["mesurable"] else "—"
+                L.append(f"    {i}. [{note:>3}] {a['action']:<24} {a['titre'][:36]}")
+                L.append(f"           {a['ca'] or 'CA NON PUBLIÉ'}")
+        else:
+            L.append("    aucune action possible sur ce lot")
+        return L
+
+    def _volume_contre_valeur(self) -> list:
+        """VOLUME ≠ VALEUR. Jamais de classement des sources par volume.
+
+        Si demain une source produit cinquante affaires et une autre deux,
+        cela ne dit pas laquelle est meilleure. Les deux colonnes sont donc
+        montrées côte à côte, sans total et sans rang.
+        """
+        if not self.rendement_valeur:
+            return []
+        L = ["", "VOLUME ≠ VALEUR — par source, sans classement", ""]
+        L.append(f"  {'source':<16}{'affaires':>9}{'score moyen':>13}"
+                 f"{'meilleur':>10}{'CA €/mois':>12}{'sans CA':>9}")
+        L.append("  " + "─" * 69)
+        for nom, v in sorted(self.rendement_valeur.items()):
+            ca = f"{v['ca']:,.0f}".replace(",", " ") if v["ca"] else "—"
+            L.append(f"  {nom:<16}{v['volume']:>9}{v['score_moyen']:>13}"
+                     f"{v['meilleur']:>10}{ca:>12}{v['sans_ca']:>9}")
+        L.append("")
+        L.append("  Une source qui produit cent résultats médiocres vaut moins")
+        L.append("  qu'une source qui produit cinq affaires excellentes. Ce")
+        L.append("  tableau ne désigne donc aucune « source principale ».")
+        return L
+
     def en_texte(self, avec_fiches=True) -> str:
-        L = [self.mode.bandeau(), ""] + self._decision() + ["", "=" * 72, ""]
+        # Le statut RÉEL d'abord : ce que le radar a trouvé dans le monde, pas
+        # ce qu'il sait faire sur des fixtures.
+        L = [self.mode.bandeau(), ""] + self.bulletin() + ["", "=" * 72, ""]
+        L += self._affaires() + ["", "=" * 72, ""]
+        L += self._decision() + ["", "=" * 72, ""]
         L += self._pipeline() + ["", "=" * 72, ""]
         L += self._occasions()
         L += ["", "=" * 72, "",
@@ -609,11 +759,16 @@ def _selections(cx, connues: set, cible: dict, proche_km: float, limite: int) ->
         "PETITS CONTRATS À MA TAILLE",
         f"exécutables sans renfort — montant publié sous {_euros(plafond)}",
         "aucun contrat de cette taille dans cet échantillon",
-        _lignes(cx, f"SELECT score, intitule, montant m FROM opportunites"
+        # On affiche le CA MENSUEL, pas le montant brut : « 4 200 € » à côté de
+        # « 540 000 € » invite à comparer un prix par tournée à un contrat de
+        # trois ans. Le mensuel est la seule grandeur comparable entre affaires.
+        _lignes(cx, f"SELECT score, intitule, montant m,"
+                    f" {_ca_ou_null(cx)} ca"
+                    f" FROM opportunites"
                     f" WHERE {ouvertes} AND type IN ('DIRECT','A_CONSTRUIRE')"
                     f" AND montant IS NOT NULL AND montant <= ?"
                     f" ORDER BY score DESC LIMIT ?", (plafond or 0, limite),
-                lambda l: _euros(l["m"]))))
+                lambda l: (l["ca"] or _euros(l["m"])))))
 
     # 4. Ce qui vaut le coup MAIS demande de grandir. Ce bloc est la raison
     #    d'être de la règle « la taille actuelle est un point de départ » :
@@ -793,6 +948,43 @@ def construire(cx, mode: Mode, limite_top=20, livre=None, etats_sources=None,
                 (note, l["intitule"] or "(sans intitulé)",
                  l["action"] if l["type"] != "REJET" else (l["motif"] or "")[:22],
                  l["source"], l["etat_procedure"], l["nature"]))
+
+    # ── les affaires, avec tout ce qu'il faut pour décider ──────────────────
+    if "ca_ligne" in connues:
+        for l in cx.execute(
+                "SELECT o.score, o.score_mesurable, o.intitule, o.type, o.action,"
+                " o.nature, o.etat_procedure, o.ca_ligne, o.ca_mensuel, o.ca_etat,"
+                " o.capacite, o.duree_mois, o.manques, o.leviers, o.risques,"
+                " a.source FROM opportunites o JOIN avis a ON a.id = o.avis_id"
+                " WHERE o.type NOT IN ('REJET', 'PAS ENCORE UNE OPPORTUNITÉ')"
+                " ORDER BY o.score DESC"):
+            r.affaires.setdefault(bloc_de(l), []).append({
+                "score": l["score"], "mesurable": bool(l["score_mesurable"]),
+                "titre": l["intitule"] or "(sans intitulé)",
+                "ca": l["ca_ligne"], "ca_mensuel": l["ca_mensuel"],
+                "ca_etat": l["ca_etat"], "duree": l["duree_mois"],
+                "nature": l["nature"], "etat": l["etat_procedure"],
+                "capacite": l["capacite"], "action": l["action"],
+                "source": l["source"],
+                "manques": json.loads(l["manques"] or "[]"),
+                "leviers": json.loads(l["leviers"] or "[]"),
+                "risques": json.loads(l["risques"] or "[]")})
+
+        # VOLUME ≠ VALEUR. Une source qui produit cent résultats médiocres peut
+        # valoir moins qu'une source qui en produit cinq excellents. On mesure
+        # donc les deux séparément, et on ne classe JAMAIS les sources par
+        # volume — c'est ainsi qu'une source devient « la principale ».
+        for l in cx.execute(
+                "SELECT a.source AS s, count(*) n, avg(o.score) moy, max(o.score) haut,"
+                " sum(CASE WHEN o.ca_mensuel IS NOT NULL THEN o.ca_mensuel ELSE 0 END) ca,"
+                " sum(CASE WHEN o.ca_mensuel IS NULL THEN 1 ELSE 0 END) muettes"
+                " FROM opportunites o JOIN avis a ON a.id = o.avis_id"
+                " WHERE o.type NOT IN ('REJET', 'PAS ENCORE UNE OPPORTUNITÉ')"
+                " GROUP BY a.source"):
+            r.rendement_valeur[l["s"]] = {
+                "volume": l["n"], "score_moyen": round(l["moy"] or 0),
+                "meilleur": l["haut"] or 0, "ca": l["ca"] or 0,
+                "sans_ca": l["muettes"]}
 
     # ── de quoi répondre aux dix questions de décision ──────────────────────
     #

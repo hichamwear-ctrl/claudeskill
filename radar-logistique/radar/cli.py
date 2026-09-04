@@ -489,7 +489,10 @@ def cmd_notifier(a) -> int:
 def cmd_validation(a) -> int:
     """Ce qui est prouvé, et par quoi. Deux compteurs, jamais mélangés."""
     from . import validation
-    print(validation.etat().rendu())
+    e = validation.etat()
+    print(e.bulletin())
+    print()
+    print(e.rendu())
     return 0
 
 

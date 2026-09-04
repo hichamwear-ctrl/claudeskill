@@ -36,7 +36,8 @@ def proc_collecte(opp):
     from .mode import lire_collecte
     return lire_collecte(getattr(opp, "brut", None) or {})
 
-from . import (construction, deduplication, envoi, fiabilite as fia, memoire,
+from . import (chiffre_affaires, construction, deduplication, envoi,
+               fiabilite as fia, memoire,
                nature as nat, procedure as proc, questions, statut as st,
                transitions as tr)
 from .comptes import Livre
@@ -68,6 +69,7 @@ class Resultat:
     nature: object = None
     lecture: object = None          # l'état de procédure et ses preuves
     fiabilite: object = None        # à quel point c'est prouvé — JAMAIS dans le score
+    ca: object = None               # PUBLIÉ · ESTIMATION · NON PUBLIÉ
 
 
 @dataclass
@@ -256,9 +258,13 @@ class Moteur:
             # parce qu'elle a été découverte autrement qu'en lisant un avis.
             est_signal=False, source_privee=False, nature=None,
             etat=proc.Etat.POSTULABLE, procedure_detectee=False).type
+        # LE CHIFFRE D'AFFAIRES, avec son ÉTAT : publié, estimé, ou inconnu.
+        # Mesuré AVANT le score, parce que le score doit noter le MÊME chiffre
+        # que celui affiché sur la fiche.
+        ca = chiffre_affaires.mesurer(opp, self.profil)
         score = self.bareme.calculer(correspondance=corr, zone=zone, bilan=bilan, opp=opp,
                                      type_opp=type_economique, cadence=opp.cadence,
-                                     jours_restants=verdict.jours_restants)
+                                     jours_restants=verdict.jours_restants, ca=ca)
         # FIABILITÉ — calculée APRÈS le score, et volontairement pas passée au
         # barème. Une information peu sûre remonte haut si elle vaut de
         # l'argent ; elle porte alors « FIABILITÉ : FAIBLE · ACTION : VÉRIFIER ».
@@ -272,7 +278,7 @@ class Moteur:
         fiche = self._fiche(opp, role, corr, zone, bilan, classement, verdict, score,
                             constr, nature, lecture, fiab, fil)
         return Resultat(classement, score, fiche, journal, role.role, zone, bilan,
-                        corr, verdict, constr, nature, lecture, fiab)
+                        corr, verdict, constr, nature, lecture, fiab, ca)
 
     # ----------------------------------------------------------- fiche --
     def _fiche(self, opp, role, corr, zone, bilan, classement, verdict, score, constr,
@@ -364,7 +370,8 @@ RECALCULEES = ("type", "moteur", "action", "role", "statut", "zone", "familles",
                "secteur",
                "fiabilite", "fiabilite_motif", "echeance", "jours_restants",
                "score", "score_mesurable", "marge", "detail_score", "journal",
-               "motif", "fiche", "manques", "leviers", "risques", "calcule_le")
+               "motif", "fiche", "manques", "leviers", "risques",
+               "ca_ligne", "ca_mensuel", "ca_etat", "capacite", "calcule_le")
 
 _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "familles", "marche_ref", "lot_numero", "intitule", "acheteur",
@@ -373,7 +380,8 @@ _COLONNES = ("avis_id", "type", "moteur", "action", "role", "statut", "zone",
              "confiance_etat", "type_information", "nature", "secteur",
              "fiabilite", "fiabilite_motif",
              "score", "score_mesurable", "marge", "detail_score", "journal",
-             "motif", "fiche", "manques", "leviers", "risques", "calcule_le")
+             "motif", "fiche", "manques", "leviers", "risques",
+             "ca_ligne", "ca_mensuel", "ca_etat", "capacite", "calcule_le")
 
 
 def _valeurs(avis_id, opp, r) -> tuple:
@@ -400,7 +408,22 @@ def _valeurs(avis_id, opp, r) -> tuple:
             json.dumps(_manques_de_capacite(r), ensure_ascii=False),
             json.dumps(_leviers_de(r), ensure_ascii=False),
             json.dumps(_risques(r), ensure_ascii=False),
+            r.ca.ligne(), r.ca.mensuel, r.ca.etat.value, _capacite_de(r),
             maintenant())
+
+
+def _capacite_de(r) -> str:
+    """« 8/10 véhicules » — ce que je couvre du besoin, en une ligne."""
+    part = r.bilan.part_couverte()
+    if part is not None and r.bilan.couverture:
+        besoin = sum(b for b, _ in r.bilan.couverture)
+        couvert = sum(c for _, c in r.bilan.couverture)
+        return f"{couvert}/{besoin} — {part:.0%} du besoin"
+    if r.bilan.mobilisations:
+        return "après mobilisation : " + r.bilan.mobilisations[0][:48]
+    if r.bilan.atouts:
+        return "exécutable avec la structure actuelle"
+    return "NON MESURÉE — aucune exigence publiée"
 
 
 def _leviers_de(r) -> list:

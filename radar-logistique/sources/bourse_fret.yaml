@@ -29,6 +29,7 @@ champs:
   pays_livraison:   [pays_livraison, pays_dechargement]
   lieu:             [trajet, lieu]
   montant:          [prix, montant]
+  montant_unite:    [montant_unite]
   devise:           [devise]
   cadence:          [frequence, cadence]
   duree_mois:       [duree_mois]
@@ -36,3 +37,9 @@ champs:
   distance_depot_km: [distance_depot_km]
   vehicule_type:    [type_vehicule]
   tonnage_min_t:    [tonnage_t, poids_t]
+
+# Une bourse de fret publie un prix PAR TOURNÉE, pas un contrat annuel.
+# Sans cette déclaration, le montant était réparti sur douze mois et
+# l'affaire ressortait à 350 €/mois au lieu de ~18 000 : l'erreur allait
+# dans le sens qui fait RATER une bonne affaire.
+montant_unite: par_periode

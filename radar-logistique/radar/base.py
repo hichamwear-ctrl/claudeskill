@@ -40,6 +40,12 @@ AJOUTS = (
     ("opportunites", "manques", "TEXT"),
     ("opportunites", "leviers", "TEXT"),
     ("opportunites", "risques", "TEXT"),
+    # De quoi écrire une ligne d'affaire complète sans relire la fiche :
+    # « CA : 15 000 €/mois — PUBLIÉ » et « Capacité : 8/10 véhicules ».
+    ("opportunites", "ca_ligne", "TEXT"),
+    ("opportunites", "ca_mensuel", "REAL"),
+    ("opportunites", "ca_etat", "TEXT"),
+    ("opportunites", "capacite", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),
     ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
     ("vocabulaire_historique", "version", "INTEGER"),

@@ -94,7 +94,8 @@ def charger(fichier: str, source: str) -> list:
     charges = json.loads((RACINE / "exemples" / "sources" / fichier).read_text(
         encoding="utf-8"))
     charges = [c for c in charges if isinstance(c, dict)]
-    defauts = {"signal": cfg.get("signal"), "secteur": cfg.get("secteur_par_defaut")}
+    defauts = {"signal": cfg.get("signal"), "secteur": cfg.get("secteur_par_defaut"),
+               "montant_unite": cfg.get("montant_unite")}
     return [vers_opportunite(ad, c, c.get("fournisseur") or source, defauts)
             for c in charges]
 

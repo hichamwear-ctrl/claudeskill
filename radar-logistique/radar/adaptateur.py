@@ -289,6 +289,9 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         echeance_brute=c.get("echeance"),
         publie_le=c.get("publie_le"),
         montant=_nombre(c.get("montant"), "montant", illisibles),
+        # L'unité vient de la DÉCLARATION de la source, pas du contenu : une
+        # bourse de fret publie des prix récurrents, un avis de marché un total.
+        montant_unite=(defauts or {}).get("montant_unite") or c.get("montant_unite"),
         devise=c.get("devise") or "EUR",
         duree_mois=_entier(c.get("duree_mois"), "durée", illisibles),
         cadence=c.get("cadence"),

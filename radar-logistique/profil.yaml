@@ -41,6 +41,16 @@ capacite_actuelle:
   licences_transport_spf: 2
   agrement_afsca: true
 
+# ═══════════════════════════════ BASE D'ESTIMATION DU CHIFFRE D'AFFAIRES
+# Sert UNIQUEMENT quand une source ne publie aucun montant. Tant que ces
+# valeurs ne sont pas renseignées à partir de contrats RÉELLEMENT réalisés, le
+# radar écrit « NON PUBLIÉ → IMPOSSIBLE À MESURER » et ne fabrique aucune
+# fourchette. Une estimation inventée est pire qu'un trou : un trou se voit.
+references_economiques: {}
+  # ca_mensuel_par_vehicule: 3500     # € observés, pas espérés
+  # ca_par_km: 1.10
+  # marge_erreur: 0.25
+
 capacite_mobilisable:
   # Rapidement accessible par location, partenaire ou sous-traitance.
   vehicules_supplementaires: 10          # → 16 véhicules au total

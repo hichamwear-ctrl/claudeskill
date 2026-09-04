@@ -67,6 +67,9 @@ class Opportunite:
     echeance_brute: object = None
     publie_le: object = None
     montant: float | None = None
+    # « total » (un contrat réparti sur sa durée) ou « par_periode » (un prix
+    # qui revient à chaque tournée). DÉCLARÉ par la source, jamais deviné.
+    montant_unite: str | None = None
     devise: str = "EUR"
     duree_mois: int | None = None
     cadence: str | None = None            # quotidienne, hebdomadaire, ponctuelle...
