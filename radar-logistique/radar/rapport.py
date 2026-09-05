@@ -60,6 +60,17 @@ BLOCS_AFFAIRES = [
     ("⚠️ À VÉRIFIER", "verifier"),
 ]
 
+# ═══ RÈGLE ARCHITECTURALE ═══════════════════════════════════════════════
+#
+#     SCORE D'ADÉQUATION  ≠  POTENTIEL COMMERCIAL
+#
+# Mesuré : 8 000 €/mois → 83, 12 000 → 84, 15 000 → 84, 25 000 → 87,
+# 40 000 → 87, 50 000 → 87. Le score sait dire « puis-je le faire » ; il ne
+# sait pas, et ne doit pas apprendre à dire « combien ça rapporte ». On ne
+# force donc pas le barème à devenir un classement de valeur : on affiche les
+# deux, et le GROUPE décide avant que le potentiel ne classe.
+REGLE_ARCHITECTURALE = "score d'adéquation ≠ potentiel commercial"
+
 
 def _ca_ou_null(cx) -> str:
     """`ca_ligne` n'existe pas dans les bases antérieures à la migration."""
@@ -346,7 +357,12 @@ class Rapport:
         décider sans ouvrir autre chose : ce que ça rapporte, si c'est
         faisable, ce qui manque, comment le combler, et quoi faire.
         """
-        L = ["RADAR COMMERCIAL", "=" * 72]
+        L = ["RADAR COMMERCIAL", "=" * 72, "",
+             f"  RÈGLE : {REGLE_ARCHITECTURALE.upper()}.",
+             "  L'adéquation dit si je peux le faire. Le potentiel dit ce que",
+             "  ça rapporte. Le GROUPE décide de l'ordre ; le potentiel classe",
+             "  à l'intérieur du groupe. Aucun des deux ne parle pour l'autre.",
+             ""]
         rang = 0
         for titre, cle in BLOCS_AFFAIRES:
             lignes = self.affaires.get(cle, [])
@@ -355,33 +371,35 @@ class Rapport:
             L += ["", titre, ""]
             for a in lignes[:5]:
                 rang += 1
-                # DEUX nombres, jamais fondus : ce que ça rapporte, et à quel
-                # point c'est à ma portée. Les écraser en un seul rendait
-                # 540 000 € d'écart de CA totalement invisibles.
+                # DEUX LIGNES DISTINCTES, jamais un seul nombre. Le score dit
+                # ce qu'il sait dire — l'adéquation — et se tait sur le reste.
+                L.append(f"{rang}. {a['titre'][:64]}")
+                if a["mesurable"]:
+                    L.append(f"   adéquation : {a['score']}")
+                else:
+                    L.append("   adéquation : NON MESURABLE")
                 annuel = (f"{a['ca_annuel']:,.0f} €/an".replace(",", " ")
                           if a["ca_annuel"] else "NON MESURABLE")
-                note = a["score"] if a["mesurable"] else "—"
-                L.append(f"{rang}. {annuel:>16}   ·   adéquation [{note:>3}]"
-                         f"   {a['titre'][:44]}")
-                L.append(f"   CA         : {a['ca'] or 'NON PUBLIÉ'}"
-                         + (f"   ({a['duree']} mois)" if a["duree"] else ""))
+                L.append(f"   potentiel  : {annuel}"
+                         + (f"   ({a['ca']})" if a["ca_annuel"] else ""))
                 if a["intensite"]:
-                    L.append(f"   Intensité  : {a['intensite']:,.0f} €/an par véhicule exigé"
+                    L.append(f"   intensité  : {a['intensite']:,.0f} €/véhicule/an"
                              .replace(",", " "))
-                L.append(f"   Nature     : {a['nature'] or 'INCONNUE'}"
-                         f"   ·   État : {a['etat'] or 'HORS PROCÉDURE'}")
                 if a["capacite"]:
-                    L.append(f"   Capacité   : {a['capacite']}")
+                    L.append(f"   couverture : {a['capacite']}")
                 if a["manques"]:
-                    L.append(f"   Manque     : {a['manques'][0][:56]}")
+                    L.append(f"   manque     : {a['manques'][0][:54]}")
                 if a["leviers"]:
-                    L.append(f"   Solution   : {a['leviers'][0][:56]}")
+                    L.append(f"   plan       : {a['leviers'][0][:54]}")
+                if not a["ca_annuel"]:
+                    L.append("   question   : quel volume, quelle fréquence, "
+                             "quel budget ?")
+                L.append(f"   nature     : {a['nature'] or 'INCONNUE'}"
+                         f"   ·   état : {a['etat'] or 'HORS PROCÉDURE'}")
                 if a["risques"]:
-                    L.append(f"   Réserve    : {a['risques'][0][:56]}")
-                L.append(f"   Action     : {a['action']}")
-                if a.get("priorite"):
-                    L.append(f"   Pourquoi   : {a['priorite']}")
-                L.append(f"   Vu sur     : {a['source']}")
+                    L.append(f"   réserve    : {a['risques'][0][:54]}")
+                L.append(f"   action     : {a['action']}")
+                L.append(f"   vu sur     : {a['source']}")
                 L.append("")
         if rang == 0:
             L += ["", "AUCUNE AFFAIRE DANS CET ÉCHANTILLON.",

@@ -4491,8 +4491,10 @@ class LeBulletinCommercialPasseAvantLaMachine(unittest.TestCase):
 
     def test_chaque_affaire_porte_son_ca_et_son_action(self):
         bloc = self.texte.split("🔥 À ATTAQUER MAINTENANT")[1][:600]
-        self.assertIn("CA         :", bloc)
-        self.assertIn("Action     :", bloc)
+        # Les deux dimensions sur DEUX lignes distinctes, jamais fondues.
+        self.assertIn("adéquation :", bloc)
+        self.assertIn("potentiel  :", bloc)
+        self.assertIn("action     :", bloc)
 
     def test_le_tableau_des_sources_ne_classe_pas_par_volume(self):
         """VOLUME ≠ VALEUR : le tableau ne désigne aucune source principale."""
