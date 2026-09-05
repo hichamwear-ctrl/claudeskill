@@ -23,6 +23,20 @@
         "pistes muettes : telephone",
         "plus d'INCONNUS que d'OBSERVÉS : c'est le régime normal d'une page privée, et le score doit y survivre"
       ]
+    },
+    {
+      "horodatage": "2026-09-05T00:00:00+00:00",
+      "famille": "recherche",
+      "origine": "outil de recherche web ; titres et URL verbatim, résumé en prose exclu ; brut conservé et haché",
+      "reference": "16 résultats réels, 2 requêtes",
+      "empreinte": "d2747424e7e7d5d34c3aa581a736d489c367541a63a6b8b03db736481c785a9e",
+      "page_conservee": "2026-09-05-recherche-brut.json",
+      "completude": "extrait de listing",
+      "ca_identifie": 0,
+      "verdict": "2 qualifiée(s) sur 16",
+      "porte_un_besoin": true,
+      "constats": {},
+      "enseignements": []
     }
   ]
 }

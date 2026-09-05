@@ -290,7 +290,15 @@ MARQUEURS = {
     "cloture": [
         "cloture", "cloturee", "cloturees", "ferme", "fermee", "termine", "terminee",
         "expire", "expiree", "depasse", "depassee", "echu", "echue", "close", "closes",
-        "fin de", "plus de",
+        "fin de",
+        # « plus de » SEUL est un piège que seule une vraie donnée a révélé :
+        # « Sous Traitant : plus de 400 emplois » ressortait FERMÉ. En français
+        # « plus de » est d'abord une QUANTITÉ. Le sens de clôture demande une
+        # négation devant — « il n'y a plus de », « ne sont plus » — et celle-ci
+        # est déjà couverte par les marqueurs de négation.
+        # Conséquence du défaut : tout listing réel annonçant « plus de 50
+        # marchés » disparaissait de la liste à attaquer.
+        "n y a plus de", "il n y a plus", "plus aucune", "plus aucun",
         # « achevee » manquait : « procédure achevée » ressortait POSTULABLE —
         # le pire des états à se tromper, puisqu'il envoie préparer un dossier
         # sur un marché fini. Ajouté avec ses voisins du même registre.
@@ -385,9 +393,42 @@ _MARQUEURS_PLATS = {concept: sorted({normaliser(m).strip() for m in mots}, key=l
                     for concept, mots in MARQUEURS.items()}
 
 
+# Un marqueur suivi de l'un de ces mots ne parle PAS de procédure. Mesuré sur
+# une donnée réelle : « Offres d'emploi » faisait détecter une procédure, donc
+# un état INCONNU, donc « VÉRIFIER L'ÉTAT À LA SOURCE » sur une annonce
+# d'embauche. Le radar envoyait vérifier l'état d'un marché qui n'existe pas.
+SUITES_QUI_ANNULENT = {
+    "offre": ("d emploi", "d emplois", "de stage", "de service", "de services",
+              "speciale", "promotionnelle", "commerciale"),
+    "offres": ("d emploi", "d emplois", "de stage", "de service", "de services",
+               "speciales", "promotionnelles", "commerciales"),
+    "candidature": ("spontanee", "spontanees"),
+    "candidatures": ("spontanees",),
+}
+
+
 def trouver(concept: str, plat: str) -> list[str]:
-    """Les expressions d'un concept réellement présentes dans le texte."""
-    return [m for m in _MARQUEURS_PLATS.get(concept, []) if m and f" {m} " in plat]
+    """Les expressions d'un concept réellement présentes dans le texte.
+
+    Un marqueur immédiatement suivi d'une suite qui l'annule n'est pas retenu :
+    « offres d'emploi » n'est pas « offres » au sens d'une remise d'offre.
+    """
+    sortie = []
+    for m in _MARQUEURS_PLATS.get(concept, []):
+        if not m or f" {m} " not in plat:
+            continue
+        suites = SUITES_QUI_ANNULENT.get(m)
+        if suites and all(f" {m} {suite} " in plat
+                          for suite in [s for s in suites if f" {m} {s} " in plat]) \
+                and any(f" {m} {suite} " in plat for suite in suites):
+            # Toutes les occurrences repérables sont annulées par leur suite.
+            reste = plat.replace(f" {m} ", " § ")
+            for suite in suites:
+                reste = reste.replace(f" § {suite} ", " ")
+            if f" § " not in reste:
+                continue
+        sortie.append(m)
+    return sortie
 
 
 # Fenêtre autour d'un marqueur dans laquelle une négation le concerne. Au-delà,

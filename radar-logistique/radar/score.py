@@ -322,9 +322,14 @@ class Bareme:
                  cadence or opp.cadence,
                  opp.km_annuels, opp.vehicules_requis, opp.chauffeurs_requis,
                  opp.distance_depot_km]
+        # `domaine_transport` ne rend PAS un score mesurable, pour la même
+        # raison qu'il n'est plus un ancrage commercial : reconnaître le
+        # métier dans un titre n'est pas observer un fait économique. Un
+        # résultat de recherche réel affichait « PAS ENCORE UNE OPPORTUNITÉ »
+        # et, deux lignes plus bas, un score de 45.
         mesurable = bool(
             any(f not in (None, "", 0) for f in faits)
             or opp.exigences or correspondance.familles
-            or correspondance.domaine_transport or bilan.atouts or bilan.bloquants)
+            or bilan.atouts or bilan.bloquants)
         return Score(max(0, min(100, round(note))), L, marge_estimee=marge,
                      mesurable=mesurable)

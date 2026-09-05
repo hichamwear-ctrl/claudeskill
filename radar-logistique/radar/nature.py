@@ -111,6 +111,57 @@ EVENEMENT_OBSERVABLE = (
 )
 
 
+# ── OFFRE DE SERVICE : un concurrent, pas un client ───────────────────────
+#
+# Le défaut que seule une donnée réelle pouvait montrer. Sur seize résultats
+# de recherche réels, SEPT étaient des pages de transporteurs vendant leurs
+# services — « Transport de Palettes Belgique Pas Cher - Prix »,
+# « Transporteur palette Belgique France », « trouver-un-transporteur.com ».
+# Toutes ressortaient 🟢 DIRECT, action CONTACTER L'ENTREPRISE.
+#
+# Commercialement : le commercial appelle sept concurrents en croyant appeler
+# des prospects. Il perd sa journée, et il annonce son intérêt à la
+# concurrence.
+#
+# Pourquoi c'était invisible : les douze familles de fixtures décrivent toutes
+# une DEMANDE. Aucune ne décrivait une OFFRE. Reconnaître le vocabulaire du
+# métier dans un titre suffisait à en faire une opportunité directe — le
+# symétrique exact de l'erreur qu'on avait interdite (rejeter faute de mot).
+#
+# La règle reste conservatrice : ces marqueurs ne DÉMOTENT que s'il n'y a
+# AUCUN besoin exprimé. « Devenir partenaire transporteur » porte les deux ;
+# la demande l'emporte, toujours.
+OFFRE_DE_SERVICE = (
+    "pas cher", "moins cher", "moins chere", "moins cheres", "meilleur prix",
+    "prix", "tarif", "tarifs", "jusqu a 40", "economisez",
+    "devis", "devis gratuit", "comparez", "comparateur", "obtenez",
+    "nos services", "nos solutions", "solutions logistiques", "nos tarifs",
+    "prestataire de services", "fournisseurs en", "trouver un transporteur",
+    "notre flotte", "nous transportons", "nous assurons le transport",
+    "specialiste du transport", "votre transporteur", "votre partenaire",
+    "goedkoop", "offerte aanvragen", "onze diensten",
+    "cheap", "get a quote", "our services", "compare",
+    "gunstig", "angebot anfordern", "unsere leistungen",
+)
+
+
+def est_une_offre(opp) -> bool:
+    """Cette page VEND-elle du transport, au lieu d'en chercher ?"""
+    if _besoin_exprime(opp):
+        return False        # la demande l'emporte, toujours
+    return _contient(opp, OFFRE_DE_SERVICE)
+
+
+def _contient(opp, marqueurs) -> bool:
+    import re
+    import unicodedata
+    texte = f"{getattr(opp, 'intitule', '') or ''} {getattr(opp, 'texte', '') or ''}"
+    plat = unicodedata.normalize("NFKD", texte)
+    plat = "".join(c for c in plat if not unicodedata.combining(c)).lower()
+    plat = " " + re.sub(r"[^a-z0-9]+", " ", plat).strip() + " "
+    return any(f" {m} " in plat for m in marqueurs)
+
+
 def _evenement_observable(opp) -> bool:
     import re
     import unicodedata

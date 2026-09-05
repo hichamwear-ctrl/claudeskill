@@ -4867,3 +4867,144 @@ class LaMemeAffaireVueCinqFoisResteUneAffaire(unittest.TestCase):
         self.assertEqual(l["n"], 1)
         self.assertEqual(l["m"], 200000)
         self.assertEqual(round(l["a"]), 200000)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  §RÉEL-C — CE QUE SEIZE RÉSULTATS DE RECHERCHE RÉELS ONT RÉVÉLÉ
+#
+#  Première mesure où la donnée n'a pas été écrite ici. Trois défauts, tous
+#  structurellement invisibles sur fixtures — parce que les douze familles
+#  d'exemples décrivent TOUTES une demande, jamais une offre, et parce
+#  qu'aucune ne portait un titre de trois mots.
+#
+#  Prédiction écrite AVANT la mesure (validation/ATTENTES-FAMILLE-C.md) :
+#  « la plupart ressortiront ⚪, aucune ne sera qualifiée ». FAUX : onze sur
+#  seize sont sorties 🟢 DIRECT. L'écart est le résultat, pas l'échec.
+# ═══════════════════════════════════════════════════════════════════════════
+
+class UneOffreDeServiceNestPasUneDemande(unittest.TestCase):
+    """Sept résultats réels sur seize étaient des pages de transporteurs
+    VENDANT leurs services. Toutes sortaient 🟢 DIRECT, action CONTACTER.
+
+    Le commercial appelle sept concurrents en croyant appeler des prospects —
+    et il annonce son intérêt à la concurrence.
+    """
+
+    def _resultat(self, titre):
+        return opp(source="recherche", secteur_acheteur="prive",
+                   ref_source=titre[:20], intitule=titre, texte="",
+                   echeance_brute=None, pays_livraison=[],
+                   plateforme="https://exemple.be/x")
+
+    def test_une_page_de_prix_nest_pas_une_opportunite(self):
+        for titre in ("Transport de Palettes Belgique Particulier Pas Cher - Prix",
+                      "Transports marchandises par palettes Prestataire de services",
+                      "Livraison Sur Palettes – Fournisseurs en Belgique",
+                      "Transport de palettes vers la Belgique - jusqu'à 40 % moins chère"):
+            with self.subTest(titre=titre):
+                r = moteur().analyser(self._resultat(titre), MAINTENANT)
+                self.assertIs(r.classement.type, Type.OBSERVATION)
+
+    def test_la_demande_lemporte_toujours_sur_les_marqueurs_doffre(self):
+        """« Devenir partenaire » + « nos tarifs » reste une demande."""
+        from radar.nature import est_une_offre
+        o = self._resultat("Devenir partenaire transporteur — nos tarifs 2026")
+        self.assertFalse(est_une_offre(o))
+
+    def test_les_deux_vraies_demandes_restent_qualifiees(self):
+        """Les seuls résultats réels porteurs d'un besoin doivent survivre."""
+        for titre in ("Devenir partenaire de livraison - Colis Privé BeLux",
+                      "Devenir partenaire transport routier Le Roy Logistique"):
+            with self.subTest(titre=titre):
+                r = moteur().analyser(self._resultat(titre), MAINTENANT)
+                self.assertIs(r.nature, Nature.FAIT)
+                self.assertTrue(r.classement.type.notifiable)
+                self.assertEqual(r.classement.action, Action.CONTACTER_ENTREPRISE)
+
+
+class ReconnaitreLeMetierNestPasTrouverUneAffaire(unittest.TestCase):
+    """« Transporteur palette Belgique France » — un titre nu, sans demandeur,
+    sans besoin, sans chiffre — ressortait 🟢 DIRECT.
+
+    C'était le symétrique exact de l'erreur qu'on s'était interdite : on ne
+    rejette pas faute de mot-clé, mais on ne promeut pas non plus parce qu'un
+    mot-clé est là.
+    """
+
+    def test_un_titre_nu_du_metier_nest_pas_une_opportunite(self):
+        r = moteur().analyser(opp(
+            source="recherche", intitule="Transporteur palette Belgique France",
+            texte="", echeance_brute=None, pays_livraison=[]), MAINTENANT)
+        self.assertIs(r.classement.type, Type.OBSERVATION)
+        self.assertFalse(r.score.mesurable,
+                         "un ⚪ ne doit pas afficher un score de 45")
+
+    def test_une_prestation_reconnue_du_profil_reste_un_ancrage(self):
+        """Le correctif ne doit pas faire disparaître les vraies affaires :
+        une FAMILLE reconnue vaut plus qu'un domaine générique."""
+        r = moteur().analyser(opp(
+            intitule="Distribution de colis", montant=180000, duree_mois=12,
+            cadence="quotidienne", pays_livraison=["BE"]), MAINTENANT)
+        self.assertIsNot(r.classement.type, Type.OBSERVATION)
+        self.assertTrue(r.score.mesurable)
+
+
+class UnTitreNeCreePasUneProcedure(unittest.TestCase):
+    """Deux formulations très ordinaires fabriquaient un état de procédure."""
+
+    def _etat(self, titre):
+        return moteur().analyser(opp(
+            source="recherche", intitule=titre, texte="",
+            echeance_brute=None, pays_livraison=[]), MAINTENANT).lecture.etat_affiche
+
+    def test_plus_de_400_emplois_nest_pas_une_cloture(self):
+        """« plus de » est d'abord une QUANTITÉ en français. Le marqueur
+        faisait ressortir FERMÉ sur « Sous Traitant : plus de 400 emplois ».
+        Tout listing réel annonçant « plus de 50 marchés » disparaissait donc
+        de la liste à attaquer."""
+        self.assertEqual(self._etat("Sous Traitant : plus de 400 emplois"),
+                         "HORS PROCÉDURE")
+
+    def test_une_vraie_cloture_reste_comprise(self):
+        from radar.procedure import normaliser, trouver
+        for phrase in ("il n'y a plus de dépôt possible",
+                       "les offres ne sont plus acceptées",
+                       "la procédure est clôturée"):
+            with self.subTest(phrase=phrase):
+                r = moteur().analyser(avis_public(
+                    intitule="Distribution de colis", texte=phrase), MAINTENANT)
+                self.assertEqual(r.lecture.etat_affiche, "FERMÉ")
+
+    def test_offres_demploi_nest_pas_une_remise_doffres(self):
+        """Le radar envoyait « VÉRIFIER L'ÉTAT À LA SOURCE » sur une annonce
+        d'embauche : vérifier l'état d'un marché qui n'existe pas."""
+        self.assertEqual(self._etat("Emplois Chauffeurs - Offres d'emploi"),
+                         "HORS PROCÉDURE")
+
+    def test_une_vraie_remise_doffres_reste_detectee(self):
+        from radar.procedure import normaliser, trouver
+        plat = " " + normaliser("offres d'emploi et remise des offres avant le 12") + " "
+        self.assertIn("remise des offres", trouver("depot", plat))
+
+
+class LaFamilleCEstMesureeSurDuReel(unittest.TestCase):
+    """Le registre doit porter une opportunité commerciale RÉELLE."""
+
+    def test_la_famille_recherche_est_couverte(self):
+        from radar import validation
+        e = validation.etat()
+        familles = {cle: etat for _, cle, _, _, etat, _ in e.plan_de_mesure()}
+        self.assertEqual(familles["recherche"], "OPPORTUNITÉ COMMERCIALE TESTÉE")
+
+    def test_le_brut_de_la_collecte_est_conserve(self):
+        brut = RACINE / "validation" / "collectes_reelles"
+        fichiers = list(brut.glob("*.json"))
+        self.assertTrue(fichiers, "aucune collecte réelle conservée")
+
+    def test_sept_familles_restent_non_mesurees(self):
+        """La mesure d'une famille ne vaut pas validation des sept autres."""
+        from radar import validation
+        e = validation.etat()
+        non = [c for _, c, _, _, etat, _ in e.plan_de_mesure()
+               if etat == "NON MESURÉE"]
+        self.assertEqual(len(non), 7)

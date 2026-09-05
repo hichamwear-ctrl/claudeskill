@@ -1,0 +1,33 @@
+{
+  "_avertissement": "SORTIE BRUTE de l'outil de recherche, conservée verbatim. Seuls `title` et `url` sont ingérés : le résumé en prose que l'outil produit par-dessus est écrit par un modèle et n'est PAS une observation.",
+  "collecte_le": "2026-09-05",
+  "outil": "WebSearch (moteur de recherche, famille C)",
+  "requetes": [
+    {
+      "requete": "\"recherchons\" transporteur partenaire livraisons palettes Belgique entreprise",
+      "resultats": [
+        {"title": "Transport de Palettes Belgique Particulier Pas Cher - Prix", "url": "https://clicktrans.fr/transport/palette/belgique/"},
+        {"title": "Transports marchandises par palettes Prestataire de services Belgique | Entreprises et fournisseurs B2B | europages", "url": "https://www.europages.fr/entreprises/belgique/prestataire%20de%20services/transports-marchandises-par-palettes.html"},
+        {"title": "Livraison Sur Palettes – Fournisseurs en Belgique | europages", "url": "https://www.europages.fr/entreprises/belgique/livraison%20sur%20palettes.html"},
+        {"title": "Transport de palettes vers la Belgique - Livraison jusqu'à 40 % moins chère", "url": "https://cargors.com/fr/transport-de-palettes-vers-la-belgique/"},
+        {"title": "Transporteur palette Belgique France", "url": "https://www.2htransports.com/transporteur-palette-belgique-france.html"},
+        {"title": "Transporteur de marchandises sur palettes Belgique - FLEXATRANS", "url": "https://www.flexatrans.eu/transporteur+de+marchandises+sur+palettes+belgique-z313"},
+        {"title": "Transport de Palettes Belgique-France : Solutions Logistiques Optimisées", "url": "https://www.trouver-un-transporteur.com/transport-palette-belgique-france"}
+      ]
+    },
+    {
+      "requete": "\"devenir sous-traitant\" OR \"recherche sous-traitant\" transport Belgique \"faire appel\" chauffeurs partenaires 2026",
+      "resultats": [
+        {"title": "Sous Traitant : plus de 400 emplois (19 juin 2026) | Indeed", "url": "https://emplois.be.indeed.com/q-sous-traitant-emplois.html"},
+        {"title": "Sous Traitant Transport : plus de 50 emplois (18 février 2026) | Indeed", "url": "https://emplois.be.indeed.com/q-sous-traitant-transport-emplois.html"},
+        {"title": "Devenir partenaire de livraison - Colis Privé BeLux", "url": "https://colisprive.be/devenir-partenaire-livraison/"},
+        {"title": "Career | GLS Belgique", "url": "https://gls-group.com/BE/fb/carriere/"},
+        {"title": "Devenir partenaire transport routier Le Roy Logistique", "url": "https://www.leroylogistique.com/demande-partenaire-transport/"},
+        {"title": "Sous-traitance transport en Belgique | Partenaire DPD & DHL", "url": "https://bulbulgroup.be/sous-traitance-transport-belgique"},
+        {"title": "Emplois : Sous traitant transport à Belgique (Besoin d'urgence!) - Mars 2023 - Jooble", "url": "https://fr.jooble.org/emploi-sous-traitant-transport/Belgique"},
+        {"title": "AVL Partners", "url": "https://avlpartners.com/"},
+        {"title": "independant | Emplois | Chauffeurs - Offres d'emploi | 2ememain", "url": "https://www.2ememain.be/l/offres-d-emploi/emplois-chauffeurs/q/independant/"}
+      ]
+    }
+  ]
+}

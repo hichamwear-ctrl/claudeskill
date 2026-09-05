@@ -211,8 +211,21 @@ class Moteur:
         # exprimé, un événement. Aucun des huit n'est un vocabulaire métier :
         # une page rédigée dans un jargon inconnu qui annonce « démarrage en
         # mars, 12 tournées par semaine » reste ancrée.
+        # `corr.domaine_transport` NE COMPTE PLUS comme ancrage.
+        #
+        # Reconnaître le domaine dit « ça parle de mon métier ». Ça ne dit pas
+        # « il y a une affaire ici ». Mesuré sur des résultats de recherche
+        # RÉELS : « Transporteur palette Belgique France » — un titre nu, sans
+        # demandeur, sans besoin, sans chiffre — ressortait 🟢 DIRECT avec
+        # « CONTACTER L'ENTREPRISE ». C'était le symétrique exact de l'erreur
+        # qu'on s'était interdite : on ne rejette pas faute de mot-clé, mais on
+        # ne promeut pas non plus parce qu'un mot-clé est là.
+        #
+        # `corr.familles` reste un ancrage : reconnaître une PRESTATION précise
+        # du profil est plus qu'un domaine. Et un besoin exprimé, une date, un
+        # chiffre ou une exigence en sont toujours un.
         ancrage = bool(
-            corr.familles or corr.domaine_transport
+            corr.familles
             or opp.montant or opp.cadence or opp.duree_mois
             or opp.echeance_brute or opp.date_demarrage
             or opp.exigences or opp.exigences_texte
@@ -220,6 +233,11 @@ class Moteur:
             or opp.km_annuels or opp.lots and len(opp.lots) > 1
             or opp.est_signal or nature is not nat.Nature.HYPOTHESE
             or lecture.procedure_detectee)
+        # Une page qui VEND du transport n'est pas un client. Elle reste dans
+        # le radar — un concurrent peut chercher un sous-traitant demain — mais
+        # elle n'est pas une opportunité tant qu'elle n'exprime aucun besoin.
+        if nat.est_une_offre(opp):
+            ancrage = False
 
         classement = classer(
             role=role.role,
