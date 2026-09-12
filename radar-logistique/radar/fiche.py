@@ -73,6 +73,9 @@ class Fiche:
     fiabilite: str = ""
     fiabilite_motif: str = ""
     fil_de_vie: list = field(default_factory=list)
+    # Ce qui a été observé, écarté, et pourquoi. Une information écartée en
+    # silence est une boîte noire ; écartée à voix haute, c'est une question.
+    reserves: list = field(default_factory=list)
 
     def en_texte(self, avec_detail_score=False) -> str:
         L = [f"{self.type.emoji} {self.type.value} — {self.titre}"]
@@ -130,6 +133,8 @@ class Fiche:
         L += ["", "CE QUE J'AI DÉJÀ"]
         L += [f"  ✔️ {a}" for a in self.j_ai_deja] or ["  · rien de confirmé automatiquement"]
 
+        if self.reserves:
+            L += ["", "OBSERVÉ MAIS ÉCARTÉ — À VÉRIFIER"] + [f"  ⚠ {r}" for r in self.reserves]
         if self.il_me_manque:
             L += ["", "CE QUI ME MANQUE"] + [f"  ✗ {m}" for m in self.il_me_manque]
         if self.comment_combler:

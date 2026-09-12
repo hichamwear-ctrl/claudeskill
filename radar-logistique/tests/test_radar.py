@@ -543,9 +543,6 @@ class Garanties(unittest.TestCase):
         self.assertEqual(len(envoi.a_envoyer(cx)), 0)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
 
 # ══════════════ §9 — aucune source hiérarchisée d'avance
 class AucuneHierarchieDeSource(unittest.TestCase):
@@ -5225,3 +5222,160 @@ class LeCorpsNestPasLeTitreRecopie(unittest.TestCase):
         appel = src.split("lecture = proc.lire(", 1)[1].split(")", 1)[0]
         self.assertIn("texte=opp.corps", appel.replace(" ", ""))
         self.assertNotIn("texte=opp.texte", appel.replace(" ", ""))
+
+
+# ══════════ §19 — la PORTÉE d'une exclusion : où le mot a été lu décide
+#
+# Mesuré sur la page réelle de Colis Privé, conservée dans validation/ : le
+# seul « ADR » de la page est un lien de pied de page, entre « Mentions
+# légales » et « © 2026 ». Lu sans provenance, il condamnait une opportunité
+# entière. Lu avec sa provenance, il devient une question.
+#
+# Ce qui est verrouillé ici n'est PAS « le mot ADR » : c'est le principe. Une
+# activité exclue ne bloque que si elle caractérise le besoin. Et une origine
+# qu'on ne sait pas nommer caractérise — l'inconnu bloque, jamais l'inverse.
+
+class PorteeDesExclusions(unittest.TestCase):
+    PIED = ("CGU Mentions légales Normes ADR © 2026 Colis Privé", "pied de page")
+    MENU = ("Accueil Suivi de colis Transport de personnes Contact", "navigation")
+
+    def _r(self, **kw):
+        return moteur().analyser(opp(**kw), maintenant_dt=MAINTENANT)
+
+    # ── ce qui doit rester bloquant ──────────────────────────────────────
+    def test_exclusion_dans_lintitule_rejette_toujours(self):
+        r = self._r(intitule="Transport ADR de produits chimiques")
+        self.assertIs(r.classement.type, Type.REJET)
+        self.assertIs(r.classement.action, Action.ABANDONNER)
+
+    def test_exclusion_dans_le_corps_rejette_toujours(self):
+        r = self._r(texte="distribution urbaine avec matières dangereuses en citerne")
+        self.assertIs(r.classement.type, Type.REJET)
+
+    def test_exclusion_portee_par_une_rubrique_rejette(self):
+        """Une rubrique NOMME la catégorie du marché : elle caractérise le
+        besoin, contrairement à un menu. C'est le cas où une correction de
+        portée mal faite ferait passer un marché ADR."""
+        r = self._r(segments=[("Marchés › Transport de matières dangereuses", "rubrique")])
+        self.assertIs(r.classement.type, Type.REJET)
+
+    def test_une_origine_non_declaree_bloque(self):
+        """L'inconnu caractérise. Si la portée était présumée inoffensive, il
+        suffirait d'inventer un nom d'origine pour désarmer une exclusion."""
+        r = self._r(segments=[("livraison de matières dangereuses", "zone inconnue du radar")])
+        self.assertIs(r.classement.type, Type.REJET)
+
+    def test_bloquante_et_ecartee_ensemble_la_bloquante_gagne(self):
+        r = self._r(segments=[self.PIED,
+                              ("le marché porte sur des matières dangereuses", "objet")])
+        self.assertIs(r.classement.type, Type.REJET)
+        self.assertTrue(r.correspondance.exclusions)
+
+    # ── ce qui ne doit plus bloquer ──────────────────────────────────────
+    def test_un_mot_de_pied_de_page_ne_condamne_pas(self):
+        r = self._r(segments=[("transport routier de marchandises", "corps de la page"),
+                              self.PIED])
+        self.assertIsNot(r.classement.type, Type.REJET)
+        self.assertEqual(r.correspondance.exclusions, [])
+
+    def test_un_mot_de_menu_ne_condamne_pas(self):
+        r = self._r(segments=[("transport routier de marchandises", "corps de la page"),
+                              self.MENU])
+        self.assertIsNot(r.classement.type, Type.REJET)
+
+    # ── mais rien ne disparaît en silence ────────────────────────────────
+    def test_lexclusion_ecartee_reste_visible_avec_son_origine_et_son_extrait(self):
+        r = self._r(segments=[("transport routier de marchandises", "corps de la page"),
+                              self.PIED])
+        self.assertEqual(len(r.correspondance.reserves), 1)
+        res = r.correspondance.reserves[0]
+        self.assertEqual(res.origine, "pied de page")
+        self.assertIn("Normes ADR", res.extrait,
+                      "l'extrait doit restituer ce que la page a écrit, accents et casse compris")
+        bloc = r.fiche.en_texte()
+        self.assertIn("OBSERVÉ MAIS ÉCARTÉ", bloc)
+        self.assertIn("pied de page", bloc)
+
+    # ── et rien n'est promu ──────────────────────────────────────────────
+    def test_une_exclusion_ecartee_ne_promeut_rien(self):
+        """La présence d'un mot ne doit jamais améliorer un résultat — pas
+        même le mot qu'on vient d'écarter."""
+        utile = ("transport routier de marchandises", "corps de la page")
+        avec = self._r(segments=[utile, self.PIED])
+        sans = self._r(segments=[utile, ("CGU Mentions légales © 2026", "pied de page")])
+        self.assertEqual(avec.score.total, sans.score.total)
+        self.assertIs(avec.classement.type, sans.classement.type)
+        self.assertIs(avec.classement.action, sans.classement.action)
+
+    # ── et rien ne change pour qui ne déclare pas de zone ────────────────
+    def test_sans_segments_le_comportement_est_celui_davant(self):
+        """Toute source qui ne sait pas dire d'où vient son texte doit être
+        traitée exactement comme avant : la chaîne aplatie, réputée
+        caractériser."""
+        r = self._r(texte="transport de fonds sécurisé entre agences")
+        self.assertIs(r.classement.type, Type.REJET)
+        self.assertEqual(r.correspondance.reserves, [])
+
+    def test_la_portee_ne_depend_pas_de_la_source(self):
+        """Le type de source n'entre pas dans le score — ni dans la portée."""
+        seg = [("transport routier de marchandises", "corps de la page"), self.PIED]
+        a = self._r(source="entreprise", segments=seg)
+        b = self._r(source="bda", segments=seg)
+        self.assertIs(a.classement.type, b.classement.type)
+        self.assertEqual(a.score.total, b.score.total)
+
+    def test_un_potentiel_non_mesurable_ne_bloque_pas_lalerte(self):
+        """L'invariant : potentiel inconnu ≠ opportunité absente.
+
+        C'est le cas de la page Colis Privé : aucun fait économique, aucune
+        famille reconnue — donc NON MESURABLE — et un « ADR » en pied de
+        page. Le potentiel inconnu ne doit rien bloquer, et l'exclusion
+        écartée non plus.
+        """
+        r = self._r(intitule="Colis Privé", texte="la livraison rapide et flexible",
+                    echeance_brute=None, montant=None, segments=[self.PIED])
+        self.assertFalse(r.score.mesurable,
+                         "sans fait économique ni famille, le score n'est pas une mesure")
+        self.assertIsNot(r.classement.type, Type.REJET)
+        self.assertEqual(len(r.correspondance.reserves), 1)
+
+
+class SegmentationDUnePage(unittest.TestCase):
+    """Le découpage dit OÙ, jamais QUOI. Aucun mot n'y figure."""
+
+    ZONES = cfg("sources/page_web.yaml")["zones"]
+
+    def _seg(self, html):
+        from radar.extraction import analyser as lire_html, segmenter
+        return segmenter(lire_html(html), self.ZONES)
+
+    def test_la_balise_html5_est_reconnue(self):
+        s = self._seg("<main><p>besoin</p></main><footer><a>Normes ADR</a></footer>")
+        self.assertIn(("besoin", "corps de la page"), s)
+        self.assertIn(("Normes ADR", "pied de page"), s)
+
+    def test_un_div_de_pied_de_page_est_reconnu_aussi(self):
+        """Beaucoup de sites n'emploient pas <footer>. Ne reconnaître que la
+        balise reviendrait à faire dépendre un verdict commercial de la
+        qualité du HTML."""
+        s = self._seg('<p>besoin</p><div class="site-footer"><a>Normes ADR</a></div>')
+        self.assertIn(("Normes ADR", "pied de page"), s)
+
+    def test_le_repere_le_plus_proche_gagne(self):
+        s = self._seg("<footer><nav><a>Suivi</a></nav></footer>")
+        self.assertEqual(s, [("Suivi", "navigation")])
+
+    def test_sans_zones_declarees_la_page_reste_dun_seul_tenant(self):
+        from radar.extraction import analyser as lire_html, segmenter
+        s = segmenter(lire_html("<main><p>a</p></main><footer><p>b</p></footer>"), None)
+        self.assertEqual([o for _, o in s], ["corps de la page"])
+
+    def test_lextrait_restitue_le_texte_dorigine(self):
+        from radar.activite import reperer
+        brut = "CGU Mentions légales Normes ADR © 2026"
+        d, f = reperer(brut, "adr")
+        self.assertEqual(brut[d:f], "ADR")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

@@ -67,6 +67,13 @@ class Opportunite:
     # présentent comme deux observations indépendantes alors que c'est la
     # même, vue deux fois.
     corps: str = ""
+    # LE MÊME TEXTE, MAIS QUI SAIT D'OÙ IL VIENT : [(texte, origine)].
+    #
+    # Une source capable de dire « ceci a été lu dans le pied de page » le
+    # déclare ici. Les exclusions — et elles seules — s'y lisent : un mot lu
+    # dans un menu décrit le site, pas le besoin. Vide pour toute source qui
+    # ne sait pas le dire : l'origine est alors réputée caractériser.
+    segments: list = field(default_factory=list)
     type_avis: str | None = None
     # ── A · ce que le PORTAIL dit être cet objet, tel quel ────────────────
     type_information: str | None = None     # « Marchés en cours », « Résultats »…

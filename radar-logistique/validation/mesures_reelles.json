@@ -51,6 +51,30 @@
       "porte_un_besoin": true,
       "constats": {},
       "enseignements": []
+    },
+    {
+      "horodatage": "2026-09-12T12:51:37+00:00",
+      "famille": "entreprise",
+      "origine": "page conservée",
+      "reference": "https://www.colisprive.be/",
+      "empreinte": "fed491c2e943ad1d17bdc7217dbc18da4ce86e862599a4c39988cb4545d99049",
+      "page_conservee": "2026-09-12-entreprise-fed491c2e943.html",
+      "completude": "page complète",
+      "ca_identifie": 0.0,
+      "verdict": "⚪ PAS ENCORE UNE OPPORTUNITÉ · score NON MESURABLE — aucun fait économique observé · CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT",
+      "porte_un_besoin": false,
+      "constats": {
+        "OBSERVÉ RÉELLEMENT": 2,
+        "OBSERVÉ DANS LE BALISAGE": 3,
+        "INTERPRÉTÉ": 2,
+        "DÉDUIT": 6,
+        "INCONNU": 8
+      },
+      "enseignements": [
+        "pistes muettes : contact_email, telephone",
+        "plus d'INCONNUS que d'OBSERVÉS : c'est le régime normal d'une page privée, et le score doit y survivre",
+        "aucun contact lisible : une opportunité sans porte d'entrée"
+      ]
     }
   ]
 }

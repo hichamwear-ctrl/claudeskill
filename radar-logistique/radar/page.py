@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from .extraction import analyser as analyser_html
+from .extraction import analyser as analyser_html, segmenter
 
 
 @dataclass
@@ -43,6 +43,10 @@ class Lecture:
     non_trouves: list = field(default_factory=list)
     questions: dict = field(default_factory=dict)       # champ -> question
     liens: list = field(default_factory=list)
+    # Le texte de la page, porté par son EMPLACEMENT : [(texte, origine)].
+    # Ce n'est pas une matière de plus, c'est la MÊME matière qui sait d'où
+    # elle vient. Vide tant que la source ne déclare aucune zone.
+    segments: list = field(default_factory=list)
     longueur_html: int = 0
     longueur_texte: int = 0
 
@@ -101,6 +105,9 @@ def lire(html: str, profil: dict) -> Lecture:
     racine = analyser_html(html or "")
     texte = racine.texte()
     lec = Lecture(texte=texte, longueur_html=len(html or ""), longueur_texte=len(texte))
+
+    if profil.get("zones"):
+        lec.segments = segmenter(racine, profil["zones"])
 
     titres = racine.trouver("title")
     lec.titre_document = titres[0].texte() if titres else ""

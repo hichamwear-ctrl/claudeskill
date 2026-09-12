@@ -25,18 +25,75 @@ def normaliser(texte: str) -> str:
     return " " + re.sub(r"[^a-z0-9]+", " ", plat).strip() + " "
 
 
+# L'ORIGINE PAR DÉFAUT : quand une source ne dit pas où elle a lu un texte,
+# ce texte décrit le besoin. L'inconnu est traité comme caractérisant — donc
+# comme bloquant. Jamais l'inverse : une portée qu'on ignore ne doit pas
+# servir à laisser passer une activité interdite.
+ORIGINE_PAR_DEFAUT = "corps du document"
+
+_MOT = re.compile(r"[^\W_]+", re.UNICODE)
+
+
+def reperer(brut: str, terme: str):
+    """Position exacte d'un terme dans le texte D'ORIGINE.
+
+    On compare sans casse ni accents ; on restitue ce que la source a écrit,
+    mot pour mot. Rend `(début, fin)` ou None.
+    """
+    jetons = [(normaliser(m.group(0)).strip(), m.start(), m.end())
+              for m in _MOT.finditer(brut or "")]
+    cible = [x for x in normaliser(terme).split() if x]
+    if not cible or len(jetons) < len(cible):
+        return None
+    for i in range(len(jetons) - len(cible) + 1):
+        if [j[0] for j in jetons[i:i + len(cible)]] == cible:
+            return jetons[i][1], jetons[i + len(cible) - 1][2]
+    return None
+
+
+@dataclass
+class Exclusion:
+    """Une activité exclue, ET l'endroit où elle a été lue.
+
+    Le terme seul ne décide de rien : « ADR » dans l'objet d'un marché est un
+    empêchement juridique, « ADR » dans un lien de pied de page est le nom
+    d'une page voisine. C'est la PORTÉE qui tranche, pas le mot.
+    """
+    terme: str
+    origine: str
+    extrait: str = ""
+    bloquante: bool = True
+
+    def __str__(self) -> str:
+        etat = "bloquante" if self.bloquante else "écartée — ne caractérise pas le besoin"
+        return f"« {self.terme} » [{self.origine}] {etat}"
+
+
 @dataclass
 class Correspondance:
     familles: list[str] = field(default_factory=list)
     preuves: dict[str, list[str]] = field(default_factory=dict)   # famille -> termes trouvés
     par_cpv: list[str] = field(default_factory=list)
-    exclusions: list[str] = field(default_factory=list)
+    # Toutes les exclusions LUES, bloquantes ou non. Rien n'est effacé ici :
+    # une exclusion écartée reste visible, elle change seulement de statut —
+    # de verdict à question.
+    exclusions_lues: list = field(default_factory=list)
     exigences_suggerees: list[str] = field(default_factory=list)
     # Un CPV générique de transport confirme le DOMAINE sans désigner de
     # spécialité. Il empêche un rejet pour « aucune prestation reconnue » sans
     # pour autant faire passer un marché de distribution pour du pharmaceutique.
     domaine_transport: bool = False
     preuve_domaine: str = ""
+
+    @property
+    def exclusions(self) -> list[str]:
+        """Les seules qui condamnent : celles lues là où le besoin se décrit."""
+        return [e.terme for e in self.exclusions_lues if e.bloquante]
+
+    @property
+    def reserves(self) -> list:
+        """Observées, écartées, jamais supprimées."""
+        return [e for e in self.exclusions_lues if not e.bloquante]
 
     @property
     def correspond(self) -> bool:
@@ -80,13 +137,52 @@ class Ontologie:
             self._exclusions += [normaliser(m).strip()
                                  for m in config.get("exclusions", {}).get(langue, [])]
 
-    def analyser(self, texte: str, cpv: list[str] | None = None) -> Correspondance:
+        # Les EMPLACEMENTS qui ne caractérisent pas un besoin. Ce n'est pas une
+        # liste de mots à ignorer — une liste de mots se tromperait au mot
+        # suivant. C'est une liste de LIEUX : un menu, un pied de page et des
+        # mentions légales décrivent le site, pas ce que l'acheteur demande.
+        # Toute origine absente de cette liste caractérise et bloque.
+        self._hors_besoin = {
+            normaliser(o).strip()
+            for o in (config.get("portee_exclusions", {}) or {}).get(
+                "ne_caracterisent_pas", [])}
+
+    def caracterise(self, origine: str) -> bool:
+        """Un texte lu ICI décrit-il le besoin ? Par défaut : oui."""
+        return normaliser(origine).strip() not in self._hors_besoin
+
+    def analyser(self, texte: str, cpv: list[str] | None = None,
+                 segments: list | None = None) -> Correspondance:
         plat = normaliser(texte)
         res = Correspondance()
 
-        for terme in self._exclusions:
-            if terme and f" {terme} " in plat:
-                res.exclusions.append(terme)
+        # ── Les exclusions, et ELLES SEULES, se lisent avec leur provenance ──
+        #
+        # `segments` est une VUE PORTÉE du même matériau, pas un matériau de
+        # plus : les familles et le domaine continuent de lire exactement
+        # `texte`, comme avant. Une source qui ne déclare aucun segment
+        # retrouve le comportement d'avant, à l'octet près.
+        vues = [(t, o) for t, o in (segments or []) if t] or [(texte, ORIGINE_PAR_DEFAUT)]
+        deja = set()
+        for brut, origine in vues:
+            morceau = normaliser(brut)
+            for terme in self._exclusions:
+                if not terme or f" {terme} " not in morceau:
+                    continue
+                bloquante = self.caracterise(origine)
+                # Le même terme vu bloquant ailleurs reste bloquant : on garde
+                # les deux constats, et c'est le bloquant qui décide.
+                if (terme, bloquante) in deja:
+                    continue
+                deja.add((terme, bloquante))
+                bornes = reperer(brut, terme)
+                extrait = ""
+                if bornes:
+                    d, f = bornes
+                    extrait = ("…" if d > 70 else "") + brut[max(0, d - 70):f + 50].strip() \
+                        + ("…" if f + 50 < len(brut) else "")
+                res.exclusions_lues.append(Exclusion(
+                    terme=terme, origine=origine, extrait=extrait, bloquante=bloquante))
 
         for famille in self.actives:
             if famille in self.exclues:

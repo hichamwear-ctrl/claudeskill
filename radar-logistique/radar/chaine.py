@@ -155,7 +155,17 @@ class Moteur:
     def analyser(self, opp, maintenant_dt=None, fil=None) -> Resultat:
         nature = nat.qualifier(opp)
         role = self.roles.analyser(f"{opp.intitule} {opp.texte}", opp.cpv)
-        corr = self.ontologie.analyser(f"{opp.intitule} {opp.texte}", opp.cpv)
+        # La PORTÉE des exclusions. Quand la source sait dire d'où vient
+        # chaque morceau de texte, ses segments font autorité : y ajouter la
+        # chaîne aplatie ferait revenir le pied de page par la fenêtre, sous
+        # une origine inconnue donc bloquante. L'intitulé s'y ajoute parce
+        # qu'il est un CHAMP, pas une zone de la page.
+        # Sans segments — toute source qui n'en déclare pas — la vue est la
+        # chaîne d'avant, réputée caractériser : comportement inchangé.
+        vues = ([(opp.intitule, "intitulé")] + list(opp.segments)
+                if opp.segments else None)
+        corr = self.ontologie.analyser(f"{opp.intitule} {opp.texte}", opp.cpv,
+                                       segments=vues)
         zone = self.geo.evaluer(opp.pays_collecte, opp.pays_livraison)
         bilan = self._confronter(opp)
         verdict = st.evaluer(opp, maintenant=maintenant_dt)
@@ -384,7 +394,12 @@ class Moteur:
             contradictions=list(lecture.contradictions) if lecture else [],
             fiabilite=fiab.niveau.value if fiab else "",
             fiabilite_motif=fiab.motif() if fiab else "",
-            fil_de_vie=list(fil or []))
+            fil_de_vie=list(fil or []),
+            # Une exclusion écartée pour portée ne disparaît pas : elle
+            # s'affiche, avec son emplacement et l'extrait qui l'a produite.
+            reserves=[f"activité exclue « {e.terme} » observée en [{e.origine}] — "
+                      f"écartée : ne caractérise pas le besoin. Extrait : « {e.extrait} »"
+                      for e in corr.reserves])
 
 
 # Colonnes recalculées à chaque passage. Le bug qu'elles corrigent : `moteur`

@@ -166,6 +166,26 @@ def _entier(valeur, champ: str, illisibles: dict):
     return int(round(n)) if n is not None else None
 
 
+def _segments(v) -> list:
+    """[(texte, origine)] — ce que la source a lu, et OÙ elle l'a lu.
+
+    Rien n'est fabriqué : une source qui n'en déclare pas n'en a pas, et une
+    entrée sans origine est ignorée plutôt que rangée sous une origine
+    inventée.
+    """
+    sortie = []
+    for s in (v or []):
+        if isinstance(s, dict):
+            t, o = s.get("texte"), s.get("origine")
+        elif isinstance(s, (list, tuple)) and len(s) >= 2:
+            t, o = s[0], s[1]
+        else:
+            continue
+        if t and o:
+            sortie.append((str(t), str(o)))
+    return sortie
+
+
 def _liste_texte(v) -> list:
     """Une liste de libellés, quelle que soit la forme reçue. Rien n'est inventé."""
     if v in (None, "", []):
@@ -283,6 +303,7 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         lots=_lots_de(charge, adaptateur, illisibles),
         texte=texte,
         corps=corps,
+        segments=_segments(c.get("segments")),
         type_avis=c.get("type_avis") or d.get("type_avis"),
         est_signal=est_signal,
         signal_code=c.get("signal_code") or (c.get("type_avis") if est_signal else None),

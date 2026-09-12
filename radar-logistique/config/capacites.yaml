@@ -136,6 +136,23 @@ domaine:
 
 # ------------------------------------------------------------ exclusions --
 # Vocabulaire qui disqualifie, même si une famille active a matché par ailleurs.
+# ── PORTÉE DES EXCLUSIONS ────────────────────────────────────────────────
+#
+# Une activité exclue ne bloque que lorsqu'elle CARACTÉRISE le besoin.
+#
+# On ne liste pas ici des mots à ignorer : une liste de mots se tromperait au
+# mot suivant. On liste des EMPLACEMENTS. Un menu, un pied de page, des
+# mentions légales décrivent le SITE — pas ce que l'acheteur demande.
+#
+# Toute origine absente de cette liste caractérise le besoin et BLOQUE. Une
+# portée qu'on ignore ne doit jamais servir à laisser passer une activité
+# juridiquement inaccessible : l'inconnu bloque.
+portee_exclusions:
+  ne_caracterisent_pas:
+    - navigation
+    - pied de page
+    - mentions légales
+
 exclusions:
   fr: ["matières dangereuses", "ADR", "transport de personnes", "transport scolaire",
        "ambulance", "déménagement de particuliers", "transport de fonds",

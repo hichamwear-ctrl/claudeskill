@@ -86,6 +86,60 @@ def analyser(html: str) -> Noeud:
     return c.racine
 
 
+# ── LA PORTÉE D'UNE INFORMATION ───────────────────────────────────────────
+#
+# Un mot lu dans un menu et le même mot lu dans la description d'un besoin ne
+# disent pas la même chose. Le premier décrit le SITE, le second décrit le
+# BESOIN. Tant que le moteur reçoit une page aplatie en une seule chaîne, il
+# ne peut pas faire la différence — et un lien de pied de page condamne une
+# opportunité.
+#
+# `segmenter` ne filtre rien et ne connaît aucun mot : il dit seulement OÙ
+# chaque morceau de texte a été lu. Les repères sont DÉCLARÉS par la source,
+# jamais écrits ici. Le repère le plus proche du texte gagne.
+
+ORIGINE_PAGE = "corps de la page"
+
+
+def _origine_de(noeud: Noeud, balises: dict, attributs: list, defaut: str) -> str:
+    n = noeud
+    while n is not None:
+        if n.balise in balises:
+            return balises[n.balise]
+        for regle in attributs:
+            valeur = (n.attrs.get(regle.get("attribut", "")) or "").lower()
+            if regle.get("valeur", "").lower() in valeur and valeur:
+                return regle.get("origine") or defaut
+        n = n.parent
+    return defaut
+
+
+def segmenter(racine: Noeud, zones: dict | None = None) -> list[tuple[str, str]]:
+    """Le texte de la page, découpé par EMPLACEMENT et non par sujet.
+
+    Rend une liste `(texte, origine)`. Sans déclaration de zones, la page
+    entière rend un seul segment : le comportement d'avant, à l'octet près.
+    """
+    zones = zones or {}
+    balises = {str(b): str(o) for b, o in (zones.get("balises") or {}).items()}
+    attributs = list(zones.get("attributs") or [])
+    defaut = str(zones.get("defaut") or ORIGINE_PAGE)
+
+    morceaux: list[tuple[str, str]] = []
+    for n in [racine, *racine.descendants()]:
+        t = re.sub(r"\s+", " ", n.texte_direct).strip()
+        if not t:
+            continue
+        origine = _origine_de(n, balises, attributs, defaut)
+        # Deux morceaux voisins de même origine sont un seul morceau : on
+        # découpe des ZONES, pas des nœuds HTML.
+        if morceaux and morceaux[-1][1] == origine:
+            morceaux[-1] = (morceaux[-1][0] + " " + t, origine)
+        else:
+            morceaux.append((t, origine))
+    return morceaux
+
+
 def _valeur(noeud: Noeud, spec: dict, base_url: str | None = None):
     """Lit un champ dans un nœud selon sa déclaration."""
     if noeud is None:

@@ -26,6 +26,8 @@ champs:
   objet:            [objet, description, texte]
   acheteur:         [acheteur, entreprise, societe]
   contact_email:    [contact_email]
+  # Le texte porté par son emplacement — voir `zones` plus bas.
+  segments:         [segments]
   plateforme:       [url]
   lieu:             [lieu]
   echeance:         [echeance]
@@ -82,3 +84,23 @@ absences_attendues:
   montant:              "Quel volume annuel, ou quel budget ?"
   echeance:             "Pour quelle date le besoin doit-il être couvert ?"
   duree_mois:           "S'agit-il d'un contrat, et pour combien de temps ?"
+
+
+# ── OÙ le texte a été lu dans la page ────────────────────────────────────
+#
+# Ce n'est pas un filtre de contenu : aucun mot n'apparaît ici. C'est une
+# PROVENANCE. Le repère le plus proche du texte gagne ; un texte sans repère
+# prend l'origine par défaut, qui caractérise le besoin.
+#
+# Beaucoup de sites n'emploient pas les balises HTML5 : `attributs` permet de
+# reconnaître un <div class="site-footer"> comme un pied de page.
+zones:
+  defaut: corps de la page
+  balises:
+    nav: navigation
+    footer: pied de page
+  attributs:
+    - {attribut: role,  valeur: navigation,  origine: navigation}
+    - {attribut: role,  valeur: contentinfo, origine: pied de page}
+    - {attribut: class, valeur: footer,      origine: pied de page}
+    - {attribut: id,    valeur: footer,      origine: pied de page}

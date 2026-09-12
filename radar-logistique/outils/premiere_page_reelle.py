@@ -208,6 +208,16 @@ def mesurer(octets: bytes, url: str, origine: str, famille: str, completude: str
     # Le texte visible entier sert de matière au moteur sémantique. Il n'est pas
     # un champ « rempli » : c'est la page elle-même.
     charge["texte"] = lec.texte[:20000]
+    # Le MÊME texte, découpé par emplacement. Ce n'est pas une matière de
+    # plus : seules les exclusions le lisent, pour savoir si un terme
+    # caractérise le besoin ou décrit seulement le site.
+    charge["segments"] = [{"texte": t, "origine": o} for t, o in lec.segments]
+    # La description <meta> ne fait pas partie du texte visible et n'a donc
+    # aucune zone. Elle décrit pourtant le sujet de la page : elle entre comme
+    # segment CARACTÉRISANT, jamais comme métadonnée négligeable.
+    if lec.champs.get("objet"):
+        charge["segments"].append({"texte": lec.champs["objet"],
+                                   "origine": "description de la page"})
     charge = estampiller(charge, source=famille, reference=url)
 
     ad = Adaptateur.depuis_config(profil_page)
