@@ -6424,5 +6424,128 @@ class BacASableBda(unittest.TestCase):
                              "un outil de mesure ne corrige pas ce qu'il mesure")
 
 
+# ══════════ §26 — le collecteur, ce qu'il fait sans réseau
+#
+# Le BDA reste injoignable depuis cet environnement (403 au CONNECT). Ce qui
+# suit ne touche donc jamais au réseau : ce sont les parties du collecteur qui
+# n'en dépendent pas, et qui portaient le défaut principal — il ne lisait que
+# les LIGNES DE LISTE, jamais la fiche de l'avis, alors que `sources/bda.yaml`
+# déclare une section `detail:` depuis toujours.
+#
+# Les fragments HTML ci-dessous sont des FIXTURES, écrites pour éprouver un
+# sélecteur. Aucun n'est présenté comme une page réelle du BDA.
+
+class CollecteurBda(unittest.TestCase):
+    PROFIL = cfg("sources/bda.yaml")
+
+    def _c(self):
+        import importlib, sys as _s
+        _s.path.insert(0, str(RACINE / "outils"))
+        return importlib.import_module("collecter_bda")
+
+    def test_la_fiche_de_lavis_est_enfin_lue(self):
+        """Le défaut central : `detail:` était déclaré et aucun code ne le
+        lisait. Une collecte de listing ne rend que des titres."""
+        html = ('<div class="description">Transport de colis pour la commune</div>'
+                '<span class="value">240 000 EUR</span>'
+                '<span class="duration">24 mois</span>'
+                '<a class="submit" href="/deposer/1">Remettre une offre</a>')
+        d = self._c().lire_detail(html, self.PROFIL, "https://exemple.test")
+        self.assertEqual(d["objet"], "Transport de colis pour la commune")
+        self.assertIn("240 000", d["montant"])
+        self.assertEqual(d["duree_mois"], "24")
+        self.assertTrue(d["lien_depot"].endswith("/deposer/1"),
+                        "sans guichet de dépôt, le radar ne dira jamais POSTULER")
+
+    def test_aucun_champ_de_fiche_nest_fabrique(self):
+        d = self._c().lire_detail("<p>rien</p>", self.PROFIL, "https://exemple.test")
+        self.assertEqual(d, {}, "un sélecteur muet ne produit pas de clé")
+
+    def test_la_deduplication_a_une_cle_stable(self):
+        """L'ancienne version comparait des dictionnaires entiers en
+        reconstruisant la liste à chaque ligne."""
+        c = self._c()
+        self.assertEqual(c.cle_de({"lien_avis": "/a/1", "intitule": "X"}), "/a/1")
+        self.assertEqual(c.cle_de({"identifiant": "BDA-2"}), "BDA-2")
+        self.assertEqual(c.cle_de({"lien_avis": "/a/1"}),
+                         c.cle_de({"lien_avis": "/a/1", "acheteur": "autre"}),
+                         "le même avis reste le même avis")
+
+    def test_la_page_collectee_est_conservee_et_hachee(self):
+        import tempfile
+        c, d = self._c(), pathlib.Path(tempfile.mkdtemp())
+        p1 = c.archiver("<html>abc</html>", "https://x.test/a", d)
+        self.assertEqual(len(p1["sha256"]), 64)
+        self.assertTrue((d / p1["fichier"]).exists())
+        c.archiver("<html>abc</html>", "https://x.test/a", d)
+        self.assertEqual(len(list(d.glob("*.html"))), 1, "même page, un seul fichier")
+
+    def test_une_collecte_non_verifiee_ne_sort_jamais_en_succes(self):
+        """« verifie: false » veut dire que les sélecteurs n'ont jamais vu la
+        vraie page. Un code de sortie nul laisserait croire l'inverse."""
+        self.assertFalse(self.PROFIL.get("verifie"),
+                         "bda.yaml doit rester non vérifié tant qu'aucune page réelle "
+                         "n'a été mesurée")
+        self.assertEqual(self._c().CODE_NON_VERIFIE, 6)
+        src = (RACINE / "outils" / "collecter_bda.py").read_text(encoding="utf-8")
+        self.assertIn('if not cfg.get("verifie")', src)
+
+    def test_le_robots_txt_est_consulte_avant_toute_lecture(self):
+        src = (RACINE / "outils" / "collecter_bda.py").read_text(encoding="utf-8")
+        avant_robots = src.index("robots.recuperer")
+        self.assertLess(avant_robots, src.index("for page in range"),
+                        "le robots.txt se lit AVANT la première page")
+        self.assertIn("return 2", src[avant_robots:avant_robots + 700])
+        self.assertIn("return 3", src[avant_robots:avant_robots + 900])
+
+    def test_le_lien_dune_fiche_est_verifie_contre_le_robots(self):
+        src = (RACINE / "outils" / "collecter_bda.py").read_text(encoding="utf-8")
+        bloc = src[src.index("lien_champ ="):]
+        self.assertIn("chemin_autorise(lien)", bloc,
+                      "chaque fiche ouverte passe aussi par le robots.txt")
+
+    def test_le_delai_nest_pas_attendu_apres_la_derniere_lecture(self):
+        src = (RACINE / "outils" / "collecter_bda.py").read_text(encoding="utf-8")
+        self.assertIn("jamais après la DERNIÈRE lecture", src)
+
+
+class BacASableFiche(unittest.TestCase):
+    PROFIL = cfg("sources/bda.yaml")
+
+    def test_il_mesure_aussi_les_selecteurs_de_fiche(self):
+        from outils.bac_a_sable_bda import mesurer_detail
+        html = ('<div class="description">Transport</div>'
+                '<a class="submit" href="/d/1">Déposer</a>')
+        m = mesurer_detail(html, self.PROFIL)
+        self.assertIn("objet", m["rendus"])
+        self.assertIn("lien_depot", m["rendus"])
+        self.assertNotIn("lots", m["rendus"])
+        self.assertEqual(len(m["champs_declares"]), 8)
+
+
+class ProtocoleDeReception(unittest.TestCase):
+    """Le protocole est un livrable : s'il ment, un opérateur perd sa journée."""
+
+    TEXTE = (RACINE / "RECEPTION-COLLECTE.md").read_text(encoding="utf-8")
+
+    def test_il_annonce_les_vrais_codes_de_sortie(self):
+        from outils import collecter_bda
+        self.assertIn(f"| `{collecter_bda.CODE_NON_VERIFIE}` |", self.TEXTE)
+        for code in ("`5`", "`4`", "`3`", "`2`"):
+            self.assertIn(code, self.TEXTE)
+
+    def test_il_nomme_les_commandes_qui_existent_vraiment(self):
+        for commande in ("outils/collecter_bda.py", "outils/bac_a_sable_bda.py",
+                         "radar.cli recenser", "notifier --pour-de-vrai"):
+            self.assertIn(commande, self.TEXTE)
+        self.assertTrue((RACINE / "outils" / "collecter_bda.py").exists())
+        self.assertTrue((RACINE / "outils" / "bac_a_sable_bda.py").exists())
+
+    def test_il_ne_promet_aucun_contournement(self):
+        for interdit in ("contourner", "désactiver robots", "ignorer le robots"):
+            self.assertNotIn(interdit, self.TEXTE.lower())
+        self.assertIn("pas de contournement", self.TEXTE)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

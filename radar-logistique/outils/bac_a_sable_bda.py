@@ -77,6 +77,39 @@ def mesurer(html: str, profil: dict) -> dict:
             "enregistrements": enregistrements, "liens": liens}
 
 
+def mesurer_detail(html: str, profil: dict) -> dict:
+    """Ce que les sélecteurs de `detail:` rendent sur la FICHE d'un avis.
+
+    C'est là que vit l'opportunité : objet, montant, durée, guichet de dépôt.
+    La ligne de liste ne porte qu'un titre — et un titre n'est pas attaquable.
+    """
+    from radar.extraction import analyser as lire_html, _valeur
+    champs = ((profil.get("detail") or {}).get("champs")) or {}
+    racine = lire_html(html)
+    rendus = {}
+    for nom, spec in champs.items():
+        v = _valeur(racine, spec, (profil.get("navigation") or {}).get("base_url"))
+        if v not in (None, "", []):
+            rendus[nom] = str(v)[:70]
+    return {"octets": len(html), "champs_declares": champs, "rendus": rendus}
+
+
+def rendre_detail(m: dict, chemin: Path) -> str:
+    barre = "─" * 74
+    L = [barre, "  FICHE D'AVIS — sélecteurs `detail:`", barre,
+         f"  fichier   {chemin}", f"  octets    {m['octets']}", ""]
+    for nom, spec in m["champs_declares"].items():
+        v = m["rendus"].get(nom)
+        marque = "✔" if v else "✘ SÉLECTEUR FAUX"
+        L.append(f"    {marque:16} {nom:16} {_decrire(spec)}")
+        if v:
+            L.append(f"                     → « {v} »")
+    muets = [n for n in m["champs_declares"] if n not in m["rendus"]]
+    L += ["", f"  SÉLECTEURS À 0 %   {muets or 'aucun'}",
+          f"  CHAMPS LISIBLES    {len(m['rendus'])}/{len(m['champs_declares'])}", barre]
+    return "\n".join(L)
+
+
 def rendre(m: dict | None, chemin: Path | None) -> str:
     barre = "═" * 74
     L = [barre, "  BAC À SABLE BDA — mesure des sélecteurs sur une page réelle", barre]
@@ -132,7 +165,8 @@ def rendre(m: dict | None, chemin: Path | None) -> str:
 def principal(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--html", help="page BDA réelle déposée à la main")
+    p.add_argument("--html", help="page de LISTE BDA réelle déposée à la main")
+    p.add_argument("--avis", help="page d'UN AVIS réelle, pour mesurer `detail:`")
     a = p.parse_args(argv)
     profil = yaml.safe_load(PROFIL.read_text(encoding="utf-8"))
     if not a.html:
@@ -144,6 +178,14 @@ def principal(argv=None) -> int:
         return 2
     print(rendre(mesurer(chemin.read_text(encoding="utf-8", errors="replace"), profil),
                  chemin))
+    if a.avis:
+        fiche = Path(a.avis)
+        if not fiche.exists():
+            print(f"fichier introuvable : {fiche}", file=sys.stderr)
+            return 2
+        print()
+        print(rendre_detail(mesurer_detail(
+            fiche.read_text(encoding="utf-8", errors="replace"), profil), fiche))
     return 0
 
 
