@@ -1,0 +1,13 @@
+{
+  "url": "https://colisprive.be/",
+  "origine_de_la_donnee": "collée dans la conversation par le propriétaire du produit le 12/09/2026, puis TRANSCRITE dans ce fichier : texte visible et métadonnées conservés verbatim, imbrication Elementor simplifiée. CE NE SONT PAS LES OCTETS D'ORIGINE — la densité de texte mesurée (32 %) n'est donc pas celle de la page réelle.",
+  "famille": "entreprise",
+  "collecte_le": "2026-09-12T12:30:42+00:00",
+  "octets": 10573,
+  "sha256": "fed491c2e943ad1d17bdc7217dbc18da4ce86e862599a4c39988cb4545d99049",
+  "fichier": "2026-09-12-entreprise-fed491c2e943.html",
+  "page_visee": "https://colisprive.be/devenir-partenaire-livraison/",
+  "page_reellement_fournie": "https://colisprive.be/ — l'ACCUEIL (canonical, page-id-6058), pas la page partenaire",
+  "inscrite_au_registre": false,
+  "motif_non_inscription": "la page fournie n'est pas celle que le radar avait découverte ; inscription en attente de la décision du propriétaire du produit"
+}
