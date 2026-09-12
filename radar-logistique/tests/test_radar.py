@@ -6021,5 +6021,90 @@ class NatureEtFamillesRestentHorsPerimetre(unittest.TestCase):
         self.assertEqual(debut, fin, "comportement INCHANGÉ — hors périmètre, P2")
 
 
+# ══════════ §23 — une négation ne traverse pas une frontière de champ
+#
+# La passe croisée qui corrobore l'intitulé et le corps les concatène. `_nie()`
+# — correcte, et inchangée — examine les 60 caractères qui PRÉCÈDENT un mot :
+# cette fenêtre enjambait donc la frontière. Mesuré :
+#
+#   intitulé « Marché sans reconduction » + corps « Le dépôt des offres est
+#   encore possible. »  →  « depot des offres » sous négation  →  INCONNU
+#
+# « Marché sans reconduction », « Lot sans minimum garanti », « Aucun lot
+# infructueux » sont des intitulés ordinaires en marchés publics.
+#
+# La distinction tenue ici : corroborer POSITIVEMENT entre champs compatibles
+# reste permis ; NIER à travers une frontière de champ ne l'est pas — nier
+# suppose une continuité de phrase que deux champs n'ont pas.
+
+class NegationEtFrontiereDeChamp(unittest.TestCase):
+    CORPS_POSITIF = "Le dépôt des offres est encore possible."
+    LONG = "Nos chiffres parlent d eux memes. " * 40
+
+    def _lire(self, titre, texte, **kw):
+        return proc.lire(titre=titre, texte=texte, maintenant=MAINTENANT, **kw)
+
+    def test_titre_positif_et_corps_positif_restent_postulables(self):
+        self.assertIs(self._lire("Marché de distribution Namur",
+                                 self.CORPS_POSITIF).etat, proc.Etat.POSTULABLE)
+
+    def test_un_titre_negatif_ne_nie_pas_le_corps(self):
+        for titre in ("Marché sans reconduction", "Aucun lot infructueux",
+                      "Marché non reconductible"):
+            with self.subTest(titre=titre):
+                lec = self._lire(titre, self.CORPS_POSITIF)
+                self.assertIs(lec.etat, proc.Etat.POSTULABLE,
+                              f"« {titre} » ne doit pas nier le corps")
+                self.assertFalse([p for p in lec.preuves if "négation" in p.observation])
+
+    def test_le_corps_peut_toujours_nier_sa_propre_preuve(self):
+        """La règle existante ne change pas à l'intérieur d'un champ."""
+        lec = self._lire("Marché de distribution Namur",
+                         "les offres ne sont plus acceptées")
+        self.assertIs(lec.etat, proc.Etat.FERME)
+        self.assertIs(lec.confiance, proc.Confiance.ELEVEE)
+
+    def test_negation_et_preuve_dans_la_meme_unite_comportement_inchange(self):
+        for texte, attendu in (("les offres ne sont plus acceptées", proc.Etat.FERME),
+                               ("la procédure n'est pas encore ouverte", proc.Etat.INCONNU),
+                               ("aucun soumissionnaire n'a encore été désigné",
+                                proc.Etat.INCONNU)):
+            with self.subTest(texte=texte):
+                self.assertIs(self._lire("", texte).etat, attendu)
+
+    def test_aucune_negation_ne_traverse_un_champ_tiers(self):
+        """Trois champs : la négation de l'un ne doit pas atteindre l'autre,
+        même quand le champ du milieu est vide de tout marqueur."""
+        parts = [("objet", "Marché sans reconduction"),
+                 ("contenu", "Distribution de colis en Wallonie."),
+                 ("conditions", "Le dépôt des offres est encore possible.")]
+        lec = self._lire("Appel d'offres",
+                         " ".join(v for _, v in parts), champs_corps=parts)
+        self.assertIs(lec.etat, proc.Etat.POSTULABLE)
+
+    def test_la_regle_ne_depend_pas_de_la_longueur_du_texte(self):
+        court = self._lire("Marché sans reconduction", self.CORPS_POSITIF)
+        long_ = self._lire("Marché sans reconduction",
+                           self.CORPS_POSITIF + " " + self.LONG)
+        self.assertIs(court.etat, long_.etat)
+        self.assertIs(court.etat, proc.Etat.POSTULABLE)
+
+    def test_la_corroboration_positive_entre_champs_est_preservee(self):
+        """Ce que la correction ne doit surtout PAS casser."""
+        lec = self._lire("Marché en cours", "Remise des offres")
+        self.assertIs(lec.etat, proc.Etat.POSTULABLE)
+        origines = {o for p in lec.preuves for o in p.origines}
+        self.assertIn("intitulé", origines)
+        self.assertIn("corps du document", origines)
+
+    def test_les_primitives_de_negation_restent_intactes(self):
+        """`_nie()` n'est pas modifiée : elle est appelée, pas remplacée."""
+        plat = proc.normaliser("les offres ne sont plus acceptées")
+        self.assertTrue(proc._nie(plat, "acceptees"),
+                        "la négation porte sur ce qui la SUIT, pas sur ce qui la précède")
+        plat2 = proc.normaliser("les offres sont acceptées")
+        self.assertFalse(proc._nie(plat2, "acceptees"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -545,6 +545,42 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
                     position + len(expression) + FENETRE_NEGATION]
         return any(f" {m} " in zone for m in _MARQUEURS_PLATS[modificateur])
 
+    def _nie_ici(expression: str) -> bool:
+        """La négation qui porte sur cette expression vient-elle du MÊME champ ?
+
+        `_nie()` — correcte, et inchangée — examine les 60 caractères qui
+        PRÉCÈDENT un mot. Quand deux champs sont concaténés pour être
+        corroborés, cette fenêtre enjambe la frontière : mesuré, un intitulé
+        « Marché SANS reconduction » niait le « dépôt des offres » du corps,
+        et « Aucun lot infructueux » faisait de même. Un POSTULABLE lisible
+        devenait INCONNU.
+
+        La corroboration POSITIVE entre champs compatibles reste permise —
+        « intitulé : marché en cours » et « corps : remise des offres »
+        parlent bien du même marché. Une NÉGATION, non : nier suppose une
+        continuité de phrase que deux champs n'ont pas.
+
+        Sur un texte d'un seul champ — le cas de tous les appels ordinaires —
+        toutes les unités portent le même champ vide, et le résultat est
+        exactement celui de `_nie()`.
+        """
+        if not _nie(plat, expression):
+            return False
+        pos = plat.find(f" {expression} ")
+        if pos < 0:
+            return True
+        debut = max(0, pos - FENETRE_NEGATION)
+        avant_txt = plat[debut:pos + 1]
+        champ_expr = getattr(portee.unite_de(pos + 1), "champ", None)
+        for marqueur in _MARQUEURS_PLATS["negation"]:
+            i = avant_txt.rfind(f" {marqueur} ")
+            if i < 0:
+                continue
+            champ_neg = getattr(portee.unite_de(debut + i + 1), "champ", None)
+            if champ_expr is None or champ_neg is None or champ_expr == champ_neg:
+                return True
+        return False
+
     def _meme_endroit(position: int, expressions) -> bool:
         """Une contre-preuve parle-t-elle du MÊME endroit que la preuve ?
 
@@ -569,18 +605,18 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
         preuves.append(Preuve(rang, observation, conclusion, confiance,
                               exclut=exclut, origines=(origine,)))
 
-    annulation = [m for m in trouver("annulation", plat) if not _nie(plat, m)]
-    infructueux = [m for m in trouver("infructueux", plat) if not _nie(plat, m)]
+    annulation = [m for m in trouver("annulation", plat) if not _nie_ici(m)]
+    infructueux = [m for m in trouver("infructueux", plat) if not _nie_ici(m)]
     attribution = trouver("attribution", plat)
-    attribution_affirmee = [m for m in attribution if not _nie(plat, m)]
-    attribution_niee = [m for m in attribution if _nie(plat, m)]
-    cloture = [m for m in trouver("cloture", plat) if not _nie(plat, m)]
+    attribution_affirmee = [m for m in attribution if not _nie_ici(m)]
+    attribution_niee = [m for m in attribution if _nie_ici(m)]
+    cloture = [m for m in trouver("cloture", plat) if not _nie_ici(m)]
     ouverture = trouver("ouverture", plat)
-    ouverture_affirmee = [m for m in ouverture if not _nie(plat, m)]
-    ouverture_niee = [m for m in ouverture if _nie(plat, m)]
+    ouverture_affirmee = [m for m in ouverture if not _nie_ici(m)]
+    ouverture_niee = [m for m in ouverture if _nie_ici(m)]
     depot = trouver("depot", plat)
-    depot_nie = [m for m in depot if _nie(plat, m)]
-    preinfo = [m for m in trouver("preinformation", plat) if not _nie(plat, m)]
+    depot_nie = [m for m in depot if _nie_ici(m)]
+    preinfo = [m for m in trouver("preinformation", plat) if not _nie_ici(m)]
     projets = trouver("appel_a_projets", plat)
 
     # 1. Les états terminaux non ambigus.
@@ -651,13 +687,13 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
     # 2 bis. « sélection en cours », « en cours d'évaluation », « pending » :
     #         la phase de dépôt est derrière, la décision n'est pas prise.
     #         On EXCLUT, on ne conclut pas — c'est le contraire d'une certitude.
-    attente = [m for m in trouver("pas_encore", plat) if not _nie(plat, m)]
+    attente = [m for m in trouver("pas_encore", plat) if not _nie_ici(m)]
     if attente and not attribution_affirmee:
         dire(None, f"{origine} : « {attente[0]} » — décision en attente",
              Confiance.MOYENNE, exclut=(Etat.POSTULABLE, Etat.ATTRIBUE))
 
     # 3. Un résultat publié dit qu'il s'est passé quelque chose — pas quoi.
-    resultat = [m for m in trouver("resultat", plat) if not _nie(plat, m)]
+    resultat = [m for m in trouver("resultat", plat) if not _nie_ici(m)]
     if resultat and not attribution_affirmee and not preuves:
         dire(Etat.FERME, f"{origine} : « {resultat[0]} » — issue publiée, "
                          f"attribution non nommée", Confiance.FAIBLE)
@@ -969,12 +1005,20 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
     # seconde observation : c'est la même, dupliquée par la mise en page.
     echo = bool(titre) and normaliser(texte) == normaliser(titre)
     corroborants = []
-    for morceau, origine, decoupe in (
-            (texte_autour_du_statut, "texte du statut", None),
-            ("" if echo else texte, "corps du document", blocs)):
+    # `corps` est un AGRÉGAT — `objet`, `contenu`, `conditions`. Le lire comme
+    # un champ unique laissait une négation de l'un atteindre un marqueur de
+    # l'autre, exactement comme elle traversait la frontière intitulé/corps.
+    # La portée composée des champs du corps rend ces frontières visibles ;
+    # la provenance affichée, elle, ne change pas.
+    parts = _champs_du_corps(texte, blocs, champs_corps)
+    portee_corps = (Portee.composer(parts, compatibles=mdl.corroborables)
+                    if len(parts) > 1 else None)
+    for morceau, origine, decoupe, port in (
+            (texte_autour_du_statut, "texte du statut", None, None),
+            ("" if echo else texte, "corps du document", blocs, portee_corps)):
         if morceau:
             corroborants += _reranger(interpreter_formulation(
-                morceau, origine=origine, blocs=decoupe,
+                morceau, origine=origine, blocs=decoupe, portee=port,
                 notes=lecture.a_verifier))
     if echo:
         lecture.a_verifier.append(
