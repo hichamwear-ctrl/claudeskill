@@ -1,0 +1,91 @@
+{
+ "_statut": "SOURCE TROUVÉE — SOURCE NON COLLECTÉE PAR LE RADAR",
+ "_avertissement": "Cette mesure sert à l'AUDIT DE COUVERTURE. Elle ne transforme pas la recherche en collecteur du radar. Aucun adaptateur du radar n'a émis ces requêtes, aucun adaptateur n'a reçu ces réponses : elles ont été obtenues par l'outil de recherche de l'assistant, à la main.",
+ "famille": "recherche",
+ "famille_note": "La famille est celle du COLLECTEUR RÉELLEMENT EMPLOYÉ (un moteur de recherche, famille C), pas celle du thème cherché. Le thème interrogé était le partenariat / la sous-traitance (famille H) : la famille H reste NON MESURÉE, car aucune source de la famille H n'a été collectée.",
+ "collecte_le": "2026-09-12",
+ "outil": "outil de recherche web de l'assistant (hors radar)",
+ "nombre_de_requetes": 2,
+ "nombre_de_resultats": 14,
+ "empreinte_capture": "8996d85be77d28833ce80facd3df92edd8a0febe6c9207514acd53e8bf46f81b",
+ "empreinte_note": "sha256 de la capture verbatim de l'outil. La capture portait `famille: \"H — partenariat / sous-traitance\"` ; c'était une erreur de désignation, corrigée ici. Les 2 requêtes et les 14 couples titre/URL sont repris sans aucune modification.",
+ "donnees_observees": [
+  "title",
+  "url"
+ ],
+ "ce_qui_n_est_pas_entre": [
+  "aucun résumé généré par l'outil de recherche : la prose que l'outil produit par-dessus les résultats est écrite par un modèle, ce n'est pas une observation",
+  "aucune page considérée comme lue : le proxy refuse tous ces domaines (403 CONNECT ; WebFetch EGRESS_BLOCKED)",
+  "aucune qualification de contenu présentée comme preuve de page : ce qui est lisible dans un titre reste un signal de titre",
+  "aucun extrait, aucune description, aucun contact, aucun montant"
+ ],
+ "frontiere": "DÉCOUVERTE (titre + URL) ≠ QUALIFICATION (page réellement lue). Ces 14 lignes sont au stade DÉCOUVERTE. Zéro page qualifiée.",
+ "requetes": [
+  {
+   "requete": "\"devenir partenaire transporteur\" OR \"recherchons transporteurs partenaires\" Belgique livraison sous-traitance 2026",
+   "resultats": [
+    {
+     "title": "Travailler comme partenaire de PostNL | PostNL",
+     "url": "https://www.postnl.be/fr/offres-demploi-pour-sous-traitants/"
+    },
+    {
+     "title": "Transports En Sous-Traitance – Fournisseurs Belgique | europages",
+     "url": "https://www.europages.fr/entreprises/belgique/transports-en-sous-traitance.html"
+    },
+    {
+     "title": "Sous-traitant DHL : Devenez notre partenaire de transport",
+     "url": "https://transporteur.dhl.fr/"
+    },
+    {
+     "title": "Devenir partenaire de livraison - Colis Privé BeLux",
+     "url": "https://colisprive.be/devenir-partenaire-livraison/"
+    },
+    {
+     "title": "Devenir prestataire de transport de DHL Freight - DHL Freight - Belgique",
+     "url": "https://www.dhl.com/be-fr/home/nos-divisions/fret/service-client/devenir-partenaire.html"
+    },
+    {
+     "title": "Sous-traitance transport en Belgique | Partenaire DPD & DHL",
+     "url": "https://bulbulgroup.be/sous-traitance-transport-belgique"
+    },
+    {
+     "title": "Devenir partenaire transport routier Le Roy Logistique",
+     "url": "https://www.leroylogistique.com/demande-partenaire-transport/"
+    },
+    {
+     "title": "AVL Partners",
+     "url": "https://avlpartners.com/"
+    },
+    {
+     "title": "Sous-traitants | TNT Belgium - TNT Express",
+     "url": "https://www.tnt.com/express/fr_be/site/support/sous-traitants.html"
+    },
+    {
+     "title": "Commissionnaired: trouver transporteur",
+     "url": "https://www.teleroute.com/en-en/freight-forwarders/find-a-carrier/"
+    }
+   ]
+  },
+  {
+   "requete": "\"sous-traitants transport\" OR \"partenaires de livraison\" recrutement Belgique Wallonie Flandre entreprise cherche",
+   "resultats": [
+    {
+     "title": "Career | GLS Belgique",
+     "url": "https://gls-group.com/BE/fb/carriere/"
+    },
+    {
+     "title": "Sous Traitant Transport : plus de 50 emplois (18 février 2026) | Indeed",
+     "url": "https://emplois.be.indeed.com/q-sous-traitant-transport-emplois.html"
+    },
+    {
+     "title": "Sous Traitant : plus de 400 emplois (19 juin 2026) | Indeed",
+     "url": "https://emplois.be.indeed.com/q-sous-traitant-emplois.html"
+    },
+    {
+     "title": "Emplois : Sous traitant transport à Belgique - Jooble",
+     "url": "https://fr.jooble.org/emploi-sous-traitant-transport/Belgique"
+    }
+   ]
+  }
+ ]
+}

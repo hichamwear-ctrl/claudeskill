@@ -75,6 +75,32 @@
         "plus d'INCONNUS que d'OBSERVÉS : c'est le régime normal d'une page privée, et le score doit y survivre",
         "aucun contact lisible : une opportunité sans porte d'entrée"
       ]
+    },
+    {
+      "horodatage": "2026-09-12T00:00:00+00:00",
+      "famille": "recherche",
+      "origine": "SOURCE TROUVÉE — SOURCE NON COLLECTÉE PAR LE RADAR. Outil de recherche web de l'assistant, employé à la main, hors radar : aucun adaptateur du radar n'a émis ces 2 requêtes ni reçu ces réponses. Données observées : titre et URL uniquement. Aucun résumé généré par l'outil de recherche n'est entré (il est écrit par un modèle). Aucune page n'a été lue ni considérée comme lue : le proxy refuse tous ces domaines (403 CONNECT ; WebFetch EGRESS_BLOCKED). Aucune qualification de contenu n'est présentée comme preuve de page. Mesure destinée à l'AUDIT DE COUVERTURE, pas au compteur de collecte automatisée.",
+      "reference": "14 résultats réels, 2 requêtes — thème interrogé : partenariat / sous-traitance",
+      "empreinte": "8996d85be77d28833ce80facd3df92edd8a0febe6c9207514acd53e8bf46f81b",
+      "page_conservee": "2026-09-12-recherche-partenariat-brut.json",
+      "completude": "titre et URL seulement — aucune page lue, 0 page qualifiée sur 14",
+      "ca_identifie": 0.0,
+      "verdict": "0 page qualifiée sur 14 ; 3 signaux commerciaux détectés SUR LE TITRE, aucun vérifié dans une page ; 0 € mesurable",
+      "porte_un_besoin": true,
+      "constats": {
+        "requetes": 2,
+        "resultats": 14,
+        "champs observés par résultat": 2,
+        "pages lues": 0,
+        "pages qualifiées": 0,
+        "signaux commerciaux sur titre": 3
+      },
+      "enseignements": [
+        "la famille inscrite est `recherche` (le collecteur réellement employé) : la famille H `partenariat` reste NON MESURÉE",
+        "`porte_un_besoin` repose ici sur le TITRE seul — c'est une découverte, pas une qualification",
+        "DÉCOUVERTE (titre + URL) ≠ QUALIFICATION (page réellement lue) : la frontière est préservée, le capteur de titre n'a pas été élargi",
+        "le goulet n'est pas le nombre de collecteurs mais l'accès aux pages externes : un adaptateur local de plus ne changerait rien"
+      ]
     }
   ]
 }
