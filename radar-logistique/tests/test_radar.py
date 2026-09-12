@@ -6106,5 +6106,149 @@ class NegationEtFrontiereDeChamp(unittest.TestCase):
         self.assertFalse(proc._nie(plat2, "acceptees"))
 
 
+# ══════════ §24 — la zone atteint enfin la lecture d'état
+#
+# La provenance de zone existait depuis la correction 2, mais s'arrêtait au
+# chemin des exclusions. `extraction.blocs()` calculait la zone pour
+# `segmenter` et la JETAIT. Mesuré :
+#
+#   pied de page « Mentions légales — Attribution des cookies »
+#   → ATTRIBUÉ, rang 4, confiance ÉLEVÉE
+#
+# Un pied de page décrit le SITE, pas l'état d'une procédure. C'est la même
+# déclaration de zones, propagée — pas une seconde mécanique, et aucun mot
+# n'entre dans la règle.
+
+class ZoneEtLectureDEtat(unittest.TestCase):
+    ZONES = Ontologie(CAPACITES, PROFIL["familles_actives"],
+                      PROFIL.get("familles_exclues")).caracterise
+    CORPS = "Distribution de colis en Wallonie."
+
+    def _lire(self, blocs, titre="Notre société", **kw):
+        return proc.lire(titre=titre, texte=" ".join(t for t, _ in blocs), blocs=blocs,
+                         zone_pertinente=self.ZONES, maintenant=MAINTENANT, **kw)
+
+    def _ecartees(self, lec):
+        return [a for a in lec.a_verifier if "preuve écartée" in a]
+
+    # ── zones ────────────────────────────────────────────────────────────
+    def test_une_attribution_en_pied_de_page_ne_conclut_pas(self):
+        lec = self._lire([(self.CORPS, "corps de la page"),
+                          ("Mentions légales", "pied de page"),
+                          ("Attribution des cookies", "pied de page")])
+        self.assertIsNot(lec.etat, proc.Etat.ATTRIBUE)
+        self.assertIs(lec.etat, proc.Etat.INCONNU)
+
+    def test_une_attribution_en_navigation_ne_conclut_pas(self):
+        lec = self._lire([("Accueil", "navigation"), ("Attribution", "navigation"),
+                          (self.CORPS, "corps de la page")])
+        self.assertIs(lec.etat, proc.Etat.INCONNU)
+
+    def test_une_attribution_en_mentions_legales_ne_conclut_pas(self):
+        lec = self._lire([(self.CORPS, "corps de la page"),
+                          ("Attribution du marché à X", "mentions légales")])
+        self.assertIs(lec.etat, proc.Etat.INCONNU)
+
+    def test_une_attribution_dans_le_corps_conclut_toujours(self):
+        lec = self._lire([("Le marché a été attribué à Transalux SA.", "corps de la page")])
+        self.assertIs(lec.etat, proc.Etat.ATTRIBUE)
+        self.assertIs(lec.confiance, proc.Confiance.ELEVEE)
+        self.assertFalse(self._ecartees(lec))
+
+    def test_le_pied_de_page_ne_contamine_pas_une_preuve_reelle(self):
+        lec = self._lire([("Le marché a été attribué à Transalux SA.", "corps de la page"),
+                          ("Attribution des cookies", "pied de page")])
+        self.assertIs(lec.etat, proc.Etat.ATTRIBUE)
+        self.assertTrue(self._ecartees(lec))
+
+    def test_le_pied_de_page_ne_ferme_pas_un_marche_ouvert(self):
+        """Le plus coûteux : un « Dossier cloturé » de pied de page fermait
+        une consultation ouverte."""
+        lec = self._lire([("L offre est disponible jusqu au 30 novembre.", "corps de la page"),
+                          ("Dossier cloture", "pied de page")])
+        self.assertIs(lec.etat, proc.Etat.POSTULABLE)
+
+    def test_la_navigation_ne_contribue_pas_a_la_decision(self):
+        lec = self._lire([("Nos offres", "navigation"), ("Accueil", "navigation"),
+                          ("La remise des offres est encore possible.", "corps de la page")])
+        self.assertIs(lec.etat, proc.Etat.POSTULABLE)
+
+    def test_une_zone_inconnue_nest_jamais_presumee(self):
+        """L'absence de provenance ne doit être ni un avantage ni une
+        exclusion : sans zone, le comportement d'avant, à l'identique."""
+        blocs = [("L offre est disponible jusqu au 30 novembre.", ""),
+                 ("Dossier cloture", "")]
+        avec = self._lire(blocs)
+        sans = proc.lire(titre="Notre société", texte=" ".join(t for t, _ in blocs),
+                         blocs=[t for t, _ in blocs], maintenant=MAINTENANT)
+        self.assertIs(avec.etat, sans.etat)
+        self.assertIs(avec.etat, proc.Etat.FERME)
+
+    def test_une_zone_non_declaree_reste_pertinente(self):
+        lec = self._lire([("Le marché a été attribué à Transalux SA.", "colonne annexe")])
+        self.assertIs(lec.etat, proc.Etat.ATTRIBUE)
+
+    # ── les quatre états ─────────────────────────────────────────────────
+    def test_les_quatre_etats_sont_ecartes_depuis_une_zone_non_pertinente(self):
+        for texte, etat in (("Le marché a été attribué à Transalux SA.", proc.Etat.ATTRIBUE),
+                            ("La procédure est cloturee.", proc.Etat.FERME),
+                            ("L offre est disponible, remise des offres ouverte.",
+                             proc.Etat.POSTULABLE),
+                            ("Avis de préinformation pour un marché.", proc.Etat.ANNONCE)):
+            with self.subTest(etat=etat.value):
+                dans = self._lire([(texte, "corps de la page")])
+                hors = self._lire([(self.CORPS, "corps de la page"), (texte, "pied de page")])
+                self.assertIs(dans.etat, etat, "la zone éditoriale conclut")
+                self.assertIsNot(hors.etat, etat, "le pied de page ne conclut pas")
+
+    # ── provenance : jamais une disparition silencieuse ──────────────────
+    def test_le_journal_dit_pourquoi_une_preuve_est_ecartee(self):
+        lec = self._lire([(self.CORPS, "corps de la page"),
+                          ("Attribution des cookies", "pied de page")])
+        ecartees = self._ecartees(lec)
+        self.assertEqual(len(ecartees), 1)
+        self.assertIn("pied de page", ecartees[0])
+        self.assertIn("Attribution des cookies", ecartees[0])
+        self.assertIn("ne porte pas l'état d'une procédure", ecartees[0])
+
+    def test_la_zone_vient_de_la_meme_declaration_que_les_exclusions(self):
+        """Une seule déclaration propagée, pas une seconde mécanique."""
+        ont = Ontologie(CAPACITES, PROFIL["familles_actives"])
+        self.assertFalse(ont.caracterise("pied de page"))
+        self.assertFalse(ont.caracterise("navigation"))
+        self.assertTrue(ont.caracterise("corps de la page"))
+        self.assertTrue(ont.caracterise(""))
+
+    def test_procedure_py_ne_nomme_aucune_zone(self):
+        src = (RACINE / "radar" / "procedure.py").read_text(encoding="utf-8")
+        for zone in ("pied de page", "navigation", "mentions légales", "footer"):
+            self.assertNotIn(f'"{zone}"', src)
+
+
+class LaZoneRemonteDepuisLeDom(unittest.TestCase):
+    HTML = ("<main><p>Le marché a été attribué à Transalux SA.</p></main>"
+            "<nav><a>Attribution</a></nav>"
+            "<footer><a>Attribution des cookies</a></footer>")
+
+    def test_les_blocs_portent_leur_zone(self):
+        from radar.extraction import analyser as lire_html, blocs
+        z = cfg("sources/page_web.yaml")["zones"]
+        obtenus = dict(blocs(lire_html(self.HTML), z))
+        self.assertEqual(obtenus["Attribution"], "navigation")
+        self.assertEqual(obtenus["Attribution des cookies"], "pied de page")
+        self.assertEqual(obtenus["Le marché a été attribué à Transalux SA."],
+                         "corps de la page")
+
+    def test_sans_declaration_la_zone_reste_vide(self):
+        from radar.extraction import analyser as lire_html, blocs
+        self.assertEqual({z for _, z in blocs(lire_html(self.HTML))}, {""})
+
+    def test_lunite_de_portee_transporte_la_zone(self):
+        from radar.portee import Portee
+        p = Portee.construire("Alpha. Beta.",
+                              [("Alpha.", "corps de la page"), ("Beta.", "pied de page")])
+        self.assertEqual([u.zone for u in p.unites], ["corps de la page", "pied de page"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -47,8 +47,9 @@ class Lecture:
     # Ce n'est pas une matière de plus, c'est la MÊME matière qui sait d'où
     # elle vient. Vide tant que la source ne déclare aucune zone.
     segments: list = field(default_factory=list)
-    # Les blocs de texte du document, non fusionnés : l'unité de discours la
-    # plus fiable dont dispose le moteur (voir radar/portee.py).
+    # Les blocs de texte du document, non fusionnés, AVEC leur zone :
+    # [(texte, zone)]. L'unité de discours la plus fiable dont dispose le
+    # moteur (voir radar/portee.py), et l'endroit de la page où elle a été lue.
     blocs: list = field(default_factory=list)
     longueur_html: int = 0
     longueur_texte: int = 0
@@ -109,7 +110,7 @@ def lire(html: str, profil: dict) -> Lecture:
     texte = racine.texte()
     lec = Lecture(texte=texte, longueur_html=len(html or ""), longueur_texte=len(texte))
 
-    lec.blocs = blocs_de(racine)
+    lec.blocs = blocs_de(racine, profil.get('zones'))
     if profil.get("zones"):
         lec.segments = segmenter(racine, profil["zones"])
 

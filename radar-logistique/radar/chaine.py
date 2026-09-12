@@ -196,6 +196,12 @@ class Moteur:
             # la lecture retombe sur les phrases, puis sur la fenêtre.
             blocs=opp.blocs,
             champs_corps=opp.corps_champs,
+            # LA MÊME déclaration de zones que les exclusions : « ne
+            # caractérise pas le besoin » et « ne porte pas l'état d'une
+            # procédure » désignent les mêmes endroits — un menu, un pied de
+            # page, des mentions légales décrivent le site. Une seule
+            # déclaration, propagée ; pas une seconde mécanique.
+            zone_pertinente=self.ontologie.caracterise,
             texte_autour_du_statut=opp.texte_statut or "",
             documents=opp.documents, evenements=opp.evenements,
             actions_possibles=opp.actions_possibles,

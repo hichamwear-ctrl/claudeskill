@@ -204,6 +204,25 @@ def _agreger(c: dict, champs):
     return " ".join(morceaux).strip(), parts
 
 
+def _blocs(v) -> list:
+    """[(texte, zone)] — les blocs du document, et OÙ chacun a été lu.
+
+    Accepte des blocs nus (la source ne sait pas nommer ses zones) ou portés.
+    Une zone absente reste vide : inconnue, jamais présumée.
+    """
+    sortie = []
+    for b in (v or []):
+        if isinstance(b, dict):
+            t, z = b.get("texte"), b.get("zone") or b.get("origine")
+        elif isinstance(b, (list, tuple)) and len(b) >= 2:
+            t, z = b[0], b[1]
+        else:
+            t, z = b, ""
+        if str(t or "").strip():
+            sortie.append((str(t), str(z or "")))
+    return sortie
+
+
 def _segments(v) -> list:
     """[(texte, origine)] — ce que la source a lu, et OÙ elle l'a lu.
 
@@ -355,7 +374,7 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         texte=texte,
         corps=corps,
         segments=_segments(c.get("segments")),
-        blocs=[str(b) for b in (c.get("blocs") or []) if str(b).strip()],
+        blocs=_blocs(c.get("blocs")),
         corps_champs=corps_parts,
         texte_champs=texte_parts,
         champs_origine=dict(chemins_lus),

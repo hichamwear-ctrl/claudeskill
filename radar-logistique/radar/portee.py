@@ -80,6 +80,10 @@ class Unite:
     fin: int
     brut: str = ""          # ce que la source a écrit, mot pour mot
     champ: str = ""         # le CHAMP d'où vient cette unité
+    # LA ZONE de la page où ce morceau a été lu — « pied de page »,
+    # « navigation »… Vide quand la source ne sait pas le dire : inconnue,
+    # jamais présumée.
+    zone: str = ""
     # QUEL NIVEAU a produit cette unité — bloc, phrase ou fenêtre. Une
     # relation plus large que l'unité (voir `meme_ensemble`) n'a de sens
     # qu'entre phrases : deux blocs voisins sont deux paragraphes.
@@ -161,7 +165,7 @@ class Portee:
                 continue
             for u in partielle.unites:
                 unites.append(Unite(rang, base + u.debut - 1, base + u.fin - 1,
-                                    u.brut, nom, u.niveau))
+                                    u.brut, nom, u.zone, u.niveau))
                 rang += 1
             curseur = base + len(noyau)
         if not unites:
@@ -169,6 +173,17 @@ class Portee:
         structure = "champs"
         return cls(plat=plat, unites=unites, structure=structure, fenetre=fenetre,
                    compatibles=compatibles)
+
+    @staticmethod
+    def _denuder(morceaux):
+        """Accepte des morceaux nus ou portés : « texte » ou (texte, zone)."""
+        sortie = []
+        for m in morceaux or []:
+            if isinstance(m, (list, tuple)) and len(m) >= 2:
+                sortie.append((str(m[0]), str(m[1] or "")))
+            elif str(m).strip():
+                sortie.append((str(m), ""))
+        return sortie
 
     @classmethod
     def _apparier(cls, plat: str, morceaux) -> list:
@@ -181,14 +196,14 @@ class Portee:
         le découpage.
         """
         apparies, curseur = [], 1
-        for brut in morceaux:
+        for brut, zone in cls._denuder(morceaux):
             noyau = normaliser(brut).strip()
             if not noyau:
                 continue
             i = plat.find(noyau, curseur)
             if i < 0:
                 continue
-            apparies.append((i, i + len(noyau), str(brut)))
+            apparies.append((i, i + len(noyau), str(brut), zone))
             curseur = i + len(noyau)
         return apparies
 
@@ -196,7 +211,7 @@ class Portee:
     def construire(cls, texte: str, blocs=None, fenetre: int = FENETRE) -> "Portee":
         plat = normaliser(texte)
         phrases = cls._apparier(plat, _phrases(texte or ""))
-        blocs_apparies = cls._apparier(plat, [b for b in (blocs or []) if str(b).strip()])
+        blocs_apparies = cls._apparier(plat, cls._denuder(blocs))
 
         # DÉCLARER « blocs » SANS QU'AUCUN BLOC N'AIT ÉTÉ RETROUVÉ rendait le
         # texte entier opaque : une seule unité, et tout s'y corroborait — le
@@ -207,8 +222,8 @@ class Portee:
         if blocs_apparies:
             spans = cls._completer(plat, blocs_apparies, phrases)
             structure = "blocs"
-            ancres = {(d, f) for d, f, _ in blocs_apparies}
-            niveaux = ["bloc" if (d, f) in ancres else "phrase" for d, f, _ in spans]
+            ancres = {(d, f) for d, f, _, _ in blocs_apparies}
+            niveaux = ["bloc" if (d, f) in ancres else "phrase" for d, f, _, _ in spans]
         elif len(phrases) > 1:
             spans, structure = phrases, "phrases"
             niveaux = ["phrase"] * len(spans)
@@ -216,8 +231,8 @@ class Portee:
             spans, structure = phrases, "fenêtre"
             niveaux = ["fenêtre"] * len(spans)
 
-        unites = [Unite(rang, d, f, brut, "", niveaux[rang])
-                  for rang, (d, f, brut) in enumerate(spans)]
+        unites = [Unite(rang, d, f, brut, "", zone, niveaux[rang])
+                  for rang, (d, f, brut, zone) in enumerate(spans)]
         if not unites:
             unites = [Unite(0, 0, len(plat), str(texte or ""))]
         return cls(plat=plat, unites=unites, structure=structure, fenetre=fenetre)
@@ -232,12 +247,12 @@ class Portee:
         sans rapport se corroboraient de nouveau.
         """
         complet, curseur = [], 1
-        for d, f, brut in list(spans) + [(len(plat) - 1, len(plat) - 1, "")]:
+        for d, f, brut, zone in list(spans) + [(len(plat) - 1, len(plat) - 1, "", "")]:
             if plat[curseur:d].strip():
-                dedans = [(a, b, t) for a, b, t in secours if a >= curseur and b <= d]
-                complet += dedans or [(curseur, d, "")]
+                dedans = [(a, b, t, z) for a, b, t, z in secours if a >= curseur and b <= d]
+                complet += dedans or [(curseur, d, "", "")]
             if brut:
-                complet.append((d, f, brut))
+                complet.append((d, f, brut, zone))
             curseur = max(curseur, f)
         return complet
 

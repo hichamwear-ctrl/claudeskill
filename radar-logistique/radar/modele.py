@@ -78,7 +78,7 @@ class Opportunite:
     # dans une <meta description> et « objet » lu dans le corps du document
     # se présentent comme la même chose.
     champs_origine: dict = field(default_factory=dict)
-    # LE CORPS, TEL QUE LA SOURCE L'A DÉCOUPÉ : [texte, texte, …].
+    # LE CORPS, TEL QUE LA SOURCE L'A DÉCOUPÉ : [(texte, zone), …].
     #
     # Deux fragments d'un même texte libre ne se combinent que dans une même
     # unité de discours (voir radar/portee.py). Les blocs sont la meilleure

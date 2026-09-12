@@ -114,20 +114,31 @@ def _origine_de(noeud: Noeud, balises: dict, attributs: list, defaut: str) -> st
     return defaut
 
 
-def blocs(racine: Noeud) -> list[str]:
-    """Les blocs de texte du document, NON fusionnés.
+def blocs(racine: Noeud, zones: dict | None = None) -> list[tuple[str, str]]:
+    """Les blocs de texte du document, NON fusionnés, AVEC leur zone.
 
     `segmenter` réunit les morceaux voisins de même zone : c'est ce qu'il faut
     pour savoir OÙ un mot a été lu. Mais la page Colis Privé a 80 blocs
     distincts, et cette fusion en effaçait la frontière — celle qui séparait
     « Une offre de livraison » (un <h3>) de « Bientôt disponible » (un <p>)
     par 24 blocs. Le DOM la connaissait ; on la conserve ici.
+
+    La ZONE était calculée par `_origine_de` pour `segmenter` et jetée ici :
+    les blocs partaient sans elle, si bien qu'une « Attribution des cookies »
+    lue en pied de page arrivait à la lecture d'état comme un avis
+    d'attribution. C'est la MÊME provenance, propagée — pas une seconde
+    mécanique. Sans déclaration de zones, la zone reste vide : inconnue, donc
+    jamais présumée.
     """
+    zones = zones or {}
+    balises = {str(b): str(o) for b, o in (zones.get("balises") or {}).items()}
+    attributs = list(zones.get("attributs") or [])
+    defaut = str(zones.get("defaut") or "") if zones else ""
     sortie = []
     for n in [racine, *racine.descendants()]:
         t = re.sub(r"\s+", " ", n.texte_direct).strip()
         if t:
-            sortie.append(t)
+            sortie.append((t, _origine_de(n, balises, attributs, defaut) if zones else ""))
     return sortie
 
 

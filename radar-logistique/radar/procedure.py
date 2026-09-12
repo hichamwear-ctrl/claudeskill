@@ -497,7 +497,7 @@ def _porte(plat: str, concept: str, modificateur: str) -> bool:
 # ═════════════════════════════════════════════ lecture d'une formulation libre
 def interpreter_formulation(texte: str, *, origine: str = "texte",
                             blocs=None, notes: list | None = None,
-                            portee=None) -> list[Preuve]:
+                            portee=None, zone_pertinente=None) -> list[Preuve]:
     """Lit une phrase et en tire des preuves — négations et futur compris.
 
     Cette fonction ne connaît AUCUN portail. Elle est utilisée telle quelle
@@ -544,6 +544,38 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
         zone = plat[max(0, position - FENETRE_NEGATION):
                     position + len(expression) + FENETRE_NEGATION]
         return any(f" {m} " in zone for m in _MARQUEURS_PLATS[modificateur])
+
+    def _retenus(concept: str) -> list:
+        """Les expressions d'un concept, MOINS celles lues hors procédure.
+
+        `zone_pertinente(zone) -> bool` est fourni par l'appelant : ce module
+        ne connaît aucun nom de zone et n'en déclare aucun. Une zone vide —
+        source qui ne sait pas la dire — est toujours pertinente : l'inconnu
+        ne s'écarte pas.
+
+        Mesuré : « Mentions légales — Attribution des cookies », lu en pied de
+        page, produisait un ATTRIBUÉ de rang 4 en confiance ÉLEVÉE. Le pied de
+        page décrit le SITE, pas l'état d'une procédure — c'est la même
+        provenance de zone que les exclusions utilisent depuis la correction 2,
+        propagée jusqu'ici.
+        """
+        trouves = trouver(concept, plat)
+        if zone_pertinente is None:
+            return trouves
+        gardes = []
+        for m in trouves:
+            lieux = positions(plat, m)
+            dedans = [q for q in lieux
+                      if zone_pertinente(getattr(portee.unite_de(q), "zone", "") or "")]
+            if dedans:
+                gardes.append(m)
+            elif lieux:
+                zone = getattr(portee.unite_de(lieux[0]), "zone", "") or "zone inconnue"
+                note = (f"preuve écartée — {zone} — « {portee.extrait(lieux[0])} » : "
+                        f"cette zone ne porte pas l'état d'une procédure")
+                if note not in notes:
+                    notes.append(note)
+        return gardes
 
     def _nie_ici(expression: str) -> bool:
         """La négation qui porte sur cette expression vient-elle du MÊME champ ?
@@ -605,19 +637,19 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
         preuves.append(Preuve(rang, observation, conclusion, confiance,
                               exclut=exclut, origines=(origine,)))
 
-    annulation = [m for m in trouver("annulation", plat) if not _nie_ici(m)]
-    infructueux = [m for m in trouver("infructueux", plat) if not _nie_ici(m)]
-    attribution = trouver("attribution", plat)
+    annulation = [m for m in _retenus("annulation") if not _nie_ici(m)]
+    infructueux = [m for m in _retenus("infructueux") if not _nie_ici(m)]
+    attribution = _retenus("attribution")
     attribution_affirmee = [m for m in attribution if not _nie_ici(m)]
     attribution_niee = [m for m in attribution if _nie_ici(m)]
-    cloture = [m for m in trouver("cloture", plat) if not _nie_ici(m)]
-    ouverture = trouver("ouverture", plat)
+    cloture = [m for m in _retenus("cloture") if not _nie_ici(m)]
+    ouverture = _retenus("ouverture")
     ouverture_affirmee = [m for m in ouverture if not _nie_ici(m)]
     ouverture_niee = [m for m in ouverture if _nie_ici(m)]
-    depot = trouver("depot", plat)
+    depot = _retenus("depot")
     depot_nie = [m for m in depot if _nie_ici(m)]
-    preinfo = [m for m in trouver("preinformation", plat) if not _nie_ici(m)]
-    projets = trouver("appel_a_projets", plat)
+    preinfo = [m for m in _retenus("preinformation") if not _nie_ici(m)]
+    projets = _retenus("appel_a_projets")
 
     # 1. Les états terminaux non ambigus.
     if annulation:
@@ -687,13 +719,13 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
     # 2 bis. « sélection en cours », « en cours d'évaluation », « pending » :
     #         la phase de dépôt est derrière, la décision n'est pas prise.
     #         On EXCLUT, on ne conclut pas — c'est le contraire d'une certitude.
-    attente = [m for m in trouver("pas_encore", plat) if not _nie_ici(m)]
+    attente = [m for m in _retenus("pas_encore") if not _nie_ici(m)]
     if attente and not attribution_affirmee:
         dire(None, f"{origine} : « {attente[0]} » — décision en attente",
              Confiance.MOYENNE, exclut=(Etat.POSTULABLE, Etat.ATTRIBUE))
 
     # 3. Un résultat publié dit qu'il s'est passé quelque chose — pas quoi.
-    resultat = [m for m in trouver("resultat", plat) if not _nie_ici(m)]
+    resultat = [m for m in _retenus("resultat") if not _nie_ici(m)]
     if resultat and not attribution_affirmee and not preuves:
         dire(Etat.FERME, f"{origine} : « {resultat[0]} » — issue publiée, "
                          f"attribution non nommée", Confiance.FAIBLE)
@@ -720,7 +752,7 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
 
     # 5. L'ouverture — seulement si elle parle bien d'un dépôt ou d'une procédure.
     #    « la société est active depuis 1998 » ne rend rien postulable.
-    sujets = depot or trouver("procedure", plat)
+    sujets = depot or _retenus("procedure")
     if ouverture_affirmee and sujets:
         # « porte sur » AFFIRME un lien syntaxique. Tant qu'il n'était pas
         # vérifié, la preuve mentait : sur une page réelle, « disponible »
@@ -849,8 +881,13 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
          texte_autour_du_statut="", documents=(), evenements=(), actions_possibles=(),
          echeance=None, date_attribution=None, titulaire=None, maintenant=None,
          vocabulaire: Vocabulaire | None = None, source="", est_signal=False,
-         lien_depot=None, blocs=None, champs_corps=None) -> Lecture:
+         lien_depot=None, blocs=None, champs_corps=None,
+         zone_pertinente=None) -> Lecture:
     """Assemble toutes les preuves disponibles et applique la hiérarchie.
+
+    `zone_pertinente(zone) -> bool` est fourni par l'appelant, qui seul connaît
+    les zones déclarées. Ce module n'en nomme aucune. Sans prédicat, toutes les
+    zones sont pertinentes : le comportement d'avant, à l'octet près.
 
     `blocs` — quand la source sait dire comment son corps est découpé — sert
     UNIQUEMENT au corps du document : c'est du texte libre, et deux fragments
@@ -1019,7 +1056,7 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
         if morceau:
             corroborants += _reranger(interpreter_formulation(
                 morceau, origine=origine, blocs=decoupe, portee=port,
-                notes=lecture.a_verifier))
+                notes=lecture.a_verifier, zone_pertinente=zone_pertinente))
     if echo:
         lecture.a_verifier.append(
             "le corps de l'enregistrement recopie son intitulé — "
@@ -1043,7 +1080,7 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
             portee=Portee.composer(
                 [(mdl.INTITULE, titre, None)] + _champs_du_corps(texte, blocs, champs_corps),
                 compatibles=mdl.corroborables),
-            notes=lecture.a_verifier)))
+            notes=lecture.a_verifier, zone_pertinente=zone_pertinente)))
         for pr in croisees:
             # DEUX provenances, pas une chaîne qui les résume : la fiche doit
             # montrer que l'observation tient à deux champs distincts.
