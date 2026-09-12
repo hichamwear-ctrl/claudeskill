@@ -475,15 +475,30 @@ def cmd_apprendre(a) -> int:
 
 def cmd_notifier(a) -> int:
     cx = ouvrir(_base(a))
-    envoi.reprendre_interrompus(cx)
-    if a.pour_de_vrai:
-        print("aucun transport configuré dans cet environnement", file=sys.stderr)
-        return 3
-    en_attente = envoi.a_envoyer(cx)
-    print(f"{len(en_attente)} message(s) en attente (essai à blanc, rien n'est envoyé)")
-    for l in en_attente:
-        print(f"  · {l['source']}/{l['ref_source']}")
-    return 0
+    repris = envoi.reprendre_interrompus(cx)
+    if repris:
+        print(f"{repris} envoi(s) interrompu(s) rangé(s) en AMBIGU — jamais réémis")
+    if not a.pour_de_vrai:
+        en_attente = envoi.a_envoyer(cx)
+        print(f"{len(en_attente)} message(s) en attente (essai à blanc, rien n'est envoyé)")
+        for l in en_attente:
+            print(f"  · {l['source']}/{l['ref_source']}")
+        return 0
+
+    # LE TRANSPORT RÉEL. Un fichier, parce qu'il ne demande ni réseau ni
+    # compte : le radar sort quelque chose le jour où on le branche. Il se
+    # remplace par un courriel ou un webhook sans toucher à la file.
+    from .alerte import TransportFichier
+    transport = TransportFichier(a.dossier)
+    compte = envoi.vider(cx, transport)
+    print(f"ALERTES — dossier {Path(a.dossier).resolve()}")
+    print(f"  délivrées {compte['delivre']} · échecs {compte['echec']} · "
+          f"ambiguës {compte['ambigu']}")
+    print(f"  fichiers écrits      {len(transport.ecrits)}")
+    print(f"  déjà sorties (sceau) {len(transport.deja_sortis)}")
+    for chemin in transport.ecrits[:10]:
+        print(f"    → {chemin}")
+    return 0 if not compte["echec"] else 1
 
 
 def cmd_validation(a) -> int:
@@ -584,7 +599,10 @@ def principal(argv=None) -> int:
     v.set_defaults(fn=cmd_validation)
 
     n = s.add_parser("notifier", help="vider la file d'envoi")
-    n.add_argument("--pour-de-vrai", action="store_true")
+    n.add_argument("--pour-de-vrai", action="store_true",
+                   help="écrire réellement les alertes (sinon : essai à blanc)")
+    n.add_argument("--dossier", default="alertes",
+                   help="où déposer les fiches (défaut : ./alertes)")
     n.set_defaults(fn=cmd_notifier)
 
     a = p.parse_args(argv)

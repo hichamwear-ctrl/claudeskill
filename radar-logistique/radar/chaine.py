@@ -725,7 +725,15 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                 bilan.developper += 1
                 livre.developper += 1
 
-            if envoi.mettre_en_file(cx, opp.source, opp.ref_source, r.fiche.en_texte()):
+            # NI UN REJET NI UNE OBSERVATION NE RÉVEILLENT LE COMMERCIAL.
+            #
+            # `Type.notifiable` disait déjà exactement cela, et la file
+            # l'ignorait : sur les quinze avis réels du 12 septembre, sept
+            # fiches « CLASSER SANS SUITE — rien à travailler » partaient en
+            # alerte. Une liste dont la moitié dit de ne rien faire n'est plus
+            # une liste courte d'opportunités attaquables.
+            if r.classement.type.notifiable and envoi.mettre_en_file(
+                    cx, opp.source, opp.ref_source, r.fiche.en_texte()):
                 bilan.notifies += 1
             # Un seul passage : il annule ce qui est périmé ET met en file
             # l'alerte quand la transition en mérite une.

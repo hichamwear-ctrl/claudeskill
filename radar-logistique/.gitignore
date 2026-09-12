@@ -1,0 +1,10 @@
+# Sorties d'exécution — jamais versionnées.
+#
+# Une alerte est une sortie du radar destinée à un commercial, pas un
+# artefact de code. Une base est l'état d'une installation, pas du produit.
+alertes/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+__pycache__/
+*.pyc

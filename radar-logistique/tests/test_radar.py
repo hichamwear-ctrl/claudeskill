@@ -5,6 +5,7 @@ mauvaise réponse coûte un contrat.
 """
 
 import json
+import pathlib
 import sys
 import unittest
 from datetime import datetime, timezone
@@ -6248,6 +6249,179 @@ class LaZoneRemonteDepuisLeDom(unittest.TestCase):
         p = Portee.construire("Alpha. Beta.",
                               [("Alpha.", "corps de la page"), ("Beta.", "pied de page")])
         self.assertEqual([u.zone for u in p.unites], ["corps de la page", "pied de page"])
+
+
+# ══════════ §25 — le radar sort enfin quelque chose
+#
+# La file d'alerte était complète depuis longtemps — durable, idempotente,
+# avec reprise des interrompus — et `radar notifier` répondait « aucun
+# transport configuré ». Le radar qualifiait des opportunités que personne ne
+# recevait. Un transport fichier suffit : ni réseau, ni compte, ni clé.
+
+class TransportDAlerte(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        from radar.alerte import TransportFichier
+        self.dossier = pathlib.Path(tempfile.mkdtemp())
+        self.T = TransportFichier
+        self.cx = ouvrir(":memory:")
+        self.corps = moteur().analyser(
+            opp(intitule="Transport de colis pour la commune de Namur",
+                texte="Marché de distribution. La remise des offres est possible.",
+                acheteur="Commune de Namur", montant=240000, duree_mois=24,
+                cadence="quotidienne"), maintenant_dt=MAINTENANT).fiche.en_texte()
+
+    def _fichiers(self):
+        return sorted(self.dossier.rglob("*.txt"))
+
+    def test_une_alerte_produit_un_fichier(self):
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps)
+        t = self.T(self.dossier)
+        self.assertEqual(envoi.vider(self.cx, t),
+                         {"delivre": 1, "echec": 0, "ambigu": 0})
+        self.assertEqual(len(self._fichiers()), 1)
+
+    def test_une_seconde_tentative_ne_produit_pas_de_doublon(self):
+        """Le nom du fichier dérive du CONTENU : le même message ne ressort
+        jamais deux fois, même après une reprise."""
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps)
+        envoi.vider(self.cx, self.T(self.dossier))
+        self.cx.execute("UPDATE envois SET etat='a_envoyer'")
+        self.cx.commit()
+        t2 = self.T(self.dossier)
+        envoi.vider(self.cx, t2)
+        self.assertEqual(len(self._fichiers()), 1)
+        self.assertEqual(len(t2.ecrits), 0)
+        self.assertEqual(len(t2.deja_sortis), 1)
+
+    def test_deux_motifs_distincts_font_deux_alertes(self):
+        """« je viens de la découvrir » et « elle vient de s'ouvrir » sont deux
+        événements commerciaux sur la même opportunité."""
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps)
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps + "\nÉTAT → POSTULABLE",
+                             motif="ouverture")
+        envoi.vider(self.cx, self.T(self.dossier))
+        self.assertEqual(len(self._fichiers()), 2)
+
+    def test_une_interruption_range_en_ambigu_et_ne_renvoie_jamais(self):
+        envoi.mettre_en_file(self.cx, "bda", "R2", self.corps)
+        self.cx.execute("UPDATE envois SET etat='en_cours'")
+        self.cx.commit()
+        self.assertEqual(envoi.reprendre_interrompus(self.cx), 1)
+        self.assertEqual(
+            self.cx.execute("SELECT etat FROM envois").fetchone()["etat"], "ambigu")
+        t = self.T(self.dossier)
+        envoi.vider(self.cx, t)
+        self.assertEqual(len(t.ecrits), 0, "un ambigu ne se réémet pas")
+
+    def test_une_ecriture_interrompue_ne_laisse_pas_de_fiche_a_moitie(self):
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps)
+        envoi.vider(self.cx, self.T(self.dossier))
+        self.assertEqual(list(self.dossier.rglob("*.partiel")), [])
+
+    def test_le_contenu_est_commercial_et_lisible(self):
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps)
+        envoi.vider(self.cx, self.T(self.dossier))
+        texte = self._fichiers()[0].read_text(encoding="utf-8")
+        self.assertIn("RADAR COMMERCIAL — ALERTE", texte)
+        self.assertIn("émise le", texte)
+        self.assertIn("sceau", texte)
+        for bloc in ("ÉTAT", "ACTION", "CE QU'IL FAUT FAIRE", "ÉCONOMIE"):
+            self.assertIn(bloc, texte, f"la fiche doit porter « {bloc} »")
+        self.assertNotIn("Traceback", texte)
+
+    def test_le_fichier_est_date_et_porte_le_sceau_du_contenu(self):
+        from radar.alerte import sceau_de
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps)
+        envoi.vider(self.cx, self.T(self.dossier))
+        f = self._fichiers()[0]
+        self.assertRegex(f.parent.name, r"^\d{4}-\d{2}-\d{2}$")
+        self.assertTrue(f.name.startswith(sceau_de(self.corps)))
+
+    def test_une_erreur_decriture_devient_un_echec_reessayable(self):
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps)
+        def casse(_corps):
+            raise OSError("disque plein")
+        self.assertEqual(envoi.vider(self.cx, casse),
+                         {"delivre": 0, "echec": 1, "ambigu": 0})
+        self.assertEqual(
+            self.cx.execute("SELECT etat FROM envois").fetchone()["etat"], "echec")
+
+    def test_le_transport_reste_remplacable(self):
+        """`vider` n'attend qu'un appelable recevant le corps : un courriel ou
+        un webhook se substitue sans toucher à la file."""
+        recus = []
+        envoi.mettre_en_file(self.cx, "bda", "R1", self.corps)
+        envoi.vider(self.cx, recus.append)
+        self.assertEqual(len(recus), 1)
+        self.assertIn("Transport de colis", recus[0])
+
+
+class NiRejetNiObservationNeReveillentLeCommercial(unittest.TestCase):
+    """`Type.notifiable` disait déjà cela ; la file l'ignorait. Sur les quinze
+    avis réels du 12 septembre, sept fiches « CLASSER SANS SUITE — rien à
+    travailler » partaient en alerte."""
+
+    def _file(self, **kw):
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), [opp(**kw)], maintenant_dt=MAINTENANT)
+        return cx.execute("SELECT count(*) c FROM envois").fetchone()["c"]
+
+    def test_une_observation_ne_part_pas_en_alerte(self):
+        self.assertEqual(self._file(intitule="Notre nouveau logo", echeance_brute=None,
+                                    texte="Notre société dévoile son identité visuelle."), 0)
+
+    def test_un_rejet_ne_part_pas_en_alerte(self):
+        self.assertEqual(self._file(intitule="Transport ADR", echeance_brute=None,
+                                    texte="Marché de transport de matières dangereuses."), 0)
+
+    def test_une_opportunite_part_toujours_en_alerte(self):
+        self.assertEqual(self._file(intitule="Recherche transporteur",
+                                    texte="Nous recherchons un transporteur pour nos "
+                                          "livraisons quotidiennes en Wallonie."), 1)
+
+
+class BacASableBda(unittest.TestCase):
+    """Mesurer des sélecteurs sans réseau — et distinguer « zéro élément
+    trouvé » de « jamais regardé »."""
+
+    def test_sans_page_il_dit_NON_MESURE_et_sort_en_erreur(self):
+        import io, contextlib
+        from outils import bac_a_sable_bda as bac
+        flux = io.StringIO()
+        with contextlib.redirect_stdout(flux):
+            code = bac.principal([])
+        self.assertEqual(code, 2, "NON MESURÉ n'est pas un succès")
+        self.assertIn("NON MESURÉ", flux.getvalue())
+        self.assertNotIn("MESURÉ\n\n  conteneur", flux.getvalue())
+
+    def test_avec_une_page_il_compte_ce_que_chaque_selecteur_rend(self):
+        from outils.bac_a_sable_bda import mesurer
+        profil = cfg("sources/bda.yaml")
+        html = ('<table class="result">'
+                '<tr><td class="reference">BDA-1</td><td class="buyer">Commune X</td>'
+                '<a href="/avis/1">Transport de colis</a></tr>'
+                '<tr><td class="reference">BDA-2</td><td class="buyer">CPAS Y</td>'
+                '<a href="/avis/2">Distribution</a></tr></table>')
+        m = mesurer(html, profil)
+        self.assertEqual(m["lignes"], 2)
+        self.assertEqual(m["champs"]["identifiant"], 2)
+        self.assertEqual(m["champs"]["acheteur"], 2)
+        self.assertEqual(m["champs"]["echeance"], 0, "sélecteur absent → 0, et il le dit")
+        self.assertEqual(len(m["liens"]), 2)
+
+    def test_il_ne_modifie_jamais_le_profil(self):
+        """Un outil de mesure ne corrige pas ce qu'il mesure."""
+        import ast
+        src = (RACINE / "outils" / "bac_a_sable_bda.py").read_text(encoding="utf-8")
+        # Sur le CODE seulement : la prose explique comment corriger le profil,
+        # ce qui est son rôle ; c'est d'écrire qu'il ne doit jamais faire.
+        code = ast.parse(src)
+        appels = {n.func.attr for n in ast.walk(code)
+                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)}
+        for interdit in ("write_text", "write_bytes", "safe_dump", "replace", "mkdir"):
+            self.assertNotIn(interdit, appels,
+                             "un outil de mesure ne corrige pas ce qu'il mesure")
 
 
 if __name__ == "__main__":
