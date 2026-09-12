@@ -1,0 +1,100 @@
+{
+ "_statut": "TENTATIVE D'ACCÈS — AUCUNE PAGE REÇUE. CE FICHIER N'EST PAS UNE COLLECTE.",
+ "_avertissement": "Ce relevé n'est PAS inscrit au registre des mesures réelles : aucune donnée n'a été observée. Le compteur DONNÉES RÉELLES OBSERVÉES reste à 5. Un accès refusé ne se compte pas comme une donnée, et les deux derniers barreaux de l'échelle sont NON MESURÉS, pas « non » : personne n'a regardé (NON MESURÉ ≠ 0).",
+ "tente_le": "2026-09-12",
+ "objectif": "convertir SOURCE TROUVÉE (titre + URL) en PAGE RÉELLEMENT LUE, pour les 3 prospects les mieux notés de la mesure `recherche` du 2026-09-12 (empreinte 8996d85be77d…)",
+ "moteur_touche": "AUCUN — aucun fichier de radar/ n'est modifié par ce relevé",
+ "cibles": [
+  {
+   "rang": 1,
+   "prospect": "Le Roy Logistique",
+   "url": "https://www.leroylogistique.com/demande-partenaire-transport/",
+   "echelle": {
+    "URL connue": "OUI",
+    "DNS résolu": "OUI — 195.15.193.70",
+    "accès HTTP réel": "NON — 403 du gateway d'egress",
+    "page réellement reçue": "NON — 0 octet provenant du site",
+    "contenu lisible": "NON — rien n'a été reçu",
+    "formulaire / contact présent": "NON MESURÉ — personne n'a regardé",
+    "besoin commercial observable": "NON MESURÉ — personne n'a regardé"
+   }
+  },
+  {
+   "rang": 2,
+   "prospect": "DHL — transporteur",
+   "url": "https://transporteur.dhl.fr/",
+   "echelle": {
+    "URL connue": "OUI",
+    "DNS résolu": "OUI — 51.210.13.242",
+    "accès HTTP réel": "NON — 403 du gateway d'egress",
+    "page réellement reçue": "NON — 0 octet provenant du site",
+    "contenu lisible": "NON — rien n'a été reçu",
+    "formulaire / contact présent": "NON MESURÉ — personne n'a regardé",
+    "besoin commercial observable": "NON MESURÉ — personne n'a regardé"
+   }
+  },
+  {
+   "rang": 2,
+   "prospect": "DHL Freight Belgique",
+   "url": "https://www.dhl.com/be-fr/home/nos-divisions/fret/service-client/devenir-partenaire.html",
+   "echelle": {
+    "URL connue": "OUI",
+    "DNS résolu": "OUI — 2600:1405:6400:197::4b3f",
+    "accès HTTP réel": "NON — 403 du gateway d'egress",
+    "page réellement reçue": "NON — 0 octet provenant du site",
+    "contenu lisible": "NON — rien n'a été reçu",
+    "formulaire / contact présent": "NON MESURÉ — personne n'a regardé",
+    "besoin commercial observable": "NON MESURÉ — personne n'a regardé"
+   }
+  },
+  {
+   "rang": 3,
+   "prospect": "Colis Privé BeLux",
+   "url": "https://colisprive.be/devenir-partenaire-livraison/",
+   "echelle": {
+    "URL connue": "OUI",
+    "DNS résolu": "OUI — 2001:41d0:301::28",
+    "accès HTTP réel": "NON — 403 du gateway d'egress",
+    "page réellement reçue": "NON — 0 octet provenant du site",
+    "contenu lisible": "NON — rien n'a été reçu",
+    "formulaire / contact présent": "NON MESURÉ — personne n'a regardé",
+    "besoin commercial observable": "NON MESURÉ — personne n'a regardé"
+   }
+  }
+ ],
+ "voies_essayees": [
+  {
+   "voie": "curl HTTPS via le proxy",
+   "resultat": "curl (56) CONNECT tunnel failed, response 403 — 0 octet"
+  },
+  {
+   "voie": "curl HTTP via le proxy",
+   "resultat": "403 · 110 o · en-tête `x-deny-reason: host_not_allowed` · corps : « Host not in allowlist: … Add this host to your network egress settings » — le corps vient du gateway, pas du site"
+  },
+  {
+   "voie": "curl HTTPS hors proxy (--noproxy '*')",
+   "resultat": "403 identique — la sortie directe passe par le même gateway"
+  },
+  {
+   "voie": "navigateur réel — Chromium 1194 headless via Playwright",
+   "resultat": "net::ERR_TUNNEL_CONNECTION_FAILED sur les 3 cibles — un vrai navigateur ne franchit pas davantage le mur"
+  },
+  {
+   "voie": "WebFetch (outil du harnais, hors conteneur)",
+   "resultat": "EGRESS_BLOCKED sur les 3 cibles"
+  }
+ ],
+ "temoin": {
+  "pourquoi": "prouver que l'échec vient du mur et non de l'outil de test",
+  "hote": "https://pypi.org/project/requests/",
+  "commande": "la même commande curl, aux mêmes réglages",
+  "resultat": "200 · 251 417 octets reçus"
+ },
+ "autres_hotes_essayes": {
+  "www.postnl.be": "403 CONNECT",
+  "www.tnt.com": "403 CONNECT",
+  "www.google.com": "403 CONNECT",
+  "r.jina.ai (relais de lecture)": "403 CONNECT — le contournement est fermé aussi"
+ },
+ "conclusion": "L'environnement ne permet pas de franchir la frontière DÉCOUVERTE → QUALIFICATION. Le blocage est une liste blanche d'egress (`host_not_allowed`), pas une panne, pas un refus des sites, pas un défaut du radar. Aucun code ne peut le lever : seul l'exploitant peut ajouter ces hôtes aux réglages réseau de l'environnement. Les 3 prospects restent au stade DÉCOUVERTE, et leur potentiel reste NON MESURÉ."
+}
