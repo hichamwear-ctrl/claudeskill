@@ -15,7 +15,7 @@ import yaml
 RACINE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RACINE))
 
-from radar import construction, envoi, procedure as proc, statut as st
+from radar import construction, envoi, nature as nat, procedure as proc, statut as st
 from radar.activite import Ontologie
 from radar.base import ouvrir
 from radar.capacite import Capacites, Niveau
@@ -5543,14 +5543,22 @@ class PorteeSemantique(unittest.TestCase):
         for t in ("Les offres sont ouvertes.", PAGE_LONGUE["texte"]):
             self.assertEqual(Portee.construire(t).plat, npr(t))
 
-    def test_deux_champs_dun_meme_enregistrement_se_corroborent_toujours(self):
+    def test_la_portee_ne_decide_pas_seule_de_la_corroboration(self):
+        """Le test remplace une règle jugée fausse par l'audit : « champ
+        différent ⇒ même référent ». Cohabiter dans un enregistrement n'est
+        pas décrire le même objet. La portée DEMANDE, elle ne tranche pas."""
         from radar.portee import Portee, positions
-        p = Portee.composer([("intitulé", "Marché en cours", None),
-                             ("corps", "Remise des offres.", None)])
-        a = positions(p.plat, "en cours")[0]
-        b = positions(p.plat, "offres")[0]
-        self.assertTrue(p.meme_unite(a, b),
-                        "deux champs sont deux provenances d'un seul référent")
+        from radar import modele as mdl
+        champs = [(mdl.INTITULE, "Marché en cours", None),
+                  (mdl.CORPS, "Remise des offres.", None)]
+        sans = Portee.composer(champs)
+        avec = Portee.composer(champs, compatibles=mdl.corroborables)
+        a = positions(sans.plat, "en cours")[0]
+        b = positions(sans.plat, "offres")[0]
+        self.assertFalse(sans.meme_unite(a, b),
+                         "sans règle du modèle, deux provenances ne corroborent pas")
+        self.assertTrue(avec.meme_unite(a, b),
+                        "le modèle confirme que titre et corps décrivent le même besoin")
 
     def test_deux_fragments_dun_meme_texte_libre_ne_se_corroborent_pas(self):
         from radar.portee import Portee, positions
@@ -5720,6 +5728,297 @@ class LaPorteeNeDefaitPasLaCorrection2(unittest.TestCase):
         self.assertEqual(r.correspondance.exclusions, [])
         self.assertEqual(len(r.correspondance.reserves), 1)
         self.assertEqual(r.correspondance.reserves[0].origine, "pied de page")
+
+
+# ══════════ §22 — ce que l'audit de `01f867a` a trouvé, et qui est corrigé
+#
+# Six défauts mesurés, chacun reproduit avant d'être corrigé. Le fil commun :
+# la portée disait « même endroit » là où elle ne savait pas, au lieu de dire
+# « je ne sais pas ».
+
+NEUTRE = "Nos chiffres parlent d eux memes. " * 40
+
+
+class P0_3_BlocsEtrangers(unittest.TestCase):
+    """Des blocs qui ne correspondent pas au texte rendaient la page entière
+    opaque : une seule unité, tout s'y corroborait — le comportement d'avant
+    `portee.py`, silencieusement."""
+
+    TEXTE = "Marche en cours. " + NEUTRE + " Une offre de livraison."
+
+    def _p(self, blocs):
+        from radar.portee import Portee
+        return Portee.construire(self.TEXTE, blocs)
+
+    def _paire(self, p):
+        from radar.portee import positions
+        return p.meme_unite(positions(p.plat, "en cours")[0],
+                            positions(p.plat, "offre")[0])
+
+    def test_de_bons_blocs_gardent_le_comportement(self):
+        p = self._p(["Marche en cours.", NEUTRE, " Une offre de livraison."])
+        self.assertEqual(p.structure, "blocs")
+        self.assertEqual(len(p.unites), 3)
+        self.assertFalse(self._paire(p))
+
+    def test_des_blocs_etrangers_retombent_sur_les_phrases(self):
+        p = self._p(["bloc du parent A", "bloc du parent B"])
+        self.assertEqual(p.structure, "phrases")
+        self.assertFalse(self._paire(p))
+
+    def test_fournir_de_mauvais_blocs_nest_jamais_pire_que_nen_fournir_aucun(self):
+        from radar.portee import Portee
+        sans = Portee.construire(self.TEXTE, None)
+        faux = self._p(["bloc étranger", "autre bloc étranger"])
+        self.assertEqual(len(faux.unites), len(sans.unites))
+
+    def test_une_region_non_revendiquee_nest_pas_opaque(self):
+        """Un seul bloc apparié sur trois laissait 1 400 caractères d'un seul
+        tenant, où deux mots sans rapport se corroboraient de nouveau."""
+        from radar.portee import positions
+        p = self._p(["Marche en cours.", "bloc étranger", "autre"])
+        self.assertEqual(p.structure, "blocs")
+        self.assertGreater(len(p.unites), 10)
+        self.assertFalse(p.meme_unite(positions(p.plat, "en cours")[0],
+                                      positions(p.plat, "offre")[0]))
+
+
+class P0_2_LotsEtCorpsDuParent(unittest.TestCase):
+    """`copy.copy` laissait au lot le corps et les blocs du marché parent :
+    l'état du marché devenait l'état de chacun de ses lots."""
+
+    def _parent(self, lots):
+        return Opportunite(
+            source="bda", ref_source="M1", intitule="Marché de distribution",
+            texte="contexte du marché",
+            corps="Marche en cours. " + NEUTRE + " Une offre peut etre deposee.",
+            blocs=["Marche en cours.", NEUTRE, "Une offre peut etre deposee."],
+            lots=lots)
+
+    def _etat(self, e):
+        return proc.lire(titre=e.intitule, texte=e.corps, blocs=e.blocs,
+                         maintenant=MAINTENANT).etat
+
+    def test_deux_lots_aux_etats_differents_ne_se_confondent_plus(self):
+        enfants = eclater(self._parent([
+            LotBrut(numero="1", intitule="Namur",
+                    texte="Tournées namuroises. Le dépôt des offres est encore possible."),
+            LotBrut(numero="2", intitule="Liège",
+                    texte="Tournées liégeoises. La procédure est cloturee pour ce lot.")]))
+        self.assertIs(self._etat(enfants[0]), proc.Etat.POSTULABLE)
+        self.assertIs(self._etat(enfants[1]), proc.Etat.FERME)
+
+    def test_un_lot_sans_texte_propre_na_pas_de_corps_invente(self):
+        e = eclater(self._parent([LotBrut(numero="3", intitule="Hainaut")]))[0]
+        self.assertEqual(e.corps, "")
+        self.assertEqual(e.blocs, [])
+        self.assertIs(self._etat(e), proc.Etat.INCONNU,
+                      "mieux vaut INCONNU que l'état du voisin")
+
+    def test_le_corps_du_lot_nest_jamais_celui_du_parent(self):
+        p = self._parent([LotBrut(numero="1", intitule="Namur", texte="Tournées.")])
+        self.assertNotEqual(eclater(p)[0].corps, p.corps)
+
+    def test_un_marche_sans_lot_garde_son_propre_corps(self):
+        o = opp(intitule="Marché simple", texte="t", corps="Une offre peut etre deposee.",
+                blocs=["Une offre peut etre deposee."])
+        e = eclater(o)[0]
+        self.assertEqual(e.corps, o.corps)
+        self.assertEqual(e.blocs, o.blocs)
+
+
+class P0_1_CompatibiliteDesChamps(unittest.TestCase):
+    """« Cohabiter dans un enregistrement » n'est pas « décrire le même
+    objet ». La portée demande ; le modèle répond."""
+
+    def _corrobore(self, champs):
+        from radar.portee import Portee, positions
+        from radar import modele as mdl
+        p = Portee.composer(champs, compatibles=mdl.corroborables)
+        return p.meme_unite(positions(p.plat, "en cours")[0],
+                            positions(p.plat, "offre")[0])
+
+    def test_intitule_et_corps_se_corroborent_toujours(self):
+        from radar import modele as mdl
+        self.assertTrue(self._corrobore(
+            [(mdl.INTITULE, "Marché en cours", None),
+             (mdl.CORPS, NEUTRE + " Une offre de livraison.", None)]))
+
+    def test_une_metadonnee_ne_corrobore_pas_le_contenu_editorial(self):
+        from radar import modele as mdl
+        self.assertFalse(self._corrobore(
+            [(mdl.DESCRIPTION, "Marché en cours", None),
+             (mdl.CONTENU, NEUTRE + " Une offre de livraison.", None)]))
+
+    def test_deux_rubriques_ne_se_corroborent_pas(self):
+        self.assertFalse(self._corrobore(
+            [("rubrique A", "Marché en cours", None),
+             ("rubrique B", NEUTRE + " Une offre de livraison.", None)]))
+
+    def test_la_regle_est_explicite_et_relisible(self):
+        """Elle vit dans le modèle, pas dans une exception de `meme_unite`."""
+        from radar import modele as mdl
+        self.assertTrue(mdl.corroborables(mdl.INTITULE, mdl.CORPS))
+        self.assertFalse(mdl.corroborables(mdl.DESCRIPTION, mdl.CONTENU))
+        self.assertFalse(mdl.corroborables(mdl.CORPS, mdl.CORPS),
+                         "un champ avec lui-même est du texte libre")
+        self.assertFalse(mdl.corroborables("inconnu", mdl.CORPS))
+
+    def test_la_primitive_reste_sans_vocabulaire_metier(self):
+        """`portee.py` ne doit connaître aucun nom de champ du modèle."""
+        src = (RACINE / "radar" / "portee.py").read_text(encoding="utf-8")
+        for nom in ("intitulé", "corps du document", "conditions", "description"):
+            self.assertNotIn(f'"{nom}"', src)
+
+
+class P1_1_SuppressionsADistance(unittest.TestCase):
+    """Une preuve positive et une contre-preuve ne s'annulent pas parce
+    qu'elles existent quelque part dans le même texte."""
+
+    def _etats(self, texte):
+        return [p.conclusion.value if p.conclusion else "—"
+                for p in proc.interpreter_formulation(texte, origine="corps du document")]
+
+    def test_une_cloture_dune_autre_unite_neteint_plus_louverture(self):
+        etats = self._etats("L offre est disponible jusqu au 30 novembre. "
+                            + NEUTRE + " Procédure cloturee pour le marché 2024.")
+        self.assertIn("POSTULABLE", etats)
+        self.assertIn("FERMÉ", etats)
+
+    def test_une_cloture_de_la_meme_unite_eteint_toujours_louverture(self):
+        etats = self._etats("L offre est disponible mais la procédure est cloturee.")
+        self.assertNotIn("POSTULABLE", etats)
+        self.assertIn("FERMÉ", etats)
+
+    def test_une_attribution_dailleurs_neteint_plus_la_preinformation(self):
+        etats = self._etats("Avis de préinformation pour un futur marché. "
+                            + NEUTRE + " Le marché 2019 a été attribué.")
+        self.assertIn("ANNONCÉ", etats)
+        self.assertIn("ATTRIBUÉ", etats)
+
+    def test_une_attribution_de_la_meme_unite_eteint_la_preinformation(self):
+        self.assertNotIn("ANNONCÉ",
+                         self._etats("Avis de préinformation, marché déjà attribué."))
+
+    def test_la_hierarchie_arbitre_et_affiche_les_deux(self):
+        lec = proc.lire(titre="", texte="Avis de préinformation pour un futur marché. "
+                        + NEUTRE + " Le marché 2019 a été attribué.",
+                        maintenant=MAINTENANT)
+        self.assertEqual(len(lec.preuves), 2)
+        self.assertTrue(lec.contradictions)
+
+
+class P1_2_IdentiteDesChampsAgreges(unittest.TestCase):
+    """`corps` agrège `objet`, `contenu` et `conditions`. Fondus sous une
+    étiquette unique, deux champs réels ne pouvaient plus se corroborer."""
+
+    PROFIL = cfg("sources/page_web.yaml")
+
+    def _o(self, **charge):
+        from radar.adaptateur import Adaptateur, vers_opportunite
+        return vers_opportunite(Adaptateur.depuis_config(self.PROFIL),
+                                {"url": "https://x.be/", "intitule": "Distribution",
+                                 **charge}, "entreprise")
+
+    def _etat(self, o):
+        return proc.lire(titre=o.intitule, texte=o.corps, blocs=o.blocs,
+                         champs_corps=o.corps_champs, maintenant=MAINTENANT).etat
+
+    def test_objet_et_contenu_gardent_leur_identite_et_se_corroborent(self):
+        o = self._o(objet="Marché en cours", texte=NEUTRE + " Une offre de livraison.")
+        self.assertEqual([n for n, _ in o.corps_champs], ["objet", "contenu"])
+        self.assertIs(self._etat(o), proc.Etat.POSTULABLE)
+
+    def test_un_champ_vide_ne_devient_pas_une_provenance(self):
+        o = self._o(objet="", texte=NEUTRE + " Une offre de livraison.")
+        self.assertEqual([n for n, _ in o.corps_champs], ["contenu"])
+
+    def test_un_champ_absent_ne_devient_pas_une_provenance(self):
+        o = self._o(texte=NEUTRE + " Une offre de livraison.")
+        self.assertEqual([n for n, _ in o.corps_champs], ["contenu"])
+
+    def test_rien_nest_duplique_ni_modifie(self):
+        o = self._o(objet="Marché en cours", texte=NEUTRE + " Une offre.")
+        self.assertEqual(o.corps.count("Marché en cours"), 1)
+        self.assertEqual(" ".join(v for _, v in o.corps_champs), o.corps)
+
+    def test_trois_champs_se_corroborent_entre_eux(self):
+        parts = [("objet", "Marché en cours"), ("contenu", NEUTRE),
+                 ("conditions", "Une offre de livraison.")]
+        lec = proc.lire(titre="Distribution", texte=" ".join(v for _, v in parts),
+                        champs_corps=parts, maintenant=MAINTENANT)
+        self.assertIs(lec.etat, proc.Etat.POSTULABLE)
+
+    def test_contenu_et_conditions_se_corroborent(self):
+        parts = [("contenu", "Marche en cours. " + NEUTRE),
+                 ("conditions", "Une offre de livraison.")]
+        lec = proc.lire(titre="Distribution", texte=" ".join(v for _, v in parts),
+                        champs_corps=parts, maintenant=MAINTENANT)
+        self.assertIs(lec.etat, proc.Etat.POSTULABLE)
+
+    def test_sans_champs_nommes_le_comportement_est_celui_davant(self):
+        lec = proc.lire(titre="Marché en cours", texte="Remise des offres",
+                        maintenant=MAINTENANT)
+        self.assertIs(lec.etat, proc.Etat.POSTULABLE)
+
+
+class P1_3_ConditionsDeConstruction(unittest.TestCase):
+    LEVIER = "Intervention sur site chez le client."
+    FORM = "Formation complète assurée par le client."
+    OBLIG = "Un agrément est exigé avant toute intervention."
+
+    def _v(self, texte):
+        return construction.evaluer(texte=texte, familles_reconnues=[],
+                                    jours_avant_demarrage=200, duree_mois=36,
+                                    cadence="quotidienne")
+
+    def test_conditions_liees_dans_le_meme_paragraphe_restent_eligibles(self):
+        v = self._v(f"{self.LEVIER} {self.FORM}")
+        self.assertTrue(v.eligible)
+        self.assertFalse(v.incertain)
+
+    def test_une_formation_dun_autre_bloc_ne_rend_plus_eligible(self):
+        v = self._v(f"{self.LEVIER} {NEUTRE} {self.FORM}")
+        self.assertFalse(v.eligible)
+        self.assertTrue(v.incertain)
+        self.assertTrue(any("rien ne dit que la formation porte" in m for m in v.manques))
+
+    def test_une_obligation_legale_de_la_meme_unite_bloque_toujours(self):
+        v = self._v(f"{self.LEVIER} {self.FORM} {self.OBLIG}")
+        self.assertFalse(v.eligible)
+        self.assertFalse(v.conditions["pas d'obligation légale préalable"])
+
+    def test_jamais_rejete_sur_une_exigence_venue_dun_autre_bloc(self):
+        v = self._v(f"{self.LEVIER} {self.FORM} {NEUTRE} {self.OBLIG}")
+        self.assertTrue(v.eligible)
+        self.assertTrue(v.incertain)
+        self.assertTrue(any("non retenu comme bloquant" in m for m in v.manques))
+
+
+class NatureEtFamillesRestentHorsPerimetre(unittest.TestCase):
+    """P2 assumé, verrouillé ici pour qu'il ne se perde pas.
+
+    NATURE et FAMILLES décident sur un marqueur unique, sans portée : un mot
+    lu dans un menu ou un pied de page suffit. Mesuré sur la page réelle,
+    « devenir partenaire » figure dans la navigation ET dans le pied de page.
+    Ce chantier ne les corrige pas — il constate que rien n'a changé.
+    """
+
+    def _nature(self, texte):
+        return nat.qualifier(opp(intitule="Société X", texte=texte, corps=texte))
+
+    def test_la_nature_reste_aveugle_a_la_position(self):
+        debut = self._nature("Nous recherchons un transporteur. " + NEUTRE)
+        fin = self._nature(NEUTRE + " Nous recherchons un transporteur.")
+        self.assertIs(debut, fin, "comportement INCHANGÉ — hors périmètre, P2")
+        self.assertIs(debut, Nature.FAIT)
+
+    def test_les_familles_restent_aveugles_a_la_position(self):
+        ont = Ontologie(CAPACITES, PROFIL["familles_actives"],
+                        PROFIL.get("familles_exclues"))
+        debut = ont.analyser("Distribution urbaine de colis. " + NEUTRE).familles
+        fin = ont.analyser(NEUTRE + " Distribution urbaine de colis.").familles
+        self.assertEqual(debut, fin, "comportement INCHANGÉ — hors périmètre, P2")
 
 
 if __name__ == "__main__":

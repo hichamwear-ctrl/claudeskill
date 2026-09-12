@@ -19,6 +19,16 @@ class Lot:
     numero: str
     intitule: str
     texte: str = ""
+    # LE CORPS PROPRE DU LOT — ce que le LOT dit de lui-même.
+    #
+    # Distinct de `texte`, qui agrège délibérément le contexte du marché
+    # parce qu'il sert à reconnaître le MÉTIER. Le corps, lui, sert à lire
+    # l'ÉTAT : y verser le corps du marché ferait de l'état du marché
+    # l'état de chacun de ses lots. Mesuré : un lot déclarant « la procédure
+    # est clôturée pour ce lot » ressortait POSTULABLE, parce que le corps
+    # lu était celui du parent.
+    corps: str = ""
+    blocs: list = field(default_factory=list)
     cpv: list[str] = field(default_factory=list)
     montant: float | None = None
     duree_mois: int | None = None
@@ -40,7 +50,9 @@ def lots_de(opp) -> list[Lot]:
     un lot ne redéclare presque jamais la géographie ni les exigences générales.
     """
     if not opp.lots:
-        return [Lot(numero="", intitule=opp.intitule, texte=opp.texte, cpv=list(opp.cpv),
+        # Un marché sans lot déclaré EST son propre lot : son corps est le sien.
+        return [Lot(numero="", intitule=opp.intitule, texte=opp.texte,
+                    corps=opp.corps, blocs=list(opp.blocs), cpv=list(opp.cpv),
                     montant=opp.montant, duree_mois=opp.duree_mois,
                     exigences=dict(opp.exigences or {}),
                     pays_collecte=list(opp.pays_collecte),
@@ -57,6 +69,10 @@ def lots_de(opp) -> list[Lot]:
             intitule=lot.intitule,
             # Le texte du marché reste utile au lot : il porte souvent le contexte.
             texte=f"{lot.texte} {opp.texte}".strip(),
+            # Le CORPS, lui, n'hérite de rien : un lot sans corps propre n'a
+            # pas de corps. Mieux vaut INCONNU que l'état du voisin.
+            corps=(lot.corps or lot.texte or "").strip(),
+            blocs=list(getattr(lot, "blocs", []) or []),
             cpv=lot.cpv or list(opp.cpv),
             montant=lot.montant if lot.montant is not None else None,
             duree_mois=lot.duree_mois if lot.duree_mois is not None else opp.duree_mois,
@@ -92,6 +108,12 @@ def eclater(opp) -> list:
         enfant.ref_source = f"{opp.ref_source}#L{lot.numero}"
         enfant.intitule = lot.libelle
         enfant.texte = lot.texte
+        # `copy.copy` laissait au lot le CORPS et les BLOCS du marché parent :
+        # la portée du lot désignait alors des phrases qui ne parlent pas de
+        # lui. Un lot sans corps propre en sort avec un corps vide — et donc
+        # un état INCONNU, qui est la vérité.
+        enfant.corps = lot.corps
+        enfant.blocs = list(lot.blocs)
         enfant.cpv = lot.cpv
         enfant.exigences = lot.exigences
         enfant.pays_collecte = lot.pays_collecte

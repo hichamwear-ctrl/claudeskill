@@ -85,6 +85,14 @@ class Opportunite:
     # unité disponible ; sans eux on retombe sur la phrase, puis sur la
     # fenêtre. Vide pour toute source qui ne sait pas découper.
     blocs: list = field(default_factory=list)
+    # QUELS CHAMPS ont composé `corps` et `texte`, et dans quel ordre.
+    #
+    # `corps` agrège `objet`, `contenu` et `conditions` en une chaîne. Sans
+    # cette liste, la portée voit une seule provenance là où il y en a trois,
+    # et deux champs réels ne peuvent plus se corroborer. Aucune valeur n'est
+    # dupliquée : ce sont les mêmes morceaux, simplement encore nommés.
+    corps_champs: list = field(default_factory=list)   # [(nom, valeur)]
+    texte_champs: list = field(default_factory=list)
     type_avis: str | None = None
     # ── A · ce que le PORTAIL dit être cet objet, tel quel ────────────────
     type_information: str | None = None     # « Marchés en cours », « Résultats »…
@@ -152,3 +160,62 @@ class Opportunite:
     champs_illisibles: dict = field(default_factory=dict)   # champ -> valeur brute
 
     brut: dict = field(default_factory=dict)
+
+
+# ═══════════════════════ QUELLES PROVENANCES DÉCRIVENT LE MÊME OBJET ═══════
+#
+# `portee.py` sait OÙ une preuve a été observée. Il ne sait pas — et ne doit
+# pas savoir — si deux provenances parlent de la même chose. C'est une
+# question de MODÈLE, et elle se tranche ici, explicitement, paire par paire.
+#
+# La règle qu'on remplace était : « champ différent ⇒ même référent ». Elle
+# est fausse. Trois contre-exemples mesurés :
+#
+#   · le titre d'un LOT et le corps de son MARCHÉ cohabitent dans le même
+#     enregistrement et décrivent deux objets différents ;
+#   · une <meta description> décrit la PAGE, pas le besoin qu'elle contient ;
+#   · deux rubriques d'un même portail sont deux objets, pas un seul.
+#
+# Une paire absente de cette table ne se corrobore pas. L'ajout d'une paire
+# est une décision de produit : elle s'écrit ici, elle se relit, elle se teste.
+
+INTITULE = "intitulé"
+CORPS = "corps du document"
+CONDITIONS = "conditions"
+TEXTE_DU_STATUT = "texte du statut"
+DESCRIPTION = "description"          # métadonnée : décrit le document, pas le besoin
+# Les champs que l'adaptateur agrège dans `corps`. Ils décrivent tous le
+# besoin porté par CET enregistrement — c'est pourquoi ils se corroborent.
+OBJET = "objet"
+CONTENU = "contenu"
+
+CORROBORATIONS = frozenset({
+    # Le titre d'un enregistrement et son corps décrivent le même besoin.
+    frozenset({INTITULE, CORPS}),
+    # Les conditions sont celles du besoin que le titre nomme et que le
+    # corps décrit.
+    frozenset({INTITULE, CONDITIONS}),
+    frozenset({CORPS, CONDITIONS}),
+    # La phrase qui entoure le champ de statut porte sur CETTE procédure.
+    frozenset({INTITULE, TEXTE_DU_STATUT}),
+    frozenset({CORPS, TEXTE_DU_STATUT}),
+    # Les trois champs agrégés dans `corps` décrivent le même besoin.
+    frozenset({OBJET, CONTENU}),
+    frozenset({OBJET, CONDITIONS}),
+    frozenset({CONTENU, CONDITIONS}),
+    frozenset({INTITULE, OBJET}),
+    frozenset({INTITULE, CONTENU}),
+    frozenset({OBJET, TEXTE_DU_STATUT}),
+    frozenset({CONTENU, TEXTE_DU_STATUT}),
+})
+
+
+def corroborables(champ_a: str, champ_b: str) -> bool:
+    """Ces deux provenances décrivent-elles le même objet ?
+
+    Le même champ avec lui-même n'est pas une corroboration entre
+    provenances : c'est du texte libre, et l'unité de discours décide.
+    """
+    if not champ_a or not champ_b or champ_a == champ_b:
+        return False
+    return frozenset({champ_a, champ_b}) in CORROBORATIONS

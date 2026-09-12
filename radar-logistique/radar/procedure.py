@@ -250,6 +250,7 @@ class Lecture:
 # La portée sémantique : dans quelle unité de discours une observation a été
 # lue. `_nie()` et `_porte()` ci-dessous étaient DÉJÀ locaux — ils sont la
 # référence du module `portee`, et ils ne changent pas d'une ligne.
+from . import modele as mdl                        # noqa: E402
 from .portee import Portee, appariees, positions   # noqa: E402
 
 def normaliser(texte) -> str:
@@ -544,6 +545,20 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
                     position + len(expression) + FENETRE_NEGATION]
         return any(f" {m} " in zone for m in _MARQUEURS_PLATS[modificateur])
 
+    def _meme_endroit(position: int, expressions) -> bool:
+        """Une contre-preuve parle-t-elle du MÊME endroit que la preuve ?
+
+        Une preuve positive et une contre-preuve ne s'annulent pas parce
+        qu'elles existent quelque part dans le même texte. Si elles sont
+        ailleurs, chacune reste une preuve et la hiérarchie arbitre, en les
+        affichant toutes les deux. Les éteindre ici, c'était trancher en
+        silence — mesuré : « procédure clôturée » lue 1 400 caractères plus
+        loin faisait disparaître un POSTULABLE légitime avant même qu'une
+        contradiction puisse s'afficher.
+        """
+        return any(portee.meme_unite(position, p)
+                   for e in (expressions or []) for p in positions(plat, e))
+
     preuves: list[Preuve] = []
 
     def dire(conclusion, observation, confiance=Confiance.MOYENNE, exclut=()):
@@ -670,24 +685,33 @@ def interpreter_formulation(texte: str, *, origine: str = "texte",
     # 5. L'ouverture — seulement si elle parle bien d'un dépôt ou d'une procédure.
     #    « la société est active depuis 1998 » ne rend rien postulable.
     sujets = depot or trouver("procedure", plat)
-    if ouverture_affirmee and sujets and not cloture and not depot_nie:
+    if ouverture_affirmee and sujets:
         # « porte sur » AFFIRME un lien syntaxique. Tant qu'il n'était pas
         # vérifié, la preuve mentait : sur une page réelle, « disponible »
         # (bloc 48, une feuille de route produit) et « offre » (bloc 24, un
         # argumentaire e-commerce) donnaient un POSTULABLE. On n'écrit plus
         # « porte sur » sans l'avoir établi.
         apparie = appariees(portee, ouverture_affirmee, sujets)
-        if apparie:
+        if apparie and (_meme_endroit(apparie[1], cloture)
+                        or _meme_endroit(apparie[1], depot_nie)):
+            # Clôture ou dépôt nié DANS LA MÊME UNITÉ : comportement
+            # historique, l'ouverture ne conclut pas.
+            apparie = None
+        elif apparie:
             ouv, pouv, suj, _ = apparie
             dire(Etat.POSTULABLE,
                  f"{origine} : « {ouv} » porte sur « {suj} » "
                  f"— {portee.situer(pouv)} : « {portee.extrait(pouv)} »",
                  Confiance.MOYENNE)
-        else:
+        elif not (cloture or depot_nie):
             _ecarte(ouverture_affirmee, sujets, "POSTULABLE")
 
     # 6. Préinformation et appels à projets : des types, pas des états ouverts.
-    if preinfo and not attribution:
+    # Une attribution lue AILLEURS n'éteint pas une préinformation : ce sont
+    # deux énoncés, et la hiérarchie les départage en les affichant.
+    attribution_ici = bool(preinfo) and bool(attribution) and any(
+        _meme_endroit(pp, attribution) for pp in positions(plat, preinfo[0]))
+    if preinfo and not attribution_ici:
         # Un avis de préinformation dit qu'un besoin EXISTE et qu'il sera mis en
         # concurrence. Ce n'est pas « pas utile » : c'est la meilleure fenêtre
         # commerciale du cycle, avant que tout le monde arrive.
@@ -771,11 +795,25 @@ class Vocabulaire:
 
 
 # ═══════════════════════════════════════════════════════════ la lecture complète
+def _champs_du_corps(texte, blocs, champs_corps) -> list:
+    """Les provenances qui composent le corps, telles que l'adaptateur les a
+    assemblées. À défaut, le corps est une provenance unique — le
+    comportement d'avant, pour toute source qui ne sait pas les nommer.
+
+    Les blocs appartiennent au champ qui porte le corps du document ; les
+    accrocher à l'agrégat entier les aurait fait rater sur les autres champs.
+    """
+    if not champs_corps:
+        return [(mdl.CORPS, texte, blocs)]
+    return [(nom, valeur, blocs if nom == mdl.CONTENU else None)
+            for nom, valeur in champs_corps if str(valeur or "").strip()]
+
+
 def lire(*, statut_source=None, type_information=None, titre="", texte="",
          texte_autour_du_statut="", documents=(), evenements=(), actions_possibles=(),
          echeance=None, date_attribution=None, titulaire=None, maintenant=None,
          vocabulaire: Vocabulaire | None = None, source="", est_signal=False,
-         lien_depot=None, blocs=None) -> Lecture:
+         lien_depot=None, blocs=None, champs_corps=None) -> Lecture:
     """Assemble toutes les preuves disponibles et applique la hiérarchie.
 
     `blocs` — quand la source sait dire comment son corps est découpé — sert
@@ -958,8 +996,9 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
     if titre and texte and not echo:
         croisees = _plafonner(_reranger(interpreter_formulation(
             f"{titre} {texte}", origine="intitulé + corps du document",
-            portee=Portee.composer([("intitulé", titre, None),
-                                    ("corps du document", texte, blocs)]),
+            portee=Portee.composer(
+                [(mdl.INTITULE, titre, None)] + _champs_du_corps(texte, blocs, champs_corps),
+                compatibles=mdl.corroborables),
             notes=lecture.a_verifier)))
         for pr in croisees:
             # DEUX provenances, pas une chaîne qui les résume : la fiche doit

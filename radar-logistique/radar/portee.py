@@ -80,6 +80,10 @@ class Unite:
     fin: int
     brut: str = ""          # ce que la source a écrit, mot pour mot
     champ: str = ""         # le CHAMP d'où vient cette unité
+    # QUEL NIVEAU a produit cette unité — bloc, phrase ou fenêtre. Une
+    # relation plus large que l'unité (voir `meme_ensemble`) n'a de sens
+    # qu'entre phrases : deux blocs voisins sont deux paragraphes.
+    niveau: str = ""
 
     def contient(self, position: int) -> bool:
         return self.debut <= position < self.fin
@@ -126,9 +130,16 @@ class Portee:
     unites: list = field(default_factory=list)
     structure: str = "fenêtre"      # blocs · phrases · fenêtre
     fenetre: int = FENETRE
+    # `compatibles(champ_a, champ_b) -> bool`, FOURNI PAR L'APPELANT.
+    #
+    # La portée sait OÙ une preuve existe. Elle ne sait pas si deux
+    # provenances décrivent le même objet — cela dépend du modèle, et le
+    # modèle n'a pas sa place ici. Sans réponse, elle refuse : l'inconnu ne
+    # corrobore pas.
+    compatibles: object = None
 
     @classmethod
-    def composer(cls, champs, fenetre: int = FENETRE) -> "Portee":
+    def composer(cls, champs, fenetre: int = FENETRE, compatibles=None) -> "Portee":
         """Plusieurs CHAMPS d'un même enregistrement, concaténés.
 
         `champs` : [(nom, texte, blocs)]. Le texte analysé est leur
@@ -150,46 +161,85 @@ class Portee:
                 continue
             for u in partielle.unites:
                 unites.append(Unite(rang, base + u.debut - 1, base + u.fin - 1,
-                                    u.brut, nom))
+                                    u.brut, nom, u.niveau))
                 rang += 1
             curseur = base + len(noyau)
         if not unites:
             return cls.construire(entier, None, fenetre)
         structure = "champs"
-        return cls(plat=plat, unites=unites, structure=structure, fenetre=fenetre)
+        return cls(plat=plat, unites=unites, structure=structure, fenetre=fenetre,
+                   compatibles=compatibles)
 
     @classmethod
-    def construire(cls, texte: str, blocs=None, fenetre: int = FENETRE) -> "Portee":
-        plat = normaliser(texte)
-        morceaux = [b for b in (blocs or []) if str(b).strip()]
-        structure = "blocs"
-        if len(morceaux) < 2:
-            morceaux = _phrases(texte or "")
-            structure = "phrases" if len(morceaux) > 1 else "fenêtre"
+    def _apparier(cls, plat: str, morceaux) -> list:
+        """Les morceaux qui se retrouvent RÉELLEMENT dans le texte, dans l'ordre.
 
-        unites: list[Unite] = []
-        curseur = 1
+        Le critère d'appariement est littéral : le noyau normalisé du morceau
+        doit figurer tel quel dans le texte normalisé, à partir du curseur.
+        Un morceau qui ne s'y retrouve pas décrit un AUTRE texte — il n'est
+        pas une unité, et il ne doit pas non plus faire croire qu'on connaît
+        le découpage.
+        """
+        apparies, curseur = [], 1
         for brut in morceaux:
             noyau = normaliser(brut).strip()
             if not noyau:
                 continue
             i = plat.find(noyau, curseur)
             if i < 0:
-                # Un bloc que le texte ne porte pas — dédupliqué en amont, ou
-                # réécrit. On ne l'invente pas : il ne devient pas une unité.
                 continue
-            if plat[curseur:i].strip():
-                # Ce qui précède et qu'aucun morceau ne revendique est une
-                # unité à part entière : rien ne reste hors d'une unité. Un
-                # simple blanc de séparation n'en est pas une.
-                unites.append(Unite(len(unites), curseur, i))
-            unites.append(Unite(len(unites), i, i + len(noyau), str(brut)))
+            apparies.append((i, i + len(noyau), str(brut)))
             curseur = i + len(noyau)
-        if plat[curseur:len(plat) - 1].strip():
-            unites.append(Unite(len(unites), curseur, len(plat) - 1))
+        return apparies
+
+    @classmethod
+    def construire(cls, texte: str, blocs=None, fenetre: int = FENETRE) -> "Portee":
+        plat = normaliser(texte)
+        phrases = cls._apparier(plat, _phrases(texte or ""))
+        blocs_apparies = cls._apparier(plat, [b for b in (blocs or []) if str(b).strip()])
+
+        # DÉCLARER « blocs » SANS QU'AUCUN BLOC N'AIT ÉTÉ RETROUVÉ rendait le
+        # texte entier opaque : une seule unité, et tout s'y corroborait — le
+        # comportement d'avant ce module, silencieusement. Des blocs qui ne
+        # correspondent pas au texte sont donc ignorés, et l'on retombe sur le
+        # niveau suivant. Fournir de mauvais blocs ne doit jamais être PIRE
+        # que n'en fournir aucun.
+        if blocs_apparies:
+            spans = cls._completer(plat, blocs_apparies, phrases)
+            structure = "blocs"
+            ancres = {(d, f) for d, f, _ in blocs_apparies}
+            niveaux = ["bloc" if (d, f) in ancres else "phrase" for d, f, _ in spans]
+        elif len(phrases) > 1:
+            spans, structure = phrases, "phrases"
+            niveaux = ["phrase"] * len(spans)
+        else:
+            spans, structure = phrases, "fenêtre"
+            niveaux = ["fenêtre"] * len(spans)
+
+        unites = [Unite(rang, d, f, brut, "", niveaux[rang])
+                  for rang, (d, f, brut) in enumerate(spans)]
         if not unites:
             unites = [Unite(0, 0, len(plat), str(texte or ""))]
         return cls(plat=plat, unites=unites, structure=structure, fenetre=fenetre)
+
+    @staticmethod
+    def _completer(plat: str, spans: list, secours: list) -> list:
+        """Aucune région ne reste opaque.
+
+        Ce qu'aucun morceau ne revendique n'est pas laissé d'un seul tenant :
+        le niveau suivant le découpe. Sans cela, un seul bloc apparié sur
+        trois laissait 1 400 caractères dans une même unité, où deux mots
+        sans rapport se corroboraient de nouveau.
+        """
+        complet, curseur = [], 1
+        for d, f, brut in list(spans) + [(len(plat) - 1, len(plat) - 1, "")]:
+            if plat[curseur:d].strip():
+                dedans = [(a, b, t) for a, b, t in secours if a >= curseur and b <= d]
+                complet += dedans or [(curseur, d, "")]
+            if brut:
+                complet.append((d, f, brut))
+            curseur = max(curseur, f)
+        return complet
 
     # ------------------------------------------------------------------ lire
     def unite_de(self, position: int):
@@ -205,18 +255,49 @@ class Portee:
         qui sert déjà à dire qu'une négation porte sur un mot.
         """
         ua, ub = self.unite_de(a), self.unite_de(b)
-        # DEUX CHAMPS D'UN MÊME ENREGISTREMENT SE CORROBORENT TOUJOURS.
-        # « intitulé : marché en cours » et « corps : remise des offres »
-        # parlent bien du même marché : ce sont deux provenances d'un seul
-        # référent, pas deux fragments indépendants. Seul le texte libre
-        # d'UN champ est soumis à l'unité de discours.
+        # DEUX PROVENANCES DIFFÉRENTES : ce module NE TRANCHE PAS.
+        #
+        # « cohabiter dans un enregistrement » n'est pas « décrire le même
+        # objet ». Le titre d'un lot et le corps de son marché cohabitent et
+        # décrivent deux choses ; une méta-description décrit la page et non
+        # le besoin. Seule la couche qui connaît le modèle peut le dire, et
+        # c'est elle qui fournit `compatibles`. Sans elle : non.
         if ua is not None and ub is not None and ua.champ != ub.champ:
-            return True
+            return bool(self.compatibles) and bool(self.compatibles(ua.champ, ub.champ))
         if self.structure == "fenêtre":
             return abs(a - b) <= self.fenetre
         if ua is None or ub is None:
             return abs(a - b) <= self.fenetre
         return ua.rang == ub.rang
+
+    def meme_ensemble(self, a: int, b: int) -> bool:
+        """Une granularité plus LARGE que l'unité, pour les relations qui le
+        sont aussi.
+
+        Toutes les relations ne vivent pas dans la phrase. « Cette formation
+        porte sur ces moyens-là » est une relation de PARAGRAPHE : mesuré sur
+        une fixture réelle, « des véhicules utilitaires et du personnel de
+        terrain » et « une formation complète de trois semaines est assurée »
+        sont deux phrases consécutives d'un même paragraphe, et exiger la
+        même phrase fermait un chemin légitime.
+
+        Quand la source donne les blocs, le paragraphe EST le bloc. Quand
+        elle n'a que des phrases, le paragraphe n'est pas représentable : la
+        contiguïté en tient lieu — deux phrases voisines appartiennent au
+        même paragraphe tant que rien ne dit le contraire. Ce n'est pas un
+        seuil, c'est le niveau structurel immédiatement au-dessus.
+        """
+        if self.meme_unite(a, b):
+            return True
+        ua, ub = self.unite_de(a), self.unite_de(b)
+        if ua is None or ub is None:
+            return False
+        # Deux BLOCS voisins sont deux paragraphes : ils ne se rejoignent pas.
+        # Deux PHRASES voisines du même champ sont un paragraphe qu'aucune
+        # source n'a su nous donner.
+        if ua.champ != ub.champ or "phrase" not in (ua.niveau, ub.niveau):
+            return False
+        return abs(ua.rang - ub.rang) == 1
 
     def situer(self, position: int) -> str:
         """Où, en clair — pour que la preuve se relise."""

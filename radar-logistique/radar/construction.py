@@ -66,8 +66,19 @@ class Verdict:
     manques: list[str] = field(default_factory=list)
     motif: str = ""
 
+    # Une relation NON ÉTABLIE n'est ni un oui ni un non : c'est une question.
+    incertain: bool = False
+
     def echecs(self) -> list[str]:
         return [c for c, ok in self.conditions.items() if not ok]
+
+
+def _ou(plat: str, expression: str):
+    """La position d'une expression, ou None. Sert à savoir OÙ, pas SI."""
+    p = positions(plat, expression)
+    if p:
+        return p[0]
+    return plat.find(expression) if plat.strip().startswith(expression) else None
 
 
 def _trouve(plat: str, marques) -> str | None:
@@ -121,6 +132,10 @@ def evaluer(*, texte: str, familles_reconnues, jours_avant_demarrage=None,
         if trouve:
             v.leviers.append(f"{actif} (« {trouve} »)")
     v.conditions["levier d'actif"] = bool(v.leviers)
+    # OÙ les moyens ont été reconnus : une montée en compétence n'est crédible
+    # que si la formation porte sur LA prestation qui mobilise ces moyens.
+    positions_leviers = [q for q in (_ou(plat, l.split("« ")[1].rstrip(" »)"))
+                                     for l in v.leviers) if q is not None]
 
     # 2. Activité de terrain ou exécutable depuis le dépôt.
     v.conditions["activité de terrain"] = any(
@@ -133,8 +148,28 @@ def evaluer(*, texte: str, familles_reconnues, jours_avant_demarrage=None,
     if not v.formation:
         v.manques.append("aucune formation mentionnée dans la source")
 
-    # 4. Délai suffisant avant le démarrage.
+    # 3 bis. LA FORMATION DOIT PORTER SUR CES MOYENS-LÀ.
+    #
+    # Mesuré : un levier reconnu dans un bloc et une formation mentionnée
+    # 1 400 caractères plus loin donnaient le même verdict que s'ils étaient
+    # dans la même phrase. Deux faits sans rapport suffisaient à ouvrir le
+    # chemin 🟣. S'ils sont ailleurs, on ne rejette pas — on dit que la
+    # relation n'est pas établie.
     p_formation = positions(plat, v.formation)[:1] if v.formation else []
+    if v.formation and positions_leviers:
+        # `meme_ensemble` et non `meme_unite` : la relation est de l'ordre du
+        # paragraphe, pas de la phrase.
+        liee = any(portee.meme_ensemble(p_formation[0], q) for q in positions_leviers) \
+            if p_formation else False
+        v.conditions["formation liée aux moyens"] = liee
+        if not liee:
+            v.incertain = True
+            v.manques.append(
+                f"« {v.formation} » et « {v.leviers[0]} » ont été lus dans "
+                f"{portee.situer(p_formation[0])} et {portee.situer(positions_leviers[0])} "
+                f"— rien ne dit que la formation porte sur ces moyens")
+
+    # 4. Délai suffisant avant le démarrage.
     duree_f = _duree_formation_jours(
         texte, portee, p_formation[0] if p_formation else None)
     if jours_avant_demarrage is None:
@@ -156,11 +191,25 @@ def evaluer(*, texte: str, familles_reconnues, jours_avant_demarrage=None,
 
     # 5. Aucune obligation légale préalable bloquante.
     v.obligation_legale = _trouve(plat, MARQUES_OBLIGATION_LEGALE)
-    v.conditions["pas d'obligation légale préalable"] = v.obligation_legale is None
-    if v.obligation_legale:
+    # Une obligation légale ne bloque que si elle porte sur CETTE prestation.
+    # Lue dans un bloc sans rapport — une mention générale, un autre marché —
+    # elle reste affichée mais ne condamne rien : on ne rejette pas sur une
+    # exigence venue arbitrairement d'ailleurs.
+    p_oblig = _ou(plat, v.obligation_legale) if v.obligation_legale else None
+    porte_ici = bool(v.obligation_legale) and (
+        p_oblig is None
+        or any(portee.meme_ensemble(p_oblig, q)
+               for q in positions_leviers + list(p_formation)))
+    v.conditions["pas d'obligation légale préalable"] = not porte_ici
+    if v.obligation_legale and porte_ici:
         v.manques.append(
             f"« {v.obligation_legale} » exigé avant intervention — une formation "
             "technique ne le remplace pas")
+    elif v.obligation_legale:
+        v.incertain = True
+        v.manques.append(
+            f"« {v.obligation_legale} » observé en {portee.situer(p_oblig)} — "
+            f"hors de la prestation décrite, non retenu comme bloquant : à vérifier")
 
     # 6. Cohérence économique : récurrent ou assez long pour amortir.
     recurrent = (cadence or "").lower() in ("quotidienne", "hebdomadaire", "mensuelle")

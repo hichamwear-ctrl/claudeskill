@@ -39,7 +39,8 @@ def proc_collecte(opp):
 from . import (chiffre_affaires, construction, deduplication, envoi,
                priorite as prio,
                fiabilite as fia, memoire,
-               nature as nat, portee as prt, procedure as proc, questions, statut as st,
+               modele as mdl, nature as nat, portee as prt, procedure as proc,
+               questions, statut as st,
                transitions as tr)
 from .comptes import Livre
 from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
@@ -158,8 +159,12 @@ class Moteur:
         # ils se corroborent toujours. À l'intérieur du corps, en revanche,
         # deux fragments ne parlent du même sujet que dans une même unité de
         # discours. `Portee.composer` porte exactement cette distinction.
-        portee = prt.Portee.composer([("intitulé", opp.intitule, None),
-                                      ("corps", opp.texte, opp.blocs)])
+        portee = prt.Portee.composer(
+            [(mdl.INTITULE, opp.intitule, None)] + (
+                [(n, v, opp.blocs if n == mdl.CONTENU else None)
+                 for n, v in opp.texte_champs if str(v or "").strip()]
+                or [(mdl.CORPS, opp.texte, opp.blocs)]),
+            compatibles=mdl.corroborables)
         role = self.roles.analyser(f"{opp.intitule} {opp.texte}", opp.cpv,
                                    portee=portee)
         # La PORTÉE des exclusions. Quand la source sait dire d'où vient
@@ -190,6 +195,7 @@ class Moteur:
             # Le découpage du corps, quand la source sait le dire. Sans lui,
             # la lecture retombe sur les phrases, puis sur la fenêtre.
             blocs=opp.blocs,
+            champs_corps=opp.corps_champs,
             texte_autour_du_statut=opp.texte_statut or "",
             documents=opp.documents, evenements=opp.evenements,
             actions_possibles=opp.actions_possibles,

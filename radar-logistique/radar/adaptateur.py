@@ -174,7 +174,7 @@ def _entier(valeur, champ: str, illisibles: dict):
     return int(round(n)) if n is not None else None
 
 
-def _agreger(c: dict, champs) -> str:
+def _agreger(c: dict, champs):
     """Assemble des champs SANS jamais recopier deux fois la même matière.
 
     Une source peut publier le même texte sous deux noms — une description
@@ -183,8 +183,16 @@ def _agreger(c: dict, champs) -> str:
     même, vue deux fois : exactement le défaut que le §7 a corrigé pour les
     preuves d'état. Un morceau déjà contenu dans ce qui est assemblé n'est
     donc pas ajouté.
+
+    Rend `(texte, parts)` où `parts` est la liste `(nom du champ, valeur)`
+    réellement retenue, dans l'ordre. Sans elle, l'identité des champs est
+    perdue : `objet` et `contenu` sont deux provenances distinctes, et les
+    fondre en une seule chaîne empêchait la portée de savoir laquelle disait
+    quoi. Rien n'est dupliqué et aucun contenu n'est modifié — on conserve
+    seulement ce qu'on savait déjà en entrant.
     """
     morceaux: list[str] = []
+    parts: list = []
     for nom in champs:
         v = str(c.get(nom, "") or "").strip()
         if not v:
@@ -192,7 +200,8 @@ def _agreger(c: dict, champs) -> str:
         if any(v in m or m in v for m in morceaux):
             continue
         morceaux.append(v)
-    return " ".join(morceaux).strip()
+        parts.append((nom, v))
+    return " ".join(morceaux).strip(), parts
 
 
 def _segments(v) -> list:
@@ -335,9 +344,9 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
     #
     # `contenu` est donc un champ déclaré à part, et il s'AJOUTE au lieu de
     # remplacer. Une source qui n'en déclare pas ne voit aucune différence.
-    texte = _agreger(c, ("objet", "contenu", "intitule", "lieu", "conditions"))
+    texte, texte_parts = _agreger(c, ("objet", "contenu", "intitule", "lieu", "conditions"))
     # Le corps SANS l'intitulé : ce que la source dit en plus de son titre.
-    corps = _agreger(c, ("objet", "contenu", "conditions"))
+    corps, corps_parts = _agreger(c, ("objet", "contenu", "conditions"))
     return Opportunite(
         source=source,
         ref_source=ref,
@@ -347,6 +356,8 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         corps=corps,
         segments=_segments(c.get("segments")),
         blocs=[str(b) for b in (c.get("blocs") or []) if str(b).strip()],
+        corps_champs=corps_parts,
+        texte_champs=texte_parts,
         champs_origine=dict(chemins_lus),
         type_avis=c.get("type_avis") or d.get("type_avis"),
         est_signal=est_signal,
