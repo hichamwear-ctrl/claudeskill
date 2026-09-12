@@ -39,7 +39,7 @@ def proc_collecte(opp):
 from . import (chiffre_affaires, construction, deduplication, envoi,
                priorite as prio,
                fiabilite as fia, memoire,
-               nature as nat, procedure as proc, questions, statut as st,
+               nature as nat, portee as prt, procedure as proc, questions, statut as st,
                transitions as tr)
 from .comptes import Livre
 from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
@@ -154,7 +154,14 @@ class Moteur:
     # --------------------------------------------------------- analyse --
     def analyser(self, opp, maintenant_dt=None, fil=None) -> Resultat:
         nature = nat.qualifier(opp)
-        role = self.roles.analyser(f"{opp.intitule} {opp.texte}", opp.cpv)
+        # L'intitulé et le corps sont DEUX CHAMPS d'un même enregistrement :
+        # ils se corroborent toujours. À l'intérieur du corps, en revanche,
+        # deux fragments ne parlent du même sujet que dans une même unité de
+        # discours. `Portee.composer` porte exactement cette distinction.
+        portee = prt.Portee.composer([("intitulé", opp.intitule, None),
+                                      ("corps", opp.texte, opp.blocs)])
+        role = self.roles.analyser(f"{opp.intitule} {opp.texte}", opp.cpv,
+                                   portee=portee)
         # La PORTÉE des exclusions. Quand la source sait dire d'où vient
         # chaque morceau de texte, ses segments font autorité : y ajouter la
         # chaîne aplatie ferait revenir le pied de page par la fenêtre, sous
@@ -180,6 +187,9 @@ class Moteur:
             # `corps` et non `texte` : `texte` contient l'intitulé recopié,
             # et le passer ici ferait du titre sa propre corroboration.
             titre=opp.intitule, texte=opp.corps,
+            # Le découpage du corps, quand la source sait le dire. Sans lui,
+            # la lecture retombe sur les phrases, puis sur la fenêtre.
+            blocs=opp.blocs,
             texte_autour_du_statut=opp.texte_statut or "",
             documents=opp.documents, evenements=opp.evenements,
             actions_possibles=opp.actions_possibles,
@@ -215,7 +225,7 @@ class Moteur:
             constr = construction.evaluer(
                 texte=f"{opp.intitule} {opp.texte}", familles_reconnues=corr.familles,
                 jours_avant_demarrage=jours, duree_mois=opp.duree_mois,
-                cadence=opp.cadence)
+                cadence=opp.cadence, portee=portee)
 
         # L'ANCRAGE COMMERCIAL : y a-t-il, sur cette page, le moindre fait
         # exploitable ? On ne cherche pas un mot — on cherche un FAIT : un

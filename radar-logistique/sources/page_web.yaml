@@ -33,6 +33,8 @@ champs:
   contact_email:    [contact_email]
   # Le texte porté par son emplacement — voir `zones` plus bas.
   segments:         [segments]
+  # Le corps découpé en blocs : l'unité de discours du moteur sémantique.
+  blocs:            [blocs]
   plateforme:       [url]
   lieu:             [lieu]
   echeance:         [echeance]

@@ -4,6 +4,7 @@ Aucun ne vérifie qu'une ligne de code existe. Chacun pose une question dont la
 mauvaise réponse coûte un contrat.
 """
 
+import json
 import sys
 import unittest
 from datetime import datetime, timezone
@@ -14,7 +15,7 @@ import yaml
 RACINE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RACINE))
 
-from radar import construction, envoi, statut as st
+from radar import construction, envoi, procedure as proc, statut as st
 from radar.activite import Ontologie
 from radar.base import ouvrir
 from radar.capacite import Capacites, Niveau
@@ -5463,6 +5464,262 @@ class TransmissionDuContenu(unittest.TestCase):
         o = self._o(texte="transport de matières dangereuses en citerne")
         r = moteur().analyser(o, maintenant_dt=MAINTENANT)
         self.assertIs(r.classement.type, Type.REJET)
+
+
+# ══════════ §21 — la PORTÉE SÉMANTIQUE : d'où vient chaque fragment
+#
+# Mesuré sur la page réelle conservée : « Une offre de livraison » (un <h3>)
+# et « Bientôt disponible » (un <p> sur les casiers) — 1 175 caractères et 24
+# blocs l'un de l'autre — produisaient
+#
+#     « « disponible » porte sur « offre » » → POSTULABLE
+#
+# « porte sur » AFFIRME un lien syntaxique que rien n'avait établi. La cause
+# n'est pas la règle : c'est que la CO-OCCURRENCE dans un texte aplati servait
+# de substitut à la proximité. Ce substitut tient sur les 152 caractères de
+# médiane du banc d'essai et ne vaut plus rien sur 3 500.
+#
+# D'où une FIXTURE LONGUE : sans elle, aucun test de ce fichier ne peut voir
+# le défaut. Les 483 tests historiques en étaient structurellement incapables.
+
+PAGE_LONGUE = json.loads(
+    (RACINE / "exemples" / "familles" / "page_longue_entreprise.json")
+    .read_text(encoding="utf-8"))[0]
+
+
+class UneFixtureAssezLonguePourVoirLeDefaut(unittest.TestCase):
+    def test_la_fixture_longue_existe_et_est_multi_blocs(self):
+        self.assertGreaterEqual(len(PAGE_LONGUE["texte"]), 2000)
+        self.assertGreater(len(PAGE_LONGUE["blocs"]), 20)
+
+    def test_le_banc_historique_etait_incapable_de_voir_le_defaut(self):
+        """Aucun autre texte du banc n'atteint la longueur où la
+        co-occurrence cesse d'être un proxy de la proximité."""
+        autres = []
+        for f in sorted((RACINE / "exemples" / "familles").glob("*.json")):
+            if f.name == "page_longue_entreprise.json":
+                continue
+            for c in json.loads(f.read_text(encoding="utf-8")):
+                if isinstance(c, dict):
+                    autres.append(len(" ".join(str(c.get(k, "")) for k in
+                                               ("titre", "objet", "texte", "description"))))
+        self.assertLess(max(autres), 500,
+                        "un texte long existe ailleurs : ce test doit être revu")
+
+    def test_les_deux_fragments_sont_bien_eloignes(self):
+        t = PAGE_LONGUE["texte"].lower()
+        self.assertGreater(t.find("disponible") - t.find("une offre"), 500)
+
+
+class PorteeSemantique(unittest.TestCase):
+    """La primitive elle-même : elle ne sait QUE dire d'où vient un mot."""
+
+    def test_les_blocs_font_les_unites_quand_la_source_les_donne(self):
+        from radar.portee import Portee
+        p = Portee.construire(PAGE_LONGUE["texte"], PAGE_LONGUE["blocs"])
+        self.assertEqual(p.structure, "blocs")
+        self.assertGreater(len(p.unites), 20)
+
+    def test_la_phrase_prend_le_relais_sans_blocs(self):
+        from radar.portee import Portee
+        p = Portee.construire("Première phrase. Seconde phrase.")
+        self.assertEqual(p.structure, "phrases")
+        self.assertEqual(len(p.unites), 2)
+
+    def test_la_fenetre_est_le_dernier_recours(self):
+        """Ni bloc ni ponctuation : on retombe sur la fenêtre que
+        `procedure._nie()` emploie déjà, et sur aucun seuil inventé."""
+        from radar.portee import Portee, FENETRE
+        from radar.procedure import FENETRE_NEGATION
+        self.assertEqual(FENETRE, FENETRE_NEGATION)
+        p = Portee.construire("un texte sans aucune ponctuation du tout")
+        self.assertEqual(p.structure, "fenêtre")
+
+    def test_le_texte_normalise_est_celui_des_regles(self):
+        """Les positions ne valent que si les deux modules voient le même
+        texte. Sinon la portée désignerait le mauvais endroit."""
+        from radar.portee import Portee
+        from radar.procedure import normaliser as npr
+        for t in ("Les offres sont ouvertes.", PAGE_LONGUE["texte"]):
+            self.assertEqual(Portee.construire(t).plat, npr(t))
+
+    def test_deux_champs_dun_meme_enregistrement_se_corroborent_toujours(self):
+        from radar.portee import Portee, positions
+        p = Portee.composer([("intitulé", "Marché en cours", None),
+                             ("corps", "Remise des offres.", None)])
+        a = positions(p.plat, "en cours")[0]
+        b = positions(p.plat, "offres")[0]
+        self.assertTrue(p.meme_unite(a, b),
+                        "deux champs sont deux provenances d'un seul référent")
+
+    def test_deux_fragments_dun_meme_texte_libre_ne_se_corroborent_pas(self):
+        from radar.portee import Portee, positions
+        p = Portee.construire(PAGE_LONGUE["texte"], PAGE_LONGUE["blocs"])
+        a = positions(p.plat, "offre")[0]
+        b = positions(p.plat, "disponible")[0]
+        self.assertFalse(p.meme_unite(a, b))
+
+    def test_aucun_seuil_de_longueur_ni_liste_de_mots(self):
+        """Le module doit savoir OÙ, jamais QUOI. Un mot métier qui y
+        apparaîtrait ferait de la portée une liste noire déguisée."""
+        src = (RACINE / "radar" / "portee.py").read_text(encoding="utf-8")
+        code = "\n".join(l for l in src.splitlines()
+                         if not l.strip().startswith("#"))
+        code = code.split('"""')[0] + '"""'.join(code.split('"""')[2:])
+        for interdit in ("adr", "footer", "menu", "transport", "marche"):
+            self.assertNotIn(f'"{interdit}"', code.lower())
+
+
+class LaPorteeAppliqueeALEtat(unittest.TestCase):
+    def _preuves(self, texte, blocs=None):
+        from radar.procedure import interpreter_formulation
+        return interpreter_formulation(texte, origine="corps du document", blocs=blocs)
+
+    def test_offre_et_disponible_separes_ne_font_plus_un_postulable(self):
+        pr = self._preuves(PAGE_LONGUE["texte"], PAGE_LONGUE["blocs"])
+        self.assertFalse([p for p in pr if p.conclusion is proc.Etat.POSTULABLE],
+                         "deux blocs sans rapport ne font pas une procédure ouverte")
+
+    def test_les_memes_mots_dans_une_meme_phrase_concluent_toujours(self):
+        """Borner n'est pas casser : la règle doit continuer de conclure là
+        où elle a raison."""
+        pr = self._preuves("L'offre est disponible jusqu'au 30 novembre.")
+        self.assertTrue([p for p in pr if p.conclusion is proc.Etat.POSTULABLE])
+
+    def test_la_preuve_montre_ou_elle_a_ete_lue(self):
+        """Une preuve qui affirme « porte sur » doit dire d'où elle sort et
+        montrer la phrase — sinon elle reste invérifiable."""
+        pr = [p for p in self._preuves("L'offre est disponible jusqu'au 30 novembre.")
+              if p.conclusion is proc.Etat.POSTULABLE]
+        obs = pr[0].observation
+        self.assertIn("porte sur", obs)
+        self.assertIn("L'offre est disponible", obs,
+                      "l'extrait doit restituer ce que la source a écrit")
+        self.assertEqual(pr[0].origines, ("corps du document",))
+
+    def test_rien_ne_disparait_en_silence(self):
+        """Les deux mots restent observés : ils cessent de conclure, ils ne
+        sont pas effacés."""
+        notes = []
+        from radar.procedure import interpreter_formulation
+        interpreter_formulation(PAGE_LONGUE["texte"], origine="corps du document",
+                                blocs=PAGE_LONGUE["blocs"], notes=notes)
+        self.assertTrue(any("rien ne dit qu'ils parlent de la même chose" in n
+                            for n in notes), notes)
+        self.assertTrue(any("bloc" in n for n in notes), notes)
+
+    def test_cas1_plus_de_ferme_en_confiance_elevee_a_distance(self):
+        """Le plus grave : un FERMÉ de rang 4, confiance ÉLEVÉE, fabriqué par
+        un « dépôt » ici et une « ouverture niée » 1 200 caractères plus loin.
+        Il écrasait une rubrique de portail."""
+        loin = ("Une offre de livraison dédiée aux e-commerçants. "
+                + "Nos chiffres parlent d'eux-mêmes. " * 30
+                + "Le service n'est pas encore ouvert dans cette région.")
+        self.assertFalse([p for p in self._preuves(loin)
+                          if p.conclusion is proc.Etat.FERME])
+
+    def test_cas1_la_meme_negation_dans_la_meme_phrase_ferme_toujours(self):
+        pr = self._preuves("Les offres ne sont plus acceptées.")
+        self.assertTrue([p for p in pr if p.conclusion is proc.Etat.FERME])
+
+    def test_cas3_une_attribution_passee_survit_a_un_futur_dailleurs(self):
+        loin = ("Le marché a été attribué. "
+                + "Nos chiffres parlent d'eux-mêmes. " * 30
+                + "Le prestataire sera désigné prochainement.")
+        pr = self._preuves(loin)
+        attribue = [p for p in pr if p.conclusion is proc.Etat.ATTRIBUE]
+        self.assertTrue(attribue, "l'attribution prononcée doit rester une preuve")
+        self.assertIs(attribue[0].confiance, proc.Confiance.ELEVEE)
+        self.assertTrue([p for p in pr if p.conclusion is None],
+                        "l'annonce de l'autre unité reste affichée, sans conclure")
+
+    def test_cas3_le_futur_dans_la_meme_phrase_empeche_toujours_dattribuer(self):
+        pr = self._preuves("Le marché sera attribué prochainement.")
+        self.assertFalse([p for p in pr if p.conclusion is proc.Etat.ATTRIBUE])
+
+    def test_la_corroboration_titre_corps_est_preservee(self):
+        """LE TEST QUI PROTÈGE LE §7. Deux champs d'un même enregistrement
+        parlent du même marché : ils doivent continuer de se corroborer, et
+        les DEUX provenances doivent rester visibles."""
+        lec = proc.lire(titre="Marché en cours", texte="Remise des offres",
+                        maintenant=MAINTENANT)
+        self.assertIs(lec.etat, proc.Etat.POSTULABLE)
+        origines = {o for p in lec.preuves for o in p.origines}
+        self.assertIn("intitulé", origines)
+        self.assertIn("corps du document", origines)
+
+
+class LaPorteeAppliqueeAuRole(unittest.TestCase):
+    P = "Transport et distribution quotidienne de colis pour le compte de tiers."
+    F = "Fourniture et livraison de mobilier de bureau."
+    LOIN = "Nos chiffres parlent d'eux-mêmes. " * 30
+
+    def _r(self, texte, cpv=None):
+        return moteur().roles.analyser(texte, cpv)
+
+    def test_cas4_une_phrase_de_fourniture_ailleurs_ne_rejette_plus(self):
+        """FOURNISSEUR est un rejet sec. Une prestation de transport réelle
+        disparaissait du radar parce qu'une phrase sans rapport, 1 200
+        caractères plus loin, parlait de fourniture."""
+        avant = self._r(self.P, ["30192000"])
+        melange = self._r(f"{self.P} {self.LOIN} {self.F}", ["30192000"])
+        self.assertIsNot(melange.role, Role.FOURNISSEUR)
+        self.assertIs(melange.role, Role.A_VERIFIER)
+        self.assertIs(avant.role, Role.A_VERIFIER)
+
+    def test_cas4_la_preuve_dit_que_les_observations_viennent_dailleurs(self):
+        melange = self._r(f"{self.P} {self.LOIN} {self.F}", ["30192000"])
+        self.assertTrue(any("rien ne dit qu'elles portent sur le même objet" in c
+                            for c in melange.contre_preuves), melange.contre_preuves)
+        self.assertTrue(any("phrase" in c for c in melange.contre_preuves))
+
+    def test_cas4_un_vrai_mixte_dans_une_phrase_reste_un_mixte(self):
+        """« fourniture ET livraison » dans la même phrase est une vraie
+        ambiguïté : le CPV doit continuer de la trancher."""
+        self.assertIs(self._r(f"{self.P[:-1]}, {self.F.lower()}", ["30192000"]).role,
+                      Role.FOURNISSEUR)
+
+    def test_une_prestation_seule_reste_une_prestation(self):
+        self.assertIs(self._r(self.P).role, Role.PRESTATAIRE)
+
+
+class LaPorteeAppliqueeALaConstruction(unittest.TestCase):
+    LOIN = "Nos chiffres parlent d'eux-mêmes. " * 30
+
+    def test_cas5_la_duree_du_contrat_nest_pas_la_duree_de_formation(self):
+        """« Contrat de 36 mois » lu 1 200 caractères plus loin devenait
+        « formation de 1080 j » — un fait fabriqué, affiché au commercial,
+        qui fermait le chemin 🟣 À CONSTRUIRE."""
+        t = ("Formation complète assurée par le client. Nos véhicules et notre "
+             f"dépôt sont mobilisables. {self.LOIN} Contrat de 36 mois reconductible.")
+        v = construction.evaluer(texte=t, familles_reconnues=[],
+                                 jours_avant_demarrage=90, duree_mois=36,
+                                 cadence="quotidienne")
+        self.assertTrue(v.conditions["délai suffisant"])
+        self.assertFalse([m for m in v.manques if "1080" in m])
+
+    def test_cas5_une_duree_annoncee_dans_la_meme_phrase_compte_toujours(self):
+        t = ("Formation complète assurée en 4 semaines. Nos véhicules et notre "
+             "dépôt sont mobilisables.")
+        v = construction.evaluer(texte=t, familles_reconnues=[],
+                                 jours_avant_demarrage=10, duree_mois=36,
+                                 cadence="quotidienne")
+        self.assertFalse(v.conditions["délai suffisant"],
+                         "28 j de formation pour 10 j disponibles : insuffisant")
+
+
+class LaPorteeNeDefaitPasLaCorrection2(unittest.TestCase):
+    def test_une_exclusion_de_pied_de_page_reste_non_bloquante(self):
+        """Les deux mécanismes sont distincts et tous deux nécessaires :
+        la zone dit OÙ dans la page, l'unité dit DANS QUEL ÉNONCÉ."""
+        o = opp(intitule=PAGE_LONGUE["titre"], texte=PAGE_LONGUE["texte"],
+                blocs=PAGE_LONGUE["blocs"],
+                segments=[(s["texte"], s["origine"]) for s in PAGE_LONGUE["segments"]])
+        r = moteur().analyser(o, maintenant_dt=MAINTENANT)
+        self.assertIsNot(r.classement.type, Type.REJET)
+        self.assertEqual(r.correspondance.exclusions, [])
+        self.assertEqual(len(r.correspondance.reserves), 1)
+        self.assertEqual(r.correspondance.reserves[0].origine, "pied de page")
 
 
 if __name__ == "__main__":

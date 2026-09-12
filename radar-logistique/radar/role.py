@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from .activite import normaliser
+from .portee import Portee, appariees, positions
 
 
 class Role(Enum):
@@ -65,7 +66,7 @@ class DetecteurDeRole:
                 return "fourniture", c
         return None, None
 
-    def analyser(self, texte: str, cpv=None) -> Analyse:
+    def analyser(self, texte: str, cpv=None, blocs=None, portee=None) -> Analyse:
         """Le CPV est UNE preuve, pas une autorité.
 
         Il tranchait tout : un texte disant « prestations de transport et
@@ -82,6 +83,7 @@ class DetecteurDeRole:
         Aucun gagnant arbitraire.
         """
         plat = normaliser(texte)
+        portee = portee if portee is not None else Portee.construire(texte, blocs)
         famille, code = self._classer_cpv(cpv)
 
         trouves_f = [m for m in self.mots_fourniture
@@ -89,12 +91,28 @@ class DetecteurDeRole:
         trouves_p = [m for m in self.mots_prestation if f" {m} " in plat]
 
         # Ce que dit le TEXTE, seul.
+        #
+        # « MIXTE » veut dire : la MÊME phrase achète un bien et une
+        # prestation — « fourniture ET livraison de mobilier ». Deux mots lus
+        # dans deux endroits sans rapport ne disent pas cela ; ils disent deux
+        # choses sur deux sujets. Mesuré : une phrase de transport suivie,
+        # 1 200 caractères plus loin, d'une phrase de fourniture faisait
+        # ressortir FOURNISSEUR dès qu'un CPV de fourniture existait — et
+        # FOURNISSEUR est un rejet sec. Une prestation réelle disparaissait
+        # du radar à cause d'une phrase qui ne la concernait pas.
+        ensemble = bool(trouves_f and trouves_p) and bool(
+            appariees(portee, trouves_f, trouves_p))
         if trouves_p and not trouves_f:
             texte_dit = "prestation"
         elif trouves_f and not trouves_p:
             texte_dit = "fourniture"
-        elif trouves_f and trouves_p:
+        elif ensemble:
             texte_dit = "mixte"
+        elif trouves_f and trouves_p:
+            # Deux lectures, deux endroits : le texte ne parle pas d'une seule
+            # voix. On ne tranche pas, et on ne laisse pas la nomenclature
+            # trancher entre deux phrases sans rapport — on le dit.
+            texte_dit = "ambigu"
         else:
             texte_dit = None
 
@@ -110,6 +128,20 @@ class DetecteurDeRole:
             "fourniture": f"CPV {code} : l'acheteur acquiert un bien",
             "travaux": f"CPV {code} : marché de travaux",
         }.get(famille)
+
+        if texte_dit == "ambigu":
+            pf = positions(plat, trouves_f[0])
+            pp = positions(plat, trouves_p[0])
+            ou = (f"{portee.situer(pp[0])} et {portee.situer(pf[0])}"
+                  if pp and pf else "deux endroits distincts")
+            return Analyse(
+                Role.A_VERIFIER,
+                preuves=([libelle_cpv] if cpv_dit == "prestation" else []) + preuves_p,
+                contre_preuves=([libelle_cpv] if cpv_dit == "fourniture" else [])
+                               + preuves_f
+                               + [f"observations lues dans {ou} — rien ne dit "
+                                  f"qu'elles portent sur le même objet"],
+                cpv_decisif=code)
 
         # 1. Aucune des deux preuves : on ne sait pas, et on le dit.
         if cpv_dit is None and texte_dit is None:

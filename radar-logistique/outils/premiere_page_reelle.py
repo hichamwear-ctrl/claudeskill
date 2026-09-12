@@ -220,6 +220,9 @@ def mesurer(octets: bytes, url: str, origine: str, famille: str, completude: str
     # plus : seules les exclusions le lisent, pour savoir si un terme
     # caractérise le besoin ou décrit seulement le site.
     charge["segments"] = [{"texte": t, "origine": o} for t, o in lec.segments]
+    # Les blocs non fusionnés : deux fragments du corps ne se combinent que
+    # dans un même bloc. Sans eux, la lecture retombe sur les phrases.
+    charge["blocs"] = list(lec.blocs)
     # La description <meta> ne fait pas partie du texte visible et n'a donc
     # aucune zone. Elle décrit pourtant le sujet de la page : elle entre comme
     # segment CARACTÉRISANT, jamais comme métadonnée négligeable.

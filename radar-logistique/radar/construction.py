@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass, field
 
 from .activite import normaliser
+from .portee import Portee, positions
 
 # Preuve écrite qu'un accompagnement est proposé. Sans elle, pas de 🟣 :
 # le moteur ne suppose jamais qu'une formation existe.
@@ -76,10 +77,22 @@ def _trouve(plat: str, marques) -> str | None:
     return None
 
 
-def _duree_formation_jours(texte: str) -> int | None:
-    """Lit une durée annoncée. Renvoie None si elle n'est pas écrite — jamais
-    une valeur supposée."""
+def _duree_formation_jours(texte: str, portee=None, autour: int | None = None) -> int | None:
+    """Lit la durée ANNONCÉE POUR LA FORMATION. None si elle n'est pas écrite.
+
+    Cherchée dans l'unité de discours où la formation est mentionnée, et
+    nulle part ailleurs. Mesuré sans cette borne : « Contrat de 36 mois
+    reconductible », lu 1 200 caractères plus loin, devenait « formation de
+    1 080 jours » — une durée de contrat présentée au commercial comme une
+    durée de formation, et le chemin 🟣 À CONSTRUIRE fermé pour rien.
+    """
     plat = normaliser(texte)
+    if portee is not None and autour is not None:
+        unite = portee.unite_de(autour)
+        if unite is not None:
+            plat = portee.plat[unite.debut:unite.fin]
+        else:
+            plat = portee.plat[max(0, autour - portee.fenetre):autour + portee.fenetre]
     for motif, facteur in ((r"(\d+)\s*semaines?", 7), (r"(\d+)\s*mois", 30),
                            (r"(\d+)\s*jours?", 1)):
         m = re.search(motif, plat)
@@ -89,9 +102,10 @@ def _duree_formation_jours(texte: str) -> int | None:
 
 
 def evaluer(*, texte: str, familles_reconnues, jours_avant_demarrage=None,
-            duree_mois=None, cadence=None) -> Verdict:
+            duree_mois=None, cadence=None, blocs=None, portee=None) -> Verdict:
     """Applique les six conditions. Toutes doivent passer."""
     plat = normaliser(f"{texte}")
+    portee = portee if portee is not None else Portee.construire(texte, blocs)
     v = Verdict()
 
     # 0. Hors périmètre : aucun actif ne peut servir, quelle que soit la formation.
@@ -120,7 +134,9 @@ def evaluer(*, texte: str, familles_reconnues, jours_avant_demarrage=None,
         v.manques.append("aucune formation mentionnée dans la source")
 
     # 4. Délai suffisant avant le démarrage.
-    duree_f = _duree_formation_jours(texte)
+    p_formation = positions(plat, v.formation)[:1] if v.formation else []
+    duree_f = _duree_formation_jours(
+        texte, portee, p_formation[0] if p_formation else None)
     if jours_avant_demarrage is None:
         v.conditions["délai suffisant"] = False
         v.manques.append("date de démarrage NON PUBLIÉE — délai non vérifiable")

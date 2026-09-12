@@ -346,6 +346,7 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         texte=texte,
         corps=corps,
         segments=_segments(c.get("segments")),
+        blocs=[str(b) for b in (c.get("blocs") or []) if str(b).strip()],
         champs_origine=dict(chemins_lus),
         type_avis=c.get("type_avis") or d.get("type_avis"),
         est_signal=est_signal,

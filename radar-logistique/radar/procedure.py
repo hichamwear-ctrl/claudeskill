@@ -247,6 +247,11 @@ class Lecture:
 
 
 # ═══════════════════════════════════════════════════ atomes de sens, pas de mots
+# La portée sémantique : dans quelle unité de discours une observation a été
+# lue. `_nie()` et `_porte()` ci-dessous étaient DÉJÀ locaux — ils sont la
+# référence du module `portee`, et ils ne changent pas d'une ligne.
+from .portee import Portee, appariees, positions   # noqa: E402
+
 def normaliser(texte) -> str:
     if not texte:
         return " "
@@ -489,7 +494,9 @@ def _porte(plat: str, concept: str, modificateur: str) -> bool:
 
 
 # ═════════════════════════════════════════════ lecture d'une formulation libre
-def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuve]:
+def interpreter_formulation(texte: str, *, origine: str = "texte",
+                            blocs=None, notes: list | None = None,
+                            portee=None) -> list[Preuve]:
     """Lit une phrase et en tire des preuves — négations et futur compris.
 
     Cette fonction ne connaît AUCUN portail. Elle est utilisée telle quelle
@@ -501,6 +508,42 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
     plat = normaliser(texte)
     if plat.strip() == "":
         return []
+    # La carte des unités de discours de CE texte. `portee.plat` est le même
+    # texte normalisé que `plat` : les positions sont donc comparables.
+    portee = portee if portee is not None else Portee.construire(texte, blocs)
+    notes = notes if notes is not None else []
+
+    def _ecarte(gauche, droite, conclusion):
+        """Deux mots présents, mais pas au même endroit : on le DIT.
+
+        Rien ne disparaît en silence — l'observation reste, elle cesse
+        seulement de conclure. C'est une question, plus une preuve.
+        """
+        pg = positions(plat, gauche[0])
+        pd = positions(plat, droite[0])
+        ou = (f"{portee.situer(pg[0])} et {portee.situer(pd[0])}"
+              if pg and pd else "deux endroits distincts")
+        cle = f"« {gauche[0]} » et « {droite[0]} » ont été lus dans "
+        # Le corps est relu une seconde fois avec l'intitulé, pour la
+        # corroboration entre champs : la même observation écartée ne doit
+        # pas s'inscrire deux fois au journal.
+        if any(str(n).startswith(cle) for n in notes):
+            return
+        notes.append(
+            f"{cle}{ou} : rien ne dit qu'ils parlent de la même chose — "
+            f"{conclusion} non conclu, à vérifier à la source")
+
+    def _porte_ici(position: int, expression: str, modificateur: str) -> bool:
+        """Le modificateur porte-t-il sur CETTE occurrence-ci ?
+
+        Exactement la fenêtre de `_porte()`, appliquée à une occurrence
+        nommée au lieu de « n'importe laquelle ». `_porte()` n'est pas
+        modifié : il reste la référence.
+        """
+        zone = plat[max(0, position - FENETRE_NEGATION):
+                    position + len(expression) + FENETRE_NEGATION]
+        return any(f" {m} " in zone for m in _MARQUEURS_PLATS[modificateur])
+
     preuves: list[Preuve] = []
 
     def dire(conclusion, observation, confiance=Confiance.MOYENNE, exclut=()):
@@ -533,14 +576,46 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
 
     # 2. L'attribution — le point le plus piégeux du module.
     if attribution_affirmee:
-        futur = _porte(plat, "attribution", "futur")
-        pas_encore = _porte(plat, "attribution", "pas_encore")
-        if pas_encore or attribution_niee:
+        # Chaque occurrence est jugée AVEC SON PROPRE VOISINAGE. Auparavant,
+        # « le marché a été attribué » d'une phrase était annulé par « sera
+        # désigné prochainement » d'une autre, à 1 100 caractères de là : la
+        # futurité d'une phrase contaminait l'affirmation d'une autre. Deux
+        # énoncés indépendants produisent maintenant deux preuves, que la
+        # hiérarchie et la machinerie de contradiction départagent — ce qui
+        # est exactement leur rôle.
+        # Une lecture PAR UNITÉ. Dans une unité, la précédence d'origine est
+        # conservée : un « pas encore » l'emporte sur un futur, qui l'emporte
+        # sur une attribution nue. Entre unités, rien ne se contamine — deux
+        # énoncés indépendants produisent deux preuves, et la hiérarchie fait
+        # son travail. Sur un texte sans structure, toutes les occurrences
+        # tombent dans la même unité : le comportement d'avant, à l'identique.
+        FORCE = {"pas_encore": 3, "futur": 2, "prononcee": 1}
+        lectures: dict = {}
+        for _m in attribution_affirmee:
+            for _pm in positions(plat, _m):
+                nie_ici = any(portee.meme_unite(_pm, pn)
+                              for n in attribution_niee for pn in positions(plat, n))
+                if _porte_ici(_pm, _m, "pas_encore") or nie_ici:
+                    genre = "pas_encore"
+                elif _porte_ici(_pm, _m, "futur"):
+                    genre = "futur"
+                else:
+                    genre = "prononcee"
+                u = portee.unite_de(_pm)
+                cle = u.rang if u is not None else -1
+                if FORCE[genre] > FORCE.get(lectures.get(cle, ("",))[0], 0):
+                    lectures[cle] = (genre, _m, _pm)
+        genres = {g: (m, pm) for g, m, pm in lectures.values()}
+        if "pas_encore" in genres:
             # « aucun soumissionnaire n'a encore été désigné » : ce n'est PAS
             # une attribution, et ce n'est surtout pas une ouverture non plus.
             dire(None, f"{origine} : attribution explicitement PAS encore prononcée",
                  Confiance.MOYENNE, exclut=(Etat.ATTRIBUE, Etat.POSTULABLE))
-        elif futur:
+        if "prononcee" in genres:
+            _m, _pm = genres["prononcee"]
+            dire(Etat.ATTRIBUE,
+                 f"{origine} : « {_m} » — {portee.situer(_pm)}", Confiance.ELEVEE)
+        if "futur" in genres and "prononcee" not in genres:
             # « Le marché sera attribué prochainement » : la procédure est
             # avancée. Elle n'est pas attribuée — mais elle n'est PAS ouverte
             # non plus : on ne dépose pas une offre sur un marché dont
@@ -549,9 +624,11 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
             # et le radar invitait à monter un dossier pour rien.
             dire(None, f"{origine} : attribution ANNONCÉE mais non prononcée",
                  Confiance.MOYENNE, exclut=(Etat.ATTRIBUE, Etat.POSTULABLE))
-        else:
-            dire(Etat.ATTRIBUE, f"{origine} : « {attribution_affirmee[0]} »",
-                 Confiance.ELEVEE)
+        elif "futur" in genres:
+            # Une attribution prononcée ICI et une attribution annoncée LÀ :
+            # deux énoncés, deux preuves. On n'en efface aucune.
+            dire(None, f"{origine} : une autre unité annonce une attribution à venir",
+                 Confiance.FAIBLE)
     elif attribution_niee:
         dire(None, f"{origine} : « {attribution_niee[0]} » est nié",
              Confiance.MOYENNE, exclut=(Etat.ATTRIBUE,))
@@ -573,18 +650,41 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
     # 4. La clôture, et le dépôt nié — deux façons de dire « c'est fini ».
     if cloture:
         dire(Etat.FERME, f"{origine} : « {cloture[0]} »", Confiance.ELEVEE)
-    if depot_nie or (depot and ouverture_niee):
-        quoi = (depot_nie or depot)[0]
+    # `depot_nie` est déjà local : la négation est jugée par `_nie()`, qui
+    # regarde la fenêtre précédant le mot. La combinaison « un dépôt ici, une
+    # ouverture niée ailleurs », elle, ne l'était pas — et produisait un FERMÉ
+    # de rang 4, confiance ÉLEVÉE, à partir de deux phrases sans rapport.
+    apparie_ferme = None if depot_nie else (
+        appariees(portee, depot, ouverture_niee) if (depot and ouverture_niee) else None)
+    if depot_nie or apparie_ferme:
+        if depot_nie:
+            quoi, ou = depot_nie[0], ""
+        else:
+            quoi, pq = apparie_ferme[0], apparie_ferme[1]
+            ou = f" ({portee.situer(pq)} : « {portee.extrait(pq)} »)"
         dire(Etat.FERME, f"{origine} : « {quoi} » sous négation — "
-                         f"plus de dépôt possible", Confiance.ELEVEE)
+                         f"plus de dépôt possible{ou}", Confiance.ELEVEE)
+    elif depot and ouverture_niee:
+        _ecarte(depot, ouverture_niee, "FERMÉ")
 
     # 5. L'ouverture — seulement si elle parle bien d'un dépôt ou d'une procédure.
     #    « la société est active depuis 1998 » ne rend rien postulable.
-    if ouverture_affirmee and (depot or trouver("procedure", plat)):
-        if not cloture and not depot_nie:
+    sujets = depot or trouver("procedure", plat)
+    if ouverture_affirmee and sujets and not cloture and not depot_nie:
+        # « porte sur » AFFIRME un lien syntaxique. Tant qu'il n'était pas
+        # vérifié, la preuve mentait : sur une page réelle, « disponible »
+        # (bloc 48, une feuille de route produit) et « offre » (bloc 24, un
+        # argumentaire e-commerce) donnaient un POSTULABLE. On n'écrit plus
+        # « porte sur » sans l'avoir établi.
+        apparie = appariees(portee, ouverture_affirmee, sujets)
+        if apparie:
+            ouv, pouv, suj, _ = apparie
             dire(Etat.POSTULABLE,
-                 f"{origine} : « {ouverture_affirmee[0]} » porte sur "
-                 f"« {(depot or trouver('procedure', plat))[0]} »", Confiance.MOYENNE)
+                 f"{origine} : « {ouv} » porte sur « {suj} » "
+                 f"— {portee.situer(pouv)} : « {portee.extrait(pouv)} »",
+                 Confiance.MOYENNE)
+        else:
+            _ecarte(ouverture_affirmee, sujets, "POSTULABLE")
 
     # 6. Préinformation et appels à projets : des types, pas des états ouverts.
     if preinfo and not attribution:
@@ -675,8 +775,15 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
          texte_autour_du_statut="", documents=(), evenements=(), actions_possibles=(),
          echeance=None, date_attribution=None, titulaire=None, maintenant=None,
          vocabulaire: Vocabulaire | None = None, source="", est_signal=False,
-         lien_depot=None) -> Lecture:
+         lien_depot=None, blocs=None) -> Lecture:
     """Assemble toutes les preuves disponibles et applique la hiérarchie.
+
+    `blocs` — quand la source sait dire comment son corps est découpé — sert
+    UNIQUEMENT au corps du document : c'est du texte libre, et deux fragments
+    n'y parlent du même sujet que dans une même unité de discours. Les CHAMPS
+    (intitulé, texte du statut, corps) restent interprétés séparément puis
+    corroborés entre eux : ce sont deux provenances d'un seul référent, pas
+    deux fragments indépendants. La distinction est ici, et nulle part ailleurs.
 
     `documents` et `actions_possibles` sont volontairement séparés du texte :
     un document nommé « avis d'attribution » NE conclut PAS sur l'état de la
@@ -824,14 +931,41 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
     # seconde observation : c'est la même, dupliquée par la mise en page.
     echo = bool(titre) and normaliser(texte) == normaliser(titre)
     corroborants = []
-    for morceau, origine in ((texte_autour_du_statut, "texte du statut"),
-                             ("" if echo else texte, "corps du document")):
+    for morceau, origine, decoupe in (
+            (texte_autour_du_statut, "texte du statut", None),
+            ("" if echo else texte, "corps du document", blocs)):
         if morceau:
-            corroborants += _reranger(interpreter_formulation(morceau, origine=origine))
+            corroborants += _reranger(interpreter_formulation(
+                morceau, origine=origine, blocs=decoupe,
+                notes=lecture.a_verifier))
     if echo:
         lecture.a_verifier.append(
             "le corps de l'enregistrement recopie son intitulé — "
             "une seule observation, pas deux")
+
+    # ── LA CORROBORATION ENTRE CHAMPS ────────────────────────────────────
+    #
+    # « intitulé : Marché en cours » et « corps : remise des offres » parlent
+    # du même marché : ce sont deux provenances d'un seul référent, pas deux
+    # fragments indépendants. Lus champ par champ, aucun des deux ne conclut —
+    # l'ouverture est dans l'un, le dépôt dans l'autre. Ils sont donc relus
+    # ENSEMBLE, avec une portée qui fait toujours se corroborer deux champs et
+    # qui continue d'exiger une même unité DANS un champ.
+    #
+    # La conclusion reste plafonnée comme une lecture de titre : elle s'appuie
+    # en partie sur un intitulé, et « un intitulé n'énonce pas à lui seul
+    # l'état d'une procédure » (§7).
+    if titre and texte and not echo:
+        croisees = _plafonner(_reranger(interpreter_formulation(
+            f"{titre} {texte}", origine="intitulé + corps du document",
+            portee=Portee.composer([("intitulé", titre, None),
+                                    ("corps du document", texte, blocs)]),
+            notes=lecture.a_verifier)))
+        for pr in croisees:
+            # DEUX provenances, pas une chaîne qui les résume : la fiche doit
+            # montrer que l'observation tient à deux champs distincts.
+            pr.origines = ("intitulé", "corps du document")
+        corroborants += croisees
 
     # Une observation identique lue dans deux champs reste UNE observation.
     # C'est le cœur du défaut : l'adaptateur recopie l'intitulé dans le texte,

@@ -78,6 +78,13 @@ class Opportunite:
     # dans une <meta description> et « objet » lu dans le corps du document
     # se présentent comme la même chose.
     champs_origine: dict = field(default_factory=dict)
+    # LE CORPS, TEL QUE LA SOURCE L'A DÉCOUPÉ : [texte, texte, …].
+    #
+    # Deux fragments d'un même texte libre ne se combinent que dans une même
+    # unité de discours (voir radar/portee.py). Les blocs sont la meilleure
+    # unité disponible ; sans eux on retombe sur la phrase, puis sur la
+    # fenêtre. Vide pour toute source qui ne sait pas découper.
+    blocs: list = field(default_factory=list)
     type_avis: str | None = None
     # ── A · ce que le PORTAIL dit être cet objet, tel quel ────────────────
     type_information: str | None = None     # « Marchés en cours », « Résultats »…
