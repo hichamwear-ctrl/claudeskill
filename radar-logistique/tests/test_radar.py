@@ -5377,5 +5377,93 @@ class SegmentationDUnePage(unittest.TestCase):
         self.assertEqual(brut[d:f], "ADR")
 
 
+# ══════════ §20 — le corps du document doit ARRIVER jusqu'au moteur
+#
+# Mesuré sur la page réelle : la liste de chemins d'un champ est une liste
+# d'ALTERNATIVES — le premier qui répond gagne. `objet: [objet, description,
+# texte]` faisait donc gagner une <meta description> de 148 caractères, et les
+# 3 178 caractères de la page n'étaient jamais lus. La matière était perdue
+# avant toute règle.
+#
+# `contenu` est un champ déclaré à part : il s'AJOUTE, il ne remplace pas.
+
+class TransmissionDuContenu(unittest.TestCase):
+    PROFIL_PAGE = cfg("sources/page_web.yaml")
+
+    def _o(self, **charge):
+        from radar.adaptateur import Adaptateur, vers_opportunite
+        return vers_opportunite(Adaptateur.depuis_config(self.PROFIL_PAGE),
+                                {"url": "https://x.be/", **charge}, "entreprise")
+
+    def test_le_corps_de_la_page_atteint_le_moteur(self):
+        o = self._o(objet="description courte", texte="le corps réel de la page")
+        self.assertIn("le corps réel de la page", o.corps)
+
+    def test_objet_et_description_restent_des_alternatives(self):
+        """Deux orthographes d'un même champ. La première qui répond gagne —
+        c'est le comportement voulu, et il ne change pas."""
+        a = self._o(objet="A", description="B")
+        b = self._o(description="B")
+        self.assertIn("A", a.corps)
+        self.assertNotIn("B", a.corps)
+        self.assertIn("B", b.corps)
+
+    def test_objet_nest_pas_ecrase_par_le_contenu(self):
+        o = self._o(objet="la description courte", texte="le corps réel")
+        self.assertIn("la description courte", o.corps)
+        self.assertIn("le corps réel", o.corps)
+
+    def test_la_meme_matiere_nest_jamais_recopiee_deux_fois(self):
+        """Recopiée, elle se présenterait comme deux observations
+        indépendantes alors que c'est la même, vue deux fois."""
+        o = self._o(objet="livraison urbaine", texte="livraison urbaine")
+        self.assertEqual(o.corps.count("livraison urbaine"), 1)
+
+    def test_une_source_sans_contenu_ne_change_pas(self):
+        """Aucune des sources déjà mesurées ne déclare `contenu` : elles
+        doivent rendre exactement ce qu'elles rendaient."""
+        o = self._o(objet="transport de colis")
+        self.assertEqual(o.corps, "transport de colis")
+        self.assertEqual(o.texte, "transport de colis")
+        self.assertNotIn("contenu", o.champs_origine)
+
+    def test_rien_nest_fabrique(self):
+        o = self._o(intitule="Avis")
+        self.assertEqual(o.corps, "")
+
+    def test_la_provenance_champ_vers_chemin_est_conservee(self):
+        """Sans elle, « objet » lu dans une <meta description> et « objet » lu
+        dans le corps du document se présentent comme la même chose."""
+        o = self._o(description="courte", texte="long")
+        self.assertEqual(o.champs_origine["objet"], "description")
+        self.assertEqual(o.champs_origine["contenu"], "texte")
+
+    def test_le_contenu_ne_defait_pas_la_portee_des_exclusions(self):
+        """LE TEST LE PLUS IMPORTANT DES DEUX CORRECTIONS.
+
+        Le corps contient maintenant la page entière, pied de page compris.
+        Si le chemin des exclusions lisait `corps` plutôt que les segments,
+        la correction 1 annulerait la correction 2 et « Normes ADR » en pied
+        de page condamnerait de nouveau l'opportunité.
+        """
+        o = self._o(texte="transport routier de marchandises. CGU Normes ADR © 2026",
+                    segments=[{"texte": "transport routier de marchandises",
+                               "origine": "corps de la page"},
+                              {"texte": "CGU Normes ADR © 2026",
+                               "origine": "pied de page"}])
+        self.assertIn("ADR", o.corps, "le mot est bien dans le corps, désormais")
+        r = moteur().analyser(o, maintenant_dt=MAINTENANT)
+        self.assertIsNot(r.classement.type, Type.REJET)
+        self.assertEqual(r.correspondance.exclusions, [])
+        self.assertEqual(len(r.correspondance.reserves), 1)
+
+    def test_une_exclusion_du_corps_sans_zone_bloque_toujours(self):
+        """Le revers : un corps transmis SANS segmentation reste lu comme
+        caractérisant. Transmettre plus de matière ne désarme rien."""
+        o = self._o(texte="transport de matières dangereuses en citerne")
+        r = moteur().analyser(o, maintenant_dt=MAINTENANT)
+        self.assertIs(r.classement.type, Type.REJET)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

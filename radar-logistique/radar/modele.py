@@ -74,6 +74,10 @@ class Opportunite:
     # dans un menu décrit le site, pas le besoin. Vide pour toute source qui
     # ne sait pas le dire : l'origine est alors réputée caractériser.
     segments: list = field(default_factory=list)
+    # `champ -> chemin de la source qui a répondu`. Sans cela, « objet » lu
+    # dans une <meta description> et « objet » lu dans le corps du document
+    # se présentent comme la même chose.
+    champs_origine: dict = field(default_factory=dict)
     type_avis: str | None = None
     # ── A · ce que le PORTAIL dit être cet objet, tel quel ────────────────
     type_information: str | None = None     # « Marchés en cours », « Résultats »…

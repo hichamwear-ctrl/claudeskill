@@ -69,14 +69,22 @@ class Adaptateur:
                    verifie=bool(cfg.get("verifie", False)),
                    vocabulaire=Vocabulaire(cfg))
 
-    def extraire(self, payload: dict) -> dict:
-        """Premier chemin qui répond gagne. Aucun champ n'est fabriqué."""
+    def extraire(self, payload: dict, chemins_lus: dict | None = None) -> dict:
+        """Premier chemin qui répond gagne. Aucun champ n'est fabriqué.
+
+        `chemins_lus`, s'il est fourni, reçoit `champ -> chemin qui a répondu`.
+        Sans cela, une valeur arrive dans le moteur sans qu'on puisse dire d'où
+        elle sort — et « objet » lu dans une <meta description> ne vaut pas
+        « objet » lu dans le corps du document.
+        """
         sortie = {}
         for nom, chemins in self.champs.items():
             for chemin in chemins:
                 v = lire_chemin(payload, chemin)
                 if v not in (None, "", []):
                     sortie[nom] = v
+                    if chemins_lus is not None:
+                        chemins_lus[nom] = chemin
                     break
         return sortie
 
@@ -164,6 +172,27 @@ def _nombre(valeur, champ: str, illisibles: dict):
 def _entier(valeur, champ: str, illisibles: dict):
     n = _nombre(valeur, champ, illisibles)
     return int(round(n)) if n is not None else None
+
+
+def _agreger(c: dict, champs) -> str:
+    """Assemble des champs SANS jamais recopier deux fois la même matière.
+
+    Une source peut publier le même texte sous deux noms — une description
+    `<meta>` reprise mot pour mot en tête de page, par exemple. Recopié, il
+    se présenterait comme deux observations indépendantes alors que c'est la
+    même, vue deux fois : exactement le défaut que le §7 a corrigé pour les
+    preuves d'état. Un morceau déjà contenu dans ce qui est assemblé n'est
+    donc pas ajouté.
+    """
+    morceaux: list[str] = []
+    for nom in champs:
+        v = str(c.get(nom, "") or "").strip()
+        if not v:
+            continue
+        if any(v in m or m in v for m in morceaux):
+            continue
+        morceaux.append(v)
+    return " ".join(morceaux).strip()
 
 
 def _segments(v) -> list:
@@ -277,7 +306,8 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
     forme d'une source ; tout l'aval ignore d'où vient l'annonce."""
     from .modele import Opportunite
 
-    c = adaptateur.extraire(charge)
+    chemins_lus: dict = {}
+    c = adaptateur.extraire(charge, chemins_lus)
     d = defauts or {}
 
     # Un identifiant absent ne doit JAMAIS produire une référence vide : deux
@@ -293,9 +323,21 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
     est_signal = bool(d.get("signal")) or bool(c.get("signal_code"))
     illisibles: dict = {}
 
-    texte = " ".join(str(c.get(k, "")) for k in ("objet", "intitule", "lieu", "conditions"))
+    # `contenu` — LE CORPS DU DOCUMENT, distinct de `objet`.
+    #
+    # `objet` et `description` sont deux orthographes d'un même champ : la
+    # liste de chemins d'un champ est une liste d'ALTERNATIVES, et le premier
+    # qui répond gagne. Le corps d'une page n'est pas une alternative de la
+    # description : c'est un autre niveau de contenu. Le ranger dans la même
+    # liste le condamnait à n'être jamais lu — mesuré sur une page réelle :
+    # `objet` répondait avec 148 caractères de <meta description> et les
+    # 3 178 caractères de la page étaient perdus avant toute règle.
+    #
+    # `contenu` est donc un champ déclaré à part, et il s'AJOUTE au lieu de
+    # remplacer. Une source qui n'en déclare pas ne voit aucune différence.
+    texte = _agreger(c, ("objet", "contenu", "intitule", "lieu", "conditions"))
     # Le corps SANS l'intitulé : ce que la source dit en plus de son titre.
-    corps = " ".join(str(c.get(k, "")) for k in ("objet", "conditions")).strip()
+    corps = _agreger(c, ("objet", "contenu", "conditions"))
     return Opportunite(
         source=source,
         ref_source=ref,
@@ -304,6 +346,7 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         texte=texte,
         corps=corps,
         segments=_segments(c.get("segments")),
+        champs_origine=dict(chemins_lus),
         type_avis=c.get("type_avis") or d.get("type_avis"),
         est_signal=est_signal,
         signal_code=c.get("signal_code") or (c.get("type_avis") if est_signal else None),

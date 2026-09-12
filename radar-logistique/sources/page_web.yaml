@@ -23,7 +23,12 @@ secteur_par_defaut: prive
 champs:
   identifiant:      [url]
   intitule:         [intitule, titre, title]
-  objet:            [objet, description, texte]
+  # `objet` et `description` restent des ALTERNATIVES du même champ : la
+  # description courte que la page donne d'elle-même.
+  objet:            [objet, description]
+  # `contenu` est un AUTRE niveau : le corps du document. Il s'ajoute à
+  # `objet`, il ne le remplace pas et n'est pas remplacé par lui.
+  contenu:          [contenu, corps, texte]
   acheteur:         [acheteur, entreprise, societe]
   contact_email:    [contact_email]
   # Le texte porté par son emplacement — voir `zones` plus bas.

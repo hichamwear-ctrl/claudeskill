@@ -141,12 +141,20 @@ def journaliser(lec: lecteur.Lecture, opp, res, meta: dict,
     for champ, valeur in lec.champs.items():
         j.observer(champ, valeur)
 
+    # — D'OÙ vient chaque champ : quel chemin de la source a répondu.
+    for champ, chemin in (opp.champs_origine or {}).items():
+        j.deduire(f"provenance de « {champ} »", chemin,
+                  regle="chemin déclaré dans le fichier de source")
+
     # — INTERPRÉTÉ : les conclusions sémantiques, avec la phrase qui les porte.
     lecture_etat = res.lecture
     if lecture_etat is not None:
         if lecture_etat.procedure_detectee:
+            # `str(preuve)` : rang, provenance, observation verbatim, conclusion.
+            # L'ancien code lisait `.detail`, un attribut qui n'existe pas —
+            # branche jamais exécutée tant qu'aucune page n'avait de procédure.
             j.interpreter("état de procédure", lecture_etat.etat_affiche,
-                          regle=(lecture_etat.preuves[0].detail
+                          regle=(str(lecture_etat.preuves[0])
                                  if lecture_etat.preuves else "hiérarchie de preuves"))
         else:
             j.deduire("état de procédure", "HORS PROCÉDURE",
