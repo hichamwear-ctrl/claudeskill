@@ -101,6 +101,57 @@
         "DÉCOUVERTE (titre + URL) ≠ QUALIFICATION (page réellement lue) : la frontière est préservée, le capteur de titre n'a pas été élargi",
         "le goulet n'est pas le nombre de collecteurs mais l'accès aux pages externes : un adaptateur local de plus ne changerait rien"
       ]
+    },
+    {
+      "horodatage": "2026-09-12T23:53:46+00:00",
+      "famille": "entreprise",
+      "origine": "contenu collé dans la conversation par l'exploitant le 2026-09-12 ; AUCUN des 7 éléments de provenance fourni ; transcription PARTIELLE (CSS, polices et scripts retirés)",
+      "reference": "https://transporteur.dhl.fr/",
+      "empreinte": "e0a7191f9b397462326a94a5a73f48950513bea25f112d98db8fd6efb1959714",
+      "page_conservee": "2026-09-12-entreprise-e0a7191f9b39.html",
+      "completude": "fragment",
+      "ca_identifie": 0.0,
+      "verdict": "🔵 PROSPECT · score 55/100 · VÉRIFIER L'ÉTAT À LA SOURCE",
+      "porte_un_besoin": true,
+      "constats": {
+        "OBSERVÉ RÉELLEMENT": 1,
+        "OBSERVÉ DANS LE BALISAGE": 4,
+        "INTERPRÉTÉ": 4,
+        "DÉDUIT": 13,
+        "INCONNU": 7
+      },
+      "enseignements": [
+        "densité de texte 13% : les fixtures sont du texte pur, une vraie page est majoritairement du balisage",
+        "pistes muettes : contact_email, telephone",
+        "plus d'INCONNUS que d'OBSERVÉS : c'est le régime normal d'une page privée, et le score doit y survivre",
+        "⚠ une procédure a été détectée sur une page d'entreprise — à vérifier : faux positif possible",
+        "aucun contact lisible : une opportunité sans porte d'entrée"
+      ]
+    },
+    {
+      "horodatage": "2026-09-12T23:53:59+00:00",
+      "famille": "entreprise",
+      "origine": "contenu collé dans la conversation par l'exploitant le 2026-09-12 ; AUCUN des 7 éléments de provenance fourni ; transcription quasi complète (quelques blocs de script retirés)",
+      "reference": "https://colisprive.be/devenir-partenaire-livraison/",
+      "empreinte": "c5e20010e7bd92c7a5d28462c32169ce34bc8df194014f85838be09b15df08a0",
+      "page_conservee": "2026-09-12-entreprise-c5e20010e7bd.html",
+      "completude": "fragment",
+      "ca_identifie": 0.0,
+      "verdict": "🟢 DIRECT · score 55/100 · POSTULER",
+      "porte_un_besoin": true,
+      "constats": {
+        "OBSERVÉ RÉELLEMENT": 3,
+        "OBSERVÉ DANS LE BALISAGE": 3,
+        "INTERPRÉTÉ": 4,
+        "DÉDUIT": 14,
+        "INCONNU": 6
+      },
+      "enseignements": [
+        "densité de texte 10% : les fixtures sont du texte pur, une vraie page est majoritairement du balisage",
+        "pistes muettes : telephone",
+        "plus d'INCONNUS que d'OBSERVÉS : c'est le régime normal d'une page privée, et le score doit y survivre",
+        "⚠ une procédure a été détectée sur une page d'entreprise — à vérifier : faux positif possible"
+      ]
     }
   ]
 }
