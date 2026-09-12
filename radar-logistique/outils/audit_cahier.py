@@ -382,6 +382,22 @@ REGLES = [
      ["les_trois_potentiels_ne_sadditionnent_pas",
       "cinq_provenances_un_seul_CA"]),
 
+    # §TITRE — posée après la campagne D du 12 septembre 2026.
+    ("un intitulé nomme un type de document, il n'énonce pas un état",
+     ["procedure.Preuve.expression", "procedure.Lecture.titre_non_corrobore"],
+     ["A_titre_seul_avis_dattribution_ne_conclut_pas",
+      "B_titre_plus_corps_nommant_le_titulaire_conclut",
+      "C_titre_procedure_ouverte_seul_ne_conclut_pas_postulable",
+      "D_une_rubrique_de_listing_ne_ferme_pas_un_avis",
+      "F_un_titre_tronque_ninvente_rien",
+      "H_contradiction_titre_corps_donne_INCONNU"]),
+    ("une même observation dans deux champs reste une seule preuve",
+     ["procedure.Preuve.origines", "adaptateur.vers_opportunite"],
+     ["E_un_titre_recopie_ne_fait_pas_deux_observations",
+      "E_une_meme_observation_dans_deux_champs_reste_une_preuve",
+      "l_adaptateur_produit_un_corps_distinct_du_titre",
+      "la_lecture_detat_recoit_le_corps_pas_le_texte_agrege"]),
+
     # §17 — la règle qui gouverne toutes les autres.
     ("AUCUNE SOURCE NE PEUT ÊTRE LE MODÈLE IMPLICITE DU PRODUIT",
      ["classification.classer", "procedure.Lecture.depot_organise"],

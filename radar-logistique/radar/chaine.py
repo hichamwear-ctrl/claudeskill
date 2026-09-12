@@ -167,7 +167,9 @@ class Moteur:
         lecture = proc.lire(
             statut_source=opp.statut_source,
             type_information=opp.type_information or opp.type_avis,
-            titre=opp.intitule, texte=opp.texte,
+            # `corps` et non `texte` : `texte` contient l'intitulé recopié,
+            # et le passer ici ferait du titre sa propre corroboration.
+            titre=opp.intitule, texte=opp.corps,
             texte_autour_du_statut=opp.texte_statut or "",
             documents=opp.documents, evenements=opp.evenements,
             actions_possibles=opp.actions_possibles,

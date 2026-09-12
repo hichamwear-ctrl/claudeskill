@@ -28,6 +28,15 @@ class LotBrut:
     numero: str = ""
     intitule: str = ""
     texte: str = ""
+    # LE CORPS RÉEL, sans l'intitulé recopié dedans.
+    #
+    # `texte` agrège titre + objet + lieu + conditions : c'est ce qu'il faut
+    # pour reconnaître le métier, et il doit le rester. Mais la lecture de
+    # l'ÉTAT a besoin de savoir ce que la source a écrit EN PLUS du titre —
+    # sinon « intitulé : attribution » et « description : attribution » se
+    # présentent comme deux observations indépendantes alors que c'est la
+    # même, vue deux fois.
+    corps: str = ""
     cpv: list[str] = field(default_factory=list)
     montant: float | None = None
     duree_mois: int | None = None
@@ -49,6 +58,15 @@ class Opportunite:
     lots: list[LotBrut] = field(default_factory=list)
 
     texte: str = ""
+    # LE CORPS RÉEL, sans l'intitulé recopié dedans.
+    #
+    # `texte` agrège titre + objet + lieu + conditions : c'est ce qu'il faut
+    # pour reconnaître le métier, et il doit le rester. Mais la lecture de
+    # l'ÉTAT a besoin de savoir ce que la source a écrit EN PLUS du titre —
+    # sinon « intitulé : attribution » et « description : attribution » se
+    # présentent comme deux observations indépendantes alors que c'est la
+    # même, vue deux fois.
+    corps: str = ""
     type_avis: str | None = None
     # ── A · ce que le PORTAIL dit être cet objet, tel quel ────────────────
     type_information: str | None = None     # « Marchés en cours », « Résultats »…

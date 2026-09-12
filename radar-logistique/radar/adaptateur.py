@@ -274,12 +274,15 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
     illisibles: dict = {}
 
     texte = " ".join(str(c.get(k, "")) for k in ("objet", "intitule", "lieu", "conditions"))
+    # Le corps SANS l'intitulé : ce que la source dit en plus de son titre.
+    corps = " ".join(str(c.get(k, "")) for k in ("objet", "conditions")).strip()
     return Opportunite(
         source=source,
         ref_source=ref,
         intitule=str(c.get("intitule") or "(sans intitulé)"),
         lots=_lots_de(charge, adaptateur, illisibles),
         texte=texte,
+        corps=corps,
         type_avis=c.get("type_avis") or d.get("type_avis"),
         est_signal=est_signal,
         signal_code=c.get("signal_code") or (c.get("type_avis") if est_signal else None),

@@ -155,10 +155,31 @@ class Preuve:
     conclusion: Etat | None     # None = la preuve exclut sans conclure
     confiance: Confiance = Confiance.MOYENNE
     exclut: tuple = ()          # états que cette preuve rend impossibles
+    # D'OÙ elle vient : intitulé, corps du document, pièce jointe, métadonnée…
+    # Deux champs portant la MÊME observation ne font pas deux observations :
+    # ils font une observation vue à deux endroits. La provenance est donc une
+    # liste, et la preuve reste unique.
+    origines: tuple = ()
+
+    @property
+    def expression(self) -> str:
+        """L'observation NUE, sans le nom du champ qui la portait.
+
+        « intitulé : « attribution » » et « description : « attribution » »
+        sont la même lecture du même mot. Sans cette clé, l'adaptateur qui
+        recopie le titre dans le texte fabriquait deux preuves concordantes
+        de rang 4, et donc une confiance imméritée.
+        """
+        return self.observation.split(" : ", 1)[-1].strip()
+
+    @property
+    def provenance(self) -> str:
+        return " + ".join(self.origines) if self.origines else "source"
 
     def __str__(self) -> str:
         quoi = self.conclusion.value if self.conclusion else "n'élit aucun état"
-        return f"[{NOM_DU_RANG[self.rang]}] « {self.observation} » → {quoi}"
+        ou = f" [{self.provenance}]" if self.origines else ""
+        return f"[{NOM_DU_RANG[self.rang]}]{ou} « {self.observation} » → {quoi}"
 
 
 @dataclass
@@ -186,6 +207,9 @@ class Lecture:
     # qualifier — mais aucun dossier à remettre. C'est ce champ, et lui seul,
     # qui autorise l'action POSTULER.
     depot_organise: bool = False
+    # Le titre évoquait un état que rien d'autre ne confirme. L'opportunité
+    # reste dans le radar, avec sa question — elle n'est ni jetée, ni promue.
+    titre_non_corrobore: bool = False
 
     @property
     def etat_affiche(self) -> str:
@@ -484,7 +508,8 @@ def interpreter_formulation(texte: str, *, origine: str = "texte") -> list[Preuv
         # « marché attribué », « les offres ne sont plus acceptées » — n'est pas
         # une impression : c'est l'état de la procédure, dit en toutes lettres.
         rang = RANG_ETAT_EXPLICITE if confiance is Confiance.ELEVEE else RANG_FORMULATION
-        preuves.append(Preuve(rang, observation, conclusion, confiance, exclut=exclut))
+        preuves.append(Preuve(rang, observation, conclusion, confiance,
+                              exclut=exclut, origines=(origine,)))
 
     annulation = [m for m in trouver("annulation", plat) if not _nie(plat, m)]
     infructueux = [m for m in trouver("infructueux", plat) if not _nie(plat, m)]
@@ -763,10 +788,88 @@ def lire(*, statut_source=None, type_information=None, titre="", texte="",
                       else voc.rang("formulation"))
         return liste
 
+    # ═══ UN INTITULÉ NOMME UN TYPE DE DOCUMENT ═══════════════════════════
+    #
+    # Il n'énonce pas, à lui seul, l'état d'une procédure. « Avis
+    # d'attribution » est le NOM d'une sorte de document — ou d'une rubrique
+    # de portail — pas la déclaration que CETTE procédure est attribuée.
+    #
+    # Le module appliquait déjà ce principe aux pièces jointes (« le statut
+    # d'un document n'est pas celui de la procédure ») et pas au titre de
+    # l'enregistrement lui-même. Mesuré sur des titres réels de portails
+    # belges : cinq variantes de rubrique sur huit produisaient un état
+    # affirmé — ATTRIBUÉ, POSTULABLE, FERMÉ, ANNONCÉ — sans qu'aucun contenu
+    # ne le justifie. Le plus coûteux : un avis encore postulable rangé en
+    # ATTRIBUÉ sort de « à attaquer », et le marché est perdu en silence.
+    #
+    # Le titre garde ses trois rôles : il oriente l'interprétation, il propose
+    # un type de document, il sert à la découverte. Il ne tranche pas.
+    # Le titre ne dépasse JAMAIS le rang d'une formulation indirecte, et sa
+    # confiance ne dépasse jamais « moyenne ». Il nomme, il n'affirme pas.
+    # Sans ce plafond, « Avis d'attribution » (rang 4, élevée) écrasait un
+    # corps disant « la procédure est ouverte, les offres sont acceptées »
+    # (rang 2, moyenne) : le radar fermait une procédure vivante.
+    def _plafonner(liste):
+        for pr in liste:
+            pr.rang = min(pr.rang, voc.rang("formulation"))
+            if pr.confiance is Confiance.ELEVEE:
+                pr.confiance = Confiance.MOYENNE
+        return liste
+
+    lues_du_titre = _plafonner(
+        _reranger(interpreter_formulation(titre, origine="intitulé"))) if titre else []
+
+    # UN CORPS QUI RECOPIE LE TITRE N'EST PAS UN CORPS.
+    # Certaines sources remplissent `objet` avec le titre. Ce n'est pas une
+    # seconde observation : c'est la même, dupliquée par la mise en page.
+    echo = bool(titre) and normaliser(texte) == normaliser(titre)
+    corroborants = []
     for morceau, origine in ((texte_autour_du_statut, "texte du statut"),
-                             (titre, "intitulé"), (texte, "description")):
+                             ("" if echo else texte, "corps du document")):
         if morceau:
-            preuves += _reranger(interpreter_formulation(morceau, origine=origine))
+            corroborants += _reranger(interpreter_formulation(morceau, origine=origine))
+    if echo:
+        lecture.a_verifier.append(
+            "le corps de l'enregistrement recopie son intitulé — "
+            "une seule observation, pas deux")
+
+    # Une observation identique lue dans deux champs reste UNE observation.
+    # C'est le cœur du défaut : l'adaptateur recopie l'intitulé dans le texte,
+    # si bien que chaque mot du titre produisait deux preuves concordantes.
+    def _fusionner(liste):
+        par_cle: dict = {}
+        for pr in liste:
+            cle = (pr.rang, pr.conclusion, pr.expression)
+            deja = par_cle.get(cle)
+            if deja is None:
+                par_cle[cle] = pr
+                continue
+            for o in pr.origines:
+                if o not in deja.origines:
+                    deja.origines = deja.origines + (o,)
+        return list(par_cle.values())
+
+    corroborants = _fusionner(corroborants)
+    expressions_corroborees = {p.expression for p in corroborants}
+    # Le titre n'apporte que ce que le corps ne dit pas déjà.
+    inedites_du_titre = [p for p in lues_du_titre
+                         if p.expression not in expressions_corroborees]
+    # Corroboration = une preuve venue d'AILLEURS que du titre.
+    autrement_corrobore = bool(
+        corroborants or statut_source or type_information or evenements
+        or date_attribution or titulaire)
+
+    preuves += corroborants
+    if autrement_corrobore:
+        preuves += inedites_du_titre
+    else:
+        etats = {p.conclusion for p in inedites_du_titre if p.conclusion}
+        if etats:
+            lecture.a_verifier.append(
+                f"l'intitulé évoque {'/'.join(sorted(e.value for e in etats))} — "
+                "un intitulé NOMME un type de document, il n'énonce pas l'état "
+                "de la procédure ; à vérifier à la source")
+            lecture.titre_non_corrobore = True
 
     # Les actions offertes par la page valent une formulation, pas plus.
     for action in actions_possibles or ():

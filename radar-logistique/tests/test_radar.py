@@ -91,6 +91,12 @@ def opp(**kw):
                 texte="transport routier de marchandises et distribution",
                 pays_livraison=["BE"], echeance_brute=OUVERT)
     base.update(kw)
+    # `corps` = ce que la source écrit EN PLUS de son titre. Sur le banc, c'est
+    # exactement `texte` : l'intitulé est passé à part. Sans lui, le banc
+    # modélisait un enregistrement dont le texte existe mais dont le corps est
+    # vide — ce qu'aucun adaptateur ne produit. Les tests de formulation
+    # tombaient alors pour une raison qui n'existe pas dans le monde réel.
+    base.setdefault("corps", base.get("texte", ""))
     return Opportunite(**base)
 
 
@@ -1551,7 +1557,13 @@ class EtatDeProcedure(unittest.TestCase):
         self.assertIs(etat(texte="le contrat a été octroyé").etat, EtatProc.ATTRIBUE)
 
     def test_13_l_anglais_et_l_allemand_sont_compris(self):
-        self.assertIs(etat(titre="Open tenders").etat, EtatProc.POSTULABLE)
+        # « Open tenders » était ici en TITRE, et le test attendait POSTULABLE.
+        # Il vérifiait deux choses à la fois : que l'anglais est compris — une
+        # vraie règle, conservée ci-dessous — et qu'un intitulé seul conclut,
+        # ce qui était le défaut. La compréhension se teste sur le corps ; le
+        # titre seul a son propre test, plus bas.
+        self.assertIs(etat(texte="Open tenders, submissions accepted").etat,
+                      EtatProc.POSTULABLE)
         self.assertIs(etat(texte="the contract has been awarded").etat, EtatProc.ATTRIBUE)
         self.assertIs(etat(texte="Angebote können eingereicht werden").etat,
                       EtatProc.POSTULABLE)
@@ -5022,3 +5034,194 @@ class LaFamilleCEstMesureeSurDuReel(unittest.TestCase):
                                 if etat.startswith("donnée observée")]),
                          len(validation.FAMILLES_PREVUES))
         self.assertTrue(non, "toutes les familles ne peuvent pas être mesurées")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  §TITRE — « UN INTITULÉ NOMME UN TYPE DE DOCUMENT ;
+#            IL N'ÉNONCE PAS À LUI SEUL L'ÉTAT D'UNE PROCÉDURE. »
+#
+#  Règle posée après la campagne D du 12 septembre 2026. Cause racine :
+#  l'adaptateur recopiait l'intitulé dans le texte, si bien que chaque mot du
+#  titre produisait DEUX preuves concordantes — « intitulé : attribution » et
+#  « description : attribution » — et se corroborait lui-même.
+#
+#  Mesuré avant correction, sur des variantes de titres réels de portails
+#  belges : 5 sur 8 produisaient un état affirmé sans qu'aucun contenu ne le
+#  justifie. Le plus coûteux : un avis encore postulable rangé ATTRIBUÉ sort
+#  de « à attaquer », et le marché est perdu en silence.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _avis_source(source, **champs):
+    """Un enregistrement construit PAR L'ADAPTATEUR, comme en production."""
+    import yaml
+    from radar.adaptateur import Adaptateur, vers_opportunite
+    from radar.mode import estampiller
+    cfg = yaml.safe_load(
+        (RACINE / "sources" / f"{source}.yaml").read_text(encoding="utf-8"))
+    champs.setdefault("url", "https://exemple.be/avis/1")
+    charge = estampiller(dict(champs), source=source, reference=champs["url"])
+    return vers_opportunite(Adaptateur.depuis_config(cfg), charge, source,
+                            {"secteur": cfg.get("secteur_par_defaut")})
+
+
+def _avis_portail(**champs):
+    return _avis_source("portail", **champs)
+
+
+def _avis_bda(**champs):
+    """`portail.yaml` déclare `statuts: {}` — ce portail n'expose aucun champ
+    de statut. Les cas qui éprouvent un STATUT DÉCLARÉ doivent donc passer par
+    une source qui en déclare, sinon ils mesurent l'absence de vocabulaire."""
+    return _avis_source("bda", **champs)
+
+
+class UnIntituleNommeUnTypeDeDocument(unittest.TestCase):
+
+    def _lecture(self, **champs):
+        return moteur().analyser(_avis_portail(**champs), MAINTENANT)
+
+    # ── A ────────────────────────────────────────────────────────────────
+    def test_A_titre_seul_avis_dattribution_ne_conclut_pas(self):
+        """AVANT : ATTRIBUÉ, confiance élevée, deux preuves de rang 4."""
+        r = self._lecture(intitule="Avis d'attribution")
+        self.assertIsNot(r.lecture.etat, EtatProc.ATTRIBUE)
+        self.assertTrue(r.lecture.titre_non_corrobore)
+        self.assertTrue(any("n'énonce pas l'état" in v for v in r.lecture.a_verifier))
+
+    def test_A_et_laction_ne_devient_pas_contacter_le_titulaire(self):
+        """Le coût commercial du défaut : on cesse de déposer."""
+        r = self._lecture(intitule="Avis d'attribution")
+        self.assertNotEqual(r.classement.action, Action.CONTACTER_TITULAIRE)
+
+    # ── B ────────────────────────────────────────────────────────────────
+    def test_B_titre_plus_corps_nommant_le_titulaire_conclut(self):
+        """Le correctif ne doit pas aveugler le radar sur un vrai résultat."""
+        r = self._lecture(intitule="Avis d'attribution",
+                          objet="Le marché a été attribué à Transalux SA.")
+        self.assertIs(r.lecture.etat, EtatProc.ATTRIBUE)
+        self.assertEqual(r.classement.action, Action.CONTACTER_TITULAIRE)
+
+    def test_B_le_corps_est_la_preuve_forte_le_titre_seulement_un_appui(self):
+        r = self._lecture(intitule="Avis d'attribution",
+                          objet="Le marché a été attribué à Transalux SA.")
+        forte = max(r.lecture.preuves, key=lambda p: p.rang)
+        self.assertEqual(forte.origines, ("corps du document",))
+        titre = [p for p in r.lecture.preuves if "intitulé" in p.origines]
+        self.assertTrue(titre)
+        self.assertLessEqual(titre[0].rang, forte.rang - 1)
+
+    # ── C ────────────────────────────────────────────────────────────────
+    def test_C_titre_procedure_ouverte_seul_ne_conclut_pas_postulable(self):
+        r = self._lecture(intitule="Procédure ouverte")
+        self.assertIsNot(r.lecture.etat, EtatProc.POSTULABLE)
+        self.assertIs(r.lecture.etat, EtatProc.INCONNU)
+
+    def test_C_avec_un_corps_qui_le_dit_la_conclusion_revient(self):
+        r = self._lecture(intitule="Procédure ouverte",
+                          objet="Les offres sont acceptées jusqu'au 30 novembre 2026.")
+        self.assertIs(r.lecture.etat, EtatProc.POSTULABLE)
+
+    # ── D ────────────────────────────────────────────────────────────────
+    def test_D_une_rubrique_de_listing_ne_ferme_pas_un_avis(self):
+        for titre in ("Marchés clôturés | archives",
+                      "Résultats des marchés publics 2025",
+                      "Avis de préinformation — liste",
+                      "Appels d'offres en cours — portail des marchés publics"):
+            with self.subTest(titre=titre):
+                r = self._lecture(intitule=titre)
+                self.assertIn(r.lecture.etat,
+                              (EtatProc.INCONNU,),
+                              f"« {titre} » a conclu depuis une rubrique")
+
+    # ── E ────────────────────────────────────────────────────────────────
+    def test_E_un_titre_recopie_ne_fait_pas_deux_observations(self):
+        """Certaines sources remplissent `objet` avec le titre."""
+        r = self._lecture(intitule="Avis d'attribution", objet="Avis d'attribution")
+        self.assertIsNot(r.lecture.etat, EtatProc.ATTRIBUE)
+        self.assertTrue(any("recopie son intitulé" in v for v in r.lecture.a_verifier))
+
+    def test_E_une_meme_observation_dans_deux_champs_reste_une_preuve(self):
+        """La fusion garde LES DEUX provenances, mais une seule preuve."""
+        from radar.procedure import Preuve, Confiance
+        a = Preuve(4, "intitulé : « attribution »", EtatProc.ATTRIBUE,
+                   Confiance.ELEVEE, origines=("intitulé",))
+        b = Preuve(4, "corps du document : « attribution »", EtatProc.ATTRIBUE,
+                   Confiance.ELEVEE, origines=("corps du document",))
+        self.assertEqual(a.expression, b.expression)
+        self.assertNotEqual(a.provenance, b.provenance)
+
+    # ── F ────────────────────────────────────────────────────────────────
+    def test_F_un_titre_tronque_ninvente_rien(self):
+        """Observé tel quel sur un portail wallon : « Avis d'attribution de
+        march | » — le titre est coupé à la source."""
+        r = self._lecture(intitule="Avis d'attribution de march |")
+        self.assertIsNot(r.lecture.etat, EtatProc.ATTRIBUE)
+        self.assertTrue(r.lecture.titre_non_corrobore)
+
+    # ── G ────────────────────────────────────────────────────────────────
+    def test_G_deux_lots_detats_differents_gardent_chacun_le_leur(self):
+        """Le lot porte SON statut ; aucun état global n'est fabriqué."""
+        from radar.lots import eclater
+        parent = _avis_bda(
+            intitule="Transport de marchandises",
+            objet="Marché en deux lots.",
+            lots=[{"numero": "1", "intitule": "LOT 1 — distribution nord",
+                   "statut": "attribué"},
+                  {"numero": "2", "intitule": "LOT 2 — distribution sud",
+                   "statut": "en cours"}])
+        morceaux = eclater(parent)
+        self.assertEqual(len(morceaux), 2)
+        etats = {}
+        for lot in morceaux:
+            r = moteur().analyser(lot, MAINTENANT)
+            etats[lot.lot_numero] = r.lecture.etat_affiche
+        self.assertEqual(etats["1"], "ATTRIBUÉ")
+        self.assertEqual(etats["2"], "POSTULABLE")
+
+    # ── H ────────────────────────────────────────────────────────────────
+    def test_H_contradiction_titre_corps_donne_INCONNU(self):
+        """AVANT : le titre (rang 4, élevée) écrasait le corps (rang 2). Le
+        radar fermait une procédure vivante."""
+        r = self._lecture(intitule="Avis d'attribution",
+                          objet="La procédure est ouverte, les offres sont acceptées.")
+        self.assertIs(r.lecture.etat, EtatProc.INCONNU)
+        self.assertEqual(r.classement.action, Action.VERIFIER_ETAT)
+
+    def test_H_une_preuve_vraiment_plus_forte_tranche_quand_meme(self):
+        """Une contradiction RÉSOLUE par la hiérarchie n'est pas un INCONNU.
+
+        Ici le corps énonce l'attribution en toutes lettres — rang 4,
+        confiance élevée — contre un titre qui ne propose qu'un type de
+        document. La hiérarchie tranche, et la contradiction reste affichée.
+        """
+        r = self._lecture(intitule="Avis de marché — consultation en cours",
+                          objet="Le marché a été attribué à Transalux SA.")
+        self.assertIs(r.lecture.etat, EtatProc.ATTRIBUE)
+        forte = max(r.lecture.preuves, key=lambda p: p.rang)
+        self.assertEqual(forte.origines, ("corps du document",))
+        self.assertTrue(r.lecture.contradictions)
+
+
+class LeCorpsNestPasLeTitreRecopie(unittest.TestCase):
+    """La cause racine, verrouillée à la source."""
+
+    def test_l_adaptateur_produit_un_corps_distinct_du_titre(self):
+        o = _avis_portail(intitule="Avis d'attribution",
+                          objet="Le marché a été attribué à Transalux SA.")
+        self.assertIn("Avis d'attribution", o.texte)
+        self.assertNotIn("Avis d'attribution", o.corps)
+        self.assertIn("Transalux", o.corps)
+
+    def test_un_enregistrement_sans_objet_a_un_corps_vide(self):
+        o = _avis_portail(intitule="Avis d'attribution")
+        self.assertEqual(o.corps.strip(), "")
+        self.assertIn("Avis d'attribution", o.texte,
+                      "le titre doit rester dans `texte` pour la reconnaissance métier")
+
+    def test_la_lecture_detat_recoit_le_corps_pas_le_texte_agrege(self):
+        """La lecture d'état doit recevoir `corps`. Lui passer `texte` ferait
+        du titre sa propre corroboration — c'était la cause racine."""
+        src = (RACINE / "radar" / "chaine.py").read_text(encoding="utf-8")
+        appel = src.split("lecture = proc.lire(", 1)[1].split(")", 1)[0]
+        self.assertIn("texte=opp.corps", appel.replace(" ", ""))
+        self.assertNotIn("texte=opp.texte", appel.replace(" ", ""))
