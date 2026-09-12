@@ -1,0 +1,33 @@
+{
+  "_avertissement": "SORTIE BRUTE de l'outil de recherche, conservée verbatim. Seuls `title` et `url` sont ingérés. Le résumé en prose produit par l'outil est écrit par un modèle : ce n'est PAS une observation et il n'entre pas. AUCUNE page individuelle n'a été lue — le réseau sortant est fermé (ted.europa.eu, online.govex.be → 000).",
+  "collecte_le": "2026-09-12",
+  "famille": "D — portail de marchés publics",
+  "outil": "WebSearch",
+  "requetes": [
+    {
+      "requete": "marchés publics Belgique \"avis de marché\" transport marchandises bulletin des adjudications en cours",
+      "resultats": [
+        {"title": "Les marchés publics en Wallonie - Chercher un marché", "url": "https://marchespublics.wallonie.be/home/chercher-un-marche.html", "_forme": "page de recherche"},
+        {"title": "Bulletin des adjudications - BOSA - Belgium.be", "url": "https://bosa.belgium.be/fr/themes/marches-publics/notions-de-base/bulletin-des-adjudications", "_forme": "page institutionnelle"},
+        {"title": "Bulletin des Adjudications (BDA): N. 438555 (955b8f1f-a7d4-4702-8040-9b9cc77b23fc)", "url": "https://online.govex.be/govex/control/view_bda?language=fr&bda.id=1009800", "_forme": "avis individuel"},
+        {"title": "Bulletin des Adjudications (BDA): N. 648055 (fe930cc7-ca85-41e1-87f2-c179e30d9e61)", "url": "https://online.govex.be/govex/control/view_bda?language=fr&bda.id=1081215", "_forme": "avis individuel"},
+        {"title": "Bulletin des Adjudications (BDA): N. 910959 (fa3be09f-b76f-4110-86ae-8a876b76e6e7)", "url": "https://online.govex.be/govex/control/view_bda?language=fr&bda.id=1174957", "_forme": "avis individuel"},
+        {"title": "Marchés Publics en Belgique : Guide Complet", "url": "https://www.gpcgov.be/en/public-procurement", "_forme": "guide"},
+        {"title": "Les marchés publics en Wallonie - Entreprises", "url": "https://marchespublics.wallonie.be/", "_forme": "portail"},
+        {"title": "GOVEX – La plateforme belge de marchés publics", "url": "https://www.govex.be/en/", "_forme": "portail"},
+        {"title": "Marchés publics | SPF Finances - Belgium.be", "url": "https://finances.belgium.be/fr/marches_publics", "_forme": "page institutionnelle"}
+      ]
+    },
+    {
+      "requete": "\"avis d'attribution\" OR \"marché attribué\" OR \"procédure clôturée\" marchés publics Belgique transport logistique 2026",
+      "resultats": [
+        {"title": "Marché public européen (JOUE): N. 130/2025 - 00449676-2025", "url": "https://online.govex.be/govex/control/view_joue?language=fr&joue.id=42142572", "_forme": "avis individuel"},
+        {"title": "Appel d'offre : Achats des articles PMA - 13/joue/002180812026 - 2026", "url": "https://www.francemarches.com/appel-offre/13joue002180812026-2026-achats-articles", "_forme": "avis individuel"},
+        {"title": "Les marchés publics en Wallonie - Dictionnaire", "url": "https://marchespublics.wallonie.be/pouvoirs-adjudicateurs/outils/dictionnaire.html", "_forme": "page institutionnelle"},
+        {"title": "1 Version 01 janvier 2026", "url": "https://marchespublics.wallonie.be/files/Entreprises/Outils/GUIDE%20MP%20-%20MAJ%2001012026.pdf", "_forme": "document PDF"},
+        {"title": "Bulletin des Adjudications (BDA): N. 496692 (ab846cbf-eadf-4f9b-9bb0-ea2fc337734b)", "url": "https://online.govex.be/govex/control/view_bda?language=fr&bda.id=1042722", "_forme": "avis individuel"},
+        {"title": "Avis d'attribution de march |", "url": "http://pam.spw.wallonie.be/pam_static/documents/Pam/Avis/106163.html", "_forme": "avis individuel"}
+      ]
+    }
+  ]
+}

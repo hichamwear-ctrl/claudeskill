@@ -5001,10 +5001,24 @@ class LaFamilleCEstMesureeSurDuReel(unittest.TestCase):
         fichiers = list(brut.glob("*.json"))
         self.assertTrue(fichiers, "aucune collecte réelle conservée")
 
-    def test_sept_familles_restent_non_mesurees(self):
-        """La mesure d'une famille ne vaut pas validation des sept autres."""
+    def test_mesurer_une_famille_ne_valide_pas_les_autres(self):
+        """La règle, pas le compte du jour.
+
+        Ce test figeait « sept familles non mesurées » — un chiffre vrai le
+        5 septembre et faux le 12, dès qu'une famille de plus a été mesurée.
+        Un test qui encode l'état d'avancement casse à chaque progrès et
+        n'énonce aucune règle. Ce qui doit tenir, c'est que les familles non
+        mesurées le restent tant que personne n'y est allé.
+        """
         from radar import validation
         e = validation.etat()
-        non = [c for _, c, _, _, etat, _ in e.plan_de_mesure()
-               if etat == "NON MESURÉE"]
-        self.assertEqual(len(non), 7)
+        plan = e.plan_de_mesure()
+        mesurees = {c for _, c, _, _, etat, _ in plan
+                    if etat == "OPPORTUNITÉ COMMERCIALE TESTÉE"}
+        non = {c for _, c, _, _, etat, _ in plan if etat == "NON MESURÉE"}
+        self.assertEqual(mesurees & non, set())
+        self.assertEqual(len(mesurees) + len(non)
+                         + len([1 for *_, etat, _ in plan
+                                if etat.startswith("donnée observée")]),
+                         len(validation.FAMILLES_PREVUES))
+        self.assertTrue(non, "toutes les familles ne peuvent pas être mesurées")

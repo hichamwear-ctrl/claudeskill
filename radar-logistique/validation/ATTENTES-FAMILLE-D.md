@@ -92,3 +92,139 @@ Les six cas critiques demandés (listing « en cours » contre avis fermé, lots
 d'états différents, contradiction listing/contenu) **ne seront mesurables que
 sur une page complète**. Ils seront listés comme non mesurés, pas simulés sur
 des fixtures.
+
+---
+
+# RÉSULTATS — 12 septembre 2026
+
+15 résultats réels, 2 requêtes, brut conservé et haché
+(`bb3b99a2bab543df…`). Aucune page individuelle lue : `ted.europa.eu`,
+`online.govex.be` → `000`.
+
+## PRÉDIT | OBSERVÉ | ÉCART | EXPLICATION
+
+| # | PRÉDIT | OBSERVÉ | ÉCART | EXPLICATION |
+|---|---|---|---|---|
+| — | 10 à 20 résultats | **15** | aucun | — |
+| P1 | la majorité ≠ HORS PROCÉDURE | **9/15** (8 INCONNU + 1 ATTRIBUÉ) | **juste, de peu** | 6 titres ne portaient aucun marqueur |
+| P2 | au moins un **POSTULABLE** sans preuve | **0** | **FAUX sur le réel** | aucun titre collecté ne disait « en cours » près de « offres » ; le moteur **le fait** sur variante — défaut latent, pas déclenché |
+| P3 | au moins un **ATTRIBUÉ/FERMÉ** sans preuve | **1 ATTRIBUÉ** | **juste** | « Avis d'attribution de march \| » → ATTRIBUÉ, rang 4 |
+| P4 | aucun CA mesurable | **0** | aucun | un titre ne porte pas de montant |
+| P5 | aucun lot observable | **0** | aucun | les lots vivent dans l'avis |
+| P6 | zéro procédure qualifiable | **1** | **FAUX** | l'ATTRIBUÉ de P3 est compté qualifiable (confiance moyenne) — c'est le défaut, pas une capacité |
+
+**Mon hypothèse principale était juste** : le moteur sur-interprète le contexte
+du listing. Mais **moins souvent que prédit sur le réel** (1 cas sur 15), et
+**plus gravement que prédit sur la classe** (5 sur 8 en reproduction).
+
+## MESURES SÉPARÉES
+
+```
+pages réellement observées          : 0     (réseau fermé)
+procédures réellement qualifiables  : 1     ← et c'est le défaut
+états INCONNU                       : 8
+états HORS PROCÉDURE                : 6
+états AFFIRMÉS depuis un titre seul : 1
+lots observables                    : 0
+CA réellement mesurable             : 0 €
+```
+
+## 1. CE QUI EST DÉMONTRÉ SUR DONNÉES RÉELLES
+
+- **Aucun CA n'est inventé depuis un titre.** 15/15 en `NON PUBLIÉ →
+  IMPOSSIBLE À MESURER`.
+- **Aucun lot fantôme.**
+- **8 titres opaques sur 15 → INCONNU + VÉRIFIER**, sans invention. Les avis
+  BDA numérotés (`N. 438555`, `N. 648055`…) ne portent aucun texte : le
+  moteur ne conclut rien.
+- **Un état affirmé depuis un titre seul**, reproductible.
+
+## 2. CE QUI RESTE SUPPOSÉ
+
+Tout ce qui vit dans l'avis : besoin, demandeur, volume, cadence, véhicules,
+durée, exigences, montant, échéance, lots, et l'état réel de la procédure.
+**Zéro page lue.**
+
+## 3. FAUX POSITIFS — reproduits sur variantes
+
+| titre | état affirmé | preuve invoquée |
+|---|---|---|
+| « Avis d'attribution — Les marchés publics en Wallonie » | **ATTRIBUÉ** | rang 4, « attribution » |
+| « Rubrique : avis d'attribution » | **ATTRIBUÉ** | rang 4, « attribution » |
+| « Appels d'offres en cours — portail » | **POSTULABLE** | rang 2, « en cours » sur « offres » |
+| « Résultats des marchés publics 2025 » | **FERMÉ** | rang 2, « resultats » |
+| « Avis de préinformation — liste » | **ANNONCÉ** | rang 4, « preinformation » |
+
+**5 sur 8.** Ce n'est pas un cas isolé, c'est une classe.
+
+Deux titres ont échappé — « Marchés en cours | Bulletin des adjudications » et
+« Marchés clôturés | archives » → HORS PROCÉDURE. L'incohérence tient au
+voisinage des mots, pas à une règle : le moteur n'a **aucune** notion de
+« ce texte nomme une rubrique ».
+
+## 4. FAUX NÉGATIFS POTENTIELS
+
+- Un avis réellement postulable classé ⚪ faute de fait économique dans son
+  titre. **Observé 6 fois sur 15** — conséquence assumée de la correction du
+  5 septembre, mais c'est bien un faux négatif pour la découverte.
+- Aucun faux FERMÉ observé cette fois (le correctif « plus de » tient).
+
+## 5. ERREURS DE DONNÉES / INFORMATIONS INSUFFISANTES
+
+- « Avis d'attribution de march **|** » — titre réellement tronqué à la source.
+- « 1 Version 01 janvier 2026 » — un PDF dont le titre est un fragment.
+- Les titres BDA n'exposent qu'un numéro et un UUID : **aucune information
+  exploitable**, et c'est la règle sur ce portail, pas l'exception.
+
+## 6. IMPACT COMMERCIAL
+
+**Le faux ATTRIBUÉ est le plus coûteux.** Un avis encore postulable rangé en
+ATTRIBUÉ sort de « À ATTAQUER » et passe en « CONTACTER LE TITULAIRE ». On ne
+dépose pas. **Le marché est perdu sans qu'aucune ligne ne le signale.**
+
+Le faux POSTULABLE coûte moins : on prépare un dossier pour rien.
+
+Sur un listing réel de plusieurs centaines de titres, la proportion observée
+en reproduction (5/8) rend le tri inexploitable sans lecture des avis.
+
+## 7. MODIFICATION À ENVISAGER — non appliquée
+
+### La cause racine, trouvée en cherchant le correctif
+
+```python
+# radar/adaptateur.py
+texte = " ".join(str(c.get(k, "")) for k in ("objet", "intitule", "lieu", "conditions"))
+```
+
+**L'adaptateur recopie l'intitulé dans le texte.** Chaque preuve tirée du
+titre est donc comptée **deux fois** — « intitulé : attribution » ET
+« description : attribution » — et le moteur ne peut structurellement pas
+distinguer « le titre le dit » de « le corps le dit ».
+
+Conséquences mesurées :
+1. tout enregistrement réduit à un titre paraît **corroboré** ;
+2. la hiérarchie des preuves est en partie **fictive** : « description » n'est
+   pas une source distincte quand elle contient le titre ;
+3. deux preuves de rang 4 concordantes donnent une confiance imméritée.
+
+### La règle générale proposée
+
+> **Un intitulé NOMME un type de document ; il n'énonce pas l'état d'une
+> procédure.** Sans corroboration — description propre, statut déclaré,
+> événement, titulaire, date d'attribution — le titre *propose* et ne
+> *tranche* pas : l'état devient INCONNU avec la question à poser.
+
+Le module applique **déjà ce principe aux documents joints** : « le statut
+d'un document n'est pas celui de la procédure ». Il ne l'applique pas au titre
+de l'enregistrement lui-même.
+
+### Impact mesuré du correctif, en copie de travail
+
+- 4 modules touchés : `adaptateur.py`, `modele.py`, `chaine.py`, `procedure.py` ;
+- **19 tests sur 467 cassent** — tous parce qu'ils construisent
+  `Opportunite(texte=…)` directement, sans passer par l'adaptateur ;
+- séparer proprement le titre du corps demande un champ de modèle nouveau et
+  une revue du banc d'essai.
+
+**Ce n'est pas un correctif d'une ligne.** Je ne l'ai pas appliqué : la
+décision revient au propriétaire du produit.

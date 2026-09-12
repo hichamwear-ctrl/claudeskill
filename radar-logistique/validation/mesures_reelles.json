@@ -37,6 +37,20 @@
       "porte_un_besoin": true,
       "constats": {},
       "enseignements": []
+    },
+    {
+      "horodatage": "2026-09-12T00:00:00+00:00",
+      "famille": "marche_public",
+      "origine": "outil de recherche web ; titres et URL verbatim ; aucune page individuelle lue (réseau fermé) ; brut conservé et haché",
+      "reference": "15 résultats réels, 2 requêtes",
+      "empreinte": "bb3b99a2bab543df737375227e91c42936c4b6fee85ffebf66e8db4f148ffeb1",
+      "page_conservee": "2026-09-12-portail-brut.json",
+      "completude": "extrait de listing",
+      "ca_identifie": 0.0,
+      "verdict": "1 état(s) affirmé(s) depuis un titre ; 0 CA mesurable",
+      "porte_un_besoin": true,
+      "constats": {},
+      "enseignements": []
     }
   ]
 }
