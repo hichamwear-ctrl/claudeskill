@@ -19,6 +19,8 @@ champs:
   objet:            [texte, description, contenu]
   acheteur:         [entreprise, societe, company]
   contact_email:    [email, contact]
+  # Par où contacter — constat du lecteur de page, transporté tel quel.
+  porte_entree:     [porte_entree]
   plateforme:       [url]
   lien_documents:   [url, formulaire]
   pays_livraison:   [pays, country]

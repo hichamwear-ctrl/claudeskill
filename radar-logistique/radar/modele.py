@@ -139,6 +139,12 @@ class Opportunite:
     lien_depot: str | None = None
     plateforme: str | None = None
 
+    # PAR OÙ CONTACTER — constat, jamais décision. Volontairement séparé de
+    # `lien_depot` : celui-ci nourrit `depot_organise` dans procedure.py, donc
+    # la lecture d'état. Un formulaire de candidature privé n'est pas un
+    # guichet de dépôt d'offre, et ne doit rendre aucun besoin postulable.
+    porte_entree: dict | None = None
+
     attribue: bool = False
     titulaire: str | None = None
     attribue_le: datetime | None = None

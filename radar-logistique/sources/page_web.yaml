@@ -31,6 +31,8 @@ champs:
   contenu:          [contenu, corps, texte]
   acheteur:         [acheteur, entreprise, societe]
   contact_email:    [contact_email]
+  # Par où contacter — constat du lecteur de page, transporté tel quel.
+  porte_entree:     [porte_entree]
   # Le texte porté par son emplacement — voir `zones` plus bas.
   segments:         [segments]
   # Le corps découpé en blocs : l'unité de discours du moteur sémantique.

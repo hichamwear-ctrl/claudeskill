@@ -37,6 +37,9 @@ class Fiche:
     client: str | None = None
     secteur: str | None = None
     contact: str | None = None
+    # PAR OÙ FRAPPER. Informatif : ne change ni l'état, ni le score, ni
+    # l'action. Une porte d'entrée ne rend pas un besoin postulable.
+    porte_entree: object = None
     marche_parent: str | None = None
     lot: str | None = None
     provenances: list = field(default_factory=list)
@@ -123,6 +126,12 @@ class Fiche:
         L.append(f"VALEUR        {_m(self.montant, self.devise)}")
         if self.contact:
             L.append(f"CONTACT       {self.contact}")
+
+        lignes_porte = (self.porte_entree.en_lignes()
+                        if self.porte_entree is not None
+                        and hasattr(self.porte_entree, "en_lignes") else [])
+        if lignes_porte:
+            L += [""] + lignes_porte
 
         L += ["", "CE QU'IL FAUT FAIRE", f"  {_ou(self.objet, 'A_VERIFIER')}"]
 

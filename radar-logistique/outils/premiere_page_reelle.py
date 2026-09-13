@@ -46,6 +46,7 @@ import yaml                                                     # noqa: E402
 
 from radar import nature as nat                                 # noqa: E402
 from radar import page as lecteur                               # noqa: E402
+from radar import porte as porte_entree                          # noqa: E402
 from radar import procedure as proc                             # noqa: E402
 from radar import provenance as prov                            # noqa: E402
 from radar import validation as val                             # noqa: E402
@@ -229,6 +230,9 @@ def mesurer(octets: bytes, url: str, origine: str, famille: str, completude: str
     if lec.champs.get("objet"):
         charge["segments"].append({"texte": lec.champs["objet"],
                                    "origine": "description de la page"})
+    # PAR OÙ CONTACTER. Constaté sur le HTML réel, transporté tel quel. N'entre
+    # dans aucune décision : ni état, ni score, ni nature, ni classement.
+    charge["porte_entree"] = porte_entree.lire(html, url).en_dict()
     charge = estampiller(charge, source=famille, reference=url)
 
     ad = Adaptateur.depuis_config(profil_page)

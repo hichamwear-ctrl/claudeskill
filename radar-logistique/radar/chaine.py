@@ -39,7 +39,7 @@ def proc_collecte(opp):
 from . import (chiffre_affaires, construction, deduplication, envoi,
                priorite as prio,
                fiabilite as fia, memoire,
-               modele as mdl, nature as nat, portee as prt, procedure as proc,
+               modele as mdl, nature as nat, porte, portee as prt, procedure as proc,
                questions, statut as st,
                transitions as tr)
 from .comptes import Livre
@@ -407,6 +407,7 @@ class Moteur:
             marge=score.marge_estimee, score=score.total, score_affiche=score.affichage,
             detail_score=score.detail(),
             lien=opp.lien_depot or opp.lien_dossier, source=opp.source,
+            porte_entree=porte.depuis_dict(opp.porte_entree),
             reference=opp.ref_source, nature=nature,
             etat=lecture.etat if lecture else None,
             etat_libelle=_libelle_etat(lecture),

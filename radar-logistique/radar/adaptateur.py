@@ -427,6 +427,10 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         # là où il fallait décrocher son téléphone.
         lien_depot=c.get("lien_depot"),
         plateforme=c.get("plateforme"),
+        # Transportée telle quelle. L'adaptateur ne la calcule pas : c'est le
+        # lecteur de page qui l'a constatée, sur le HTML réel.
+        porte_entree=(c.get("porte_entree") if isinstance(c.get("porte_entree"), dict)
+                      else None),
         attribue=bool(c.get("attribue")),
         titulaire=c.get("titulaire"),
         attribue_le=c.get("attribue_le"),
