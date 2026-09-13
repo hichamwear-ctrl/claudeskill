@@ -491,3 +491,258 @@ class LaFixtureNeTouchePasAuScore(unittest.TestCase):
         b.provenances = [{"source": "ted", "circuit": circuit.CONNUE}]
         self.assertEqual(moteur().analyser(a, MAINTENANT).score.total,
                          moteur().analyser(b, MAINTENANT).score.total)
+
+
+# ══════════════════════════ 8c — LE CHAÎNAGE
+#
+# Rappel : tout ce qui suit part de FIXTURES. Aucun moteur interrogé, aucune
+# page consultée, aucun marché mesuré.
+
+class S8c_UneTrouvailleNeConfirmeRien(unittest.TestCase):
+    def setUp(self):
+        from radar import chainage, entreprises as ent_mod, fixtures_recherche as fx
+        from radar import identite as mod_id
+        self.chainage, self.ent, self.id = chainage, ent_mod, mod_id
+        self.cx = ouvrir(":memory:")
+        self.moteurs = fx.depuis_fichier(FIXTURE)
+        for m in self.moteurs:
+            for q in ('"recherche transporteur" Bruxelles',
+                      '"recherche sous-traitant" Belgique', '"nouveau dépôt" Gand',
+                      '"référencement fournisseur" transport',
+                      '"capacité recherchée" transport',
+                      '"partenariat logistique" Belgique'):
+                tr.depuis_moteur(self.cx, m, m.rechercher(q))
+        self.registre = self.ent.charger(self.cx)
+        self.bilan = self.chainage.chainer(self.cx, tr.toutes(self.cx), self.registre)
+        self.ent.enregistrer(self.cx, self.registre)
+        self.chainage.marquer_identites(self.cx, self.registre)
+        self.cx.commit()
+
+    # ── trouvaille → entreprise INCONNUE, jamais confirmée ──
+    def test_1_toutes_les_entreprises_creees_sont_INCONNUES(self):
+        entreprises = self.ent.charger(self.cx).entreprises
+        self.assertGreater(len(entreprises), 0)
+        for cle in entreprises:
+            self.assertIs(self.id.lire(self.cx, cle).etat, self.id.Etat.INCONNUE, cle)
+
+    def test_2_la_provenance_de_la_decouverte_est_conservee(self):
+        for cle, e in self.ent.charger(self.cx).entreprises.items():
+            i = self.id.lire(self.cx, cle)
+            self.assertEqual(i.source, self.id.DECOUVERTE)
+            self.assertIn("aucune identification", i.preuve)
+            self.assertTrue(e.origine.endswith("/découverte"), e.origine)
+
+    def test_3_une_identite_confirmee_n_est_jamais_degradee_par_une_decouverte(self):
+        cle = next(iter(self.ent.charger(self.cx).entreprises))
+        self.id.confirmer(self.cx, cle, source=self.id.EXPLOITANT,
+                          preuve="FIXTURE de test")
+        self.id.depuis_decouverte(self.cx, cle, "https://x.example/y")
+        self.assertIs(self.id.lire(self.cx, cle).etat, self.id.Etat.CONFIRMEE)
+
+    def test_4_seule_une_preuve_confirme_une_identite(self):
+        cle = next(iter(self.ent.charger(self.cx).entreprises))
+        with self.assertRaises(self.id.IdentiteIncertaine):
+            self.id.confirmer(self.cx, cle, source="", preuve="")
+        i = self.id.confirmer(self.cx, cle, source=self.id.EXPLOITANT,
+                              preuve="domaine relevé sur l'extrait Kbis — FIXTURE")
+        self.assertIs(i.etat, self.id.Etat.CONFIRMEE)
+
+    # ── aucune opportunité, aucun score ──
+    def test_5_aucune_opportunite_n_est_creee(self):
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM opportunites").fetchone()["c"], 0)
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM avis").fetchone()["c"], 0)
+
+    def test_6_aucune_metrique_reelle_n_est_creee_par_les_fixtures(self):
+        m = tr.metriques(self.cx)
+        self.assertEqual(m[Mode.REEL.value]["trouvailles"], 0)
+        self.assertIn("NON MESURÉE", tr.rapport(self.cx))
+
+    def test_7_le_bilan_dit_ce_qu_il_n_a_PAS_fait(self):
+        texte = self.bilan.resume()
+        self.assertIn("Aucune opportunité n'a été créée", texte)
+        self.assertIn("Aucune identité n'a été", texte)
+        self.assertIn("Aucune page n'est surveillée d'office", texte)
+
+
+class S8c_UneUrlDecouverteNEstPasUnePageSurveillee(unittest.TestCase):
+    def setUp(self):
+        from radar import chainage, entreprises as ent_mod, fixtures_recherche as fx
+        from radar import pages as mod_pages
+        self.chainage, self.ent, self.pages = chainage, ent_mod, mod_pages
+        self.cx = ouvrir(":memory:")
+        m = fx.depuis_fichier(FIXTURE)[0]
+        tr.depuis_moteur(self.cx, m,
+                         m.rechercher('"recherche transporteur" Bruxelles'))
+        reg = self.ent.charger(self.cx)
+        self.chainage.chainer(self.cx, tr.toutes(self.cx), reg)
+        self.ent.enregistrer(self.cx, reg)
+
+    def test_1_toutes_les_pages_sont_CANDIDATES(self):
+        toutes = self.pages.a_surveiller(self.cx, toutes=True)
+        self.assertGreater(len(toutes), 0)
+        for p in toutes:
+            self.assertIs(p.statut, self.pages.Statut.CANDIDATE)
+        self.assertEqual(self.pages.a_surveiller(self.cx), [],
+                         "aucune n'est surveillée d'office")
+
+    def test_2_aucune_n_est_collectee_ni_qualifiee(self):
+        for p in self.pages.a_surveiller(self.cx, toutes=True):
+            self.assertIs(p.acces, self.pages.Acces.JAMAIS_CONSULTEE)
+            self.assertIs(p.qualification, self.pages.Qualification.NON_QUALIFIEE)
+
+    def test_3_la_qualification_de_7b_reste_la_seule_porte(self):
+        """CANDIDATE → SURVEILLÉE exige une PREUVE DE CONTENU, donc une collecte."""
+        from radar import pertinence
+        onto, det = _mecanismes_8c()
+        url = "https://transports-fictifs.example/devenir-partenaire"
+        verdict = pertinence.evaluer(
+            "Nous recherchons des transporteurs partenaires pour assurer nos "
+            "tournees quotidiennes en Belgique.", onto, det)
+        p = self.pages.qualifier(self.cx, url, verdict)
+        self.assertIs(p.qualification, self.pages.Qualification.PREUVE)
+        self.assertIs(p.statut, self.pages.Statut.SURVEILLEE)
+        self.assertIn("PROMUE APRÈS COLLECTE", p.raison)
+
+    def test_4_une_url_jamais_collectee_reste_candidate(self):
+        url = "https://boulangerie-fictive.example/nos-pains"
+        p = self.pages.lire(self.cx, url)
+        self.assertIs(p.statut, self.pages.Statut.CANDIDATE)
+        self.assertIs(p.acces, self.pages.Acces.JAMAIS_CONSULTEE)
+
+    def test_5_une_collecte_qui_echoue_laisse_la_page_candidate(self):
+        url = "https://transports-fictifs.example/devenir-partenaire"
+        self.pages.marquer(self.cx, url, self.pages.Acces.ERREUR,
+                           motif="accès impossible")
+        tr.collectee(self.cx, url, self.pages.Acces.ERREUR, motif="accès impossible")
+        p = self.pages.lire(self.cx, url)
+        self.assertIs(p.statut, self.pages.Statut.CANDIDATE)
+        self.assertIs(p.acces, self.pages.Acces.ERREUR)
+        self.assertIs(p.qualification, self.pages.Qualification.NON_QUALIFIEE)
+
+    def test_6_une_collecte_reussie_ouvre_la_qualification(self):
+        url = "https://transports-fictifs.example/devenir-partenaire"
+        self.pages.marquer(self.cx, url, self.pages.Acces.CONSULTEE,
+                           motif="1 200 octets", empreinte="abc")
+        p = self.pages.lire(self.cx, url)
+        self.assertIs(p.acces, self.pages.Acces.CONSULTEE)
+        self.assertIs(p.statut, self.pages.Statut.CANDIDATE,
+                      "collectée n'est pas surveillée")
+
+
+class S8c_LeRattachementNEstJamaisDevine(unittest.TestCase):
+    """La règle 16, verrouillée."""
+
+    def setUp(self):
+        from radar import chainage, entreprises as ent_mod, pages as mod_pages
+        self.chainage, self.ent, self.pages = chainage, ent_mod, mod_pages
+        self.cx = ouvrir(":memory:")
+
+    def _chainer(self, *trouvailles):
+        for t in trouvailles:
+            tr.inscrire(self.cx, t, mode=Mode.DEMO)
+        reg = self.ent.charger(self.cx)
+        b = self.chainage.chainer(self.cx, tr.toutes(self.cx), reg)
+        self.ent.enregistrer(self.cx, reg)
+        return b, reg
+
+    def test_1_un_site_de_presse_n_est_pas_l_entreprise_dont_il_parle(self):
+        """LE DÉFAUT CORRIGÉ AVANT LIVRAISON.
+
+        « Fictif SA ouvre un dépôt » publié sur presse-fictive.example : deux
+        entités, aucune relation prouvée. Créer « Fictif SA » avec la clé du
+        site de presse serait rattacher une page à une entreprise parce que
+        son nom y figure.
+        """
+        self._chainer(resultat("https://presse-fictive.example/depot-gand",
+                               source="fixture_alpha",
+                               titre="Fictif SA ouvre un nouveau dépôt à Gand"))
+        noms = {e.nom for e in self.ent.charger(self.cx).entreprises.values()}
+        self.assertEqual(noms, {"presse-fictive.example"})
+        self.assertNotIn("Fictif SA", noms,
+                         "une société CITÉE n'est pas celle qui tient le domaine")
+
+    def test_1bis_la_societe_citee_n_est_pas_perdue_pour_autant(self):
+        from radar.chainage import societe_citee
+        t = resultat("https://presse-fictive.example/depot-gand",
+                     titre="Fictif SA ouvre un nouveau dépôt à Gand")
+        self.assertEqual(societe_citee(t), "Fictif SA")
+
+    def test_2_le_rattachement_par_domaine_est_un_fait_observe(self):
+        self._chainer(resultat("https://exemple.example/partenaires"))
+        p = self.pages.lire(self.cx, "https://exemple.example/partenaires")
+        self.assertEqual(p.rattachement, self.pages.PAR_DOMAINE)
+        self.assertEqual(p.entreprise, "exemple.example")
+
+    def test_3_deux_noms_voisins_ne_fusionnent_jamais(self):
+        self._chainer(resultat("https://transport-belgium.example/a"),
+                      resultat("https://transports-belgium.example/b"))
+        entreprises = self.ent.charger(self.cx).entreprises
+        self.assertEqual(len(entreprises), 2,
+                         "deux domaines voisins restent deux entreprises")
+
+    def test_4_une_url_sans_hote_ne_cree_aucune_entreprise(self):
+        b, reg = self._chainer(resultat("https://exemple.example/a"))
+        avant = len(reg.entreprises)
+        # Une trouvaille inscrite à la main, sans hôte exploitable.
+        from radar.chainage import _entreprise_de
+        class Fausse:
+            url, titre, extrait = "pas-une-url", "", ""
+        nom, domaine = _entreprise_de(reg, Fausse())
+        self.assertIsNone(nom)
+        self.assertIsNone(domaine)
+
+    def test_5_le_module_ne_compare_aucun_nom_pour_rattacher(self):
+        import ast
+        arbre = ast.parse(pathlib.Path("radar/chainage.py").read_text(encoding="utf-8"))
+        noms = {n.attr for n in ast.walk(arbre) if isinstance(n, ast.Attribute)}
+        noms |= {n.id for n in ast.walk(arbre) if isinstance(n, ast.Name)}
+        for interdit in ("SequenceMatcher", "difflib", "levenshtein",
+                         "ratio", "similarite"):
+            self.assertNotIn(interdit, noms, interdit)
+
+
+class S8c_PlusieursTrouvaillesPourUneMemePage(unittest.TestCase):
+    def setUp(self):
+        from radar import chainage, entreprises as ent_mod, pages as mod_pages
+        self.cx = ouvrir(":memory:")
+        self.pages = mod_pages
+        url = "https://partagee.example/besoin"
+        for source in ("fixture_alpha", "fixture_beta"):
+            tr.inscrire(self.cx, resultat(url, source=source), mode=Mode.DEMO)
+        reg = ent_mod.charger(self.cx)
+        self.bilan = chainage.chainer(self.cx, tr.toutes(self.cx), reg)
+        ent_mod.enregistrer(self.cx, reg)
+        self.ent = ent_mod
+
+    def test_1_deux_trouvailles_une_seule_page(self):
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM pages_surveillees").fetchone()["c"], 1)
+        self.assertEqual(self.bilan.pages_candidates, 1)
+        self.assertEqual(self.bilan.pages_deja_connues, 1)
+
+    def test_2_une_seule_entreprise(self):
+        self.assertEqual(len(self.ent.charger(self.cx).entreprises), 1)
+        self.assertEqual(self.bilan.entreprises_nouvelles, 1)
+        self.assertEqual(self.bilan.entreprises_connues, 1)
+
+    def test_3_les_deux_provenances_sont_conservees_sur_la_page(self):
+        p = self.pages.lire(self.cx, "https://partagee.example/besoin")
+        self.assertEqual({x["source"] for x in p.provenances},
+                         {"fixture_alpha", "fixture_beta"})
+
+    def test_4_les_deux_observations_restent_dans_les_trouvailles(self):
+        self.assertEqual(len(tr.toutes(self.cx)), 2)
+        self.assertEqual(len(tr.urls_uniques(self.cx)), 1)
+
+
+def _mecanismes_8c():
+    import yaml
+    from radar.activite import Ontologie
+    from radar.role import DetecteurDeRole
+    cap = yaml.safe_load(pathlib.Path("config/capacites.yaml").read_text(encoding="utf-8"))
+    prof = yaml.safe_load(pathlib.Path("profil.yaml").read_text(encoding="utf-8"))
+    roles = yaml.safe_load(pathlib.Path("config/roles.yaml").read_text(encoding="utf-8"))
+    return (Ontologie(cap, prof["familles_actives"], prof.get("familles_exclues")),
+            DetecteurDeRole(roles))

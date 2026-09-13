@@ -310,3 +310,25 @@ def rapport(cx) -> str:
         L.append(f"  {compte[Etat.INCONNUE]} identité(s) INCONNUE(S) : le radar")
         L.append("  n'en sait pas assez. Cela ne dit RIEN de leur existence.")
     return "\n".join(L)
+
+
+def depuis_decouverte(cx, cle, url, *, source=None) -> Identite:
+    """Un moteur a montré cette entreprise. Ce n'est pas une identification.
+
+    On écrit d'où elle vient et sur quelle URL on l'a vue — la provenance est
+    une information, et elle se conserve. Mais l'état reste INCONNUE : qu'un
+    moteur ait affiché un nom ne prouve ni que l'entité existe sous ce nom, ni
+    qu'elle est celle qu'on croit, ni qu'elle tient ce domaine.
+
+    Une identité déjà établie n'est JAMAIS dégradée : si l'entreprise est
+    CONFIRMÉE, AMBIGUË ou SANS SITE, une découverte de plus n'y touche pas.
+    """
+    actuelle = lire(cx, cle)
+    if actuelle.etat is not Etat.INCONNUE:
+        return actuelle
+    cx.execute("UPDATE entreprises SET identite=?, identite_source=?,"
+               " identite_le=?, identite_preuve=? WHERE cle=?",
+               (Etat.INCONNUE.value, source or DECOUVERTE, _maintenant(),
+                f"vue à l'adresse {url} — aucune identification",
+                cle))
+    return lire(cx, cle)

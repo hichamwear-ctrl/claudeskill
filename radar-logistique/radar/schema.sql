@@ -302,6 +302,12 @@ CREATE TABLE IF NOT EXISTS pages_surveillees (
     -- décider qu'il y a une affaire : l'opportunité naît de la chaîne.
     qualification   TEXT,
     qualifiee_le    TEXT,
+    -- LA RELATION PAGE ↔ ENTREPRISE, et son degré de preuve.
+    --   PAR DOMAINE  l'hôte de la page EST la clé de l'entreprise. Observé.
+    --   NON ÉTABLI   aucune relation prouvée — et c'est écrit, pas sous-entendu.
+    -- Un titre qui cite un nom, deux raisons sociales voisines, un extrait qui
+    -- mentionne une société : ce sont des ressemblances, jamais des preuves.
+    rattachement    TEXT,
     declaree_le     TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_pages_entreprise ON pages_surveillees(entreprise);

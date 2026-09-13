@@ -88,6 +88,12 @@ class Qualification(Enum):
 # l'autre qu'on a regardé et qu'il n'y avait rien. Les confondre reviendrait à
 # compter une page jamais lue comme une page sans intérêt.
 
+# COMMENT la page est rattachée à une entreprise. « PAR DOMAINE » est un fait
+# observé : l'hôte de la page est la clé de l'entreprise. « NON ÉTABLI » dit
+# qu'aucune relation n'est prouvée — et le dire vaut mieux que le taire.
+PAR_DOMAINE = "PAR DOMAINE"
+NON_ETABLI = "NON ÉTABLI"
+
 # Pourquoi cette page est surveillée. Jamais « parce qu'elle pourrait exister ».
 DECOUVERTE = "DÉCOUVERTE"          # un moteur ou une source l'a fait apparaître
 CONFIGUREE = "CONFIGURÉE"          # l'exploitant l'a désignée
@@ -130,6 +136,7 @@ class PageSurveillee:
     libelle: str | None = None
     qualification: object = None           # Qualification, voir lire()
     qualifiee_le: str | None = None
+    rattachement: str | None = None        # PAR DOMAINE | NON ÉTABLI
     provenances: list = None               # toutes les rencontres, voir lire()
 
     @property
@@ -172,7 +179,8 @@ def _statut(valeur) -> Statut:
 # ─────────────────────────────────────────────────────────── base de données
 def rencontrer(cx, url, *, entreprise=None, provenance=DECOUVERTE, source=None,
                circuit=None, raison=None, libelle=None,
-               statut: Statut = Statut.CANDIDATE) -> PageSurveillee:
+               statut: Statut = Statut.CANDIDATE,
+               rattachement=None) -> PageSurveillee:
     """UNE page, autant de provenances qu'on l'a rencontrée.
 
     Rencontrer une page déjà connue n'en crée PAS une seconde et n'écrase
@@ -191,12 +199,17 @@ def rencontrer(cx, url, *, entreprise=None, provenance=DECOUVERTE, source=None,
         raise ValueError("URL vide")
     cx.execute(
         "INSERT INTO pages_surveillees(url, entreprise, provenance, statut,"
-        " raison, acces, libelle, declaree_le) VALUES(?,?,?,?,?,?,?,?)"
+        " raison, acces, libelle, rattachement, declaree_le)"
+        " VALUES(?,?,?,?,?,?,?,?,?)"
         " ON CONFLICT(url) DO UPDATE SET"
         "   entreprise=COALESCE(excluded.entreprise, pages_surveillees.entreprise),"
-        "   libelle=COALESCE(excluded.libelle, pages_surveillees.libelle)",
+        "   libelle=COALESCE(excluded.libelle, pages_surveillees.libelle),"
+        "   rattachement=COALESCE(excluded.rattachement,"
+        "                         pages_surveillees.rattachement)",
         (u, entreprise, provenance, statut.value, raison,
-         Acces.JAMAIS_CONSULTEE.value, libelle, _maintenant()))
+         Acces.JAMAIS_CONSULTEE.value, libelle,
+         rattachement or (PAR_DOMAINE if entreprise else NON_ETABLI),
+         _maintenant()))
     cx.execute(
         "INSERT OR IGNORE INTO provenances_pages(url, source, circuit, raison, vue_le)"
         " VALUES(?,?,?,?,?)",
@@ -255,6 +268,8 @@ def lire(cx, url) -> PageSurveillee | None:
         qualification=_qualification(l["qualification"] if "qualification" in cles
                                      else None),
         qualifiee_le=l["qualifiee_le"] if "qualifiee_le" in cles else None,
+        rattachement=(l["rattachement"] if "rattachement" in cles else None)
+                     or NON_ETABLI,
         provenances=provenances_de(cx, l["url"]))
 
 

@@ -74,6 +74,7 @@ AJOUTS = (
     ("entreprises", "identite_preuve", "TEXT"),
     ("pages_surveillees", "qualification", "TEXT"),
     ("pages_surveillees", "qualifiee_le", "TEXT"),
+    ("pages_surveillees", "rattachement", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),
     ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
     ("vocabulaire_historique", "version", "INTEGER"),
