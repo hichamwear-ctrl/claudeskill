@@ -1,0 +1,158 @@
+{
+ "_statut": "FAMILLE F — BLOQUÉE PAR L'EGRESS. AUCUNE DONNÉE REÇUE.",
+ "_avertissement": "Non inscrit au registre : aucune donnée observée. DONNÉES RÉELLES OBSERVÉES reste à 7 ; F reste NON MESURÉE.",
+ "tente_le": "2026-09-13",
+ "famille": "F — signal économique",
+ "moteur_touche": "AUCUN",
+ "audit_de_la_source": {
+  "fichier": "sources/signaux.yaml",
+  "source nommée": "AUCUNE",
+  "URL déclarée": "AUCUNE",
+  "collecteur": "AUCUN — outils/ ne contient que collecter_bda.py et collecter_ted.py",
+  "champs déclarés": 11,
+  "champs mesurés": 0,
+  "verifie": false,
+  "codes de signal prévus": "recrutement_massif, ouverture_site, … (modele.py:105) — aucun jamais observé",
+  "déjà réellement accessible ?": "JAMAIS"
+ },
+ "hotes_essayes": [
+  {
+   "hôte": "kbopub.economie.fgov.be",
+   "DNS": "2001:6a8:b000:fa00::103",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "registre des entreprises (BCE/KBO)"
+  },
+  {
+   "hôte": "consult.cbso.nbb.be",
+   "DNS": "150.171.109.182",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "comptes annuels, Banque nationale"
+  },
+  {
+   "hôte": "statbel.fgov.be",
+   "DNS": "2a01:690:35:100::f5:79",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "statistiques officielles"
+  },
+  {
+   "hôte": "economie.fgov.be",
+   "DNS": "2a01:690:35:100::f5:79",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "SPF Économie"
+  },
+  {
+   "hôte": "www.ejustice.just.fgov.be",
+   "DNS": "193.191.241.68",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "Moniteur belge — publications légales"
+  },
+  {
+   "hôte": "www.forem.be",
+   "DNS": "193.58.51.166",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "emploi Wallonie — recrutement massif"
+  },
+  {
+   "hôte": "www.vdab.be",
+   "DNS": "193.53.226.200",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "emploi Flandre"
+  },
+  {
+   "hôte": "www.actiris.be",
+   "DNS": "195.244.164.246",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "emploi Bruxelles"
+  },
+  {
+   "hôte": "www.flows.be",
+   "DNS": "2606:4700:3034::ac43:b4f7",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "presse logistique belge"
+  },
+  {
+   "hôte": "www.transportmedia.be",
+   "DNS": "78.46.10.148",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "presse transport belge"
+  },
+  {
+   "hôte": "www.lecho.be",
+   "DNS": "2600:1405:6400::17c3:5192",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "presse économique FR"
+  },
+  {
+   "hôte": "www.tijd.be",
+   "DNS": "2600:1405:6400::17c3:51ca",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "presse économique NL"
+  },
+  {
+   "hôte": "trends.levif.be",
+   "DNS": "13.226.251.8",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "presse économique"
+  },
+  {
+   "hôte": "www.rtbf.be",
+   "DNS": "2a04:4e42:200::319",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "presse généraliste"
+  },
+  {
+   "hôte": "opendata.bruxelles.be",
+   "DNS": "52.211.64.165",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "open data Bruxelles"
+  },
+  {
+   "hôte": "www.vlaanderen.be",
+   "DNS": "2a02:26f0:9d00::5f64:6260",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · host_not_allowed",
+   "catégorie": "open data Flandre"
+  }
+ ],
+ "sources_testees": 16,
+ "resolues_par_DNS": 16,
+ "ayant_repondu": 0,
+ "ce_qui_repond_reellement_dans_cet_environnement": {
+  "_note": "Contrôle positif : la liste EXHAUSTIVE des hôtes joignables depuis ce conteneur.",
+  "https://pypi.org/": "200 · 27 965 o",
+  "https://files.pythonhosted.org/": "200 · 1 853 o",
+  "https://registry.npmjs.org/": "200 · 2 o",
+  "https://jsr.io/": "200 · 47 495 o",
+  "https://index.crates.io/": "200 · 1 883 o",
+  "https://proxy.golang.org/": "200 · 9 628 o",
+  "https://api.anthropic.com/": "404 · 132 o",
+  "_conclusion": "Six dépôts de paquets et une API de modèle. AUCUN n'est une source de signal économique. Il n'existe AUCUNE voie de mesure de la famille F dans l'environnement actuel."
+ },
+ "voie_disponible_mais_refusee": "L'outil de recherche web du harnais fonctionne. Il pourrait renvoyer des titres du type « X ouvre un dépôt à Liège ». REFUSÉ comme mesure de F : ce serait la famille C (moteur de recherche), au stade DÉCOUVERTE, sur titre seul, sans page lue. C'est exactement le glissement corrigé pour la famille H le 2026-09-12. Un thème n'est pas une famille de collecte, et un titre n'est pas une page.",
+ "echelle": {
+  "sources candidates identifiées": "OUI — 16",
+  "DNS résolu": "OUI — 16 sur 16",
+  "accès HTTP réel": "NON — 0 sur 16",
+  "réponse réelle": "NON — 0 octet",
+  "contenu lisible": "NON",
+  "ouverture / extension d'activité": "NON MESURÉ",
+  "nouveau dépôt / site / agence": "NON MESURÉ",
+  "recrutement transport-logistique": "NON MESURÉ",
+  "augmentation de flotte": "NON MESURÉ",
+  "besoin de sous-traitance": "NON MESURÉ",
+  "investissement logistique": "NON MESURÉ",
+  "nouveau contrat / partenariat": "NON MESURÉ",
+  "croissance de volumes": "NON MESURÉ",
+  "changement de réseau": "NON MESURÉ",
+  "localisation · date · source · preuve": "NON MESURÉ",
+  "FAIT / SIGNAL / HYPOTHÈSE": "NON MESURÉ",
+  "action commerciale": "NON MESURÉ",
+  "CA / potentiel": "NON MESURABLE"
+ },
+ "trois_familles_bloquees_de_suite": {
+  "B — bourse de fret": "egress + autorisation contractuelle (compte payant, CGU)",
+  "E — attribution": "egress seul — sources publiques et gratuites, collecteur déjà écrit",
+  "F — signal": "egress seul — sources publiques et gratuites, aucun collecteur",
+  "_conclusion": "Le blocage n'est plus le moteur. C'est l'environnement réseau."
+ },
+ "conclusion": "BLOQUÉ. Aucun collecteur écrit, aucun contournement, aucune donnée inventée, moteur intact. Le prochain progrès ne peut plus venir du code."
+}
