@@ -1,0 +1,417 @@
+MESURE — CHAÎNE COMPLÈTE EXPORT EXTERNE → RADAR → TOP OPPORTUNITÉS
+================================================================================
+DONNÉES RÉELLES : NON MESURÉES.
+Les deux exports sont FABRIQUÉS, les adresses sont en .example : elles
+n'existent pas. Aucun moteur n'a été interrogé, aucune clé utilisée,
+aucun réseau touché. Ce fichier mesure un MÉCANISME, pas un marché.
+
+── COMMANDE 1 ──────────────────────────────────────────────────────────────────
+$ radar --base … import-recherche fixtures/import-externe-exemple.json
+
+╔════════════════════════════════════════════════════════════════════╗
+║  MODE : RÉEL — EXÉCUTÉ HORS RADAR                                  ║
+║  Un moteur externe a rendu ces résultats. Le radar n'a             ║
+║  interrogé personne et n'a lu aucune page.                         ║
+╚════════════════════════════════════════════════════════════════════╝
+base : /tmp/chaine.sqlite3
+IMPORT EXTERNE — EXÉCUTÉ HORS RADAR
+========================================================================
+
+  fichier              fixtures/import-externe-exemple.json
+  empreinte            a881719335d808203533e24f6f17c6da
+  lignes lues          3
+  inscrites            3
+  refusées             0
+  doublons du fichier  0
+  rangs illisibles     0   — conservés sans rang, jamais renumérotés
+  dates illisibles     0   — écrites « INCONNUE »
+  caractères retirés   0
+  moteurs déclarés     moteur-exemple
+
+  Ces résultats n'ont PAS été obtenus par le radar : un moteur
+  externe les a rendus, hors de cet environnement.
+  Aucune entreprise n'a été confirmée, aucune page n'est
+  surveillée, aucune opportunité n'a été créée, aucun score
+  n'a bougé. Une adresse montrée n'est pas une page lue.
+
+RAPPORT COMMERCIAL — DÉCOUVERTE IMPORTÉE
+========================================================================================
+
+NATURE DES EXÉCUTIONS
+  FIXTURE / DEMO                                0
+  RECHERCHE RÉELLE PAR LE RADAR                 0
+  RÉSULTAT IMPORTÉ — RECHERCHE EXTERNE          3
+  sources distinctes                            1   (import:moteur-exemple)
+
+ENTONNOIR — de ce qu'on a vu à ce qu'on peut travailler
+  résultats importés / trouvés              3
+  URL uniques après regroupement            3
+  entreprises au registre                   3
+  pages candidates (dont déjà connues)      3
+  besoins lus par le moteur                 3
+  opportunités écrites                      3
+  opportunités retenues (hors 🔴)            3
+
+RAPPEL — ce que la découverte a couvert
+  requêtes contributrices                   2
+  résultats bruts                           3
+  URL uniques                               3
+  vues par PLUSIEURS sources                0
+  doublons regroupés                        0
+  Une requête qui ne rend rien n'est pas une mauvaise requête :
+  c'est une mesure. Une source qui rend beaucoup de résultats
+  déjà connus n'est pas pour autant la meilleure.
+
+IDENTIFICATION — par le DOMAINE, jamais par un nom lu dans un titre
+  entreprises nouvelles                     3
+  entreprises déjà connues                  0
+  rattachements NON ÉTABLIS                 0
+
+PAGES
+  candidates NOUVELLES                      3
+  candidates déjà connues                   0
+  surveillées                               0
+  réellement collectées                     0
+  qualifications POSITIVES                  0
+  AUCUNE PAGE N'A ÉTÉ LUE. Tout ce que ces pages contiennent
+  et que l'extrait ne dit pas reste INCONNU. La qualification
+  sur contenu réel exige une collecte, et elle n'a pas eu lieu.
+
+COMMERCIAL — catégories
+  🟢 DIRECT                                  3
+  🟡 RENFORCEMENT                            0
+  🟣 À CONSTRUIRE                            0
+  🔵 PROSPECT / PARTENARIAT                  0
+  🔴 REJET                                   0
+  ⚪ PAS ENCORE UNE OPPORTUNITÉ              0
+  ⚪ n'est ni une opportunité ni un rejet : une page lue qui ne
+  porte, à cette date, aucun fait commercial. Elle reste au
+  registre et pourra en porter un demain.
+  🔴 n'est pas « score faible » : c'est un rejet OBJECTIF établi.
+  Une affaire difficile, lointaine, volumineuse ou exigeant du
+  recrutement reste 🟡, 🟣 ou 🔵 — elle n'est jamais supprimée.
+
+COMMERCIAL — actions
+  CONTACTER L'ENTREPRISE                    3
+
+TOP OPPORTUNITÉS COMMERCIALES — 3 affichée(s)
+  Les QUATRE dimensions restent séparées : TYPE D'INFORMATION,
+  NATURE, ÉTAT DE PROCÉDURE et ACTION ne se résument jamais
+  l'une l'autre. Une affaire peut être exécutable (🟢) ET n'être
+  qu'une HYPOTHÈSE : « pouvons-nous le faire » et « est-ce réel »
+  sont deux questions, et le rapport répond aux deux.
+----------------------------------------------------------------------------------------
+🟢 [ 55] Appel à partenaires logistiques
+     ENTREPRISE   domaine logistique-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Appel à partenaires logistiques
+     SOURCE       import:moteur-exemple
+     PREUVE       https://logistique-exemple.example/appel-partenaires
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     NATURE       FAIT
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] Fictif SA ouvre un dépôt à Gand
+     ENTREPRISE   domaine presse-fictive.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Fictif SA ouvre un dépôt à Gand
+     SOURCE       import:moteur-exemple
+     PREUVE       https://presse-fictive.example/actualites/depot-gand
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     NATURE       HYPOTHÈSE
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-13 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 45] Nous recherchons des partenaires de livraison
+     ENTREPRISE   domaine transporteur-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Nous recherchons des partenaires de livraison
+     SOURCE       import:moteur-exemple
+     PREUVE       https://transporteur-exemple.example/partenaires
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     NATURE       FAIT
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« livraison »)
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+----------------------------------------------------------------------------------------
+CE QUI RESTE INCONNU, ET QUI LE RESTERA SANS COLLECTE
+  véhicules · tonnage · chauffeurs · CA · marge · coût/km ·
+  rémunération · durée · volume · certifications · licences ·
+  agréments · capacité exacte · échéance non prouvée
+  Tout cela s'écrit « À CONFIRMER ». Une déduction n'est pas
+  un fait, et la marge reste NON MESURÉE tant que les coûts
+  réels ne sont pas au profil.
+
+── COMMANDE 2 — un SECOND moteur, même base ────────────────────────────────────
+$ radar --base … import-recherche fixtures/import-externe-exemple.csv
+
+RAPPORT COMMERCIAL — DÉCOUVERTE IMPORTÉE
+========================================================================================
+
+NATURE DES EXÉCUTIONS
+  FIXTURE / DEMO                                0
+  RECHERCHE RÉELLE PAR LE RADAR                 0
+  RÉSULTAT IMPORTÉ — RECHERCHE EXTERNE          5
+  sources distinctes                            2   (import:autre-moteur-exemple, import:moteur-exemple)
+
+ENTONNOIR — de ce qu'on a vu à ce qu'on peut travailler
+  résultats importés / trouvés              5
+  URL uniques après regroupement            4
+  entreprises au registre                   5
+  pages candidates (dont déjà connues)      5
+  besoins lus par le moteur                 5
+  opportunités écrites                      4
+  opportunités retenues (hors 🔴)            4
+
+RAPPEL — ce que la découverte a couvert
+  requêtes contributrices                   2
+  résultats bruts                           5
+  URL uniques                               4
+  vues par PLUSIEURS sources                1
+  doublons regroupés                        1
+  Une requête qui ne rend rien n'est pas une mauvaise requête :
+  c'est une mesure. Une source qui rend beaucoup de résultats
+  déjà connus n'est pas pour autant la meilleure.
+
+IDENTIFICATION — par le DOMAINE, jamais par un nom lu dans un titre
+  entreprises nouvelles                     1
+  entreprises déjà connues                  4
+  rattachements NON ÉTABLIS                 0
+
+PAGES
+  candidates NOUVELLES                      1
+  candidates déjà connues                   4
+  surveillées                               0
+  réellement collectées                     0
+  qualifications POSITIVES                  0
+  AUCUNE PAGE N'A ÉTÉ LUE. Tout ce que ces pages contiennent
+  et que l'extrait ne dit pas reste INCONNU. La qualification
+  sur contenu réel exige une collecte, et elle n'a pas eu lieu.
+
+COMMERCIAL — catégories
+  🟢 DIRECT                                  3
+  🟡 RENFORCEMENT                            0
+  🟣 À CONSTRUIRE                            0
+  🔵 PROSPECT / PARTENARIAT                  1
+  🔴 REJET                                   0
+  ⚪ PAS ENCORE UNE OPPORTUNITÉ              0
+  ⚪ n'est ni une opportunité ni un rejet : une page lue qui ne
+  porte, à cette date, aucun fait commercial. Elle reste au
+  registre et pourra en porter un demain.
+  🔴 n'est pas « score faible » : c'est un rejet OBJECTIF établi.
+  Une affaire difficile, lointaine, volumineuse ou exigeant du
+  recrutement reste 🟡, 🟣 ou 🔵 — elle n'est jamais supprimée.
+
+COMMERCIAL — actions
+  CONTACTER L'ENTREPRISE                    4
+
+TOP OPPORTUNITÉS COMMERCIALES — 4 affichée(s)
+  Les QUATRE dimensions restent séparées : TYPE D'INFORMATION,
+  NATURE, ÉTAT DE PROCÉDURE et ACTION ne se résument jamais
+  l'une l'autre. Une affaire peut être exécutable (🟢) ET n'être
+  qu'une HYPOTHÈSE : « pouvons-nous le faire » et « est-ce réel »
+  sont deux questions, et le rapport répond aux deux.
+----------------------------------------------------------------------------------------
+🟢 [ 55] Appel à partenaires logistiques
+     ENTREPRISE   domaine logistique-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Appel à partenaires logistiques
+     SOURCE       import:moteur-exemple
+     PREUVE       https://logistique-exemple.example/appel-partenaires
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     NATURE       FAIT
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] Fictif SA ouvre un dépôt à Gand
+     ENTREPRISE   domaine presse-fictive.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Fictif SA ouvre un dépôt à Gand
+     SOURCE       import:moteur-exemple
+     PREUVE       https://presse-fictive.example/actualites/depot-gand
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     NATURE       HYPOTHÈSE
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-13 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 45] Nous recherchons des partenaires de livraison
+     ENTREPRISE   domaine transporteur-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Nous recherchons des partenaires de livraison
+     SOURCE       import:moteur-exemple
+     PREUVE       https://transporteur-exemple.example/partenaires
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     NATURE       FAIT
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« livraison »)
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🔵 [ 45] Offre d'emploi chauffeur
+     ENTREPRISE   domaine autre-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Offre d'emploi chauffeur
+     SOURCE       import:autre-moteur-exemple
+     PREUVE       https://autre-exemple.example/emplois/chauffeur
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     NATURE       SIGNAL
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🔵 PROSPECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI signal d'un besoin logistique — à qualifier
+
+----------------------------------------------------------------------------------------
+CE QUI RESTE INCONNU, ET QUI LE RESTERA SANS COLLECTE
+  véhicules · tonnage · chauffeurs · CA · marge · coût/km ·
+  rémunération · durée · volume · certifications · licences ·
+  agréments · capacité exacte · échéance non prouvée
+  Tout cela s'écrit « À CONFIRMER ». Une déduction n'est pas
+  un fait, et la marge reste NON MESURÉE tant que les coûts
+  réels ne sont pas au profil.
+
+── APPORT PROPRE DE CHAQUE MOTEUR ──────────────────────────────────────────────
+RECOUPEMENT ENTRE MOTEURS
+========================================================================================
+
+CHAÎNE DE RAPPEL
+  résultats bruts            5
+  URL uniques                4
+  observations partagées     2
+  groupes de page            4
+  groupes multi-sources      1
+  doublons regroupés         1
+  rapprochements refusés     0
+
+PAR MOTEUR — le volume ET l'apport propre, côte à côte
+  MOTEUR                RÉSULTATS     URL  UNIQUES  PARTAGÉES   APPORT   NATURE
+  brave                NON MESURÉ   NON DISPONIBLE — CLÉ ABSENTE — clé API non fournie
+  google               NON MESURÉ   NON DISPONIBLE — CLÉ ABSENTE — clé API et identifiant de moteur non fournis
+  import:autre-moteur-          2       2        1          1     50%   RÉSULTAT IMPORTÉ — RECHERCHE EXTERNE
+  import:moteur-exempl          3       3        2          1     67%   RÉSULTAT IMPORTÉ — RECHERCHE EXTERNE
+
+  « NATURE » dit QUI a exécuté la recherche. Un export remis au
+  radar n'est pas une performance du radar : les deux ne se
+  comptent jamais ensemble, et portent des noms de source
+  distincts pour que ce soit impossible.
+  « APPORT » = part des pages que ce moteur a montrées et que
+  personne d'autre n'a montrées. Un moteur qui rend dix pages
+  dont huit inédites vaut plus qu'un moteur qui en rend cent
+  déjà connues. AUCUN MOTEUR N'EST CLASSÉ AU VOLUME.
+
+  NON MESURÉ n'est pas 0 : un moteur qu'on n'a pas interrogé
+  n'a pas « rendu zéro résultat ».
+
+── LA LISTE DE TRAVAIL ─────────────────────────────────────────────────────────
+$ radar --base … opportunites
+🟢 [ 55] NOUVELLE         —           CONTACTER L'ENTREPRISE   Appel à partenaires logistiques
+🟢 [ 55] NOUVELLE         —           CONTACTER L'ENTREPRISE   Fictif SA ouvre un dépôt à Gand
+🟢 [ 45] NOUVELLE         —           CONTACTER L'ENTREPRISE   Nous recherchons des partenaires de li
+🔵 [ 45] NOUVELLE         —           CONTACTER L'ENTREPRISE   Offre d'emploi chauffeur
+
+4 opportunité(s).
+
+────────────────────────────────────────────────────────────────────────────────
+CE QUE CETTE MESURE MONTRE — ET CE QU'ELLE NE MONTRE PAS
+────────────────────────────────────────────────────────────────────────────────
+
+MONTRÉ
+  · la chaîne va d'un fichier déposé jusqu'à une liste de travail, sans
+    aucune intervention dans le code ;
+  · deux exports de deux moteurs se recoupent : 5 résultats, 4 URL uniques,
+    1 page vue par les deux, et l'apport propre de chacun est chiffré ;
+  · réimporter le même fichier ne duplique rien ;
+  · les deux moteurs réels apparaissent à NON MESURÉ — CLÉ ABSENTE, à côté
+    des imports. Les deux ne se comptent jamais ensemble.
+
+NON MONTRÉ — et il faut le dire
+  · DONNÉES RÉELLES : NON MESURÉES. Ces chiffres viennent de fichiers
+    fabriqués. Ils ne disent RIEN du marché belge.
+  · rappel réel, qualité des extraits, couverture FR/NL, faux positifs et
+    faux négatifs : tout cela exige un export réel.
+  · aucune page n'a été lue. La qualification 7b sur contenu réel reste
+    hors d'atteinte tant que l'egress est fermé.
+
+────────────────────────────────────────────────────────────────────────────────
+DEUX OBSERVATIONS — DOCUMENTÉES, NON CORRIGÉES
+────────────────────────────────────────────────────────────────────────────────
+
+1. UNE HYPOTHÈSE DE PRESSE ET UN BESOIN ÉNONCÉ OBTIENNENT LE MÊME SCORE.
+
+   « Fictif SA ouvre un dépôt à Gand »          HYPOTHÈSE   score 55
+   « Appel à partenaires logistiques »          FAIT        score 55
+
+   Les deux sont 🟢 DIRECT : la catégorie répond à « pouvons-nous le faire »,
+   et la réponse est la même. La NATURE les sépare correctement. Mais le
+   SCORE, lui, ne les sépare pas — alors que l'un est un besoin écrit et
+   l'autre une déduction à partir d'un article.
+
+   Ce n'est pas forcément un défaut : SCORE D'ADÉQUATION ≠ POTENTIEL
+   COMMERCIAL, et la fiabilité est déjà portée à part. Mais c'est une
+   DÉCISION MÉTIER À VALIDER : la nature doit-elle entrer dans le
+   classement de lecture, ou rester strictement à côté ?
+
+   Non corrigé : cela toucherait `score.py`, qui est GELÉ.
+
+2. UNE OFFRE D'EMPLOI RESSORT 🔵 PROSPECT / CONTACTER L'ENTREPRISE.
+
+   « Offre d'emploi chauffeur » → 🔵, score 45.
+
+   Défendable : une entreprise qui recrute des chauffeurs peut aussi
+   sous-traiter. Mais « recrutement » figure dans la liste des TYPES
+   D'INFORMATION demandés, et cette dimension n'existe pas encore comme
+   telle : `type_information` porte la RUBRIQUE DÉCLARÉE PAR LA SOURCE
+   (« Marchés en cours »), pas une taxonomie métier.
+
+   La taxonomie demandée — opportunité confirmée · besoin privé · appel
+   d'offres · attribution · partenariat · sous-traitance · recrutement ·
+   signal · entreprise à développer · renouvellement — n'a PAS été
+   inventée ici. L'existant la couvre partiellement, par combinaison :
+
+       besoin privé      = secteur privé + HORS PROCÉDURE + FAIT
+       appel d'offres    = POSTULABLE
+       attribution       = ATTRIBUÉ + moteur DÉVELOPPER
+       partenariat       = rôle PRESTATAIRE + HORS PROCÉDURE
+       signal            = nature SIGNAL
+       recrutement       = NON COUVERT
+
+   Créer la dimension manquante est une RÈGLE MÉTIER NOUVELLE. Elle
+   n'a pas été écrite : DÉCISION MÉTIER À VALIDER.

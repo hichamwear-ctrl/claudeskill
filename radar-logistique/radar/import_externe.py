@@ -104,6 +104,54 @@ DOUBLON = "DOUBLON DANS LE FICHIER"
 COLONNES = ("requete", "moteur", "date_execution", "url", "titre", "extrait",
             "rang")
 
+# ALIAS DE CHAMPS — la même discipline que les adaptateurs de sources : un nom
+# de champ ne se code jamais en dur dans la logique, il se déclare.
+#
+# Les exports de moteurs n'emploient pas tous les mêmes mots pour dire la même
+# chose. Reconnaître ces orthographes évite à l'exploitant de réécrire son
+# fichier à la main — sans introduire la moindre dépendance à un fournisseur :
+# ce sont des mots courants, pas des formats propriétaires, et le premier
+# présent gagne.
+#
+# `provenance` n'a PAS d'alias, et c'est volontaire : c'est la seule
+# déclaration qui engage, et elle doit être écrite exactement.
+ALIAS = {
+    "url":            ("url", "lien", "link"),
+    "titre":          ("titre", "title", "intitule"),
+    "extrait":        ("extrait", "snippet", "description", "resume"),
+    "rang":           ("rang", "rank", "position"),
+    "requete":        ("requete", "query", "q", "recherche"),
+    "moteur":         ("moteur", "engine", "moteur_utilise"),
+    "date_execution": ("date_execution", "date", "executed_at", "executee_le"),
+    "page_source":    ("page_source", "page", "source_page"),
+}
+
+
+def _champ(ligne: dict, nom: str, entete: dict | None = None):
+    """La valeur du champ, sous n'importe laquelle de ses orthographes.
+
+    La ligne prime sur l'en-tête : un export multi-moteurs porte le moteur
+    et la date sur chaque ligne, et l'en-tête ne doit pas les écraser.
+    """
+    for cle in ALIAS.get(nom, (nom,)):
+        if ligne and ligne.get(cle) not in (None, ""):
+            return ligne[cle]
+    for cle in ALIAS.get(nom, (nom,)):
+        if entete and entete.get(cle) not in (None, ""):
+            return entete[cle]
+    return None
+
+
+# Le bilan du dernier chargement de chaque fichier. Il existe pour une seule
+# raison : un fichier entièrement refusé ne rend aucun adaptateur, et son
+# bilan n'aurait alors nulle part où vivre. Un refus invisible n'est pas un
+# refus.
+_BILANS: dict = {}
+
+
+def _dernier_bilan(fichier):
+    return _BILANS.get(str(fichier)) or Bilan(fichier=str(fichier))
+
 
 class ImportInvalide(ValueError):
     """Le FICHIER entier est refusé : illisible, ou sans provenance déclarée.
@@ -358,8 +406,9 @@ def _empreinte(octets: bytes) -> str:
 def _lignes_json(charge, chemin):
     """Un objet avec en-tête, ou une liste de lignes complètes."""
     if isinstance(charge, dict):
-        entete = {c: charge.get(c) for c in ("provenance", "moteur",
-                                             "date_execution", "requete")}
+        entete = {c: charge.get(c) for c in
+                  ("provenance", *ALIAS["moteur"], *ALIAS["date_execution"],
+                   *ALIAS["requete"])}
         lignes = charge.get("resultats")
         if lignes is None:
             raise ImportInvalide(f"{chemin} ne déclare aucun «·resultats·»")
@@ -413,6 +462,20 @@ def charger(chemin, *, provenance_attendue: str = PROVENANCE) -> list[ImportExte
                          provenance_attendue=provenance_attendue)
 
 
+def charger_avec_bilan(chemin, *, provenance_attendue: str = PROVENANCE):
+    """Les adaptateurs ET le bilan — parce qu'un fichier dont TOUTES les lignes
+    sont refusées ne produit aucun adaptateur, et que ses refus doivent
+    pourtant rester visibles.
+
+    Les faire porter uniquement par les adaptateurs les faisait disparaître
+    dans le seul cas où ils comptaient le plus : celui où rien n'est passé.
+    """
+    adaptateurs = charger(chemin, provenance_attendue=provenance_attendue)
+    if adaptateurs:
+        return adaptateurs, adaptateurs[0].bilan
+    return [], _dernier_bilan(chemin)
+
+
 def depuis_lignes(lignes, *, entete=None, fichier=None, empreinte=None,
                   provenance_attendue: str = PROVENANCE) -> list[ImportExterne]:
     """Contrôle chaque ligne et construit les adaptateurs.
@@ -447,7 +510,7 @@ def depuis_lignes(lignes, *, entete=None, fichier=None, empreinte=None,
         bilan.lignes_lues += 1
         l = brute if isinstance(brute, dict) else {}
 
-        moteur = str(l.get("moteur") or entete.get("moteur") or "").strip()
+        moteur = str(_champ(l, "moteur", entete) or "").strip()
         if not moteur:
             bilan.refus.append(Refus(position, MOTEUR_ABSENT, l.get("url")))
             continue
@@ -457,33 +520,34 @@ def depuis_lignes(lignes, *, entete=None, fichier=None, empreinte=None,
             bilan.refus.append(Refus(position, MOTEUR_INVALIDE, l.get("url")))
             continue
 
-        motif = _url_lisible(l.get("url"))
+        vue = _champ(l, "url")
+        motif = _url_lisible(vue)
         if motif:
-            bilan.refus.append(Refus(position, motif, l.get("url")))
+            bilan.refus.append(Refus(position, motif, vue))
             continue
-        url = str(l.get("url")).strip()
+        url = str(vue).strip()
 
-        titre, r1, trop_titre = _nettoyer(l.get("titre"), TITRE_MAX)
+        titre, r1, trop_titre = _nettoyer(_champ(l, "titre"), TITRE_MAX)
         if trop_titre:
             bilan.refus.append(Refus(position, TITRE_HORS_LIMITE, url))
             continue
-        extrait, r2, trop_extrait = _nettoyer(l.get("extrait"), EXTRAIT_MAX)
+        extrait, r2, trop_extrait = _nettoyer(_champ(l, "extrait"), EXTRAIT_MAX)
         if trop_extrait:
             bilan.refus.append(Refus(position, EXTRAIT_HORS_LIMITE, url))
             continue
         requete, r3, trop_requete = _nettoyer(
-            l.get("requete") or entete.get("requete"), REQUETE_MAX)
+            _champ(l, "requete", entete), REQUETE_MAX)
         if trop_requete:
             bilan.refus.append(Refus(position, REQUETE_HORS_LIMITE, url))
             continue
         bilan.caracteres_retires += r1 + r2 + r3
 
-        rang, rang_illisible = _rang_lisible(l.get("rang"))
+        rang, rang_illisible = _rang_lisible(_champ(l, "rang"))
         if rang_illisible:
             bilan.rangs_inconnus += 1
 
         date, date_illisible = _date_lisible(
-            l.get("date_execution") or entete.get("date_execution"))
+            _champ(l, "date_execution", entete))
         if date_illisible:
             bilan.dates_inconnues += 1
 
@@ -505,7 +569,7 @@ def depuis_lignes(lignes, *, entete=None, fichier=None, empreinte=None,
         adaptateur.resultats_importes.append(Resultat(
             titre=titre or "", url=url, extrait=extrait or "",
             requete=requete or "", fournisseur=qualifie, consulte_le=date,
-            rang=rang))
+            rang=rang, page_source=_champ(l, "page_source") or None))
         bilan.inscrites += 1
         if requete and requete not in bilan.requetes:
             bilan.requetes.append(requete)
@@ -515,18 +579,19 @@ def depuis_lignes(lignes, *, entete=None, fichier=None, empreinte=None,
     # que le zéro s'inscrive. Sans moteur déclaré, en revanche, on ne saurait
     # attribuer ce zéro à personne — et il resterait NON MESURÉ.
     if not par_moteur and not lignes:
-        moteur = str(entete.get("moteur") or "").strip()
+        moteur = str(_champ({}, "moteur", entete) or "").strip()
         if moteur:
-            requete = _nettoyer(entete.get("requete"), REQUETE_MAX)[0]
+            requete = _nettoyer(_champ({}, "requete", entete), REQUETE_MAX)[0]
             par_moteur[mod_execution.qualifier(moteur)] = ImportExterne(
                 moteur_annonce=moteur,
-                date_execution=_date_lisible(entete.get("date_execution"))[0],
+                date_execution=_date_lisible(_champ({}, "date_execution", entete))[0],
                 fichier=fichier, empreinte=empreinte,
                 requete_annoncee=requete or None)
 
     bilan.moteurs = sorted(a.moteur_annonce for a in par_moteur.values())
     for a in par_moteur.values():
         a.bilan = bilan
+    _BILANS[fichier] = bilan
     return list(par_moteur.values())
 
 
@@ -582,9 +647,13 @@ def inscrire(cx, adaptateurs, *, circuit=None) -> Bilan:
 
 
 def importer(cx, chemin, *, circuit=None) -> Bilan:
-    """Charger puis inscrire. Ne chaîne rien, ne qualifie rien, ne note rien."""
-    adaptateurs = charger(chemin)
-    bilan = inscrire(cx, adaptateurs, circuit=circuit)
+    """Charger puis inscrire. Ne chaîne rien, ne qualifie rien, ne note rien.
+
+    Rend le bilan du FICHIER, y compris quand aucune ligne n'a survécu aux
+    contrôles : c'est précisément là qu'il faut pouvoir lire les refus.
+    """
+    adaptateurs, bilan_fichier = charger_avec_bilan(chemin)
+    bilan = inscrire(cx, adaptateurs, circuit=circuit) if adaptateurs else bilan_fichier
     bilan.moteurs = sorted({a.moteur_annonce for a in adaptateurs})
     return bilan
 

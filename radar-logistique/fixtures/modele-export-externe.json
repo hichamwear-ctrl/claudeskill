@@ -1,0 +1,41 @@
+{
+  "_mode_d_emploi": [
+    "MODÈLE À REMPLIR. Les trois entrées ci-dessous sont VIDES de résultats :",
+    "elles montrent la structure, elles ne mesurent rien.",
+    "",
+    "1. Remplacez « moteur » par le nom du moteur que VOUS avez utilisé.",
+    "2. Remplacez « date_execution » par l'horodatage réel de la recherche.",
+    "3. Ajoutez vos résultats dans « resultats », un objet par résultat.",
+    "4. Laissez « resultats » vide pour une requête qui n'a RIEN rendu :",
+    "   c'est 0, une mesure — et ce n'est pas NON MESURÉ.",
+    "",
+    "Ne modifiez PAS « provenance » : c'est la seule déclaration qui engage.",
+    "Voir validation/PROTOCOLE-EXPORT-EXTERNE.md"
+  ],
+  "provenance": "EXÉCUTÉ HORS RADAR",
+  "moteur": "REMPLACER-PAR-LE-NOM-DU-MOTEUR",
+  "date_execution": "REMPLACER-PAR-UN-HORODATAGE-ISO",
+  "resultats": [
+    {
+      "requete": "recherche transporteur Belgique",
+      "url": "",
+      "titre": "",
+      "extrait": "",
+      "rang": 1
+    },
+    {
+      "requete": "sous-traitant livraison Belgique",
+      "url": "",
+      "titre": "",
+      "extrait": "",
+      "rang": 1
+    },
+    {
+      "requete": "devenir partenaire livraison Belgique",
+      "url": "",
+      "titre": "",
+      "extrait": "",
+      "rang": 1
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+# REQUÊTES PRIORITAIRES — ce qu'il faut chercher, pas ce qu'il faut conclure
+#
+# Ces requêtes servent à DÉCOUVRIR. Elles ne qualifient rien, ne notent rien,
+# et n'éliminent personne. Une requête qui ne rend aucun résultat n'est pas
+# une mauvaise requête : c'est une mesure, et elle doit être inscrite comme
+# telle (0 résultat ≠ NON MESURÉ).
+#
+# AUCUN NOM DE MOTEUR ICI. Ce fichier dit QUOI chercher, jamais AVEC QUOI.
+#
+# ⚠️ La présence d'un mot dans une requête ne promeut rien, et son absence ne
+# rejette rien. Ces listes ouvrent des portes ; ce qui se trouve derrière est
+# jugé par le moteur commercial, sur le contenu, comme n'importe quelle autre
+# source.
+
+version: 1
+langues: [fr, nl]
+
+familles:
+
+  # ─────────────────────────────────────────────────── A — BESOIN EXPLICITE
+  # Quelqu'un ÉCRIT qu'il cherche. C'est le signal le plus direct, et c'est
+  # rarement un marché public.
+  A_besoin_explicite:
+    libelle: "BESOIN EXPLICITE — quelqu'un écrit qu'il cherche"
+    requetes:
+      - recherche transporteur Belgique
+      - recherche sous-traitant transport Belgique
+      - recherche prestataire livraison Belgique
+      - recherche partenaire livraison Belgique
+      - devenir partenaire livraison Belgique
+      - devenir transporteur Belgique
+      - recherche société transport Belgique
+      - recherche chauffeur avec véhicule Belgique
+      - recherche véhicule livraison Belgique
+      - sous-traitance logistique Belgique
+
+  # ─────────────────────────────────────────── B — LOGISTIQUE / DISTRIBUTION
+  B_logistique_distribution:
+    libelle: "LOGISTIQUE ET DISTRIBUTION — le métier, décliné"
+    requetes:
+      - livraison colis Belgique sous-traitant
+      - distribution colis Belgique partenaire
+      - dernier kilomètre Belgique sous-traitant
+      - tournée livraison Belgique sous-traitant
+      - livraison e-commerce Belgique transporteur
+      - distribution alimentaire Belgique sous-traitant
+      - livraison pharmacie Belgique transporteur
+      - messagerie Belgique sous-traitant
+      - logistique Belgique prestataire
+
+  # ──────────────────────────────────────────── C — ENTREPRISES ET SIGNAUX
+  # Un signal n'est PAS un besoin. Une ouverture d'entrepôt ne dit pas qu'on
+  # cherche un sous-traitant : elle dit qu'il se passe quelque chose. Le
+  # moteur le classera en SIGNAL, jamais en FAIT, et l'action sera SURVEILLER
+  # ou CONTACTER — jamais POSTULER.
+  C_signaux_entreprises:
+    libelle: "SIGNAUX D'ENTREPRISE — il se passe quelque chose, ce n'est pas un besoin"
+    requetes:
+      - ouverture entrepôt Belgique
+      - nouveau centre logistique Belgique
+      - nouveau dépôt Belgique logistique
+      - expansion logistique Belgique
+      - nouveau site logistique Belgique
+      - recrutement chauffeurs Belgique
+      - recrutement massif chauffeurs Belgique
+      - nouveau contrat logistique Belgique
+      - nouveau client logistique Belgique
+      - implantation entreprise Belgique logistique
+
+  # ────────────────────────────────────────────────────── D — PARTENARIATS
+  D_partenariats:
+    libelle: "PARTENARIATS — référencement, panel fournisseurs, réseau"
+    requetes:
+      - partenaire logistique Belgique
+      - partenaire transport Belgique
+      - partenaire livraison Belgique
+      - fournisseur logistique Belgique
+      - sous-traitant logistique Belgique
+      - sous-traitance transport Belgique
+
+  # ─────────────────────────────────────────────── E — MÉTIERS À CONSTRUIRE
+  # 🟣 À CONSTRUIRE : des prestations itinérantes atteignables avec véhicule,
+  # personnel et formation. DÉCOUVRIR n'est pas DÉCIDER : aucune éligibilité
+  # légale, aucun agrément et aucune licence ne sont supposés ici. Tout ce qui
+  # n'est pas écrit dans le résultat reste À CONFIRMER, et l'accès réglementé
+  # à un métier est précisément le genre de chose qui n'est jamais supposée.
+  E_metiers_a_construire:
+    libelle: "MÉTIERS À CONSTRUIRE — itinérant, véhicule + personnel + formation"
+    avertissement: >
+      Aucune éligibilité n'est déduite de ces requêtes. Agréments, licences,
+      certifications et qualifications restent À CONFIRMER tant qu'un document
+      ne les établit pas.
+    requetes:
+      - prestataire intervention itinérante Belgique
+      - sous-traitant intervention technique Belgique
+      - technicien itinérant sous-traitance Belgique
+      - maintenance itinérante sous-traitant Belgique
+      - dépannage itinérant sous-traitant Belgique
+      - installation itinérante sous-traitance Belgique
+
+  # ──────────────────────────────────────────────── F — MARCHÉS ET SIGNAUX
+  # Un marché public entre par la MÊME porte et dans le MÊME moteur. Il
+  # n'obtient aucun avantage de score parce qu'il vient d'un portail : la
+  # question reste « comment entrer sur ce marché ? », jamais « d'où vient
+  # l'avis ? ».
+  F_marches_et_attributions:
+    libelle: "MARCHÉS ET ATTRIBUTIONS — aucun avantage de score, même moteur"
+    requetes:
+      - marché public transport Belgique
+      - marché public livraison Belgique
+      - attribution marché transport Belgique
+      - titulaire marché logistique Belgique
+      - renouvellement marché transport Belgique
+
+# ─────────────────────────────────────────────────────────── GÉOGRAPHIE
+#
+# ⚠️ RÈGLE ABSOLUE : la distance ne supprime JAMAIS une opportunité.
+#
+# Elle influence l'EFFORT OPÉRATIONNEL et le CLASSEMENT, et rien d'autre. Une
+# affaire à 400 km n'est pas rejetée : elle est plus coûteuse à servir, et le
+# rapport le dit. C'est l'exploitant qui tranche, pas un filtre.
+#
+# Les couches sont un ORDRE D'EXPLORATION — par où commencer quand le budget
+# de requêtes est limité — jamais un ordre de valeur.
+geographie:
+  ordre_exploration:
+    - couche: proximite_immediate
+      libelle: "autour du dépôt"
+      suffixes: []            # à compléter par l'exploitant : sa commune, ses voisines
+    - couche: province
+      libelle: "la province"
+      suffixes: []            # à compléter : le nom de la province
+    - couche: belgique
+      libelle: "Belgique"
+      suffixes: [Belgique, België, Wallonie, Vlaanderen, Bruxelles, Brussel]
+    - couche: pays_voisins
+      libelle: "pays voisins"
+      suffixes: [France, Nederland, Deutschland, Luxembourg]
+    - couche: europe
+      libelle: "Europe"
+      suffixes: [Europe, Europa]
+
+  note: >
+    Les deux premières couches sont VIDES exprès. Elles dépendent de
+    l'implantation réelle du dépôt, et le radar ne la devine pas : une commune
+    inventée produirait des requêtes qui ne cherchent rien. L'exploitant les
+    remplit ; tant qu'elles sont vides, l'exploration commence à la Belgique.

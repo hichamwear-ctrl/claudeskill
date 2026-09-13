@@ -53,8 +53,17 @@ def _vocabulaires(cx=None) -> dict:
         sortie[nom] = fusionner_vocabulaires(appris, declare)
     # Les moteurs partagent l'adaptateur « recherche » mais gardent chacun leur
     # provenance : ils héritent donc de son vocabulaire, sans le confondre.
-    for moteur in ("google", "brave"):
-        sortie.setdefault(moteur, sortie.get("recherche"))
+    #
+    # Les noms viennent de la BASE, jamais d'une liste écrite ici : un moteur
+    # dont le nom aurait été oublié dans une liste en dur perdrait son
+    # vocabulaire de procédure en silence, et ses états deviendraient INCONNU
+    # sans que personne ne sache pourquoi. Cela vaut aussi pour les exports
+    # importés, dont le nom ne peut pas être connu à l'avance.
+    if cx is not None:
+        for l in cx.execute("SELECT DISTINCT source FROM trouvailles"):
+            sortie.setdefault(l["source"], sortie.get("recherche"))
+        for l in cx.execute("SELECT DISTINCT source FROM avis"):
+            sortie.setdefault(l["source"], sortie.get("recherche"))
     return sortie
 
 
@@ -304,6 +313,104 @@ def cmd_trouvailles(a) -> int:
         print()
         for t in mod.toutes(cx, limite=a.limite):
             print("  " + t.ligne())
+    return 0
+
+
+def cmd_import_recherche(a) -> int:
+    """Un export produit HORS RADAR entre dans la chaîne — et va jusqu'au bout.
+
+        fichier.json/.csv → trouvailles → entreprises → pages candidates
+                          → analyse commerciale → opportunités → 🟢🟡🟣🔵🔴
+
+    Le radar n'a interrogé aucun moteur. Il ne le prétendra jamais : la source
+    reste marquée « import: », et le journal des exécutions porte
+    « EXÉCUTÉ HORS RADAR » en toutes lettres.
+    """
+    from . import execution as mod_execution, import_externe as imp, parcours
+    from .circuit import DECOUVERTE as CIRCUIT_DECOUVERTE
+
+    # Un import porte des résultats RÉELS : un vrai moteur les a rendus, sur le
+    # vrai web. Il n'y a donc pas de choix de mode à faire, et en laisser un
+    # ouvrirait la porte à des lignes réelles écrites dans la base de
+    # démonstration — exactement la confusion que le projet interdit.
+    mode = Mode.REEL
+    base = a.base or mode.base_par_defaut
+    # Le bandeau générique du mode RÉEL dit « données réellement collectées ».
+    # C'est vrai d'une collecte, pas d'un import : le radar n'a rien collecté
+    # et n'a interrogé personne. On l'écrit donc autrement, plutôt que de
+    # laisser un bandeau juste-à-côté faire une affirmation fausse.
+    largeur = 68
+    print("╔" + "═" * largeur + "╗")
+    for ligne in (f"MODE : RÉEL — {imp.PROVENANCE}",
+                  "Un moteur externe a rendu ces résultats. Le radar n'a",
+                  "interrogé personne et n'a lu aucune page."):
+        print("║  " + ligne.ljust(largeur - 2) + "║")
+    print("╚" + "═" * largeur + "╝")
+    print(f"base : {base}")
+    cx = ouvrir(base)
+    try:
+        bilan = imp.importer(cx, a.fichier)
+    except imp.ImportInvalide as e:
+        print(f"IMPORT REFUSÉ — {e}", file=sys.stderr)
+        return 2
+    print(bilan.resume())
+
+    if a.sans_analyse:
+        print()
+        print(mod_execution.rapport(cx))
+        cx.commit()
+        return 0
+
+    adaptateur, cfg = _source("recherche")
+    defauts = {"signal": cfg.get("signal"),
+               "secteur": cfg.get("secteur_par_defaut"),
+               "circuit": CIRCUIT_DECOUVERTE}
+    p = parcours.executer(cx, _moteur(cx), adaptateur, mode=mode, defauts=defauts)
+    cx.commit()
+    print()
+    print(parcours.rapport(cx, p, limite_top=a.top))
+    return 0
+
+
+def cmd_requetes_prioritaires(a) -> int:
+    """Les requêtes à exécuter DEHORS, par famille. Le radar n'en lance aucune.
+
+    Ce n'est pas un ordre de valeur : c'est un ordre d'exploration, utile quand
+    le budget de requêtes est limité. Aucune famille ne vaut mieux qu'une autre.
+    """
+    cfg = _cfg("config/requetes-prioritaires.yaml")
+    familles = cfg.get("familles") or {}
+    if a.brut:
+        for f in familles.values():
+            for r in f.get("requetes") or []:
+                print(r)
+        return 0
+    total = 0
+    print("REQUÊTES PRIORITAIRES — à exécuter HORS RADAR")
+    print("=" * 72)
+    for cle, f in familles.items():
+        if a.famille and not cle.upper().startswith(a.famille.upper()):
+            continue
+        print()
+        print(f"{cle}  —  {f.get('libelle', '')}")
+        if f.get("avertissement"):
+            print("  ⚠ " + " ".join(str(f["avertissement"]).split()))
+        for r in f.get("requetes") or []:
+            total += 1
+            print(f"    {r}")
+    geo = (cfg.get("geographie") or {})
+    print()
+    print("COUCHES GÉOGRAPHIQUES — ordre d'EXPLORATION, jamais de valeur")
+    for couche in geo.get("ordre_exploration") or []:
+        suffixes = couche.get("suffixes") or []
+        etat = ", ".join(suffixes) if suffixes else "À COMPLÉTER par l'exploitant"
+        print(f"    {couche.get('couche', '?'):<22} {etat}")
+    print()
+    print("  La distance ne supprime JAMAIS une opportunité : elle entre dans")
+    print("  l'effort opérationnel et le classement, et nulle part ailleurs.")
+    print()
+    print(f"{total} requête(s). Le radar n'en a exécuté AUCUNE.")
+    print("Voir validation/PROTOCOLE-EXPORT-EXTERNE.md pour la marche à suivre.")
     return 0
 
 
@@ -957,6 +1064,23 @@ def principal(argv=None) -> int:
     tr.add_argument("--detail", action="store_true")
     tr.add_argument("--limite", type=int, default=40)
     tr.set_defaults(fn=cmd_trouvailles)
+
+    ir = s.add_parser("import-recherche",
+                      help="importer un export de moteur produit HORS RADAR, "
+                           "puis le faire passer par toute la chaîne")
+    ir.add_argument("fichier", help="le fichier JSON ou CSV remis au radar")
+    ir.add_argument("--sans-analyse", action="store_true",
+                    help="s'arrêter aux trouvailles, sans analyse commerciale")
+    ir.add_argument("--top", type=int, default=20,
+                    help="combien d'opportunités détailler (défaut : 20)")
+    ir.set_defaults(fn=cmd_import_recherche)
+
+    rp = s.add_parser("requetes-prioritaires",
+                      help="les requêtes à exécuter DEHORS — le radar n'en lance aucune")
+    rp.add_argument("--famille", help="n'afficher qu'une famille (A, B, C…)")
+    rp.add_argument("--brut", action="store_true",
+                    help="une requête par ligne, sans mise en forme")
+    rp.set_defaults(fn=cmd_requetes_prioritaires)
 
     idf = s.add_parser("identifier", help="l'identité d'une entreprise — jamais devinée")
     idf.add_argument("entreprise", nargs="?", help="nom ou clé au registre")
