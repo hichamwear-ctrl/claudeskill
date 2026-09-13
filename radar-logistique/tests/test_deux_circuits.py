@@ -1656,3 +1656,308 @@ class S7a_LeCircuitNInfluencePasLaPromotion(unittest.TestCase):
             resultats[c] = self.pages.depuis_liens(base, cands, circuit=c)
         self.assertEqual(resultats[circuit.CONNUE], resultats[circuit.DECOUVERTE])
         del cx
+
+
+# ══════════════════ 7b — RÉÉVALUATION APRÈS COLLECTE
+#
+# FIXTURES : aucun réseau n'est touché, l'ouvreur HTTP est injecté.
+
+CONTENU_PREUVE = ("<html><body><h1>Devenir transporteur</h1>"
+                  "<p>Nous recherchons des transporteurs pour assurer nos "
+                  "tournées en Belgique.</p></body></html>").encode("utf-8")
+CONTENU_GENERIQUE = ("<html><body><h1>Suivi de colis</h1>"
+                     "<p>Entrez votre numero de colis pour connaitre l'etat de "
+                     "votre livraison.</p></body></html>").encode("utf-8")
+CONTENU_CONTRE_PREUVE = ("<html><body><h1>Appel d'offres</h1>"
+                         "<p>Fourniture et livraison de repas en liaison "
+                         "froide.</p></body></html>").encode("utf-8")
+CONTENU_HORS_METIER = ("<html><body><h1>Politique de cookies</h1>"
+                       "<p>Ce site utilise des cookies de mesure "
+                       "d'audience.</p></body></html>").encode("utf-8")
+CONTENU_VIDE = b"<html><head><title></title></head><body></body></html>"
+
+
+class S7b_QualifierUnePageSurSonContenu(unittest.TestCase):
+    """« Le libellé d'un lien est un indice. Le contenu est une preuve. »"""
+
+    def setUp(self):
+        import yaml
+        from radar import collecte_directe, pages
+        self.cd, self.pages = collecte_directe, pages
+        self.onto, self.det = _mecanismes()
+        self.profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        self.cx = ouvrir(":memory:")
+        self.u = "https://exemple.be/une-page"
+        self.analysees = []
+
+    def _inscrire(self, statut=None, raison=None):
+        self.pages.rencontrer(self.cx, self.u, entreprise="exemple.be",
+                              provenance=self.pages.DECOUVERTE, source="google",
+                              raison="lien retenu — MÊME DOMAINE")
+        if statut is self.pages.Statut.SURVEILLEE:
+            self.pages.promouvoir(self.cx, self.u, raison or "retenue")
+        elif statut is self.pages.Statut.ECARTEE:
+            self.pages.ecarter(self.cx, self.u, raison or "sans intérêt")
+
+    def _passer(self, octets):
+        from radar.boucle import Veille
+        ouvreur = faux_reseau({self.u: octets})
+        return Veille(self.cx,
+                      lambda url: self.cd.recuperer(url, ouvrir=ouvreur,
+                                                    politesse=_SansAttente()),
+                      analyser=lambda c, p: (self.analysees.append(p.url) or 1),
+                      profil=self.profil, ontologie=self.onto,
+                      detecteur=self.det).passer(
+                          self.pages.a_surveiller(self.cx, toutes=True))
+
+    def _page(self):
+        return self.pages.lire(self.cx, self.u)
+
+    # ── 1 · contenu positif → qualification positive, et promotion ──
+    def test_1_un_contenu_probant_qualifie_et_promeut(self):
+        self._inscrire()
+        self._passer(CONTENU_PREUVE)
+        p = self._page()
+        self.assertIs(p.qualification, self.pages.Qualification.PREUVE)
+        self.assertIs(p.statut, self.pages.Statut.SURVEILLEE)
+        self.assertIn("PROMUE APRÈS COLLECTE — CONTENU", p.raison)
+        self.assertTrue(p.qualifiee_le)
+
+    # ── 2 · contenu générique → reste candidate ──
+    def test_2_un_contenu_generique_laisse_la_page_candidate(self):
+        self._inscrire()
+        self._passer(CONTENU_GENERIQUE)
+        p = self._page()
+        self.assertIs(p.qualification, self.pages.Qualification.SANS_PREUVE)
+        self.assertIs(p.statut, self.pages.Statut.CANDIDATE)
+        self.assertIn("SANS PREUVE", p.raison)
+        self.assertIsNotNone(self.pages.lire(self.cx, self.u), "jamais supprimée")
+
+    # ── 3 · contenu négatif → candidate avec contre-preuve ──
+    def test_3_une_contre_preuve_ne_supprime_rien_et_se_dit(self):
+        self._inscrire()
+        self._passer(CONTENU_CONTRE_PREUVE)
+        p = self._page()
+        self.assertIs(p.qualification, self.pages.Qualification.CONTRE_PREUVE)
+        self.assertIs(p.statut, self.pages.Statut.CANDIDATE)
+        self.assertIn("CONTRE-PREUVE", p.raison)
+
+    # ── 4 · sans contenu lisible → on n'invente aucune qualification ──
+    def test_4_sans_contenu_lisible_rien_n_est_invente(self):
+        import urllib.error
+        self._inscrire()
+        self._passer(urllib.error.URLError("egress bloqué"))
+        p = self._page()
+        self.assertIs(p.qualification, self.pages.Qualification.NON_QUALIFIEE,
+                      "une page non lue n'est pas une page sans preuve")
+        self.assertIs(p.statut, self.pages.Statut.CANDIDATE)
+
+    def test_4bis_un_contenu_vide_est_illisible_pas_sans_preuve(self):
+        self._inscrire()
+        self._passer(CONTENU_VIDE)
+        p = self._page()
+        self.assertIn(p.qualification, (self.pages.Qualification.ILLISIBLE,
+                                        self.pages.Qualification.NON_QUALIFIEE))
+        self.assertIsNot(p.qualification, self.pages.Qualification.SANS_PREUVE)
+
+    # ── 5 · surveillée + contenu moins pertinent → aucune rétrogradation ──
+    def test_5_une_surveillee_n_est_jamais_retrogradee_automatiquement(self):
+        self._inscrire(self.pages.Statut.SURVEILLEE, "désignée par l'exploitant")
+        self._passer(CONTENU_HORS_METIER)
+        p = self._page()
+        self.assertIs(p.statut, self.pages.Statut.SURVEILLEE)
+        self.assertEqual(p.raison, "désignée par l'exploitant",
+                         "sa raison d'origine est conservée")
+        # …mais l'observation est bien enregistrée.
+        self.assertIsNot(p.qualification, self.pages.Qualification.NON_QUALIFIEE)
+
+    # ── 6 · écartée → jamais réveillée ──
+    def test_6_une_ecartee_n_est_jamais_reveillee(self):
+        self._inscrire(self.pages.Statut.ECARTEE, "robots.txt interdit ce chemin")
+        self._passer(CONTENU_PREUVE)
+        p = self._page()
+        self.assertIs(p.statut, self.pages.Statut.ECARTEE)
+        self.assertEqual(p.raison, "robots.txt interdit ce chemin")
+        self.assertEqual(self.pages.a_surveiller(self.cx), [])
+
+    # ── 7 · seconde collecte identique → pas de nouvelle page ──
+    def test_7_une_seconde_collecte_ne_cree_aucune_page(self):
+        self._inscrire()
+        self._passer(CONTENU_GENERIQUE)
+        self._passer(CONTENU_GENERIQUE)
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM pages_surveillees").fetchone()["c"], 1)
+
+    # ── 8 · provenance conservée ──
+    def test_8_la_qualification_ne_touche_pas_a_la_provenance(self):
+        from radar import circuit
+        self.pages.rencontrer(self.cx, self.u, provenance=self.pages.DECOUVERTE,
+                              source="google", circuit=circuit.DECOUVERTE)
+        self.pages.rencontrer(self.cx, self.u, provenance=self.pages.OBSERVEE,
+                              source="bda", circuit=circuit.CONNUE)
+        avant = self.pages.lire(self.cx, self.u).provenances
+        self._passer(CONTENU_PREUVE)
+        self.assertEqual(self.pages.lire(self.cx, self.u).provenances, avant,
+                         "une réévaluation n'est pas une rencontre")
+
+    # ── 9 · qualification persistée d'un cycle à l'autre ──
+    def test_9_la_qualification_survit_a_un_nouveau_cycle(self):
+        self._inscrire()
+        self._passer(CONTENU_GENERIQUE)
+        premiere = self._page().qualifiee_le
+        # Nouveau cycle, contenu INCHANGÉ : la qualification reste telle quelle.
+        self._passer(CONTENU_GENERIQUE)
+        p = self._page()
+        self.assertIs(p.qualification, self.pages.Qualification.SANS_PREUVE)
+        self.assertEqual(p.qualifiee_le, premiere, "pas de requalification inutile")
+
+    # ── 10 · un contenu modifié entraîne une réévaluation ──
+    def test_10_un_contenu_modifie_declenche_une_requalification(self):
+        self._inscrire()
+        self._passer(CONTENU_GENERIQUE)
+        self.assertIs(self._page().qualification,
+                      self.pages.Qualification.SANS_PREUVE)
+        self._passer(CONTENU_PREUVE)
+        p = self._page()
+        self.assertIs(p.qualification, self.pages.Qualification.PREUVE)
+        self.assertIs(p.statut, self.pages.Statut.SURVEILLEE)
+
+    # ── 11 · contenu inchangé → pas de réanalyse ──
+    def test_11_un_contenu_inchange_ne_declenche_aucune_reanalyse(self):
+        self._inscrire()
+        self._passer(CONTENU_PREUVE)
+        quand = self._page().qualifiee_le
+        self.analysees.clear()
+        t = self._passer(CONTENU_PREUVE)
+        self.assertEqual(t.passages[0].changement, "INCHANGÉE")
+        self.assertEqual(self.analysees, [])
+        self.assertEqual(self._page().qualifiee_le, quand)
+
+    def test_11bis_un_changement_purement_technique_non_plus(self):
+        self._inscrire()
+        self._passer(CONTENU_PREUVE)
+        quand = self._page().qualifiee_le
+        t = self._passer(CONTENU_PREUVE.replace(b"<body>", b"<!-- 14h32 --><body>"))
+        self.assertEqual(t.passages[0].changement, "MODIFIÉE — TECHNIQUE")
+        self.assertEqual(self._page().qualifiee_le, quand)
+
+    # ── 12 · qualifier n'est JAMAIS créer une opportunité ──
+    def test_12_une_page_qualifiee_n_est_pas_une_opportunite(self):
+        """B ≠ C. Qualifier décide qu'on revisitera, pas qu'il y a une affaire."""
+        self._inscrire()
+        self._passer(CONTENU_PREUVE)
+        self.assertIs(self._page().qualification, self.pages.Qualification.PREUVE)
+        # Aucune opportunité n'a été écrite par la qualification elle-même :
+        # l'analyseur de ce test ne touche pas la base.
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM opportunites").fetchone()["c"], 0)
+
+    def test_12bis_le_module_de_qualification_ne_connait_pas_l_opportunite(self):
+        """On inspecte le CODE — identifiants et imports — pas les
+        commentaires, qui ont le droit d'expliquer la frontière."""
+        import ast
+        arbre = ast.parse(pathlib.Path("radar/pages.py").read_text(encoding="utf-8"))
+        noms = {n.id for n in ast.walk(arbre) if isinstance(n, ast.Name)}
+        noms |= {n.attr for n in ast.walk(arbre) if isinstance(n, ast.Attribute)}
+        importes = set()
+        for n in ast.walk(arbre):
+            if isinstance(n, ast.ImportFrom):
+                importes.add(n.module or "")
+                importes |= {a.name for a in n.names}
+            elif isinstance(n, ast.Import):
+                importes |= {a.name for a in n.names}
+        for interdit in ("Opportunite", "Classement", "score", "fiche",
+                         "classification", "chaine", "procedure"):
+            self.assertNotIn(interdit, noms, f"identifiant « {interdit} »")
+            self.assertNotIn(interdit, importes, f"import « {interdit} »")
+
+    # ── 14 · aucun vocabulaire métier en dur ──
+    def test_14_aucun_vocabulaire_metier_n_est_ajoute(self):
+        import ast
+        arbre = ast.parse(pathlib.Path("radar/pages.py").read_text(encoding="utf-8"))
+        docstrings = set()
+        for n in ast.walk(arbre):
+            if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef)):
+                d = ast.get_docstring(n, clean=False)
+                if d:
+                    docstrings.add(d)
+        litterales = [n.value.lower() for n in ast.walk(arbre)
+                      if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                      and n.value not in docstrings]
+        for mot in ("transporteur", "livraison", "logistique", "chauffeur",
+                    "colis", "fret", "palette", "sous-traitance"):
+            for texte in litterales:
+                self.assertNotIn(mot, texte, f"« {mot} » ne doit pas être ici")
+
+
+class S7b_CasAmbigus(unittest.TestCase):
+    """AMBIGU = on conserve l'information et on qualifie prudemment.
+    Jamais de suppression, jamais de verdict inventé."""
+
+    def setUp(self):
+        from radar import pages, pertinence
+        self.pages, self.pertinence = pages, pertinence
+        self.onto, self.det = _mecanismes()
+        self.cx = ouvrir(":memory:")
+        self.u = "https://exemple.be/ambigu"
+        self.pages.rencontrer(self.cx, self.u, provenance=self.pages.DECOUVERTE,
+                              source="google")
+
+    def test_1_pertinence_absente_donne_illisible_jamais_sans_preuve(self):
+        """Mécanismes indisponibles : on ne conclut pas à leur place."""
+        p = self.pages.qualifier(self.cx, self.u, None, texte_lu=True)
+        self.assertIs(p.qualification, self.pages.Qualification.ILLISIBLE)
+        self.assertIs(p.statut, self.pages.Statut.CANDIDATE)
+
+    def test_2_domaine_reconnu_sans_preuve_reste_candidate_et_le_dit(self):
+        verdict = self.pertinence.evaluer("Mon espace colis", self.onto, self.det)
+        p = self.pages.qualifier(self.cx, self.u, verdict)
+        self.assertIs(p.qualification, self.pages.Qualification.SANS_PREUVE)
+        self.assertIn("domaine reconnu", p.raison)
+        self.assertIn("aucune preuve positive", p.raison)
+
+    def test_3_texte_non_lu_ne_produit_jamais_de_verdict_sur_le_fond(self):
+        verdict = self.pertinence.evaluer("Devenir transporteur", self.onto, self.det)
+        self.assertTrue(verdict.promouvoir, "le texte serait probant…")
+        p = self.pages.qualifier(self.cx, self.u, verdict, texte_lu=False)
+        self.assertIs(p.qualification, self.pages.Qualification.ILLISIBLE,
+                      "…mais rien n'a été lu : on ne promeut pas sur du vide")
+        self.assertIs(p.statut, self.pages.Statut.CANDIDATE)
+
+    def test_4_non_qualifiee_n_est_pas_sans_preuve(self):
+        p = self.pages.lire(self.cx, self.u)
+        self.assertIs(p.qualification, self.pages.Qualification.NON_QUALIFIEE)
+        self.assertIsNone(p.qualifiee_le)
+
+    def test_5_qualifier_une_page_inconnue_ne_la_cree_pas(self):
+        verdict = self.pertinence.evaluer("Devenir transporteur", self.onto, self.det)
+        self.assertIsNone(self.pages.qualifier(self.cx, "https://autre.be/x", verdict))
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM pages_surveillees").fetchone()["c"], 1)
+
+    def test_6_une_base_ancienne_sans_les_colonnes_reste_lisible(self):
+        """Compatibilité : une page écrite avant 7b n'a aucune qualification."""
+        self.cx.execute("UPDATE pages_surveillees SET qualification=NULL,"
+                        " qualifiee_le=NULL WHERE url=?", (self.u,))
+        p = self.pages.lire(self.cx, self.u)
+        self.assertIs(p.qualification, self.pages.Qualification.NON_QUALIFIEE)
+
+
+class S7b_LeCircuitNInfluencePasLaQualification(unittest.TestCase):
+    def test_la_qualification_ignore_source_et_circuit(self):
+        import inspect
+        from radar import pages
+        params = set(inspect.signature(pages.qualifier).parameters)
+        for interdit in ("source", "circuit", "moteur", "provenance"):
+            self.assertNotIn(interdit, params, interdit)
+
+    def test_le_score_reste_independant_du_circuit(self):
+        from tests.test_radar import MAINTENANT, moteur, opp
+        from radar import circuit
+        a = opp(ref_source="Q1")
+        b = opp(ref_source="Q2")
+        a.provenances = [{"source": "bda", "circuit": circuit.CONNUE}]
+        b.provenances = [{"source": "google", "circuit": circuit.DECOUVERTE}]
+        self.assertEqual(moteur().analyser(a, MAINTENANT).score.total,
+                         moteur().analyser(b, MAINTENANT).score.total)

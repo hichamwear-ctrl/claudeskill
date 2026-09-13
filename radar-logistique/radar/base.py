@@ -64,6 +64,10 @@ AJOUTS = (
     ("provenances", "circuit", "TEXT"),
     ("pages_surveillees", "statut", "TEXT NOT NULL DEFAULT 'CANDIDATE'"),
     ("pages_surveillees", "raison", "TEXT"),
+    # Qualification sur le CONTENU collecté. NULL sur une base antérieure :
+    # une page jamais évaluée reste NON QUALIFIÉE, jamais SANS PREUVE.
+    ("pages_surveillees", "qualification", "TEXT"),
+    ("pages_surveillees", "qualifiee_le", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),
     ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
     ("vocabulaire_historique", "version", "INTEGER"),

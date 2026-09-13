@@ -57,6 +57,37 @@ class Statut(Enum):
     ECARTEE = "ÉCARTÉE"
 
 
+class Qualification(Enum):
+    """Ce que le CONTENU RÉELLEMENT COLLECTÉ a dit de cette page.
+
+    À ne pas confondre avec trois choses voisines :
+
+      · l'INDICE DE LIEN — « devenir-partenaire » dans un libellé. Il décide
+        qu'on RETIENT la page (radar/liens.py). C'est un indice, pas une preuve.
+      · la PREUVE DE CONTENU — ce que cette énumération porte. Elle décide
+        qu'on SURVEILLE la page. Plus riche que l'indice, et c'est tout.
+      · l'OPPORTUNITÉ COMMERCIALE — « nous recherchons des transporteurs pour
+        assurer douze tournées ». Elle appartient à la chaîne d'analyse, avec
+        son rôle, son état, sa nature et son score.
+
+    QUALIFIER UNE PAGE NE CRÉE JAMAIS UNE OPPORTUNITÉ. C'est décider qu'on
+    reviendra la lire.
+    """
+    NON_QUALIFIEE = "NON QUALIFIÉE"        # jamais évaluée sur un contenu réel
+    PREUVE = "PREUVE DE CONTENU"           # une preuve positive — promeut
+    CONTRE_PREUVE = "CONTRE-PREUVE"        # une contre-preuve — ne promeut pas
+    SANS_PREUVE = "SANS PREUVE"            # lisible, rien de probant
+    ILLISIBLE = "CONTENU ILLISIBLE"        # rien n'a pu être lu — on n'invente rien
+
+    @property
+    def probante(self) -> bool:
+        return self is Qualification.PREUVE
+
+
+# NON QUALIFIÉE n'est pas SANS PREUVE : l'une dit qu'on n'a pas regardé,
+# l'autre qu'on a regardé et qu'il n'y avait rien. Les confondre reviendrait à
+# compter une page jamais lue comme une page sans intérêt.
+
 # Pourquoi cette page est surveillée. Jamais « parce qu'elle pourrait exister ».
 DECOUVERTE = "DÉCOUVERTE"          # un moteur ou une source l'a fait apparaître
 CONFIGUREE = "CONFIGURÉE"          # l'exploitant l'a désignée
@@ -97,6 +128,8 @@ class PageSurveillee:
     empreinte: str | None = None
     motif: str | None = None               # le détail du dernier accès
     libelle: str | None = None
+    qualification: object = None           # Qualification, voir lire()
+    qualifiee_le: str | None = None
     provenances: list = None               # toutes les rencontres, voir lire()
 
     @property
@@ -105,9 +138,10 @@ class PageSurveillee:
 
     def ligne(self) -> str:
         quand = (self.derniere_visite or "jamais")[:19]
-        return (f"{self.url[:48]:<50} {self.statut.value:<11} {self.acces.value:<17} "
-                f"{quand:<21}{self.provenance}"
-                + (f" · {self.motif[:36]}" if self.motif else ""))
+        qual = (self.qualification.value if self.qualification
+                else Qualification.NON_QUALIFIEE.value)
+        return (f"{self.url[:44]:<46} {self.statut.value:<11} {self.acces.value:<17} "
+                f"{qual:<18} {quand:<21}{self.provenance}")
 
 
 def _acces(valeur) -> Acces:
@@ -115,6 +149,15 @@ def _acces(valeur) -> Acces:
         if a.value == valeur:
             return a
     return Acces.JAMAIS_CONSULTEE
+
+
+def _qualification(valeur) -> Qualification:
+    """Une valeur absente ou illisible reste NON QUALIFIÉE. Jamais SANS PREUVE :
+    on ne prononce pas un verdict qu'on n'a pas rendu."""
+    for q in Qualification:
+        if q.value == valeur:
+            return q
+    return Qualification.NON_QUALIFIEE
 
 
 def _statut(valeur) -> Statut:
@@ -209,6 +252,9 @@ def lire(cx, url) -> PageSurveillee | None:
         raison=l["raison"] if "raison" in cles else None,
         acces=_acces(l["acces"]), derniere_visite=l["derniere_visite"],
         empreinte=l["empreinte"], motif=l["motif"], libelle=l["libelle"],
+        qualification=_qualification(l["qualification"] if "qualification" in cles
+                                     else None),
+        qualifiee_le=l["qualifiee_le"] if "qualifiee_le" in cles else None,
         provenances=provenances_de(cx, l["url"]))
 
 
@@ -256,7 +302,7 @@ def marquer(cx, url, acces: Acces, *, motif=None, empreinte=None) -> PageSurveil
 
 
 def rapport(cx) -> str:
-    pages = a_surveiller(cx)
+    pages = a_surveiller(cx, toutes=True)
     L = ["PAGES SURVEILLÉES", "=" * 100, ""]
     if not pages:
         return "\n".join(L + ["  aucune page surveillée — aucune n'a été déclarée.",
@@ -267,6 +313,13 @@ def rapport(cx) -> str:
     L.append("")
     L.append(f"  {len(pages)} page(s) · "
              + " · ".join(f"{a.value} {compte[a]}" for a in Acces if compte[a]))
+    qual = {q: sum(1 for p in pages if p.qualification is q) for q in Qualification}
+    L.append("  qualification sur contenu réel : "
+             + " · ".join(f"{q.value} {qual[q]}" for q in Qualification if qual[q]))
+    if qual[Qualification.NON_QUALIFIEE]:
+        L.append(f"  {qual[Qualification.NON_QUALIFIEE]} page(s) NON QUALIFIÉE(S) : "
+                 "leur contenu n'a jamais été évalué.")
+        L.append("  NON QUALIFIÉE n'est pas SANS PREUVE.")
     if compte[Acces.JAMAIS_CONSULTEE]:
         L.append(f"  {compte[Acces.JAMAIS_CONSULTEE]} page(s) n'ont JAMAIS été "
                  "consultées : on ne sait rien de leur contenu.")
@@ -332,3 +385,84 @@ def depuis_opportunite(cx, opp, *, entreprise=None, circuit=None) -> int:
                    raison="URL observée dans un avis")
         n += 1
     return n
+
+
+# ═══════════════════ RÉÉVALUATION APRÈS COLLECTE
+#
+#     CANDIDATE → collecte → contenu réel → qualification mise à jour
+#
+# Le libellé d'un lien est un INDICE. Le contenu réellement lu est une PREUVE
+# plus riche. Cette fonction met à jour ce que l'on sait de la page — et rien
+# d'autre. Elle ne crée aucune opportunité : l'opportunité naît de la chaîne
+# d'analyse, avec son rôle, son état, sa nature et son score.
+#
+# QUATRE GARANTIES, ET AUCUNE N'EST NÉGOCIABLE :
+#
+#   · une CANDIDATE n'est jamais supprimée, même sans la moindre preuve ;
+#   · une SURVEILLÉE n'est jamais rétrogradée automatiquement ;
+#   · une ÉCARTÉE n'est jamais réveillée ;
+#   · rien n'est inventé quand rien n'a pu être lu.
+
+def _verdict(pertinence, texte_lu: bool) -> Qualification:
+    """Traduit un verdict de pertinence en qualification de page.
+
+    AUCUNE RÈGLE MÉTIER N'EST ÉCRITE ICI. La décision vient de
+    radar/pertinence.py, qui interroge lui-même l'ontologie et le détecteur de
+    rôle. On ne fait que ranger sa réponse.
+    """
+    from .pertinence import Confiance
+    from .role import Role
+    if not texte_lu or pertinence is None:
+        return Qualification.ILLISIBLE
+    if pertinence.confiance is Confiance.FORTE:
+        return Qualification.PREUVE
+    if getattr(pertinence, "role", None) is Role.FOURNISSEUR:
+        return Qualification.CONTRE_PREUVE
+    return Qualification.SANS_PREUVE
+
+
+def qualifier(cx, url, pertinence, *, texte_lu: bool = True) -> PageSurveillee:
+    """Met à jour la qualification d'une page sur son CONTENU réel.
+
+    Rend la page telle qu'elle est après mise à jour. Ne supprime jamais rien,
+    ne crée jamais de page, ne touche jamais à la provenance — une
+    réévaluation n'est pas une rencontre.
+    """
+    u = normaliser(url)
+    page = lire(cx, u)
+    if page is None:
+        return None
+
+    verdict = _verdict(pertinence, texte_lu)
+    quand = _maintenant()
+
+    # La qualification est TOUJOURS écrite : c'est une observation, et une
+    # observation se conserve quel que soit le statut de la page.
+    cx.execute("UPDATE pages_surveillees SET qualification=?, qualifiee_le=?"
+               " WHERE url=?", (verdict.value, quand, u))
+
+    # ── ÉCARTÉE : on enregistre ce qu'on a vu, on ne réveille RIEN ──
+    if page.statut is Statut.ECARTEE:
+        return lire(cx, u)
+
+    # ── SURVEILLÉE : jamais rétrogradée. Un contenu moins concluant
+    #    aujourd'hui n'efface pas la raison pour laquelle on la suit. ──
+    if page.statut is Statut.SURVEILLEE:
+        return lire(cx, u)
+
+    # ── CANDIDATE : seule une PREUVE DE CONTENU promeut ──
+    if verdict.probante:
+        return promouvoir(cx, u, f"PROMUE APRÈS COLLECTE — CONTENU — "
+                                 f"{pertinence.raison()}")
+
+    # Elle reste candidate. Sa raison dit ce que le contenu a montré — ou
+    # n'a pas montré. Rien n'est perdu, rien n'est écarté.
+    if verdict is Qualification.ILLISIBLE:
+        detail = "aucun contenu lisible — la page reste à qualifier"
+    elif verdict is Qualification.CONTRE_PREUVE:
+        detail = pertinence.raison()
+    else:
+        detail = pertinence.raison()
+    cx.execute("UPDATE pages_surveillees SET raison=? WHERE url=?",
+               (f"CANDIDATE — {verdict.value} — {detail}", u))
+    return lire(cx, u)

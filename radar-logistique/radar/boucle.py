@@ -238,10 +238,14 @@ class Veille:
         # en silence une modification qu'on n'a pas su juger.
         self.ontologie, self.detecteur = ontologie, detecteur
 
-    def _porte(self, texte) -> tuple[bool, str]:
+    def _porte(self, texte) -> tuple[bool, str, object]:
         """Cette modification peut-elle porter un besoin ? En cas de doute, OUI.
 
-        Rend (passer_dans_la_chaine, verdict_affiné).
+        Rend (passer_dans_la_chaine, verdict_affiné, pertinence_ou_None).
+
+        La pertinence calculée ici est RENDUE plutôt que jetée : elle sert
+        aussi à qualifier la page (radar/pages.qualifier). Un seul calcul,
+        deux usages — et surtout pas deux règles qui pourraient diverger.
 
         On n'écarte QUE le cas certain : un texte lisible dans lequel les
         mécanismes métier ne reconnaissent absolument rien. Tout le reste —
@@ -251,12 +255,12 @@ class Veille:
         """
         from . import changement as mod_changement
         if not texte or self.ontologie is None or self.detecteur is None:
-            return True, mod_changement.MODIFIEE          # INCONNU → chaîne
+            return True, mod_changement.MODIFIEE, None    # INCONNU → chaîne
         from .pertinence import Confiance, evaluer
         verdict = evaluer(texte, self.ontologie, self.detecteur)
         if verdict.confiance is Confiance.AUCUNE:
-            return False, mod_changement.NON_COMMERCIALE
-        return True, mod_changement.MODIFIEE
+            return False, mod_changement.NON_COMMERCIALE, verdict
+        return True, mod_changement.MODIFIEE, verdict
 
     def _texte_de(self, collecte):
         """Ce que la page DIT, lu par le profil déclaré. None si illisible :
@@ -314,8 +318,17 @@ class Veille:
             # qui juge s'il y a un besoin commercial.
             hors_metier = False
             if verdict in (changement.MODIFIEE, changement.PREMIERE):
-                passer, _ = self._porte(texte)
+                passer, _, pertinence = self._porte(texte)
                 hors_metier = not passer
+                # LA RÉÉVALUATION SUR LE CONTENU RÉEL. Elle n'a lieu que si
+                # quelque chose de NOUVEAU a été lu : une page inchangée ou
+                # modifiée techniquement ne se requalifie pas — ce serait
+                # refaire le même calcul sur le même texte.
+                #
+                # Elle met à jour ce qu'on sait de la PAGE. Elle ne crée
+                # aucune opportunité : c'est la chaîne qui en décide, plus bas.
+                mod_pages.qualifier(self.cx, page.url, pertinence,
+                                    texte_lu=bool(texte))
                 # Le verdict de CONTENU reste ce qu'il est : une première
                 # visite reste une première visite. Seule une modification
                 # écartée par la porte prend le libellé qui le dit.

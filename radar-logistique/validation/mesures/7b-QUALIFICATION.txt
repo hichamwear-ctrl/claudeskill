@@ -1,0 +1,24 @@
+MESURE 7b — RÉÉVALUATION APRÈS COLLECTE
+FIXTURE : archive réelle du 2026-09-12, sha256 c5e20010e7bd… — AUCUN réseau
+
+  A · L'INDICE DU LIEN — trois mots de libellé
+     confiance MOYENNE  familles=—  role=A_VERIFIER
+     → NE PROMEUT PAS. Le libellé est un indice, pas une preuve.
+
+  B · LA PREUVE DU CONTENU — 64 190 octets réellement lus
+     confiance FORTE  familles=['logistique_entrepot']  role=A_VERIFIER
+     preuves   ['famille « logistique_entrepot »', '« logistique »']
+     → PROMEUT. Le contenu porte une preuve que le libellé n'avait pas.
+
+  AVANT COLLECTE   statut=CANDIDATE   qualification=NON QUALIFIÉE
+  APRÈS COLLECTE   statut=SURVEILLÉE  qualification=PREUVE DE CONTENU
+                   qualifiée le 2026-09-13T14:19:10+00:00
+                   raison : PROMUE APRÈS COLLECTE — CONTENU — PROMUE AUTOMATIQUEMENT — ROLE=A_VERIFIER — CONFIANCE=F
+
+  PROVENANCE INCHANGÉE : [('page surveillée', 'SOURCE_CONNUE')]
+  PAGES EN BASE : 1
+  OPPORTUNITÉS ÉCRITES PAR LA QUALIFICATION : 0
+
+  C'est exactement l'objet de 7b : le libellé ne suffisait pas, le
+  contenu réel tranche. Et qualifier n'a créé AUCUNE opportunité —
+  cela reste le travail de la chaîne.

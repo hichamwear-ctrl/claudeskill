@@ -207,6 +207,14 @@ CREATE TABLE IF NOT EXISTS pages_surveillees (
     empreinte       TEXT,
     motif           TEXT,
     libelle         TEXT,
+    -- QUALIFICATION SUR LE CONTENU RÉELLEMENT COLLECTÉ, pas sur le libellé du
+    -- lien. NULL tant qu'aucune page n'a été lue : « NON QUALIFIÉE » n'est pas
+    -- « SANS PREUVE ». On ne prononce pas un verdict qu'on n'a pas rendu.
+    --
+    -- Qualifier une page, c'est décider si on la REVISITE. Ce n'est jamais
+    -- décider qu'il y a une affaire : l'opportunité naît de la chaîne.
+    qualification   TEXT,
+    qualifiee_le    TEXT,
     declaree_le     TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_pages_entreprise ON pages_surveillees(entreprise);
