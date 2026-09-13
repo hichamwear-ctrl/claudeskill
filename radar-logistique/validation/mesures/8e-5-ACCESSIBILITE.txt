@@ -1,0 +1,32 @@
+MESURE 8e-5 — ACCESSIBILITÉ DES MOTEURS CANDIDATS
+================================================================================
+Sonde de JOIGNABILITÉ uniquement. Aucune clé, aucune requête de recherche,
+aucun paramètre d'API. Ce fichier ne dit RIEN de la qualité d'un moteur.
+
+  hôte                              code   verdict
+  pypi.org                          200    TÉMOIN POSITIF — le réseau fonctionne
+  api.search.brave.com              000    INJOIGNABLE
+  serpapi.com                       000    INJOIGNABLE
+  google.serper.dev                 000    INJOIGNABLE
+  api.scrapingdog.com               000    INJOIGNABLE
+  search.marginalia.nu              000    INJOIGNABLE
+  api.mojeek.com                    000    INJOIGNABLE
+
+CONCLUSION
+  Le témoin positif répond en 56 ms : le réseau n'est pas en panne.
+  AUCUN hôte d'API de recherche n'est joignable depuis cet environnement.
+  Ce n'est donc pas une question de fournisseur, de clé, ni de contrat :
+  aucune requête ne peut PARTIR.
+
+  000 ne veut pas dire « ce moteur est mauvais ». Il veut dire :
+  NON MESURÉ — nous n'avons jamais pu lui parler.
+
+ÉTAT DES ADAPTATEURS, ENVIRONNEMENT VIDE
+  google     NON DISPONIBLE — CLÉ ABSENTE — clé API et identifiant non fournis
+  brave      NON DISPONIBLE — CLÉ ABSENTE — clé API non fournie
+
+  Aucun moteur disponible : la découverte web ne peut pas démarrer.
+  Le radar fonctionne quand même sur ses autres sources.
+
+CLÉS PRÉSENTES DANS L'ENVIRONNEMENT : AUCUNE
+  Et sans clé, aucune requête n'est lancée : le refus précède le réseau.

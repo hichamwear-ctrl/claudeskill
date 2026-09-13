@@ -749,5 +749,116 @@ class G_AucunRapportNePresenteUnImportCommeUneRechercheDuRadar(unittest.TestCase
         self.assertEqual(recoupement.metriques_rappel(self.cx)["resultats_bruts"], 2)
 
 
+# ════════════════════════════════════════════════════════════════ 8e-5 F
+class H_LesQuatreEtatsNeSeConfondentJamais(unittest.TestCase):
+    """8e-5 F — les quatre confusions qu'il ne faut jamais laisser passer.
+
+        0 recherche réelle            ≠  0 résultat
+        moteur disponible non interrogé =  NON MESURÉ
+        moteur interrogé sans résultat  =  MESURÉ / 0
+        export externe                  =  IMPORT EXTERNE
+    """
+
+    CLE_FACTICE = "CLE-FACTICE-AUCUNE-VALEUR-0000"
+
+    class MoteurPret(MoteurRecherche):
+        """Un moteur QUI POURRAIT chercher. On ne l'interroge pas."""
+        nom = "moteur-pret"
+
+        @property
+        def disponible(self):
+            return True
+
+        @property
+        def motif_indisponibilite(self):
+            return None
+
+        def rechercher(self, requete):
+            raise AssertionError("ce test ne doit JAMAIS interroger un moteur")
+
+    def setUp(self):
+        self.cx = ouvrir(":memory:")
+
+    def test_1_zero_recherche_reelle_n_est_pas_zero_resultat(self):
+        m = ex.metriques(self.cx)
+        self.assertEqual(m[ex.Execution.RADAR.value], 0)
+        self.assertTrue(m[ex.Execution.NON_MESUREE.value],
+                        "rien n'a été tenté : NON MESURÉ, et non « 0 résultat »")
+        self.assertIn("NON MESURÉ", ex.rapport(self.cx))
+
+    def test_2_moteur_disponible_mais_non_interroge_est_NON_MESURE(self):
+        """Pouvoir chercher n'est pas avoir cherché."""
+        pret = self.MoteurPret()
+        self.assertTrue(pret.disponible)
+        m = recoupement.metriques_moteurs(
+            self.cx, declares={pret.nom: "disponible, jamais interrogé"})
+        case = m[pret.nom]
+        self.assertFalse(case["mesure"])
+        self.assertEqual(case["resultats"], recoupement.NON_MESURE)
+        self.assertNotEqual(case["resultats"], 0)
+        self.assertEqual(case["nature"], ex.Execution.NON_MESUREE.value)
+
+    def test_3_moteur_interroge_sans_resultat_est_MESURE_a_zero(self):
+        """Le silence d'un moteur interrogé est un fait, pas une absence."""
+        m = recoupement.metriques_moteurs(self.cx, interroges=("moteur-muet",))
+        case = m["moteur-muet"]
+        self.assertTrue(case["mesure"])
+        self.assertEqual(case["resultats"], 0)
+        self.assertTrue(case["muet"])
+        self.assertIn("interrogé, aucun résultat",
+                      recoupement.rapport(self.cx, interroges=("moteur-muet",)))
+
+    def test_4_export_externe_est_IMPORT_EXTERNE_et_rien_d_autre(self):
+        a, = charger([ligne("https://exemple.be/a")])
+        imp.inscrire(self.cx, a)
+        m = ex.metriques(self.cx)
+        self.assertEqual(m[ex.Execution.IMPORT_EXTERNE.value], 1)
+        self.assertEqual(m[ex.Execution.RADAR.value], 0)
+        self.assertEqual(m[ex.Execution.FIXTURE.value], 0)
+        self.assertFalse(m[ex.Execution.NON_MESUREE.value])
+
+    # ── 8e-5 D — la clé ──
+    def test_5_sans_cle_aucun_moteur_ne_lance_de_requete(self):
+        """Aucune connexion n'est même tentée : le refus précède le réseau."""
+        from radar.moteurs_recherche import (RechercheIndisponible,
+                                             depuis_environnement)
+        registre = depuis_environnement({})            # environnement VIDE
+        self.assertIsNone(registre.disponible())
+        for moteur in registre.moteurs:
+            self.assertFalse(moteur.disponible)
+            self.assertIn("CLÉ ABSENTE", moteur.motif_indisponibilite)
+            with self.assertRaises(RechercheIndisponible):
+                moteur.rechercher("transporteur Belgique")
+
+    def test_6_une_cle_n_apparait_dans_aucun_rapport_ni_message(self):
+        """Elle ne doit fuiter ni par l'état, ni par un motif, ni par un rapport."""
+        from radar.moteurs_recherche import depuis_environnement
+        registre = depuis_environnement(
+            {"GOOGLE_API_KEY": self.CLE_FACTICE,
+             "GOOGLE_CSE_ID": self.CLE_FACTICE,
+             "BRAVE_API_KEY": self.CLE_FACTICE})
+        textes = [registre.rapport()]
+        for moteur in registre.moteurs:
+            textes += [moteur.etat(), str(moteur.motif_indisponibilite),
+                       moteur.nom]
+        for texte in textes:
+            self.assertNotIn(self.CLE_FACTICE, texte)
+
+    def test_7_aucune_cle_n_est_ecrite_dans_le_depot(self):
+        """Ni dans le code, ni dans les fixtures : uniquement l'environnement."""
+        racine = pathlib.Path(".")
+        cibles = (list(racine.glob("radar/*.py")) + list(racine.glob("fixtures/*"))
+                  + list(racine.glob("config/*.yaml")))
+        for chemin in cibles:
+            if not chemin.is_file():
+                continue
+            source = chemin.read_text(encoding="utf-8", errors="replace")
+            for variable in ("GOOGLE_API_KEY", "BRAVE_API_KEY", "GOOGLE_CSE_ID"):
+                for affectation in (f'{variable} =', f'{variable}=',
+                                    f'{variable}:'):
+                    self.assertNotIn(affectation, source,
+                                     f"{chemin} : {variable} affectée en dur")
+
+
 if __name__ == "__main__":
     unittest.main()
