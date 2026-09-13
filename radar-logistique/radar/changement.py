@@ -28,9 +28,11 @@ from datetime import datetime, timezone
 PREMIERE = "PREMIÈRE VISITE"
 INCHANGEE = "INCHANGÉE"
 MODIFIEE = "MODIFIÉE"
+TECHNIQUE = "MODIFIÉE — TECHNIQUE"    # le fichier a bougé, pas ce qu'on y lit
 NON_COMPARABLE = "NON COMPARABLE"     # rien n'a été lu : on ne compare pas
 
-PREFIXE = "page:"                     # l'espace de noms des pages dans filigrane
+PREFIXE = "page:"                     # les octets du fichier
+PREFIXE_LISIBLE = "texte:"            # ce que la page DIT, une fois lue
 
 
 def empreinte(octets: bytes | None) -> str | None:
@@ -41,8 +43,30 @@ def empreinte(octets: bytes | None) -> str | None:
     return hashlib.sha256(octets).hexdigest()
 
 
+def empreinte_lisible(texte: str | None) -> str | None:
+    """L'empreinte de ce que la page DIT, pas de ce qu'elle PÈSE.
+
+    Espaces réduits, casse conservée : on compare le discours, pas la mise en
+    forme. Un jeton de session, un horodatage dans un commentaire HTML, une
+    balise d'analytique ou un ordre d'attributs changent les octets sans
+    changer un mot du texte lisible. Les confondre ferait passer chaque
+    régénération de page pour un mouvement du marché.
+    """
+    if texte is None:
+        return None
+    import re
+    plat = re.sub(r"\s+", " ", str(texte)).strip()
+    if not plat:
+        return None
+    return hashlib.sha256(plat.encode("utf-8")).hexdigest()
+
+
 def _cle(url: str) -> str:
     return PREFIXE + str(url)
+
+
+def _cle_lisible(url: str) -> str:
+    return PREFIXE_LISIBLE + str(url)
 
 
 def connue(cx, url) -> str | None:
@@ -77,3 +101,61 @@ def retenir(cx, url, nouvelle: str | None) -> str:
         (_cle(url), nouvelle,
          datetime.now(timezone.utc).isoformat(timespec="seconds")))
     return verdict
+
+
+def observer(cx, url, octets: bytes | None, texte: str | None) -> str:
+    """Compare PUIS mémorise LES DEUX niveaux, et rend UN verdict.
+
+        PREMIÈRE VISITE      jamais vue
+        INCHANGÉE            ni le fichier ni le texte n'ont bougé
+        MODIFIÉE — TECHNIQUE le fichier a bougé, le texte lisible est identique
+        MODIFIÉE             le texte lisible a changé
+        NON COMPARABLE       rien n'a été lu — une erreur n'efface rien
+
+    Ce verdict porte sur le CONTENU, et sur rien d'autre. Il ne dit pas qu'il
+    y a une affaire : « MODIFIÉE » signifie que la page ne dit plus la même
+    chose, pas qu'elle dit quelque chose d'intéressant. C'est la chaîne
+    d'analyse qui juge du besoin commercial — voir radar/normalisation.py.
+    """
+    e_octets = empreinte(octets)
+    e_texte = empreinte_lisible(texte)
+    if e_octets is None and e_texte is None:
+        return NON_COMPARABLE
+
+    avant_octets = connue(cx, url)
+    avant_texte = connue_lisible(cx, url)
+    premiere = avant_octets is None and avant_texte is None
+
+    if e_octets:
+        _memoriser(cx, _cle(url), e_octets)
+    if e_texte:
+        _memoriser(cx, _cle_lisible(url), e_texte)
+
+    if premiere:
+        return PREMIERE
+    # Le texte prime : c'est lui qui porte le sens commercial.
+    if e_texte is not None and avant_texte is not None:
+        if e_texte != avant_texte:
+            return MODIFIEE
+        # Texte identique : reste à savoir si le FICHIER a bougé.
+        if e_octets is not None and avant_octets is not None and e_octets != avant_octets:
+            return TECHNIQUE
+        return INCHANGEE
+    # Pas de texte comparable des deux côtés : on retombe sur les octets.
+    if e_octets is not None and avant_octets is not None:
+        return INCHANGEE if e_octets == avant_octets else MODIFIEE
+    return NON_COMPARABLE
+
+
+def connue_lisible(cx, url) -> str | None:
+    l = cx.execute("SELECT valeur FROM filigrane WHERE source=?",
+                   (_cle_lisible(url),)).fetchone()
+    return l["valeur"] if l else None
+
+
+def _memoriser(cx, cle: str, valeur: str) -> None:
+    cx.execute(
+        "INSERT INTO filigrane(source, valeur, maj_le) VALUES(?,?,?)"
+        " ON CONFLICT(source) DO UPDATE SET valeur=excluded.valeur,"
+        " maj_le=excluded.maj_le WHERE filigrane.gele=0",
+        (cle, valeur, datetime.now(timezone.utc).isoformat(timespec="seconds")))

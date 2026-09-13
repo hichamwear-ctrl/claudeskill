@@ -62,6 +62,8 @@ AJOUTS = (
     # SOURCE_DÉCOUVERTE. Traçabilité et métriques uniquement — le circuit
     # n'entre dans AUCUN score.
     ("provenances", "circuit", "TEXT"),
+    ("pages_surveillees", "statut", "TEXT NOT NULL DEFAULT 'CANDIDATE'"),
+    ("pages_surveillees", "raison", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),
     ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
     ("vocabulaire_historique", "version", "INTEGER"),

@@ -198,6 +198,10 @@ CREATE TABLE IF NOT EXISTS pages_surveillees (
     url             TEXT NOT NULL UNIQUE,
     entreprise      TEXT,
     provenance      TEXT NOT NULL,
+    -- CANDIDATE : rencontrée, pas encore retenue pour la surveillance.
+    -- SURVEILLÉE : dans la rotation des visites.  ÉCARTÉE : motif écrit.
+    statut          TEXT NOT NULL DEFAULT 'CANDIDATE',
+    raison          TEXT,
     acces           TEXT NOT NULL DEFAULT 'JAMAIS CONSULTÉE',
     derniere_visite TEXT,
     empreinte       TEXT,
@@ -207,6 +211,21 @@ CREATE TABLE IF NOT EXISTS pages_surveillees (
 );
 CREATE INDEX IF NOT EXISTS idx_pages_entreprise ON pages_surveillees(entreprise);
 CREATE INDEX IF NOT EXISTS idx_pages_acces ON pages_surveillees(acces);
+
+-- PROVENANCES D'UNE PAGE. La même page trouvée par Google, par le BDA et sur
+-- le site de l'entreprise est UNE page et TROIS provenances — jamais trois
+-- pages. La provenance dit COMMENT on l'a trouvée ; elle ne favorise aucune
+-- source et n'entre dans aucun score.
+CREATE TABLE IF NOT EXISTS provenances_pages (
+    id       INTEGER PRIMARY KEY,
+    url      TEXT NOT NULL REFERENCES pages_surveillees(url) ON DELETE CASCADE,
+    source   TEXT NOT NULL,
+    circuit  TEXT,
+    raison   TEXT,
+    vue_le   TEXT NOT NULL,
+    UNIQUE (url, source, circuit)
+);
+CREATE INDEX IF NOT EXISTS idx_prov_pages_url ON provenances_pages(url);
 CREATE INDEX IF NOT EXISTS idx_attr_renouv ON attributions(renouvellement);
 
 -- Incidents : une ligne qui n'a pas pu être traitée est CONSERVÉE avec son

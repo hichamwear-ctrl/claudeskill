@@ -339,19 +339,39 @@ def cmd_page(a) -> int:
     Aucune URL n'est devinée : une page entre au registre parce qu'elle a été
     rencontrée, pas parce qu'un domaine existe.
     """
-    from . import pages as mod_pages
+    from . import circuit as mod_circuit, pages as mod_pages
     cx = ouvrir(_base(a))
     if not a.url:
         print(mod_pages.rapport(cx))
         return 0
-    pg = mod_pages.declarer(cx, a.url, entreprise=a.entreprise,
-                            provenance=a.provenance, libelle=a.libelle)
+    if a.ecarter:
+        pg = mod_pages.ecarter(cx, a.url, a.ecarter)
+        cx.commit()
+        print(f"page ÉCARTÉE : {pg.url}\n  motif : {pg.raison}")
+        return 0
+
+    # Une URL donnée EXPLICITEMENT par l'exploitant est une décision : elle
+    # entre directement en SURVEILLÉE. Une page seulement RENCONTRÉE reste
+    # CANDIDATE tant que personne n'a décidé de la suivre.
+    pg = mod_pages.rencontrer(cx, a.url, entreprise=a.entreprise,
+                              provenance=a.provenance, source="exploitant",
+                              circuit=mod_circuit.CONNUE, libelle=a.libelle)
+    if not a.candidate:
+        pg = mod_pages.promouvoir(cx, a.url,
+                                  a.raison or "désignée par l'exploitant")
     cx.commit()
-    print(f"page surveillée : {pg.url}")
-    print(f"  provenance   {pg.provenance}")
+    print(f"page : {pg.url}")
+    print(f"  statut       {pg.statut.value}"
+          + (f"  — {pg.raison}" if pg.raison else ""))
     print(f"  accès        {pg.acces.value}")
     print(f"  entreprise   {pg.entreprise or '—'}")
-    print("\nElle sera consultée par `radar veille`, sans aucun moteur de recherche.")
+    print(f"  provenances  "
+          + " · ".join(f"{x['source']}/{x['circuit'] or '—'}" for x in pg.provenances))
+    if pg.surveillee:
+        print("\nElle sera consultée par `radar veille`, sans aucun moteur de recherche.")
+    else:
+        print("\nCANDIDATE : rencontrée, pas encore retenue. "
+              "`radar page --url ... --raison ...` la fait passer surveillée.")
     return 0
 
 
@@ -362,7 +382,7 @@ def cmd_veille(a) -> int:
     Brave ou de n'importe quel autre moteur ne change rien à cette commande.
     """
     from .boucle import Veille
-    from . import collecte_directe, pages as mod_pages
+    from . import circuit as mod_circuit, collecte_directe, pages as mod_pages
     cx = ouvrir(_base(a))
     liste = mod_pages.a_surveiller(cx, entreprise=a.entreprise, limite=a.limite)
     if not liste:
@@ -376,7 +396,29 @@ def cmd_veille(a) -> int:
         for pg in liste:
             print(f"  · {pg.acces.value:<17} {pg.url}")
         return 0
-    trace = Veille(cx, collecte_directe.recuperer).passer(liste)
+    from . import normalisation
+    from .chaine import traiter
+    profil = _cfg("sources/page_web.yaml")
+    mot = _moteur(cx)
+    mode = _mode(a)
+    print(mode.bandeau())
+
+    def analyser(collecte, page):
+        """La page réellement lue entre dans la chaîne, telle quelle.
+
+        La chaîne décide seule s'il y a un besoin : ce raccord n'ajoute
+        aucune règle et n'en retire aucune.
+        """
+        opp, _ = normalisation.depuis_collecte(
+            collecte, profil, source="entreprise",
+            circuit=mod_circuit.CONNUE)
+        if opp is None:
+            return 0
+        b = traiter(cx, mot, [opp], mode=mode)
+        return b.capter + b.developper
+
+    trace = Veille(cx, collecte_directe.recuperer, analyser=analyser,
+                   profil=profil).passer(liste)
     print(trace.resume())
     return 0
 
@@ -787,6 +829,11 @@ def principal(argv=None) -> int:
                     help="DÉCOUVERTE | CONFIGURÉE | OBSERVÉE DANS UNE SOURCE | "
                          "IDENTIFIÉE PAR RÈGLE")
     pg.add_argument("--libelle")
+    pg.add_argument("--raison", help="pourquoi cette page est retenue")
+    pg.add_argument("--candidate", action="store_true",
+                    help="l'inscrire sans la retenir pour la surveillance")
+    pg.add_argument("--ecarter", metavar="MOTIF",
+                    help="ne plus la surveiller, avec son motif")
     pg.set_defaults(fn=cmd_page)
 
     ve = s.add_parser("veille", help="revisiter les pages connues (sans moteur)")

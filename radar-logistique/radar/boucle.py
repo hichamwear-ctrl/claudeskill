@@ -164,6 +164,12 @@ class TraceVeille:
         return sum(1 for p in self.passages if p.changement == "MODIFIÉE")
 
     @property
+    def pages_changees_techniquement(self) -> int:
+        """Le fichier a bougé, pas ce qu'on y lit. Enregistré, jamais analysé."""
+        return sum(1 for p in self.passages
+                   if p.changement == "MODIFIÉE — TECHNIQUE")
+
+    @property
     def pages_en_erreur(self) -> int:
         return sum(1 for p in self.passages if p.acces == "ERREUR")
 
@@ -191,6 +197,8 @@ class TraceVeille:
         L.append(f"  pages surveillées         {self.pages_surveillees}")
         L.append(f"  pages consultées          {self.pages_consultees}")
         L.append(f"  pages modifiées           {self.pages_modifiees}")
+        L.append(f"    dont purement techniques  "
+                 f"{self.pages_changees_techniquement}  (enregistrées, non analysées)")
         L.append(f"  opportunités générées     {self.opportunites}")
         L.append(f"  pages en erreur           {self.pages_en_erreur}")
         L.append(f"  pages non disponibles     {self.pages_non_disponibles}")
@@ -208,8 +216,25 @@ class Veille:
     `analyser(collecte, page)` rend un nombre d'opportunités — facultatif.
     """
 
-    def __init__(self, cx, recuperer, analyser=None):
+    def __init__(self, cx, recuperer, analyser=None, profil=None):
         self.cx, self.recuperer, self.analyser = cx, recuperer, analyser
+        # Le profil de lecture déclaré, pour extraire le TEXTE LISIBLE. Sans
+        # lui, on ne compare que les octets et toute régénération de page
+        # passe pour un mouvement du marché.
+        self.profil = profil
+
+    def _texte_de(self, collecte):
+        """Ce que la page DIT, lu par le profil déclaré. None si illisible :
+        on retombe alors sur la comparaison d'octets, jamais sur une
+        conclusion inventée."""
+        if not collecte.lue or not self.profil:
+            return None
+        try:
+            from .page import lire as lire_page
+            return lire_page(collecte.octets.decode("utf-8", errors="replace"),
+                             self.profil).texte
+        except Exception:                                        # noqa: BLE001
+            return None
 
     def passer(self, pages=None, *, entreprise=None, limite=None) -> TraceVeille:
         from . import changement, pages as mod_pages
@@ -234,16 +259,27 @@ class Veille:
             empreinte = collecte.empreinte
             mod_pages.marquer(self.cx, page.url, collecte.acces,
                               motif=collecte.motif, empreinte=empreinte)
-            # `retenir` ne mémorise que si quelque chose a été lu : une erreur
-            # n'écrase pas l'empreinte de la dernière lecture réussie.
-            verdict = changement.retenir(self.cx, page.url, empreinte)
+
+            # DEUX NIVEAUX, et ils ne disent pas la même chose :
+            #   le FICHIER a-t-il bougé ?  le TEXTE LISIBLE a-t-il bougé ?
+            # Un horodatage dans un commentaire HTML, un jeton de session ou
+            # un ordre d'attributs change le premier sans toucher au second.
+            # `observer` ne mémorise que si quelque chose a été lu : une
+            # erreur n'écrase pas l'empreinte de la dernière lecture réussie.
+            texte = self._texte_de(collecte)
+            verdict = changement.observer(self.cx, page.url,
+                                          collecte.octets, texte)
 
             n = 0
-            if collecte.lue and self.analyser is not None:
-                # La détection de changement NE DÉCIDE PAS qu'il y a une
-                # affaire. Elle dit que le contenu a bougé ; c'est la chaîne
-                # d'analyse qui juge si ce mouvement est commercialement
-                # pertinent — et elle juge le contenu, pas le mouvement.
+            # LA PAGE PASSE DANS LA CHAÎNE QUAND SON CONTENU A UN SENS
+            # NOUVEAU. Un changement purement technique est ENREGISTRÉ et
+            # s'arrête là : sinon chaque régénération de page fabriquerait une
+            # opportunité. Et la détection de changement ne DÉCIDE de rien —
+            # elle dit que la page ne dit plus la même chose ; c'est la chaîne
+            # qui juge s'il y a un besoin commercial.
+            if collecte.lue and self.analyser is not None and \
+                    verdict != changement.TECHNIQUE and \
+                    verdict != changement.INCHANGEE:
                 n = self.analyser(collecte, page) or 0
             trace.passages.append(PassageVeille(
                 page.url, collecte.acces.value,

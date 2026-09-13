@@ -39,6 +39,24 @@ class Acces(Enum):
         return self is Acces.CONSULTEE
 
 
+class Statut(Enum):
+    """Où en est cette page dans son cycle de vie.
+
+    CANDIDATE  elle a été RENCONTRÉE. Rien de plus. On sait qu'elle existe
+               et par quoi on l'a vue ; on n'a pas décidé de la surveiller.
+    SURVEILLÉE elle est dans la rotation des visites.
+    ÉCARTÉE    on ne la visite plus, et le motif est écrit.
+
+    Le passage de CANDIDATE à SURVEILLÉE est une DÉCISION, pas un effet de
+    bord : `promouvoir()` l'écrit avec sa raison. Aucune règle automatique ne
+    promeut une page dans ce module — ce serait une règle métier, et elle
+    n'appartient pas à la plomberie.
+    """
+    CANDIDATE = "CANDIDATE"
+    SURVEILLEE = "SURVEILLÉE"
+    ECARTEE = "ÉCARTÉE"
+
+
 # Pourquoi cette page est surveillée. Jamais « parce qu'elle pourrait exister ».
 DECOUVERTE = "DÉCOUVERTE"          # un moteur ou une source l'a fait apparaître
 CONFIGUREE = "CONFIGURÉE"          # l'exploitant l'a désignée
@@ -71,18 +89,25 @@ def _maintenant() -> str:
 class PageSurveillee:
     url: str
     entreprise: str | None = None          # clé de l'entreprise au registre
-    provenance: str = DECOUVERTE
+    provenance: str = DECOUVERTE           # la PREMIÈRE rencontre
+    statut: Statut = Statut.CANDIDATE
+    raison: str | None = None              # pourquoi elle est passée surveillée
     acces: Acces = Acces.JAMAIS_CONSULTEE
     derniere_visite: str | None = None
     empreinte: str | None = None
     motif: str | None = None               # le détail du dernier accès
     libelle: str | None = None
+    provenances: list = None               # toutes les rencontres, voir lire()
+
+    @property
+    def surveillee(self) -> bool:
+        return self.statut is Statut.SURVEILLEE
 
     def ligne(self) -> str:
         quand = (self.derniere_visite or "jamais")[:19]
-        return (f"{self.url[:52]:<54} {self.acces.value:<17} {quand:<21}"
-                f"{self.provenance}"
-                + (f" · {self.motif[:40]}" if self.motif else ""))
+        return (f"{self.url[:48]:<50} {self.statut.value:<11} {self.acces.value:<17} "
+                f"{quand:<21}{self.provenance}"
+                + (f" · {self.motif[:36]}" if self.motif else ""))
 
 
 def _acces(valeur) -> Acces:
@@ -92,11 +117,28 @@ def _acces(valeur) -> Acces:
     return Acces.JAMAIS_CONSULTEE
 
 
+def _statut(valeur) -> Statut:
+    """Un statut illisible ne devient pas SURVEILLÉE : on retombe sur
+    CANDIDATE, qui n'engage à rien."""
+    for st in Statut:
+        if st.value == valeur:
+            return st
+    return Statut.CANDIDATE
+
+
 # ─────────────────────────────────────────────────────────── base de données
-def declarer(cx, url, *, entreprise=None, provenance=DECOUVERTE,
-             libelle=None) -> PageSurveillee:
-    """Inscrit une page. Redéclarer une page connue ne l'écrase pas : elle
-    garde son état d'accès, sa dernière visite et son empreinte."""
+def rencontrer(cx, url, *, entreprise=None, provenance=DECOUVERTE, source=None,
+               circuit=None, raison=None, libelle=None,
+               statut: Statut = Statut.CANDIDATE) -> PageSurveillee:
+    """UNE page, autant de provenances qu'on l'a rencontrée.
+
+    Rencontrer une page déjà connue n'en crée PAS une seconde et n'écrase
+    rien : on ajoute une provenance. Google, le BDA et le site de l'entreprise
+    qui montrent la même page produisent UNE page et TROIS provenances.
+
+    Le statut par défaut est CANDIDATE : rencontrer n'est pas décider de
+    surveiller. Seul `promouvoir()` fait passer une page en SURVEILLÉE.
+    """
     if provenance not in PROVENANCES:
         raise ProvenanceInconnue(
             f"provenance « {provenance} » inconnue — une page ne s'inscrit pas "
@@ -105,14 +147,54 @@ def declarer(cx, url, *, entreprise=None, provenance=DECOUVERTE,
     if not u:
         raise ValueError("URL vide")
     cx.execute(
-        "INSERT INTO pages_surveillees(url, entreprise, provenance, acces,"
-        " libelle, declaree_le) VALUES(?,?,?,?,?,?)"
+        "INSERT INTO pages_surveillees(url, entreprise, provenance, statut,"
+        " raison, acces, libelle, declaree_le) VALUES(?,?,?,?,?,?,?,?)"
         " ON CONFLICT(url) DO UPDATE SET"
         "   entreprise=COALESCE(excluded.entreprise, pages_surveillees.entreprise),"
         "   libelle=COALESCE(excluded.libelle, pages_surveillees.libelle)",
-        (u, entreprise, provenance, Acces.JAMAIS_CONSULTEE.value, libelle,
-         _maintenant()))
+        (u, entreprise, provenance, statut.value, raison,
+         Acces.JAMAIS_CONSULTEE.value, libelle, _maintenant()))
+    cx.execute(
+        "INSERT OR IGNORE INTO provenances_pages(url, source, circuit, raison, vue_le)"
+        " VALUES(?,?,?,?,?)",
+        (u, source or provenance, circuit, raison, _maintenant()))
     return lire(cx, u)
+
+
+# Nom historique conservé : une déclaration explicite est une rencontre dont
+# l'exploitant est la source.
+def declarer(cx, url, *, entreprise=None, provenance=DECOUVERTE, libelle=None,
+             statut: Statut = Statut.CANDIDATE, raison=None) -> PageSurveillee:
+    return rencontrer(cx, url, entreprise=entreprise, provenance=provenance,
+                      libelle=libelle, statut=statut, raison=raison)
+
+
+def promouvoir(cx, url, raison: str) -> PageSurveillee:
+    """CANDIDATE → SURVEILLÉE. C'est une DÉCISION, et sa raison est écrite.
+
+    Ce module ne promeut jamais tout seul : quelle page mérite d'être
+    surveillée est une règle métier, pas de la plomberie.
+    """
+    if not raison:
+        raise ValueError("une page ne devient surveillée sans raison écrite")
+    u = normaliser(url)
+    cx.execute("UPDATE pages_surveillees SET statut=?, raison=? WHERE url=?",
+               (Statut.SURVEILLEE.value, raison, u))
+    return lire(cx, u)
+
+
+def ecarter(cx, url, raison: str) -> PageSurveillee:
+    u = normaliser(url)
+    cx.execute("UPDATE pages_surveillees SET statut=?, raison=? WHERE url=?",
+               (Statut.ECARTEE.value, raison, u))
+    return lire(cx, u)
+
+
+def provenances_de(cx, url) -> list[dict]:
+    """Toutes les façons dont cette page a été rencontrée."""
+    return [dict(l) for l in cx.execute(
+        "SELECT source, circuit, raison, vue_le FROM provenances_pages"
+        " WHERE url=? ORDER BY id", (normaliser(url),)).fetchall()]
 
 
 def lire(cx, url) -> PageSurveillee | None:
@@ -120,21 +202,33 @@ def lire(cx, url) -> PageSurveillee | None:
                    (normaliser(url),)).fetchone()
     if l is None:
         return None
-    return PageSurveillee(url=l["url"], entreprise=l["entreprise"],
-                          provenance=l["provenance"], acces=_acces(l["acces"]),
-                          derniere_visite=l["derniere_visite"],
-                          empreinte=l["empreinte"], motif=l["motif"],
-                          libelle=l["libelle"])
+    cles = l.keys()
+    return PageSurveillee(
+        url=l["url"], entreprise=l["entreprise"], provenance=l["provenance"],
+        statut=_statut(l["statut"] if "statut" in cles else None),
+        raison=l["raison"] if "raison" in cles else None,
+        acces=_acces(l["acces"]), derniere_visite=l["derniere_visite"],
+        empreinte=l["empreinte"], motif=l["motif"], libelle=l["libelle"],
+        provenances=provenances_de(cx, l["url"]))
 
 
-def a_surveiller(cx, entreprise=None, limite=None) -> list[PageSurveillee]:
-    """Les pages à revisiter, la plus anciennement vue d'abord. Une page en
-    ERREUR reste dans la liste : une erreur n'est pas un abandon."""
+def a_surveiller(cx, entreprise=None, limite=None, *, toutes=False) -> list[PageSurveillee]:
+    """Les pages à revisiter, la plus anciennement vue d'abord.
+
+    SEULES les pages SURVEILLÉES y figurent : une CANDIDATE a été rencontrée,
+    elle n'a pas été retenue. Une page en ERREUR reste dans la liste — une
+    erreur d'accès n'est pas un abandon.
+    """
     sql = "SELECT * FROM pages_surveillees"
-    args = []
+    conditions, args = [], []
+    if not toutes:
+        conditions.append("statut=?")
+        args.append(Statut.SURVEILLEE.value)
     if entreprise:
-        sql += " WHERE entreprise=?"
+        conditions.append("entreprise=?")
         args.append(entreprise)
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
     sql += " ORDER BY derniere_visite IS NOT NULL, derniere_visite, id"
     if limite:
         sql += f" LIMIT {int(limite)}"

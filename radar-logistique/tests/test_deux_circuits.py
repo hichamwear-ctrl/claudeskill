@@ -242,6 +242,13 @@ class C2_UnePageNEstJamaisSupposee(unittest.TestCase):
             self.pages.declarer(self.cx, f"https://exemple.be{chemin}",
                                 entreprise="exemple.be",
                                 provenance=self.pages.OBSERVEE)
+        # Rencontrées, donc CANDIDATES : aucune n'est encore surveillée.
+        self.assertEqual(len(self.pages.a_surveiller(self.cx, entreprise="exemple.be")), 0)
+        self.assertEqual(len(self.pages.a_surveiller(self.cx, entreprise="exemple.be",
+                                                     toutes=True)), 3)
+        for chemin in ("/partenaires", "/transporteurs", "/recrutement"):
+            self.pages.promouvoir(self.cx, f"https://exemple.be{chemin}",
+                                  "retenue pour le test")
         self.assertEqual(len(self.pages.a_surveiller(self.cx, entreprise="exemple.be")), 3)
 
     def test_5_redeclarer_une_page_n_efface_pas_son_etat(self):
@@ -398,6 +405,7 @@ class C4_TousMoteursCoupesLaSurveillanceContinue(unittest.TestCase):
         self.pages.declarer(self.cx, self.u, entreprise="colisprive.be",
                             provenance=self.pages.CONFIGUREE,
                             libelle="page partenaires")
+        self.pages.promouvoir(self.cx, self.u, "désignée par l'exploitant")
         self.cx.commit()
 
     def _sans_aucun_moteur(self):
@@ -460,6 +468,7 @@ class C4_TousMoteursCoupesLaSurveillanceContinue(unittest.TestCase):
         autre = "https://colisprive.be/recrutement"
         self.pages.declarer(self.cx, autre, entreprise="colisprive.be",
                             provenance=self.pages.OBSERVEE)
+        self.pages.promouvoir(self.cx, autre, "désignée par le test")
         trace = self._veille({self.u: urllib.error.URLError("egress bloqué"),
                               autre: self.CORPS})
         self.assertEqual(trace.pages_surveillees, 2)
@@ -636,3 +645,320 @@ class C9_LaProvenanceEstEcriteDesLaPremiereVue(unittest.TestCase):
                              "circuit": circuit.DECOUVERTE}]
         self.assertEqual(moteur().analyser(sans, MAINTENANT).score.total,
                          moteur().analyser(avec, MAINTENANT).score.total)
+
+
+# ═══════════════ RACCORD — la page connue traverse la chaîne
+class R1_LeRaccordPageChaine(unittest.TestCase):
+    """PAGE CONNUE → COLLECTE DIRECTE → CHAÎNE → OPPORTUNITÉ, sans moteur."""
+
+    BESOIN = (b"<html><head><title>Devenir partenaire</title>"
+              b'<meta name="description" content="Colis Prive recherche des '
+              b'partenaires de livraison en Belgique"></head><body>'
+              b"<h1>Devenir partenaire de livraison</h1>"
+              b"<p>Nous recherchons actuellement des partenaires de livraison "
+              b"en Belgique pour la distribution de colis.</p></body></html>")
+
+    def setUp(self):
+        import yaml
+        from radar import collecte_directe, normalisation, pages
+        self.cd, self.norm, self.pages = collecte_directe, normalisation, pages
+        self.profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        self.cx = ouvrir(":memory:")
+        self.u = "https://colisprive.be/devenir-partenaire-livraison/"
+
+    def _collecte(self, octets):
+        from radar.pages import Acces
+        return self.cd.Collecte(url=self.u, acces=Acces.CONSULTEE, octets=octets,
+                                http=200, consulte_le="2026-09-13T12:00:00+00:00")
+
+    def test_1_une_page_connue_produit_une_opportunite_analysable(self):
+        opp, lec = self.norm.depuis_collecte(self._collecte(self.BESOIN), self.profil)
+        self.assertIsNotNone(opp)
+        self.assertEqual(opp.intitule, "Devenir partenaire de livraison")
+        self.assertIn("partenaires de livraison", opp.texte or lec.texte)
+
+    def test_2_elle_traverse_toute_la_chaine_jusqu_au_score(self):
+        from tests.test_radar import moteur
+        from radar.chaine import traiter
+        from radar.mode import Mode
+
+        opp, _ = self.norm.depuis_collecte(self._collecte(self.BESOIN), self.profil)
+        # Mode RÉEL : la preuve de collecte est contrôlée. Sans elle, refus.
+        b = traiter(self.cx, moteur(), [opp], mode=Mode.REEL)
+        self.assertEqual(b.lus, 1)
+        self.assertEqual(b.motifs_rejet, {}, "aucun rejet de contrôle d'entrée")
+        ligne = self.cx.execute(
+            "SELECT type, action, score, etat_procedure FROM opportunites").fetchone()
+        self.assertIsNotNone(ligne, "une opportunité a bien été écrite")
+        self.assertIsNotNone(ligne["score"])
+
+    def test_3_la_preuve_de_collecte_est_apposee_et_verifiable(self):
+        from radar.mode import CLE_COLLECTE, Mode, verifier
+        opp, _ = self.norm.depuis_collecte(self._collecte(self.BESOIN), self.profil)
+        self.assertIn(CLE_COLLECTE, opp.brut)
+        marque = verifier(opp.brut, Mode.REEL)
+        self.assertEqual(marque.reference, self.u)
+
+    def test_4_une_page_non_lue_ne_produit_rien_du_tout(self):
+        """Ni opportunité vide, ni opportunité « sans besoin ». RIEN."""
+        from radar.pages import Acces
+        for acces in (Acces.ERREUR, Acces.NON_DISPONIBLE, Acces.JAMAIS_CONSULTEE):
+            echec = self.cd.Collecte(url=self.u, acces=acces, octets=None)
+            opp, lec = self.norm.depuis_collecte(echec, self.profil)
+            self.assertIsNone(opp, acces.value)
+            self.assertIsNone(lec, acces.value)
+
+    def test_5_le_circuit_porte_est_source_connue(self):
+        from radar import circuit
+        opp, _ = self.norm.depuis_collecte(self._collecte(self.BESOIN), self.profil)
+        self.assertEqual(circuit.de_provenances(opp.provenances), [circuit.CONNUE])
+
+    def test_6_normalisation_n_importe_aucun_moteur(self):
+        source = pathlib.Path("radar/normalisation.py").read_text(encoding="utf-8")
+        self.assertNotIn("moteurs_recherche", source)
+        self.assertNotIn("charger_connecteur", source)
+
+
+class R2_ChangementTechniqueContreChangementCommercial(unittest.TestCase):
+    """« Une page modifiée ≠ automatiquement une nouvelle opportunité. »"""
+
+    BASE = (b"<html><head><title>Partenaires</title></head><body>"
+            b"<h1>Devenir partenaire de livraison</h1>"
+            b"<p>Nous recherchons des partenaires en Belgique.</p></body></html>")
+    # MÊME texte lisible, fichier différent : horodatage, jeton, analytique.
+    TECHNIQUE = BASE.replace(
+        b"<body>", b"<!-- rendu 2026-09-13T14:32:11 jeton=a9f3 --><body>")
+    # Texte réellement différent.
+    COMMERCIAL = BASE.replace(b"des partenaires en Belgique",
+                              "des transporteurs et des chauffeurs à Gand".encode("utf-8"))
+
+    def setUp(self):
+        import yaml
+        from radar import collecte_directe, pages
+        self.cd, self.pages = collecte_directe, pages
+        self.profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        self.cx = ouvrir(":memory:")
+        self.u = "https://exemple.be/partenaires"
+        self.pages.declarer(self.cx, self.u, entreprise="exemple.be",
+                            provenance=self.pages.CONFIGUREE)
+        self.pages.promouvoir(self.cx, self.u, "cas de test")
+        self.analysees = []
+
+    def _passer(self, octets):
+        from radar.boucle import Veille
+        ouvreur = faux_reseau({self.u: octets})
+        return Veille(
+            self.cx,
+            lambda url: self.cd.recuperer(url, ouvrir=ouvreur,
+                                          politesse=_SansAttente()),
+            analyser=lambda c, p: (self.analysees.append(p.url) or 1),
+            profil=self.profil).passer()
+
+    def test_1_premiere_visite_analyse_la_page(self):
+        t = self._passer(self.BASE)
+        self.assertEqual(t.passages[0].changement, "PREMIÈRE VISITE")
+        self.assertEqual(len(self.analysees), 1)
+
+    def test_2_page_inchangee_n_est_pas_reanalysee(self):
+        self._passer(self.BASE)
+        self.analysees.clear()
+        t = self._passer(self.BASE)
+        self.assertEqual(t.passages[0].changement, "INCHANGÉE")
+        self.assertEqual(self.analysees, [], "rien ne doit repasser dans la chaîne")
+        self.assertEqual(t.opportunites, 0)
+
+    def test_3_changement_purement_technique_est_enregistre_et_rien_de_plus(self):
+        """LE TEST DEMANDÉ : cookie, horodatage, jeton, menu, HTML.
+
+        Le fichier a bougé ; ce que la page DIT est mot pour mot identique.
+        Aucune opportunité ne doit naître de ça.
+        """
+        self._passer(self.BASE)
+        self.analysees.clear()
+        t = self._passer(self.TECHNIQUE)
+        self.assertEqual(t.passages[0].changement, "MODIFIÉE — TECHNIQUE")
+        self.assertEqual(t.pages_changees_techniquement, 1)
+        self.assertEqual(t.pages_modifiees, 0)
+        self.assertEqual(self.analysees, [],
+                         "un changement technique ne doit PAS entrer dans la chaîne")
+        self.assertEqual(t.opportunites, 0)
+
+    def test_4_changement_de_contenu_repasse_dans_la_chaine(self):
+        self._passer(self.BASE)
+        self.analysees.clear()
+        t = self._passer(self.COMMERCIAL)
+        self.assertEqual(t.passages[0].changement, "MODIFIÉE")
+        self.assertEqual(t.pages_modifiees, 1)
+        self.assertEqual(self.analysees, [self.u])
+        self.assertEqual(t.opportunites, 1)
+
+    def test_5_la_modification_technique_est_bien_memorisee(self):
+        """« modification enregistrée uniquement » : la trace existe."""
+        from radar import changement
+        self._passer(self.BASE)
+        avant = changement.connue(self.cx, self.u)
+        self._passer(self.TECHNIQUE)
+        self.assertNotEqual(changement.connue(self.cx, self.u), avant,
+                            "l'empreinte du fichier a bien été mise à jour")
+        self.assertEqual(changement.connue_lisible(self.cx, self.u),
+                         changement.empreinte_lisible(
+                             __import__("radar.page", fromlist=["lire"]).lire(
+                                 self.BASE.decode(), self.profil).texte))
+
+
+class R3_UnePageDeuxCircuitsUneSeulePage(unittest.TestCase):
+    """« Google → page X, BDA → page X, entreprise → page X » = UNE page."""
+
+    def setUp(self):
+        from radar import pages
+        self.pages = pages
+        self.cx = ouvrir(":memory:")
+        self.u = "https://exemple.be/devenir-partenaire"
+
+    def test_1_trois_rencontres_font_une_page_et_trois_provenances(self):
+        from radar import circuit
+        self.pages.rencontrer(self.cx, self.u, entreprise="exemple.be",
+                              provenance=self.pages.DECOUVERTE, source="google",
+                              circuit=circuit.DECOUVERTE)
+        self.pages.rencontrer(self.cx, self.u, provenance=self.pages.OBSERVEE,
+                              source="bda", circuit=circuit.CONNUE)
+        self.pages.rencontrer(self.cx, self.u, provenance=self.pages.OBSERVEE,
+                              source="entreprise", circuit=circuit.CONNUE)
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM pages_surveillees").fetchone()["c"],
+            1, "trois rencontres, une seule page")
+        pg = self.pages.lire(self.cx, self.u)
+        self.assertEqual([p["source"] for p in pg.provenances],
+                         ["google", "bda", "entreprise"])
+        self.assertEqual(sorted({p["circuit"] for p in pg.provenances}),
+                         sorted([circuit.CONNUE, circuit.DECOUVERTE]))
+
+    def test_2_l_url_est_normalisee_avant_comparaison(self):
+        self.pages.rencontrer(self.cx, "https://EXEMPLE.be/devenir-partenaire#a",
+                              source="google", provenance=self.pages.DECOUVERTE)
+        self.pages.rencontrer(self.cx, "https://exemple.be/devenir-partenaire",
+                              source="bda", provenance=self.pages.OBSERVEE)
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM pages_surveillees").fetchone()["c"], 1)
+
+    def test_3_rencontrer_ne_decide_pas_de_surveiller(self):
+        self.pages.rencontrer(self.cx, self.u, source="google",
+                              provenance=self.pages.DECOUVERTE)
+        pg = self.pages.lire(self.cx, self.u)
+        self.assertIs(pg.statut, self.pages.Statut.CANDIDATE)
+        self.assertFalse(pg.surveillee)
+        self.assertEqual(self.pages.a_surveiller(self.cx), [])
+
+    def test_4_une_promotion_exige_une_raison_ecrite(self):
+        self.pages.rencontrer(self.cx, self.u, source="google",
+                              provenance=self.pages.DECOUVERTE)
+        with self.assertRaises(ValueError):
+            self.pages.promouvoir(self.cx, self.u, "")
+        pg = self.pages.promouvoir(self.cx, self.u, "page « devenir partenaire »")
+        self.assertIs(pg.statut, self.pages.Statut.SURVEILLEE)
+        self.assertEqual(pg.raison, "page « devenir partenaire »")
+
+    def test_5_une_page_ecartee_sort_de_la_rotation_avec_son_motif(self):
+        self.pages.rencontrer(self.cx, self.u, source="google",
+                              provenance=self.pages.DECOUVERTE)
+        self.pages.promouvoir(self.cx, self.u, "retenue")
+        self.pages.ecarter(self.cx, self.u, "robots.txt interdit ce chemin")
+        self.assertEqual(self.pages.a_surveiller(self.cx), [])
+        self.assertEqual(self.pages.lire(self.cx, self.u).raison,
+                         "robots.txt interdit ce chemin")
+
+
+class R4_ColisPriveCasDeReference(unittest.TestCase):
+    """LE CAS DE RÉFÉRENCE, sur la page RÉELLEMENT collectée et conservée.
+
+    Ce n'est pas une fixture : c'est le fichier archivé le 2026-09-12, avec
+    son empreinte. Aucun moteur de recherche n'intervient à aucune étape.
+    """
+
+    PAGE = pathlib.Path("validation/pages_reelles/"
+                        "2026-09-12-entreprise-c5e20010e7bd.html")
+    URL = "https://www.colisprive.be/devenir-partenaire-livraison/"
+
+    def setUp(self):
+        import yaml
+        from radar import collecte_directe, normalisation, pages
+        if not self.PAGE.exists():
+            self.skipTest("page réelle absente")
+        self.cd, self.norm, self.pages = collecte_directe, normalisation, pages
+        self.profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        self.octets = self.PAGE.read_bytes()
+        self.cx = ouvrir(":memory:")
+
+    def test_1_l_empreinte_de_la_page_reelle_est_bien_celle_archivee(self):
+        import hashlib
+        self.assertTrue(
+            hashlib.sha256(self.octets).hexdigest().startswith("c5e20010e7bd"))
+
+    def test_2_entreprise_puis_page_puis_collecte_puis_opportunite(self):
+        """Le flux complet, sans moteur, sur le contenu réel."""
+        from tests.test_radar import moteur
+        from radar.chaine import traiter
+        from radar.mode import Mode
+        from radar.moteurs_recherche import depuis_environnement
+        from radar.pages import Acces
+
+        # Aucun moteur n'est disponible — c'est l'état réel du radar.
+        self.assertIsNone(depuis_environnement({}).disponible())
+
+        # 1. ENTREPRISE CONNUE, persistée.
+        r = RegistreEnt()
+        r.surveiller("Colis Privé BeLux", domaine="colisprive.be")
+        ent.enregistrer(self.cx, r)
+
+        # 2. PAGE SURVEILLÉE, avec sa raison.
+        self.pages.rencontrer(self.cx, self.URL, entreprise="colisprive.be",
+                              provenance=self.pages.CONFIGUREE, source="exploitant")
+        self.pages.promouvoir(self.cx, self.URL, "page « devenir partenaire »")
+
+        # 3. COLLECTE DIRECTE → CONTENU RÉEL (ici l'archive conservée).
+        collecte = self.cd.Collecte(url=self.URL, acces=Acces.CONSULTEE,
+                                    octets=self.octets, http=200)
+
+        # 4. NORMALISATION → 5. CHAÎNE
+        opp, lec = self.norm.depuis_collecte(collecte, self.profil)
+        b = traiter(self.cx, moteur(), [opp], mode=Mode.REEL)
+        self.assertEqual(b.motifs_rejet, {})
+
+        ligne = self.cx.execute(
+            "SELECT type, moteur, action, score, etat_procedure, intitule"
+            " FROM opportunites").fetchone()
+        self.assertEqual(ligne["intitule"], "Devenir partenaire de livraison")
+        # RÈGLE MÉTIER CONSERVÉE : un besoin de partenaire privé est une
+        # opportunité pertinente. Elle n'est PAS transformée en marché public.
+        self.assertEqual(ligne["type"], "DIRECT")
+        self.assertEqual(ligne["score"], 55)
+        self.assertEqual(ligne["action"], "POSTULER")
+        self.assertNotIn("MARCHÉ PUBLIC", (ligne["etat_procedure"] or "").upper())
+
+    def test_3_la_porte_d_entree_est_constatee_sur_le_html_reel(self):
+        opp, _ = self.norm.depuis_collecte(
+            self.cd.Collecte(url=self.URL, acces=self.pages.Acces.CONSULTEE,
+                             octets=self.octets, http=200), self.profil)
+        self.assertEqual((opp.porte_entree or {}).get("type"), "FORMULAIRE")
+
+    def test_4_le_score_est_le_meme_par_decouverte_que_par_surveillance(self):
+        """Le circuit ne change rien : même page, même besoin, même score."""
+        from tests.test_radar import moteur
+        from radar import circuit
+
+        connue, _ = self.norm.depuis_collecte(
+            self.cd.Collecte(url=self.URL, acces=self.pages.Acces.CONSULTEE,
+                             octets=self.octets, http=200),
+            self.profil, circuit=circuit.CONNUE)
+        trouvee, _ = self.norm.depuis_collecte(
+            self.cd.Collecte(url=self.URL, acces=self.pages.Acces.CONSULTEE,
+                             octets=self.octets, http=200),
+            self.profil, circuit=circuit.DECOUVERTE)
+        self.assertEqual(circuit.de_provenances(connue.provenances), [circuit.CONNUE])
+        self.assertEqual(circuit.de_provenances(trouvee.provenances),
+                         [circuit.DECOUVERTE])
+        self.assertEqual(moteur().analyser(connue).score.total,
+                         moteur().analyser(trouvee).score.total)
