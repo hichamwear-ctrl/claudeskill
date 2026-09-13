@@ -1,0 +1,92 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  FIXTURE DE RECHERCHE — DONNÉES FABRIQUÉES POUR ÉPROUVER LE MÉCANISME
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#  CES RÉSULTATS N'ONT JAMAIS ÉTÉ RENDUS PAR UN MOTEUR DE RECHERCHE.
+#  Aucune de ces adresses n'a été consultée. Aucune entreprise nommée ici
+#  n'a été vérifiée. Ce fichier ne mesure AUCUN marché, belge ou autre.
+#
+#  Il sert à répondre à une seule question : « la chaîne de découverte
+#  se comporte-t-elle correctement quand des résultats arrivent ? »
+#
+#  Les noms de moteurs ci-dessous sont des noms de FIXTURE. Aucun n'est le
+#  nom d'un fournisseur réel, et le code n'en connaît aucun : il lit ce
+#  fichier, et rien d'autre.
+
+mode: FIXTURE          # verrou explicite — le chargeur refuse toute autre valeur
+
+moteurs:
+
+  # ── Premier moteur de fixture ────────────────────────────────────────────
+  - nom: fixture_alpha
+    resultats:
+
+      # 1. RÉSULTAT PERTINENT, TITRE EXPLICITE
+      - url: https://transports-fictifs.example/devenir-partenaire
+        titre: "Devenir partenaire de livraison — Transports Fictifs"
+        extrait: >-
+          Nous recherchons des transporteurs partenaires pour assurer nos
+          tournées quotidiennes en Belgique.
+        requete: '"recherche transporteur" Bruxelles'
+
+      # 2. MÊME URL QUE fixture_beta CI-DESSOUS — recouvrement entre moteurs
+      - url: https://logistique-fictive.example/sous-traitance
+        titre: "Sous-traitance transport — Logistique Fictive"
+        extrait: "Appel à sous-traitants pour la distribution régionale."
+        requete: '"recherche sous-traitant" Belgique'
+
+      # 3. TITRE VAGUE — reste une découverte, jamais un rejet
+      - url: https://entreprise-fictive.example/nous-rejoindre
+        titre: "Nous rejoindre"
+        extrait: "Rejoignez notre équipe."
+        requete: '"recherche transporteur" Bruxelles'
+
+      # 4. RÉSULTAT NON PERTINENT — conservé quand même, le tri vient après
+      - url: https://boulangerie-fictive.example/nos-pains
+        titre: "Nos pains artisanaux"
+        extrait: "Découvrez notre gamme de pains au levain."
+        requete: '"recherche transporteur" Bruxelles'
+
+      # 5. TITRE VIDE — une découverte sans titre reste une découverte
+      - url: https://sans-titre-fictif.example/page
+        titre: ""
+        extrait: ""
+        requete: '"recherche transporteur" Bruxelles'
+
+      # 6. SIGNAL INDIRECT — ni contrat, ni besoin exprimé
+      - url: https://presse-fictive.example/ouverture-depot-gand
+        titre: "Fictif SA ouvre un nouveau dépôt à Gand"
+        extrait: >-
+          L'entreprise annonce l'ouverture d'un entrepôt de 8 000 m² et le
+          recrutement de cinquante personnes.
+        requete: '"nouveau dépôt" Gand'
+
+      # 7. PAGE QUI ÉCHOUERA À LA COLLECTE — l'échec est un fait à mesurer
+      - url: https://injoignable-fictif.example/partenaires
+        titre: "Partenaires transport"
+        extrait: "Page de référencement fournisseur."
+        requete: '"référencement fournisseur" transport'
+
+  # ── Second moteur de fixture — index volontairement différent ────────────
+  - nom: fixture_beta
+    resultats:
+
+      # 2 bis. LA MÊME URL que fixture_alpha : une adresse, deux observations
+      - url: https://logistique-fictive.example/sous-traitance
+        titre: "Sous-traitance transport"
+        extrait: "Recherche de sous-traitants transport."
+        requete: '"recherche sous-traitant" Belgique'
+
+      # 8. TROUVÉE PAR CE MOTEUR SEUL — mesure l'apport propre
+      - url: https://fret-fictif.example/capacite-recherchee
+        titre: "Capacité de transport recherchée — Fret Fictif"
+        extrait: >-
+          Nous cherchons un prestataire logistique pour douze rotations
+          hebdomadaires.
+        requete: '"capacité recherchée" transport'
+
+      # 9. JAMAIS COLLECTÉE — elle restera NON COLLECTÉE, et c'est correct
+      - url: https://jamais-lue-fictive.example/offre
+        titre: "Offre de partenariat"
+        extrait: "Détails sur demande."
+        requete: '"partenariat logistique" Belgique'

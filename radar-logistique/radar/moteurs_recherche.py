@@ -64,6 +64,21 @@ class MoteurRecherche:
     nom: str = "?"
 
     @property
+    def mode(self):
+        """RÉEL ou FIXTURE — et c'est le MOTEUR qui le dit, pas l'appelant.
+
+        Un moteur qui interroge le web rend des résultats réels : son mode est
+        RÉEL. Une fixture rend des résultats fabriqués : son mode est DEMO, et
+        elle n'a pas le droit d'en changer.
+
+        Porter cette propriété ici plutôt que de la passer en paramètre à
+        l'inscription change la nature du risque : faire passer une fixture
+        pour une mesure réelle devient un acte délibéré, pas un oubli.
+        """
+        from .mode import Mode
+        return Mode.REEL
+
+    @property
     def disponible(self) -> bool:
         raise NotImplementedError
 

@@ -329,3 +329,19 @@ def rapport(cx) -> str:
         L.append("  Leur contenu est INCONNU : un titre de résultat n'est pas")
         L.append("  une page lue, et ne prouve aucune opportunité.")
     return "\n".join(L)
+
+
+def depuis_moteur(cx, moteur, resultats, *, circuit=None,
+                  page_source=None) -> list[Trouvaille]:
+    """Inscrit ce QU'UN MOTEUR a rendu, avec LE MODE DU MOTEUR.
+
+    C'est la porte d'entrée à privilégier. `inscrire()` et `inscrire_lot()`
+    acceptent encore un mode explicite — un appelant peut donc, en théorie,
+    inscrire une fixture comme une mesure réelle. En lisant `moteur.mode`,
+    cette fonction rend ce mensonge impossible par simple usage normal.
+
+    Une fixture reste une fixture jusqu'en base, et jusqu'au rapport.
+    """
+    return inscrire_lot(cx, resultats, mode=moteur.mode,
+                        source=getattr(moteur, "nom", None), circuit=circuit,
+                        page_source=page_source)
