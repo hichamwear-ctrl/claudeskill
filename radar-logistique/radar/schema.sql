@@ -181,6 +181,52 @@ CREATE TABLE IF NOT EXISTS entreprises (
 );
 CREATE INDEX IF NOT EXISTS idx_entreprises_etat ON entreprises(etat);
 
+-- IDENTITÉ D'UNE ENTREPRISE — savons-nous DE QUI on parle ?
+--
+-- Une attribution donne « Transports Exemple SRL ». Elle ne donne ni numéro
+-- d'entreprise, ni site. Tant qu'aucune source ne les fournit, l'identité est
+-- INCONNUE — et INCONNUE ≠ 0 : cela dit que le radar n'en sait pas assez, pas
+-- que l'entreprise n'existe pas.
+--
+--   INCONNUE   un nom, rien d'autre. État par défaut, et il est honnête.
+--   AMBIGUË    plusieurs entités portent ce nom. Les candidats sont CONSERVÉS
+--              dans identites_candidates ; aucun n'est choisi.
+--   CONFIRMÉE  une source nommée et datée rattache ce nom à une entité.
+--   SANS SITE  l'entité est identifiée et n'a pas de site connu. C'est une
+--              MESURE, pas un échec.
+--
+-- Aucun domaine n'est jamais dérivé d'un nom. La colonne `domaine` ne se
+-- remplit que lorsqu'une source le FOURNIT.
+
+-- Les homonymes, conservés. On ne tranche pas à la place d'une source.
+CREATE TABLE IF NOT EXISTS identites_candidates (
+    id         INTEGER PRIMARY KEY,
+    entreprise TEXT NOT NULL,          -- clé au registre des entreprises
+    nom        TEXT NOT NULL,          -- la raison sociale de CE candidat
+    bce        TEXT,
+    domaine    TEXT,
+    detail     TEXT,                   -- ce qui distingue ce candidat
+    source     TEXT NOT NULL,
+    vue_le     TEXT NOT NULL,
+    UNIQUE (entreprise, nom, bce)
+);
+CREATE INDEX IF NOT EXISTS idx_identites_entreprise
+    ON identites_candidates(entreprise);
+
+-- TITULAIRES D'UN MARCHÉ. Un groupement n'est pas une entreprise : c'est
+-- plusieurs entreprises qui portent ensemble un marché. Les réduire à une
+-- seule détruirait la granularité — et deux membres sur trois resteraient
+-- invisibles. Chaque membre garde sa ligne et sa propre identité.
+CREATE TABLE IF NOT EXISTS titulaires (
+    id         INTEGER PRIMARY KEY,
+    avis_id    INTEGER NOT NULL REFERENCES avis(id) ON DELETE CASCADE,
+    rang       INTEGER NOT NULL DEFAULT 0,
+    nom        TEXT NOT NULL,
+    entreprise TEXT,                   -- clé au registre, si elle y est entrée
+    UNIQUE (avis_id, nom)
+);
+CREATE INDEX IF NOT EXISTS idx_titulaires_avis ON titulaires(avis_id);
+
 -- PAGES SURVEILLÉES — une entreprise a des PAGES, pas « un domaine ».
 --
 -- Une page n'entre ici que si elle a été réellement rencontrée : découverte,

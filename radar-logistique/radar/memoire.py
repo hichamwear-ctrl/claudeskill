@@ -49,6 +49,11 @@ def estimer_taille(titulaire: str | None, montant: float | None,
     Fondée uniquement sur ce qui est publié. Sans montant, on ne conclut rien —
     on ne devine pas la taille d'une entreprise.
     """
+    # Un marché peut être attribué à un GROUPEMENT : le titulaire est alors
+    # une liste. La taille apparente ne se lit pas dans un nom — elle se lit
+    # dans le montant — donc rien à changer, mais il ne faut pas se casser.
+    if isinstance(titulaire, (list, tuple)):
+        titulaire = " ; ".join(str(t) for t in titulaire) or None
     if vehicules_connus:
         return (f"{vehicules_connus} véhicules connus",
                 "probable" if vehicules_connus < 20 else "A_VERIFIER")

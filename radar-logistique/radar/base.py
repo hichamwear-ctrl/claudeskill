@@ -66,6 +66,12 @@ AJOUTS = (
     ("pages_surveillees", "raison", "TEXT"),
     # Qualification sur le CONTENU collecté. NULL sur une base antérieure :
     # une page jamais évaluée reste NON QUALIFIÉE, jamais SANS PREUVE.
+    # IDENTITÉ DU TITULAIRE. NULL sur une base antérieure : l'entreprise reste
+    # INCONNUE, jamais « confirmée par défaut ».
+    ("entreprises", "identite", "TEXT"),
+    ("entreprises", "identite_source", "TEXT"),
+    ("entreprises", "identite_le", "TEXT"),
+    ("entreprises", "identite_preuve", "TEXT"),
     ("pages_surveillees", "qualification", "TEXT"),
     ("pages_surveillees", "qualifiee_le", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),

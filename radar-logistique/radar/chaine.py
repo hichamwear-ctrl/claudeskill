@@ -44,7 +44,7 @@ from . import (chiffre_affaires, construction, deduplication, envoi,
                transitions as tr)
 from .comptes import Livre
 from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
-from . import entreprises, pages
+from . import entreprises, identite, pages
 from .entreprises import Registre as RegistreEntreprises
 from .activite import Ontologie
 from .base import enregistrer_reponse, maintenant
@@ -696,7 +696,13 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                     " montant, duree_mois, prestation, zone, lots, conclu_le, debut, fin,"
                     " renouvellement, fiabilite, commentaire, contact, taille_apparente,"
                     " besoin_sous_traitance) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (avis_id, m.acheteur, m.titulaire, m.montant, m.duree_mois,
+                    # La colonne historique porte UN texte. Un groupement s'y
+                    # écrit en clair ; la granularité, elle, vit dans la table
+                    # `titulaires`, un membre par ligne.
+                    (avis_id, m.acheteur,
+                     " ; ".join(str(t) for t in m.titulaire)
+                     if isinstance(m.titulaire, (list, tuple)) else m.titulaire,
+                     m.montant, m.duree_mois,
                      m.prestation, m.zone, "; ".join(m.lots),
                      m.conclu_le.isoformat() if m.conclu_le else None,
                      m.debut.isoformat() if m.debut else None,
@@ -707,6 +713,12 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                 bilan.attributions += 1
                 # Le titulaire entre au registre : il devra exécuter.
                 connue = moteur.entreprises.depuis_attribution(opp)
+                # LES TITULAIRES, UN PAR UN. Un groupement n'est pas une
+                # entreprise : le réduire à un seul nom rendrait deux membres
+                # sur trois invisibles. Chaque membre garde sa ligne et sa
+                # propre identité — INCONNUE tant qu'aucune source ne dit mieux.
+                identite.enregistrer_titulaires(cx, avis_id, opp.titulaire,
+                                                moteur.entreprises)
             else:
                 connue = moteur.entreprises.depuis_opportunite(opp)
             # Les URL OBSERVÉES dans l'avis entrent comme pages CANDIDATES —

@@ -54,6 +54,12 @@ class Entreprise:
     contact: str | None = None
     motif_ecart: str | None = None
     profondeur: int = 0                   # 0 = trouvée en surface
+    # IDENTITÉ — savons-nous de qui il s'agit ? Voir radar/identite.py.
+    # INCONNUE par défaut, et c'est honnête : un nom n'est pas une identité.
+    identite: str = "INCONNUE"
+    identite_source: str | None = None
+    identite_le: str | None = None
+    identite_preuve: str | None = None
 
     @property
     def cle(self) -> str:
@@ -152,16 +158,35 @@ class Registre:
 
     # ------------------------------------------------- depuis le moteur --
     def depuis_attribution(self, opp) -> Entreprise | None:
-        """Un titulaire est toujours intéressant : il devra exécuter."""
+        """Un titulaire est toujours intéressant : il devra exécuter.
+
+        Un marché peut être attribué à un GROUPEMENT. Chaque membre entre alors
+        séparément au registre et compte son marché : réduire trois entreprises
+        à une seule en rendrait deux invisibles.
+
+        Le MONTANT, lui, n'est réparti sur personne : la source publie un
+        montant global, pas la clé de répartition. L'attribuer entièrement à
+        chaque membre gonflerait le chiffre ; l'attribuer au premier serait
+        arbitraire. On ne l'attribue donc qu'au titulaire UNIQUE.
+        """
         if not opp.titulaire:
             return None
-        e = self.decouvrir(opp.titulaire, motif=Motif.TITULAIRE,
-                           origine=opp.source)
-        e.marches_gagnes += 1
-        if opp.montant:
-            e.montant_gagne += float(opp.montant)
-        e.etat = Etat.SURVEILLEE
-        return e
+        noms = (list(opp.titulaire) if isinstance(opp.titulaire, (list, tuple))
+                else [opp.titulaire])
+        noms = [str(n).strip() for n in noms if str(n or "").strip()]
+        if not noms:
+            return None
+        membres = []
+        for nom in noms:
+            e = self.decouvrir(nom, motif=Motif.TITULAIRE, origine=opp.source)
+            e.marches_gagnes += 1
+            e.etat = Etat.SURVEILLEE
+            membres.append(e)
+        if len(membres) == 1 and opp.montant:
+            membres[0].montant_gagne += float(opp.montant)
+        # On rend le premier membre, dans l'ordre où la SOURCE les a publiés —
+        # ce n'est pas un choix de notre part, c'est son ordre à elle.
+        return membres[0]
 
     def depuis_opportunite(self, opp) -> Entreprise | None:
         """L'acheteur d'un besoin devient une entreprise connue : il rachètera."""
@@ -214,7 +239,8 @@ class Registre:
 
 COLONNES = ("cle", "nom", "domaine", "etat", "motifs", "origine", "decouverte_le",
             "derniere_visite", "besoins_detectes", "marches_gagnes", "montant_gagne",
-            "bce", "contact", "motif_ecart", "profondeur")
+            "bce", "contact", "motif_ecart", "profondeur",
+            "identite", "identite_source", "identite_le", "identite_preuve")
 
 
 def _etat(valeur) -> Etat:
@@ -243,7 +269,10 @@ def charger(cx) -> Registre:
             marches_gagnes=l["marches_gagnes"] or 0,
             montant_gagne=l["montant_gagne"] or 0.0,
             bce=l["bce"], contact=l["contact"], motif_ecart=l["motif_ecart"],
-            profondeur=l["profondeur"] or 0)
+            profondeur=l["profondeur"] or 0,
+            identite=l["identite"] or "INCONNUE",
+            identite_source=l["identite_source"], identite_le=l["identite_le"],
+            identite_preuve=l["identite_preuve"])
         r._indexer(l["cle"], e)
     return r
 
@@ -271,5 +300,8 @@ def enregistrer(cx, registre: Registre) -> int:
              e.decouverte_le, e.derniere_visite, e.besoins_detectes,
              e.marches_gagnes, e.montant_gagne, e.bce, e.contact, e.motif_ecart,
              e.profondeur))
+        # L'IDENTITÉ N'EST PAS RÉÉCRITE ICI. Elle est établie par une source,
+        # via radar/identite.py, et une recollecte ne doit jamais la dégrader.
+        # Elle n'entre donc pas dans la clause ON CONFLICT ci-dessus.
         n += 1
     return n

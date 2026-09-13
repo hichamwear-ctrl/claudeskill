@@ -1961,3 +1961,356 @@ class S7b_LeCircuitNInfluencePasLaQualification(unittest.TestCase):
         b.provenances = [{"source": "google", "circuit": circuit.DECOUVERTE}]
         self.assertEqual(moteur().analyser(a, MAINTENANT).score.total,
                          moteur().analyser(b, MAINTENANT).score.total)
+
+
+# ══════════════════════════ 7c — IDENTITÉ DU TITULAIRE
+#
+# FIXTURES : tous les numéros BCE et domaines de ces tests sont INVENTÉS POUR
+# LE TEST. Aucune consultation de la BCE, du KBO ni d'aucun registre n'a lieu :
+# l'egress est bloqué et rien n'est simulé. Ces tests éprouvent le MÉCANISME
+# d'enregistrement d'une identité, jamais son exactitude dans le monde réel.
+
+class S7c_QuatreEtatsDIdentite(unittest.TestCase):
+    def setUp(self):
+        from radar import identite
+        self.id = identite
+        self.cx = ouvrir(":memory:")
+        r = RegistreEnt()
+        r.surveiller("ABC Logistics", domaine=None)
+        ent.enregistrer(self.cx, r)
+        self.cle = next(iter(ent.charger(self.cx).entreprises))
+
+    # ── 1 · un titulaire nouveau est INCONNUE ──
+    def test_1_un_titulaire_nouveau_est_inconnue(self):
+        self.assertIs(self.id.lire(self.cx, self.cle).etat, self.id.Etat.INCONNUE)
+
+    # ── 2 · INCONNUE ne veut pas dire inexistante ──
+    def test_2_inconnue_ne_dit_rien_de_l_existence(self):
+        i = self.id.lire(self.cx, self.cle)
+        self.assertIn("ne sait pas encore", i.ligne())
+        self.assertNotIn("n'existe", i.ligne())
+        self.assertFalse(i.etat.identifiee)
+        # L'entreprise, elle, est bien au registre.
+        self.assertIn(self.cle, ent.charger(self.cx).entreprises)
+
+    # ── 3 · BCE en FIXTURE → CONFIRMÉE ──
+    def test_3_un_bce_saisi_confirme_avec_sa_preuve_et_sa_date(self):
+        i = self.id.confirmer(self.cx, self.cle, source=self.id.EXPLOITANT,
+                              preuve="BCE relevée sur l'avis d'attribution",
+                              bce="0123.456.789")   # FIXTURE, numéro inventé
+        self.assertIs(i.etat, self.id.Etat.CONFIRMEE)
+        self.assertEqual(i.bce, "0123.456.789")
+        self.assertEqual(i.source, self.id.EXPLOITANT)
+        self.assertTrue(i.confirmee_le)
+        self.assertTrue(i.preuve)
+
+    def test_3bis_confirmer_sans_preuve_est_refuse(self):
+        for manque in ({"source": "", "preuve": "x"}, {"source": "x", "preuve": ""}):
+            with self.assertRaises(self.id.IdentiteIncertaine):
+                self.id.confirmer(self.cx, self.cle, **manque)
+
+    # ── 4 · deux homonymes → AMBIGUË ──
+    def test_4_deux_homonymes_donnent_ambigue_sans_aucun_choix(self):
+        i = self.id.proposer(self.cx, self.cle, [
+            self.id.Candidat(nom="ABC Logistics SRL", bce="0111.111.111",
+                             detail="Liège"),
+            self.id.Candidat(nom="ABC Logistics NV", bce="0222.222.222",
+                             detail="Antwerpen")])
+        self.assertIs(i.etat, self.id.Etat.AMBIGUE)
+        self.assertEqual(len(i.candidats), 2, "les deux sont CONSERVÉS")
+        self.assertIsNone(i.domaine, "aucun domaine n'a été retenu")
+        self.assertIsNone(i.bce, "aucun BCE n'a été retenu")
+
+    # ── 5 · AMBIGUË → CONFIRMÉE avec preuve ──
+    def test_5_trancher_exige_un_candidat_connu_et_une_preuve(self):
+        self.test_4_deux_homonymes_donnent_ambigue_sans_aucun_choix()
+        with self.assertRaises(self.id.IdentiteIncertaine):
+            self.id.trancher(self.cx, self.cle, "Entreprise jamais citée",
+                             source=self.id.EXPLOITANT, preuve="au hasard")
+        i = self.id.trancher(self.cx, self.cle, "ABC Logistics NV",
+                             source=self.id.EXPLOITANT,
+                             preuve="siège d'exécution du marché à Antwerpen")
+        self.assertIs(i.etat, self.id.Etat.CONFIRMEE)
+        self.assertEqual(i.bce, "0222.222.222")
+        self.assertIn("retenu parmi 2 candidats", i.preuve)
+        self.assertEqual(len(i.candidats), 2,
+                         "les candidats écartés restent consultables")
+
+    # ── 6 · confirmée sans site → SANS SITE ──
+    def test_6_une_entreprise_identifiee_sans_site_est_une_mesure(self):
+        i = self.id.sans_site(self.cx, self.cle, source=self.id.EXPLOITANT,
+                              preuve="aucun site déclaré au registre")
+        self.assertIs(i.etat, self.id.Etat.SANS_SITE)
+        self.assertTrue(i.etat.identifiee, "identifiée : ce n'est pas un échec")
+        self.assertFalse(i.etat.surveillable, "mais rien à surveiller")
+        self.assertIsNone(i.domaine)
+
+    # ── 13 · l'identité survit d'un cycle à l'autre ──
+    def test_13_l_identite_est_persistante(self):
+        self.id.confirmer(self.cx, self.cle, source=self.id.REGISTRE_OFFICIEL,
+                          preuve="fixture de test", domaine="exemple-fixture.be")
+        relu = ent.charger(self.cx).entreprises[self.cle]
+        self.assertEqual(relu.identite, "CONFIRMÉE")
+        self.assertEqual(relu.domaine, "exemple-fixture.be")
+        # …et une recollecte ne la dégrade pas.
+        reg = ent.charger(self.cx)
+        reg.decouvrir("ABC Logistics", motif=None, origine="nouvelle collecte")
+        ent.enregistrer(self.cx, reg)
+        self.assertIs(self.id.lire(self.cx, self.cle).etat, self.id.Etat.CONFIRMEE)
+
+    # ── 14 · provenance et date conservées ──
+    def test_14_la_source_et_la_date_sont_conservees(self):
+        i = self.id.confirmer(self.cx, self.cle,
+                              source=self.id.REGISTRE_OFFICIEL,
+                              preuve="fixture — aucun registre n'a été consulté")
+        self.assertEqual(i.source, self.id.REGISTRE_OFFICIEL)
+        self.assertTrue(i.confirmee_le.startswith("20"))
+        self.assertIn("fixture", i.preuve)
+
+
+class S7c_JamaisInventerUneUrl(unittest.TestCase):
+    """L'interdiction la plus importante de 7c."""
+
+    def setUp(self):
+        from radar import identite
+        self.id = identite
+        self.cx = ouvrir(":memory:")
+        r = RegistreEnt()
+        r.surveiller("Transports Exemple SRL")
+        ent.enregistrer(self.cx, r)
+        self.cle = next(iter(ent.charger(self.cx).entreprises))
+
+    # ── 7 · aucun domaine inventé ──
+    def test_7_aucun_domaine_n_est_derive_d_un_nom(self):
+        i = self.id.lire(self.cx, self.cle)
+        self.assertIsNone(i.domaine)
+        for suppose in ("transports-exemple.be", "transportsexemple.be",
+                        "exemple.be", "transports-exemple.com"):
+            self.assertNotEqual(i.domaine, suppose)
+
+    # ── 8 · aucune URL inventée, et la fonction n'existe même pas ──
+    def test_8_le_module_ne_sait_pas_fabriquer_une_url(self):
+        import ast
+        source = pathlib.Path("radar/identite.py").read_text(encoding="utf-8")
+        arbre = ast.parse(source)
+        docstrings = set()
+        for n in ast.walk(arbre):
+            if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef)):
+                d = ast.get_docstring(n, clean=False)
+                if d:
+                    docstrings.add(d)
+        litterales = [n.value for n in ast.walk(arbre)
+                      if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                      and n.value not in docstrings]
+        for interdit in (".be", ".com", ".eu", "http://", "https://", "www."):
+            for texte in litterales:
+                self.assertNotIn(interdit, texte,
+                                 f"« {interdit} » ne doit pas être une donnée ici")
+
+    # ── 16-17 · aucune consultation réseau, aucune fausse résolution ──
+    def test_16_aucun_reseau_n_est_importe_ni_appele(self):
+        source = pathlib.Path("radar/identite.py").read_text(encoding="utf-8")
+        for interdit in ("urllib", "requests", "socket", "urlopen",
+                         "moteurs_recherche", "charger_connecteur",
+                         "collecte_directe"):
+            self.assertNotIn(interdit, source, interdit)
+
+    def test_17_sans_moteur_aucune_identite_ne_se_resout_toute_seule(self):
+        from radar.moteurs_recherche import depuis_environnement
+        self.assertIsNone(depuis_environnement({}).disponible())
+        # Rien ne change : l'identité reste ce qu'elle était.
+        self.assertIs(self.id.lire(self.cx, self.cle).etat, self.id.Etat.INCONNUE)
+
+    # ── 15 · un titulaire non confirmé n'est pas surveillé ──
+    def test_15_une_identite_non_confirmee_n_ouvre_aucune_surveillance(self):
+        from radar import pages
+        i = self.id.lire(self.cx, self.cle)
+        self.assertFalse(i.etat.surveillable)
+        self.assertEqual(pages.a_surveiller(self.cx, toutes=True), [],
+                         "aucune page n'a été fabriquée à partir d'un nom")
+
+    def test_15bis_confirmee_sans_domaine_n_ouvre_rien_non_plus(self):
+        from radar import pages
+        self.id.confirmer(self.cx, self.cle, source=self.id.EXPLOITANT,
+                          preuve="identité établie, site inconnu")
+        self.assertIsNone(self.id.lire(self.cx, self.cle).domaine)
+        self.assertEqual(pages.a_surveiller(self.cx, toutes=True), [])
+
+
+class S7c_CasLimites(unittest.TestCase):
+    """Raisons sociales réelles : accents, abréviations, suffixes, étrangers."""
+
+    def setUp(self):
+        from radar import identite
+        self.id = identite
+        self.cx = ouvrir(":memory:")
+
+    def _inscrire(self, nom):
+        reg = ent.charger(self.cx)
+        e = reg.surveiller(nom)
+        ent.enregistrer(self.cx, reg)
+        return e.cle
+
+    def test_1_un_nom_accentue_est_conserve_tel_quel(self):
+        cle = self._inscrire("Transports Frères Dupré SPRL")
+        relu = ent.charger(self.cx).entreprises[cle]
+        self.assertEqual(relu.nom, "Transports Frères Dupré SPRL")
+
+    def test_2_une_abreviation_et_sa_forme_longue_restent_distinctes(self):
+        """« ABC Log. » et « ABC Logistics » PEUVENT être la même entreprise.
+        Le radar ne le décide pas : deux fiches, et l'ambiguïté se traite par
+        des candidats — jamais par une fusion automatique."""
+        a = self._inscrire("ABC Log. SRL")
+        b = self._inscrire("ABC Logistics SRL")
+        self.assertNotEqual(a, b)
+        self.assertEqual(len(ent.charger(self.cx).entreprises), 2)
+
+    def test_3_deux_noms_presque_identiques_ne_fusionnent_pas(self):
+        a = self._inscrire("Transport Belgium SA")
+        b = self._inscrire("Transports Belgium SA")
+        self.assertNotEqual(a, b)
+
+    def test_4_un_suffixe_juridique_fait_partie_du_nom(self):
+        for suffixe in ("SRL", "NV", "BV", "SA", "GmbH", "SAS"):
+            cle = self._inscrire(f"Exemple {suffixe}")
+            self.assertIn(suffixe, ent.charger(self.cx).entreprises[cle].nom)
+
+    def test_5_un_titulaire_etranger_sans_bce_belge_reste_identifiable(self):
+        cle = self._inscrire("Muster Logistik GmbH")
+        i = self.id.confirmer(self.cx, cle, source=self.id.REGISTRE_OFFICIEL,
+                              preuve="registre du commerce allemand — FIXTURE")
+        self.assertIs(i.etat, self.id.Etat.CONFIRMEE)
+        self.assertIsNone(i.bce, "pas de BCE belge, et ce n'est pas un défaut")
+
+    def test_6_un_titulaire_confirme_sans_site_reste_valide(self):
+        cle = self._inscrire("Petite Entreprise SRL")
+        i = self.id.sans_site(self.cx, cle, source=self.id.EXPLOITANT,
+                              preuve="aucun site — constaté")
+        self.assertTrue(i.etat.identifiee)
+        self.assertIsNone(i.domaine)
+
+
+class S7c_Groupements(unittest.TestCase):
+    """« Ne réduis pas plusieurs membres à une seule entreprise. »"""
+
+    def setUp(self):
+        from radar import identite
+        self.id = identite
+        self.cx = ouvrir(":memory:")
+
+    def _attribuer(self, titulaire, montant=None):
+        from tests.test_radar import MAINTENANT, moteur, opp
+        from radar.chaine import traiter
+        traiter(self.cx, moteur(),
+                [opp(ref_source="GRP", attribue=True, titulaire=titulaire,
+                     montant=montant)], maintenant_dt=MAINTENANT)
+        return self.cx.execute("SELECT id FROM avis").fetchone()["id"]
+
+    def test_1_trois_membres_font_trois_entreprises(self):
+        avis = self._attribuer(["Entreprise A SRL", "Entreprise B NV",
+                                "Entreprise C SA"])
+        noms = [t["nom"] for t in self.id.titulaires_de(self.cx, avis)]
+        self.assertEqual(noms, ["Entreprise A SRL", "Entreprise B NV",
+                                "Entreprise C SA"])
+        registre = ent.charger(self.cx).entreprises
+        for nom in noms:
+            self.assertTrue(any(e.nom == nom for e in registre.values()), nom)
+
+    def test_2_chaque_membre_compte_son_marche(self):
+        self._attribuer(["Entreprise A SRL", "Entreprise B NV"])
+        for e in ent.charger(self.cx).entreprises.values():
+            self.assertEqual(e.marches_gagnes, 1, e.nom)
+
+    def test_3_le_montant_n_est_reparti_sur_personne(self):
+        """La source publie un montant GLOBAL, pas la clé de répartition."""
+        self._attribuer(["Entreprise A SRL", "Entreprise B NV"], montant=2_400_000)
+        for e in ent.charger(self.cx).entreprises.values():
+            self.assertEqual(e.montant_gagne, 0.0,
+                             f"{e.nom} : le montant du groupement a été inventé")
+
+    def test_3bis_un_titulaire_unique_garde_son_montant(self):
+        self._attribuer("Entreprise Seule SRL", montant=2_400_000)
+        seule = next(iter(ent.charger(self.cx).entreprises.values()))
+        self.assertEqual(seule.montant_gagne, 2_400_000.0)
+
+    def test_4_un_membre_confirme_et_deux_inconnus_se_dit_ainsi(self):
+        avis = self._attribuer(["Entreprise A SRL", "Entreprise B NV",
+                                "Entreprise C SA"])
+        membres = self.id.titulaires_de(self.cx, avis)
+        self.id.confirmer(self.cx, membres[0]["entreprise"],
+                          source=self.id.EXPLOITANT, preuve="FIXTURE de test")
+        resume = self.id.groupement(self.cx, avis)
+        self.assertIn("3 titulaire(s)", resume)
+        self.assertIn("CONFIRMÉE", resume)
+        self.assertIn("INCONNUE", resume)
+
+    def test_5_une_chaine_libre_n_est_jamais_decoupee_en_membres(self):
+        """Deviner des membres dans un texte libre fabriquerait des
+        entreprises qui n'existent pas."""
+        avis = self._attribuer("Groupement ABC (Entreprise A, Entreprise B)")
+        noms = [t["nom"] for t in self.id.titulaires_de(self.cx, avis)]
+        self.assertEqual(noms, ["Groupement ABC (Entreprise A, Entreprise B)"])
+
+    def test_6_la_colonne_historique_reste_lisible(self):
+        self._attribuer(["Entreprise A SRL", "Entreprise B NV"])
+        l = self.cx.execute("SELECT titulaire FROM attributions").fetchone()
+        self.assertIn("Entreprise A SRL", l["titulaire"])
+        self.assertIn("Entreprise B NV", l["titulaire"])
+
+
+class S7c_UneAttributionResteUneAttribution(unittest.TestCase):
+    """« MARCHÉ ATTRIBUÉ ne devient jamais POSTULABLE. »"""
+
+    def setUp(self):
+        self.cx = ouvrir(":memory:")
+
+    def _attribuer(self, **kw):
+        from tests.test_radar import MAINTENANT, moteur, opp
+        from radar.chaine import traiter
+        traiter(self.cx, moteur(),
+                [opp(ref_source="A1", attribue=True, titulaire="Grand Opérateur SA",
+                     montant=2_400_000, duree_mois=36, attribue_le="2026-09-01",
+                     **kw)], maintenant_dt=MAINTENANT)
+        return self.cx.execute(
+            "SELECT type, moteur, action, etat_procedure, score FROM opportunites"
+        ).fetchone()
+
+    # ── 9 · jamais postulable ──
+    def test_9_une_attribution_n_est_jamais_postulable(self):
+        l = self._attribuer()
+        self.assertEqual(l["etat_procedure"], "ATTRIBUÉ")
+        self.assertNotEqual(l["action"], "POSTULER")
+
+    # ── 10 · elle alimente DÉVELOPPER ──
+    def test_10_elle_alimente_developper(self):
+        l = self._attribuer()
+        self.assertEqual(l["moteur"], "DEVELOPPER")
+
+    # ── 11-12 · les actions attendues sont disponibles ──
+    def test_11_12_contacter_le_titulaire_et_surveiller_existent(self):
+        from radar.classification import Action
+        valeurs = {a.value for a in Action}
+        self.assertIn("CONTACTER LE TITULAIRE", valeurs)
+        self.assertIn("SURVEILLER", valeurs)
+        l = self._attribuer()
+        self.assertIn(l["action"], valeurs)
+
+    def test_le_calendrier_de_renouvellement_est_alimente(self):
+        self._attribuer()
+        ligne = self.cx.execute(
+            "SELECT titulaire, renouvellement, duree_mois FROM attributions"
+        ).fetchone()
+        self.assertEqual(ligne["titulaire"], "Grand Opérateur SA")
+        self.assertEqual(ligne["duree_mois"], 36)
+        self.assertTrue(str(ligne["renouvellement"] or "").startswith("2029"))
+
+    # ── 18 · le score reste indépendant du circuit ──
+    def test_18_le_score_ne_depend_pas_du_circuit(self):
+        from tests.test_radar import MAINTENANT, moteur, opp
+        from radar import circuit
+        a = opp(ref_source="I1", attribue=True, titulaire="X SA")
+        b = opp(ref_source="I2", attribue=True, titulaire="X SA")
+        a.provenances = [{"source": "ted", "circuit": circuit.CONNUE}]
+        b.provenances = [{"source": "google", "circuit": circuit.DECOUVERTE}]
+        self.assertEqual(moteur().analyser(a, MAINTENANT).score.total,
+                         moteur().analyser(b, MAINTENANT).score.total)

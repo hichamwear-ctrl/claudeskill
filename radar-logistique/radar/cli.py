@@ -273,6 +273,77 @@ def cmd_surveiller(a) -> int:
     return 0
 
 
+def cmd_identifier(a) -> int:
+    """Dire au radar DE QUI il s'agit — ou lister ce qu'il ignore.
+
+    Le radar ne devine jamais une identité ni une URL. Cette commande est la
+    seule voie ouverte aujourd'hui : l'exploitant apporte la preuve, elle est
+    datée et conservée.
+    """
+    from . import identite as mod_id
+    from .entreprises import charger as charger_ent
+    cx = ouvrir(_base(a))
+
+    if not a.entreprise:
+        print(mod_id.rapport(cx))
+        return 0
+
+    reg = charger_ent(cx)
+    cle, e = reg._retrouver(a.entreprise, a.domaine)
+    if e is None:
+        print(f"« {a.entreprise} » n'est pas au registre des entreprises.",
+              file=sys.stderr)
+        print("Le radar n'invente pas d'entreprise : ajoute-la d'abord avec "
+              "`radar surveiller`.", file=sys.stderr)
+        return 2
+
+    if a.candidat:
+        # PLUSIEURS ENTITÉS PORTENT CE NOM. On les conserve, on ne choisit pas.
+        candidats = [mod_id.Candidat(nom=c, source=mod_id.EXPLOITANT)
+                     for c in a.candidat]
+        ident = mod_id.proposer(cx, cle, candidats)
+    elif a.trancher:
+        if not a.preuve:
+            print("Trancher une ambiguïté EXIGE une preuve : --preuve",
+                  file=sys.stderr)
+            return 2
+        ident = mod_id.trancher(cx, cle, a.trancher,
+                                source=mod_id.EXPLOITANT, preuve=a.preuve)
+    elif a.sans_site:
+        ident = mod_id.sans_site(cx, cle, source=mod_id.EXPLOITANT,
+                                 preuve=a.preuve or "constaté par l'exploitant")
+    elif a.domaine or a.bce:
+        if not a.preuve:
+            print("Confirmer une identité EXIGE une preuve relisible : --preuve",
+                  file=sys.stderr)
+            print("Un domaine seul ne dit pas à QUELLE entité il appartient.",
+                  file=sys.stderr)
+            return 2
+        ident = mod_id.confirmer(cx, cle, source=mod_id.EXPLOITANT,
+                                 preuve=a.preuve, bce=a.bce, domaine=a.domaine)
+    else:
+        ident = mod_id.lire(cx, cle)
+
+    cx.commit()
+    print(f"{e.nom}")
+    print(f"  identité     {ident.ligne()}")
+    if ident.preuve:
+        print(f"  preuve       {ident.preuve}")
+    if ident.bce:
+        print(f"  BCE/KBO      {ident.bce}")
+    print(f"  site         {ident.domaine or 'NON IDENTIFIÉ'}")
+    for c in ident.candidats:
+        print(f"  candidat     {c.ligne()}")
+    if ident.etat is mod_id.Etat.AMBIGUE:
+        print("\nAucun candidat n'a été choisi. Pour trancher, il faut une")
+        print("information qui DISTINGUE réellement :")
+        print(f"  radar identifier \"{e.nom}\" --trancher \"…\" --preuve \"…\"")
+    elif not ident.domaine and ident.etat.identifiee:
+        print("\nIDENTITÉ CONNUE, SITE NON IDENTIFIÉ — c'est un état valide.")
+        print("Aucune URL n'est déduite d'un nom d'entreprise.")
+    return 0
+
+
 def cmd_circuits(a) -> int:
     """DÉCOUVERTE et SURVEILLANCE, comptées SÉPARÉMENT.
 
@@ -842,6 +913,18 @@ def principal(argv=None) -> int:
     su = s.add_parser("surveiller", help="ajouter manuellement une entreprise")
     su.add_argument("nom"); su.add_argument("--domaine")
     su.set_defaults(fn=cmd_surveiller)
+
+    idf = s.add_parser("identifier", help="l'identité d'une entreprise — jamais devinée")
+    idf.add_argument("entreprise", nargs="?", help="nom ou clé au registre")
+    idf.add_argument("--domaine", help="le site RÉELLEMENT connu, jamais déduit")
+    idf.add_argument("--bce", help="numéro d'entreprise BCE/KBO réellement connu")
+    idf.add_argument("--preuve", help="d'où vient cette information — obligatoire")
+    idf.add_argument("--candidat", action="append",
+                     help="une entité possible ; en répéter deux donne AMBIGUË")
+    idf.add_argument("--trancher", help="retenir CE candidat, avec --preuve")
+    idf.add_argument("--sans-site", action="store_true", dest="sans_site",
+                     help="identifiée, et sans site connu — c'est une mesure")
+    idf.set_defaults(fn=cmd_identifier)
 
     ci = s.add_parser("circuits", help="métriques DÉCOUVERTE et SURVEILLANCE, séparées")
     ci.set_defaults(fn=cmd_circuits)
