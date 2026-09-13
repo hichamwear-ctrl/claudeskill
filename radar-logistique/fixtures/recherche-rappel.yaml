@@ -1,0 +1,517 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  FIXTURE DE RAPPEL — DONNÉES FABRIQUÉES POUR MESURER LE RECOUVREMENT
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#  AUCUN DE CES RÉSULTATS N'A ÉTÉ RENDU PAR UN MOTEUR DE RECHERCHE.
+#  Aucune de ces adresses n'existe. Ce fichier ne mesure AUCUN marché.
+#
+#  Il éprouve UNE question : un moteur qui rend peu mais du neuf vaut-il
+#  davantage qu'un moteur qui rend beaucoup de déjà-vu ?
+#
+#    abondant   100 résultats
+#    redondant   10 résultats, TOUS déjà vus par « abondant »
+#    rare         10 résultats, dont 8 que personne d'autre n'a montrés
+#    muet          0 résultat — il a répondu, sans rien trouver
+#
+#  « muet » n'est PAS « indisponible » : il a été interrogé. Un moteur
+#  indisponible ne figure pas ici — il se déclare au registre, et ses
+#  résultats sont NON MESURÉS.
+
+mode: FIXTURE
+
+moteurs:
+  # ── Beaucoup de volume ──
+  - nom: abondant
+    resultats:
+      - url: https://site-000.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-001.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-002.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-003.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-004.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-005.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-006.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-007.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-008.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-009.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-010.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-011.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-012.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-013.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-014.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-015.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-016.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-017.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-018.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-019.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-020.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-021.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-022.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-023.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-024.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-025.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-026.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-027.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-028.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-029.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-030.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-031.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-032.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-033.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-034.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-035.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-036.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-037.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-038.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-039.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-040.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-041.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-042.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-043.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-044.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-045.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-046.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-047.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-048.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-049.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-050.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-051.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-052.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-053.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-054.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-055.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-056.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-057.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-058.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-059.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-060.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-061.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-062.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-063.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-064.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-065.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-066.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-067.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-068.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-069.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-070.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-071.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-072.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-073.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-074.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-075.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-076.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-077.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-078.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-079.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-080.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-081.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-082.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-083.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-084.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-085.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-086.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-087.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-088.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-089.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-090.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-091.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-092.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-093.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-094.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-095.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-096.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-097.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-098.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-099.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+
+  # ── Peu de volume, et RIEN d'inedit : recouvrement total ──
+  - nom: redondant
+    resultats:
+      - url: https://site-000.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-001.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-002.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-003.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-004.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-005.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-006.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-007.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-008.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-009.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+
+  # ── Peu de volume, mais 8 pages sur 10 que personne d'autre n'a vues ──
+  - nom: rare
+    resultats:
+      - url: https://site-000.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://site-001.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://rare-0.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://rare-1.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://rare-2.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://rare-3.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://rare-4.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://rare-5.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://rare-6.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+      - url: https://rare-7.example/besoin
+        titre: "Page besoin"
+        extrait: "Contenu fabrique."
+        requete: '"recherche transporteur" Belgique'
+
+  # ── Interroge, sans resultat. Ce n'est PAS une indisponibilite. ──
+  - nom: muet
+    resultats: []

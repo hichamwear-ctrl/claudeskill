@@ -746,3 +746,404 @@ def _mecanismes_8c():
     roles = yaml.safe_load(pathlib.Path("config/roles.yaml").read_text(encoding="utf-8"))
     return (Ontologie(cap, prof["familles_actives"], prof.get("familles_exclues")),
             DetecteurDeRole(roles))
+
+
+# ══════════════════════════ 8d — RECOUPEMENT ENTRE MOTEURS
+#
+# Rappel : fixtures. Aucun moteur interrogé, aucun marché mesuré.
+
+RAPPEL = "fixtures/recherche-rappel.yaml"
+
+
+class S8d_DeduplicationDesURL(unittest.TestCase):
+    """NIVEAU A — la même page vue plusieurs fois."""
+
+    def setUp(self):
+        from radar import recoupement
+        self.rec = recoupement
+        self.cx = ouvrir(":memory:")
+
+    def _inscrire(self, *paires):
+        for url, source in paires:
+            tr.inscrire(self.cx, resultat(url, source=source), mode=Mode.DEMO)
+        return self.rec.grouper(tr.toutes(self.cx))
+
+    def test_1_meme_url_deux_moteurs_un_groupe_deux_sources(self):
+        g = self._inscrire(("https://entreprise.be/partenaire", "fixture_alpha"),
+                           ("https://entreprise.be/partenaire", "fixture_beta"))
+        self.assertEqual(len(g), 1)
+        self.assertEqual(g[0].sources, ["fixture_alpha", "fixture_beta"])
+        self.assertTrue(g[0].multi_source)
+        self.assertEqual(len(g[0].observations), 2,
+                         "les deux observations restent traçables")
+
+    def test_2_les_variations_raisonnables_se_rejoignent(self):
+        """www., barre finale, paramètres de suivi — canoniser_url, réutilisé."""
+        g = self._inscrire(("https://entreprise.be/partenaire", "a"),
+                           ("https://www.entreprise.be/partenaire/", "b"),
+                           ("https://entreprise.be/partenaire?utm_source=x", "c"))
+        self.assertEqual(len(g), 1, [x.cle for x in g])
+        self.assertEqual(len(g[0].urls_vues), 3,
+                         "les formes d'origine sont conservées")
+
+    def test_3_deux_chemins_differents_ne_fusionnent_jamais(self):
+        g = self._inscrire(("https://entreprise.be/partenaire", "a"),
+                           ("https://entreprise.be/partenaires", "b"))
+        self.assertEqual(len(g), 2, "la ressemblance n'est pas une preuve")
+
+    def test_4_le_module_ne_reecrit_pas_la_canonisation(self):
+        source = pathlib.Path("radar/recoupement.py").read_text(encoding="utf-8")
+        self.assertIn("from .deduplication import canoniser_url", source)
+
+    def test_5_un_refus_de_rapprochement_est_compte(self):
+        self._inscrire(("https://entreprise.be/a", "x"),
+                       ("https://entreprise.be/b", "x"))
+        refuses = self.rec.rapprochements_refuses(tr.toutes(self.cx))
+        self.assertEqual(len(refuses), 1,
+                         "deux pages du même hôte, regardées et non fusionnées")
+
+
+class S8d_DeduplicationDuBesoin(unittest.TestCase):
+    """NIVEAU B — le même besoin sur des pages différentes.
+
+    Ce niveau N'EST PAS refait en 8d : il existe déjà dans
+    radar/deduplication.py, et il exige LA MÊME ORGANISATION avant toute
+    comparaison. Ces tests prouvent qu'il tient, et qu'il ne fusionne pas
+    deux villes.
+    """
+
+    def _opp(self, **kw):
+        from tests.test_radar import opp
+        return opp(**kw)
+
+    def test_1_le_meme_besoin_de_la_meme_organisation_se_rapproche(self):
+        from radar.deduplication import meme_besoin
+        a = self._opp(acheteur="Ville de Namur",
+                      intitule="Transport et distribution de colis",
+                      texte="transport et distribution de colis pour la ville")
+        b = self._opp(acheteur="Ville de Namur",
+                      intitule="Distribution de colis — consultation",
+                      texte="distribution de colis, transport, consultation")
+        meme, score = meme_besoin(a, b)
+        self.assertTrue(meme, f"similarité {score}")
+
+    def test_2_deux_VILLES_differentes_ne_fusionnent_JAMAIS(self):
+        """Namur ≠ Liège, quel que soit le vocabulaire commun."""
+        from radar.deduplication import meme_besoin
+        a = self._opp(acheteur="Ville de Namur",
+                      intitule="Transport et distribution de colis",
+                      texte="transport et distribution de colis")
+        b = self._opp(acheteur="Ville de Liège",
+                      intitule="Transport et distribution de colis",
+                      texte="transport et distribution de colis")
+        meme, _ = meme_besoin(a, b)
+        self.assertFalse(meme, "l'organisation doit correspondre AVANT le texte")
+
+    def test_3_deux_METIERS_differents_ne_fusionnent_pas(self):
+        from radar.deduplication import meme_besoin
+        a = self._opp(acheteur="Ville de Namur",
+                      intitule="Distribution de colis",
+                      texte="distribution de colis et transport")
+        b = self._opp(acheteur="Ville de Namur",
+                      intitule="Nettoyage industriel des locaux",
+                      texte="nettoyage industriel, entretien des sols, vitrerie")
+        meme, score = meme_besoin(a, b)
+        self.assertFalse(meme, f"vocabulaires sans rapport, similarité {score}")
+
+    def test_4_une_meme_entreprise_avec_deux_besoins_reste_deux_besoins(self):
+        from radar.deduplication import meme_besoin
+        a = self._opp(acheteur="Transports Exemple",
+                      intitule="Recherche sous-traitant distribution colis",
+                      texte="sous-traitant pour la distribution de colis")
+        b = self._opp(acheteur="Transports Exemple",
+                      intitule="Location d'entrepôt frigorifique",
+                      texte="location entrepot frigorifique stockage froid")
+        meme, _ = meme_besoin(a, b)
+        self.assertFalse(meme)
+
+    def test_5_le_besoin_ne_se_dedoublonne_PAS_a_la_decouverte(self):
+        """Une trouvaille n'a ni organisation ni objet structuré. Fusionner
+        là-dessus serait fusionner sur quelques mots."""
+        import ast
+        source = pathlib.Path("radar/recoupement.py").read_text(encoding="utf-8")
+        arbre = ast.parse(source)
+        # On inspecte ce que le module IMPORTE et APPELLE, pas sa prose — qui a
+        # le droit d'expliquer pourquoi elle ne fait pas cette déduplication.
+        importes = set()
+        for n in ast.walk(arbre):
+            if isinstance(n, ast.ImportFrom):
+                importes |= {a.name for a in n.names}
+            elif isinstance(n, ast.Import):
+                importes |= {a.name for a in n.names}
+        appeles = {n.func.id for n in ast.walk(arbre)
+                   if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+        for interdit in ("meme_besoin", "similarite", "mots_besoin",
+                         "signature_objet", "organisation"):
+            self.assertNotIn(interdit, importes, f"import « {interdit} »")
+            self.assertNotIn(interdit, appeles, f"appel « {interdit} »")
+        # Le seul emprunt à deduplication est la canonisation d'URL.
+        self.assertEqual(importes & {"canoniser_url", "meme_besoin"},
+                         {"canoniser_url"})
+        self.assertIn("LA MÊME ORGANISATION", source,
+                      "la raison doit rester écrite")
+
+
+class S8d_DeduplicationDesEntreprises(unittest.TestCase):
+    """NIVEAU C — la même organisation. Le domaine, et rien d'autre."""
+
+    def setUp(self):
+        from radar import chainage, entreprises as ent_mod
+        self.chainage, self.ent = chainage, ent_mod
+        self.cx = ouvrir(":memory:")
+
+    def _chainer(self, *urls):
+        for u in urls:
+            tr.inscrire(self.cx, resultat(u), mode=Mode.DEMO)
+        reg = self.ent.charger(self.cx)
+        self.chainage.chainer(self.cx, tr.toutes(self.cx), reg)
+        self.ent.enregistrer(self.cx, reg)
+        return self.ent.charger(self.cx).entreprises
+
+    def test_1_deux_pages_du_meme_domaine_une_entreprise(self):
+        e = self._chainer("https://exemple.be/a", "https://exemple.be/b")
+        self.assertEqual(len(e), 1)
+
+    def test_2_deux_domaines_voisins_restent_deux_entreprises(self):
+        e = self._chainer("https://transport-belgium.be/a",
+                          "https://transports-belgium.be/a")
+        self.assertEqual(len(e), 2, "la ressemblance de nom ne fusionne pas")
+
+    def test_3_www_et_sans_www_sont_la_meme_entreprise(self):
+        e = self._chainer("https://exemple.be/a", "https://www.exemple.be/b")
+        self.assertEqual(len(e), 1)
+
+
+class S8d_LeRappelSeMesureSansClasserAuVolume(unittest.TestCase):
+    """LE POINT CENTRAL : peu de volume et beaucoup d'inédit peut valoir
+    davantage que beaucoup de volume et rien d'inédit."""
+
+    def setUp(self):
+        from radar import fixtures_recherche as fx, recoupement
+        self.rec = recoupement
+        self.cx = ouvrir(":memory:")
+        self.moteurs = fx.depuis_fichier(RAPPEL)
+        for m in self.moteurs:
+            tr.depuis_moteur(self.cx, m,
+                             m.rechercher('"recherche transporteur" Belgique'))
+        self.m = self.rec.metriques_moteurs(
+            self.cx, interroges=[x.nom for x in self.moteurs],
+            declares={"jamais_interroge": "CLÉ ABSENTE"})
+
+    def test_1_volume_eleve_et_redondance_totale(self):
+        self.assertEqual(self.m["redondant"]["resultats"], 10)
+        self.assertEqual(self.m["redondant"]["uniques"], 0)
+        self.assertEqual(self.m["redondant"]["apport_propre"], 0.0)
+
+    def test_2_meme_volume_mais_forte_unicite(self):
+        self.assertEqual(self.m["rare"]["resultats"], 10)
+        self.assertEqual(self.m["rare"]["uniques"], 8)
+        self.assertAlmostEqual(self.m["rare"]["apport_propre"], 0.8)
+
+    def test_3_a_volume_egal_l_apport_differe_du_tout_au_tout(self):
+        self.assertEqual(self.m["rare"]["resultats"],
+                         self.m["redondant"]["resultats"])
+        self.assertGreater(self.m["rare"]["apport_propre"],
+                           self.m["redondant"]["apport_propre"])
+
+    def test_4_le_rapport_refuse_explicitement_de_classer_au_volume(self):
+        texte = self.rec.rapport(self.cx,
+                                 interroges=[x.nom for x in self.moteurs])
+        self.assertIn("AUCUN MOTEUR N'EST CLASSÉ AU VOLUME", texte)
+        self.assertIn("APPORT", texte)
+
+    def test_5_un_moteur_interroge_sans_resultat_affiche_ZERO(self):
+        """« muet » a répondu. Son silence est une mesure."""
+        self.assertEqual(self.m["muet"]["resultats"], 0)
+        self.assertTrue(self.m["muet"]["mesure"])
+        self.assertTrue(self.m["muet"].get("muet"))
+
+    def test_6_un_moteur_non_interroge_affiche_NON_MESURE_jamais_zero(self):
+        c = self.m["jamais_interroge"]
+        self.assertEqual(c["resultats"], self.rec.NON_MESURE)
+        self.assertFalse(c["mesure"])
+        self.assertNotEqual(c["resultats"], 0)
+
+    def test_7_le_radar_continue_quand_un_moteur_manque(self):
+        texte = self.rec.rapport(
+            self.cx, interroges=[x.nom for x in self.moteurs],
+            declares={"absent": "CLÉ ABSENTE — aucune clé fournie"})
+        self.assertIn("NON DISPONIBLE", texte)
+        self.assertIn("abondant", texte, "les autres moteurs restent mesurés")
+
+    def test_8_la_chaine_de_rappel_est_complete(self):
+        r = self.rec.metriques_rappel(self.cx)
+        for cle in ("resultats_bruts", "urls_uniques", "observations_partagees",
+                    "groupes", "groupes_multi_sources", "doublons_regroupes",
+                    "rapprochements_refuses"):
+            self.assertIn(cle, r)
+        self.assertEqual(r["resultats_bruts"], 120)
+        self.assertEqual(r["urls_uniques"], 108)
+        self.assertEqual(r["doublons_regroupes"], 12)
+
+
+class S8d_LHistoriqueNEstJamaisDetruit(unittest.TestCase):
+    def setUp(self):
+        from radar import recoupement
+        self.rec = recoupement
+        self.cx = ouvrir(":memory:")
+        url = "https://partagee.example/besoin"
+        for source, q in (("fixture_alpha", "requête A"),
+                          ("fixture_beta", "requête B")):
+            tr.inscrire(self.cx, resultat(url, source=source, requete=q, rang=2),
+                        mode=Mode.DEMO)
+        self.groupe = self.rec.grouper(tr.toutes(self.cx))[0]
+
+    def test_1_par_quels_moteurs_et_a_quelles_dates(self):
+        lignes = self.groupe.historique()
+        self.assertEqual(len(lignes), 2)
+        self.assertTrue(any("fixture_alpha" in l for l in lignes))
+        self.assertTrue(any("fixture_beta" in l for l in lignes))
+        for l in lignes:
+            self.assertIn("20", l, "chaque observation porte sa date")
+
+    def test_2_les_requetes_sont_conservees(self):
+        self.assertEqual(sorted(self.groupe.requetes), ["requête A", "requête B"])
+
+    def test_3_les_rangs_sont_conserves(self):
+        self.assertEqual([o.rang for o in self.groupe.observations], [2, 2])
+
+    def test_4_les_dates_extremes_sont_disponibles(self):
+        self.assertIsNotNone(self.groupe.premiere_vue)
+        self.assertIsNotNone(self.groupe.derniere_vue)
+
+    def test_5_le_regroupement_ne_supprime_aucune_trouvaille(self):
+        self.assertEqual(len(tr.toutes(self.cx)), 2)
+
+
+class S8d_LeRecoupementNeTouchePasAuCommercial(unittest.TestCase):
+    def test_1_le_module_ignore_le_scoring_et_la_classification(self):
+        import ast
+        arbre = ast.parse(pathlib.Path("radar/recoupement.py")
+                          .read_text(encoding="utf-8"))
+        noms = {n.id for n in ast.walk(arbre) if isinstance(n, ast.Name)}
+        noms |= {n.attr for n in ast.walk(arbre) if isinstance(n, ast.Attribute)}
+        for interdit in ("score", "Classement", "Opportunite", "classification",
+                         "Type", "bareme", "ponderation"):
+            self.assertNotIn(interdit, noms, interdit)
+
+    def test_2_aucun_nom_de_moteur_reel_dans_le_code(self):
+        import ast
+        arbre = ast.parse(pathlib.Path("radar/recoupement.py")
+                          .read_text(encoding="utf-8"))
+        docs = set()
+        for n in ast.walk(arbre):
+            if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef)):
+                d = ast.get_docstring(n, clean=False)
+                if d:
+                    docs.add(d)
+        litterales = [n.value.lower() for n in ast.walk(arbre)
+                      if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                      and n.value not in docs]
+        for nom in ("google", "brave", "bing", "ted", "bda"):
+            for t in litterales:
+                self.assertNotIn(nom, t, nom)
+
+    def test_3_aucun_reseau(self):
+        source = pathlib.Path("radar/recoupement.py").read_text(encoding="utf-8")
+        for interdit in ("urllib", "requests", "socket", "urlopen"):
+            self.assertNotIn(interdit, source, interdit)
+
+    def test_4_aucune_opportunite_creee_par_le_recoupement(self):
+        from radar import fixtures_recherche as fx, recoupement
+        cx = ouvrir(":memory:")
+        for m in fx.depuis_fichier(RAPPEL):
+            tr.depuis_moteur(cx, m, m.rechercher('"recherche transporteur" Belgique'))
+        recoupement.rapport(cx)
+        for table in ("opportunites", "avis", "entreprises", "pages_surveillees"):
+            self.assertEqual(
+                cx.execute(f"SELECT count(*) c FROM {table}").fetchone()["c"], 0,
+                table)
+
+    def test_5_le_score_reste_independant_du_moteur_et_du_recouvrement(self):
+        from tests.test_radar import MAINTENANT, moteur, opp
+        a, b = opp(ref_source="D1"), opp(ref_source="D2")
+        a.provenances = [{"source": "abondant", "circuit": circuit.DECOUVERTE}]
+        b.provenances = [{"source": "rare", "circuit": circuit.DECOUVERTE},
+                         {"source": "redondant", "circuit": circuit.DECOUVERTE}]
+        self.assertEqual(moteur().analyser(a, MAINTENANT).score.total,
+                         moteur().analyser(b, MAINTENANT).score.total,
+                         "être trouvée deux fois ne vaut pas un point de plus")
+
+    def test_6_les_metriques_reelles_restent_vides(self):
+        from radar import fixtures_recherche as fx
+        cx = ouvrir(":memory:")
+        for m in fx.depuis_fichier(RAPPEL):
+            tr.depuis_moteur(cx, m, m.rechercher('"recherche transporteur" Belgique'))
+        self.assertEqual(tr.metriques(cx)[Mode.REEL.value]["trouvailles"], 0)
+        self.assertIn("NON MESURÉE", tr.rapport(cx))
+
+
+class S8d_LesAgregateursNeSontPasTranches(unittest.TestCase):
+    """§8 — on MESURE un indicateur, on ne conclut RIEN."""
+
+    def setUp(self):
+        from radar import recoupement
+        self.rec = recoupement
+        self.cx = ouvrir(":memory:")
+        # Un domaine qui revient sous quatre sujets sans rapport.
+        for i, q in enumerate(("transport", "boulangerie", "coiffure", "informatique")):
+            tr.inscrire(self.cx, resultat(f"https://presse.example/article-{i}",
+                                          source="fixture_alpha", requete=q),
+                        mode=Mode.DEMO)
+        # Une entreprise, un seul sujet.
+        tr.inscrire(self.cx, resultat("https://transporteur.example/partenaire",
+                                      source="fixture_alpha", requete="transport"),
+                    mode=Mode.DEMO)
+
+    def test_1_l_indicateur_repere_bien_le_domaine_transversal(self):
+        t = self.rec.domaines_transversaux(self.cx, seuil=3)
+        self.assertIn("presse.example", t)
+        self.assertEqual(t["presse.example"], 4)
+        self.assertNotIn("transporteur.example", t)
+
+    def test_2_mais_AUCUNE_identite_n_est_modifiee(self):
+        from radar import chainage, entreprises as ent_mod, identite as mod_id
+        reg = ent_mod.charger(self.cx)
+        chainage.chainer(self.cx, tr.toutes(self.cx), reg)
+        ent_mod.enregistrer(self.cx, reg)
+        chainage.marquer_identites(self.cx, reg)
+        for cle in ent_mod.charger(self.cx).entreprises:
+            self.assertIs(mod_id.lire(self.cx, cle).etat, mod_id.Etat.INCONNUE)
+
+    def test_3_aucune_entreprise_n_est_ecartee(self):
+        from radar import chainage, entreprises as ent_mod
+        from radar.entreprises import Etat as EtatEnt
+        reg = ent_mod.charger(self.cx)
+        chainage.chainer(self.cx, tr.toutes(self.cx), reg)
+        ent_mod.enregistrer(self.cx, reg)
+        for e in ent_mod.charger(self.cx).entreprises.values():
+            self.assertIsNot(e.etat, EtatEnt.ECARTEE)
+
+    def test_4_aucune_liste_en_dur_de_domaines(self):
+        import ast
+        arbre = ast.parse(pathlib.Path("radar/recoupement.py")
+                          .read_text(encoding="utf-8"))
+        docs = set()
+        for n in ast.walk(arbre):
+            if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef)):
+                d = ast.get_docstring(n, clean=False)
+                if d:
+                    docs.add(d)
+        litterales = [n.value.lower() for n in ast.walk(arbre)
+                      if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                      and n.value not in docs]
+        for t in litterales:
+            self.assertNotIn(".example", t)
+            self.assertNotIn(".com", t)
+            self.assertNotIn("presse", t)
+
+    def test_5_le_rapport_dit_que_ce_n_est_pas_une_preuve(self):
+        texte = self.rec.rapport(self.cx)
+        self.assertIn("INDICATEUR", texte)
+        self.assertIn("PAS une preuve", texte)
+        self.assertIn("Aucune identité", texte)

@@ -1,0 +1,45 @@
+MESURE 8d — RECOUVREMENT ENTRE MOTEURS
+FIXTURES — aucun moteur interrogé, aucun marché mesuré
+
+RECOUPEMENT ENTRE MOTEURS
+========================================================================================
+
+CHAÎNE DE RAPPEL
+  résultats bruts            120
+  URL uniques                108
+  observations partagées     22
+  groupes de page            108
+  groupes multi-sources      10
+  doublons regroupés         12
+  rapprochements refusés     0
+
+PAR MOTEUR — le volume ET l'apport propre, côte à côte
+  MOTEUR            RÉSULTATS     URL  UNIQUES  PARTAGÉES   APPORT
+  abondant                100     100       90         10     90%
+  muet                      0       0        0          0      0%   interrogé, aucun résultat — c'est une mesure
+  non_interroge    NON MESURÉ   NON DISPONIBLE — CLÉ ABSENTE — aucune clé fournie
+  rare                     10      10        8          2     80%
+  redondant                10      10        0         10      0%
+
+  « APPORT » = part des pages que ce moteur a montrées et que
+  personne d'autre n'a montrées. Un moteur qui rend dix pages
+  dont huit inédites vaut plus qu'un moteur qui en rend cent
+  déjà connues. AUCUN MOTEUR N'EST CLASSÉ AU VOLUME.
+
+  NON MESURÉ n'est pas 0 : un moteur qu'on n'a pas interrogé
+  n'a pas « rendu zéro résultat ».
+
+
+  LE POINT CENTRAL, CHIFFRÉ
+    « rare »       10 résultats ·   8 inédits · apport 80%
+    « redondant »  10 résultats ·   0 inédits · apport 0%
+    MÊME VOLUME. L'un apporte huit pages que personne d'autre n'a
+    montrées ; l'autre n'apporte rien. Les classer au volume les
+    rendrait équivalents — ce serait faux.
+
+
+  « DÉCOUVERTE PAR QUELS MOTEURS, À QUELLES DATES ? »
+    logistique-fictive.example/sous-traitance
+      2026-09-13T20:47:44 · fixture_alpha · rang 1 · "recherche sous-traitant" Belgique
+      2026-09-13T20:47:44 · fixture_beta · rang 1 · "recherche sous-traitant" Belgique
+      formes vues : 1 · requêtes : ['"recherche sous-traitant" Belgique']

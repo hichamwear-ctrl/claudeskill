@@ -273,6 +273,28 @@ def cmd_surveiller(a) -> int:
     return 0
 
 
+def cmd_recoupement(a) -> int:
+    """Ce que chaque moteur apporte — volume ET apport propre, côte à côte."""
+    from . import recoupement as mod
+    cx = ouvrir(_base(a), lecture_seule=True)
+    # Les moteurs DÉCLARÉS mais indisponibles : leurs résultats sont NON
+    # MESURÉS, jamais zéro. On ne les a pas interrogés.
+    declares = {m.nom: m.motif_indisponibilite
+                for m in _moteurs_declares().moteurs if not m.disponible}
+    print(mod.rapport(cx, declares=declares))
+    if a.groupes:
+        print()
+        print("GROUPES MULTI-SOURCES — l'historique complet de chaque page")
+        for g in mod.grouper(__import__("radar.trouvailles", fromlist=["toutes"])
+                             .toutes(cx)):
+            if not g.multi_source:
+                continue
+            print(f"\n  {g.cle}")
+            for ligne in g.historique():
+                print(f"    {ligne}")
+    return 0
+
+
 def cmd_trouvailles(a) -> int:
     """Ce qu'un moteur a MONTRÉ — et ce qui n'a jamais été lu."""
     from . import trouvailles as mod
@@ -925,6 +947,11 @@ def principal(argv=None) -> int:
     su = s.add_parser("surveiller", help="ajouter manuellement une entreprise")
     su.add_argument("nom"); su.add_argument("--domaine")
     su.set_defaults(fn=cmd_surveiller)
+
+    rc = s.add_parser("recoupement", help="apport propre de chaque moteur")
+    rc.add_argument("--groupes", action="store_true",
+                    help="l'historique des pages vues par plusieurs moteurs")
+    rc.set_defaults(fn=cmd_recoupement)
 
     tr = s.add_parser("trouvailles", help="ce qu'un moteur a montré, jamais lu")
     tr.add_argument("--detail", action="store_true")
