@@ -59,11 +59,17 @@ modeles:
     fr:
       - '"nouvel entrepôt" {zone}'
       - '"nouveau centre logistique" {zone}'
+      # « dépôt » est le mot courant en Belgique là où ce fichier ne disait
+      # qu'« entrepôt ». Concept mesuré absent le 2026-09-13.
+      - '"nouveau dépôt" {zone}'
+      - '"ouvre un dépôt" {zone}'
       - '"ouvre une nouvelle agence" {zone}'
       - '"s''implante" {zone} logistique'
       - '"remporte un contrat" {prestation} {zone}'
       - '"change de prestataire" logistique {zone}'
       - '"recrute" "chauffeurs" {zone}'
+      # La forme passive de la même annonce. Concept mesuré absent.
+      - '"chauffeurs recherchés" {zone}'
       - '"augmente sa capacité" livraison {zone}'
     nl:
       - '"nieuw magazijn" {zone}'
