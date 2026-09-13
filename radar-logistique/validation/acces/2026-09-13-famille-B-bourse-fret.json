@@ -1,0 +1,102 @@
+{
+ "_statut": "FAMILLE B — BLOQUÉE. AUCUNE DONNÉE REÇUE. CE FICHIER N'EST PAS UNE COLLECTE.",
+ "_avertissement": "Non inscrit au registre des mesures réelles : aucune donnée n'a été observée. Le compteur DONNÉES RÉELLES OBSERVÉES reste à 6, et la famille B reste NON MESURÉE. Un accès refusé n'est pas une donnée.",
+ "tente_le": "2026-09-13",
+ "famille": "B — bourse de fret",
+ "moteur_touche": "AUCUN",
+ "audit_de_la_source": {
+  "fichier": "sources/bourse_fret.yaml",
+  "source visée": "AUCUNE — le fichier ne nomme aucune bourse, volontairement",
+  "URL réelle déclarée": "AUCUNE",
+  "méthode d'accès": "NON DÉFINIE — aucun collecteur n'existe (outils/ ne contient que collecter_bda.py et collecter_ted.py)",
+  "authentification": "NON TESTÉE — le fichier déclare qu'un abonnement est exigé par la plupart des bourses",
+  "robots.txt / CGU": "NON LISIBLES — robots.txt lui-même est refusé par le gateway d'egress",
+  "format réellement attendu": "INCONNU — aucune réponse réelle n'a jamais été observée",
+  "champs déclarés par l'adaptateur": 20,
+  "champs mesurés": 0,
+  "verifie": false,
+  "déjà réellement accessible ?": "JAMAIS — déclarée, pas vérifiée"
+ },
+ "hotes_essayes": [
+  {
+   "hôte": "www.teleroute.com",
+   "DNS": "151.101.2.216",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403",
+   "HTTP via proxy": "403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.timocom.fr",
+   "DNS": "51.144.131.68",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403",
+   "HTTP via proxy": "403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.trans.eu",
+   "DNS": "2.57.137.11",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403",
+   "HTTP via proxy": "403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.wtransnet.com",
+   "DNS": "151.101.66.216",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403",
+   "HTTP via proxy": "403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.cargonexx.com",
+   "DNS": "2620:cb:2000::1",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403",
+   "HTTP via proxy": "403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.freightlink.co.uk",
+   "DNS": "15.197.86.234",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403",
+   "HTTP via proxy": "403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.transporeon.com",
+   "DNS": "2606:4700::6812:1dd5",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403",
+   "HTTP via proxy": "403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.b2bourse.com",
+   "DNS": "NON RÉSOLU",
+   "HTTPS via proxy": "—",
+   "HTTP via proxy": "—"
+  }
+ ],
+ "voies_essayees": [
+  "curl HTTPS via le proxy — CONNECT tunnel failed, 403, sur 7 hôtes",
+  "curl HTTP via le proxy (robots.txt) — 403 · x-deny-reason: host_not_allowed",
+  "navigateur réel, Chromium 1194 via Playwright — net::ERR_TUNNEL_CONNECTION_FAILED",
+  "WebFetch (outil du harnais, hors conteneur) — EGRESS_BLOCKED"
+ ],
+ "temoin": {
+  "pourquoi": "prouver que l'échec vient du mur et non de l'outil de test",
+  "hote": "https://pypi.org/project/requests/",
+  "resultat": "200 · 251 417 octets, avec la même commande curl"
+ },
+ "echelle": {
+  "source nommée": "NON — l'adaptateur n'en nomme aucune",
+  "DNS résolu": "OUI — 7 hôtes sur 8",
+  "accès HTTP réel": "NON — 403 du gateway d'egress",
+  "donnée réellement reçue": "NON — 0 octet",
+  "offre réellement lisible": "NON — rien n'a été reçu",
+  "besoin transport observable": "NON MESURÉ — personne n'a regardé",
+  "origine / destination": "NON MESURÉ",
+  "date / échéance": "NON MESURÉ",
+  "type de marchandise": "NON MESURÉ",
+  "véhicule requis": "NON MESURÉ",
+  "distance · cadence · montant": "NON MESURÉ",
+  "capacité · nature · état · action": "NON MESURÉ",
+  "CA / potentiel": "NON MESURABLE",
+  "contact": "NON MESURÉ"
+ },
+ "deux_blocages_distincts": [
+  "1. EGRESS — liste blanche du réseau (host_not_allowed). Identique à celui mesuré le 2026-09-12 sur les prospects. Se lève par un réglage de l'environnement, par personne d'autre.",
+  "2. AUTORISATION — indépendant du premier et NON LEVÉ par lui. Les bourses de fret exigent un compte et interdisent en général la collecte automatisée dans leurs conditions d'utilisation. `bourse_fret.yaml` le déclare depuis l'origine. Aucune vérification n'a pu être faite : robots.txt est lui-même inaccessible. Ouvrir l'egress ne suffirait donc PAS à débloquer la famille B."
+ ],
+ "conclusion": "BLOQUÉ. Aucun contournement n'est développé, aucun collecteur n'est écrit. La famille B est la première dont le blocage n'est pas seulement technique : elle demande un accès contractuel, pas une ligne de code."
+}
