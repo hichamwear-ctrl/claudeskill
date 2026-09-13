@@ -1,0 +1,129 @@
+{
+ "_statut": "FAMILLE E — BLOQUÉE PAR L'EGRESS. AUCUNE DONNÉE REÇUE.",
+ "_avertissement": "Non inscrit au registre des mesures réelles : aucune donnée n'a été observée. DONNÉES RÉELLES OBSERVÉES reste à 7, et la famille E reste NON MESURÉE.",
+ "tente_le": "2026-09-13",
+ "famille": "E — attribution de marché",
+ "moteur_touche": "AUCUN",
+ "audit_des_sources": {
+  "collecteur existant": "outils/collecter_ted.py — écrit, jamais exécuté contre une réponse réelle ; son en-tête le dit lui-même : « l'URL et le format de requête n'ont PAS pu être vérifiés »",
+  "endpoint déclaré": "https://api.ted.europa.eu/v3/notices/search (POST)",
+  "portée de la requête": "scope ALL — inclut les avis d'attribution",
+  "filtres CPV": "9 familles transport/logistique déclarées",
+  "authentification": "AUCUNE REQUISE — TED est un service public ouvert, réutilisation explicitement autorisée",
+  "compte payant": "NON — contrairement à la famille B",
+  "robots.txt / CGU": "NON LISIBLES — refusés par le gateway avant d'atteindre le serveur",
+  "format réellement observé": "INCONNU — aucune réponse réelle n'a jamais été reçue",
+  "verifie (sources/ted.yaml)": false
+ },
+ "hotes_essayes": [
+  {
+   "hôte": "ted.europa.eu",
+   "DNS": "2600:9000:2848:9e00:18:bc6c:b540:93a1",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed",
+   "note": "portail officiel UE"
+  },
+  {
+   "hôte": "api.ted.europa.eu",
+   "DNS": "2600:9000:250c:3a00:1e:df90:3fc0:93a1",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed",
+   "note": "API visée par collecter_ted.py"
+  },
+  {
+   "hôte": "data.europa.eu",
+   "DNS": "99.84.105.50",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed",
+   "note": "portail open data UE"
+  },
+  {
+   "hôte": "www.publicprocurement.be",
+   "DNS": "85.91.189.188",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed",
+   "note": "e-Notification, Belgique"
+  },
+  {
+   "hôte": "marchespublics.wallonie.be",
+   "DNS": "157.164.155.179",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.e-procurement.be",
+   "DNS": "136.144.212.108",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.boamp.fr",
+   "DNS": "109.232.232.161",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed",
+   "note": "bulletin officiel des annonces, France"
+  },
+  {
+   "hôte": "api.boamp.fr",
+   "DNS": "NON RÉSOLU",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.data.gouv.fr",
+   "DNS": "37.59.183.73",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed",
+   "note": "open data France"
+  },
+  {
+   "hôte": "www.marches-publics.gouv.fr",
+   "DNS": "146.59.137.202",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.contractsfinder.service.gov.uk",
+   "DNS": "18.169.223.149",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed",
+   "note": "Royaume-Uni"
+  },
+  {
+   "hôte": "opendata.digitalwallonia.be",
+   "DNS": "2606:4700:3035::6815:50d8",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed"
+  },
+  {
+   "hôte": "www.ejustice.just.fgov.be",
+   "DNS": "193.191.241.68",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed",
+   "note": "Moniteur belge"
+  },
+  {
+   "hôte": "www.staatsblad.be",
+   "DNS": "193.191.241.68",
+   "HTTPS via proxy": "CONNECT tunnel failed, 403 · x-deny-reason: host_not_allowed"
+  }
+ ],
+ "nombre_d_hotes_essayes": 14,
+ "nombre_resolus_par_DNS": 13,
+ "nombre_ayant_repondu": 0,
+ "voies_essayees": [
+  "curl HTTPS via le proxy — 14 hôtes, 14 refus au CONNECT",
+  "navigateur réel, Chromium 1194 via Playwright — ERR_TUNNEL_CONNECTION_FAILED (ted.europa.eu, publicprocurement.be)",
+  "WebFetch (outil du harnais) — EGRESS_BLOCKED (ted.europa.eu, data.gouv.fr)"
+ ],
+ "temoin": {
+  "hote": "https://pypi.org/project/requests/",
+  "resultat": "200 · 251 417 octets, même commande curl"
+ },
+ "piste_ecartee_volontairement": "pypi.org est l'un des rares hôtes autorisés. Chercher un paquet Python qui redistribuerait des avis d'attribution aurait pu produire du texte réel. ÉCARTÉ : un paquet n'est pas une source de la famille E, sa provenance serait celle de son auteur et non du publicateur, et compter cela comme « famille E mesurée » serait exactement le glissement refusé pour la famille H. Vérifié au passage : la recherche PyPI ne renvoie aucun résultat exploitable (200, 3 038 octets, page de défi).",
+ "difference_avec_la_famille_B": "B a DEUX murs : egress + autorisation contractuelle. E n'en a QU'UN : l'egress. TED, BOAMP et data.gouv.fr sont publics, gratuits et conçus pour la réutilisation. Le collecteur `outils/collecter_ted.py` est déjà écrit. Ouvrir l'egress sur ces hôtes rendrait la famille E mesurable immédiatement, sans écrire une ligne de code.",
+ "echelle": {
+  "sources publiques identifiées": "OUI — 14",
+  "DNS résolu": "OUI — 13 sur 14",
+  "accès HTTP réel": "NON — 0 sur 14",
+  "réponse réelle": "NON — 0 octet",
+  "contenu lisible": "NON",
+  "avis d'attribution réel": "NON MESURÉ",
+  "marché encore ouvert": "NON MESURÉ",
+  "procédure annoncée": "NON MESURÉ",
+  "information sans procédure": "NON MESURÉ",
+  "prix / récompense sans rapport": "NON MESURÉ",
+  "titulaire · date · preuve d'attribution": "NON MESURÉ",
+  "nature · état · type d'information · action": "NON MESURÉ",
+  "CA / potentiel": "NON MESURABLE"
+ },
+ "P1_B": "TOUJOURS INDÉTERMINÉ. Le but du chantier était d'éprouver P1-B sur des données indépendantes. Zéro donnée reçue : ni reproduit, ni infirmé. Aucune correction n'est justifiée.",
+ "conclusion": "BLOQUÉ PAR L'EGRESS SEUL. Aucun collecteur écrit, aucun contournement, aucune donnée inventée, moteur intact."
+}
