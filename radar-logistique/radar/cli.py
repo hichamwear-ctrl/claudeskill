@@ -154,14 +154,25 @@ def cmd_opportunites(a) -> int:
     if not lignes:
         print("Aucune opportunité. (Base lue correctement — ce n'est pas une panne.)")
         return 0
+    from . import suivi as sui
     for l in lignes:
+        # Le suivi se lit MAINTENANT, il ne se fige pas dans la fiche : celle-ci
+        # est un instantané écrit au calcul, le statut commercial bouge après.
+        etat_com = sui.lire(cx, l["avis_id"])
         if a.complet:
-            print(l["fiche"]); print("\n" + "─" * 66 + "\n")
+            print(l["fiche"])
+            print("\n" + "\n".join(etat_com.en_lignes()))
+            fil = sui.fil(cx, l["avis_id"])
+            if fil:
+                print("PARCOURS      " + "\n              ".join(fil))
+            print("\n" + "─" * 66 + "\n")
         else:
             emoji = {"DIRECT": "🟢", "RENFORCEMENT": "🟡", "A_CONSTRUIRE": "🟣",
                      "PROSPECT": "🔵"}.get(l["type"], "·")
-            print(f"{emoji} [{l['score']:3}] {(l['echeance'] or 'NON PUBLIÉ')[:10]:<11} "
-                  f"{(l['action'] or ''):<24} {(l['intitule'] or '')[:44]}")
+            statut = etat_com.statut.value if etat_com.statut else "NOUVELLE"
+            print(f"{emoji} [{l['score']:3}] {statut:<16} "
+                  f"{(etat_com.prochaine_action_le or '—'):<11} "
+                  f"{(l['action'] or ''):<24} {(l['intitule'] or '')[:38]}")
     print(f"\n{len(lignes)} opportunité(s).")
     return 0
 
@@ -501,6 +512,53 @@ def cmd_notifier(a) -> int:
     return 0 if not compte["echec"] else 1
 
 
+def cmd_suivre(a) -> int:
+    """Poser le statut commercial d'une opportunité, et rien d'autre.
+
+    Le statut de la RELATION. Il ne touche ni l'état de procédure, ni le
+    score, ni le CA, ni la nature, ni la classification : ces valeurs sont
+    calculées à partir de la source, et aucune décision commerciale ne doit
+    les déplacer.
+    """
+    from . import suivi
+    cx = ouvrir(_base(a))
+    try:
+        avis_id = suivi.resoudre(cx, a.reference)
+    except suivi.OpportuniteIntrouvable as e:
+        print(f"{e}", file=sys.stderr)
+        return 2
+
+    avant = suivi.lire(cx, avis_id)
+    if not a.statut:                       # sans statut : on lit, on ne change rien
+        ligne = cx.execute("SELECT intitule, acheteur, action, etat_procedure"
+                           " FROM opportunites WHERE avis_id=?", (avis_id,)).fetchone()
+        print(f"{ligne['intitule']}  —  {ligne['acheteur'] or 'A_VERIFIER'}")
+        print(f"  ÉTAT PROCÉDURE   {ligne['etat_procedure'] or 'HORS PROCÉDURE'}")
+        print(f"  ACTION MÉTIER    {ligne['action']}")
+        for l in avant.en_lignes():
+            print(f"  {l}")
+        fil = suivi.fil(cx, avis_id)
+        print("\n  PARCOURS COMMERCIAL")
+        for etape in fil or ["    aucun mouvement enregistré"]:
+            print(f"    {etape}")
+        return 0
+
+    try:
+        apres = suivi.marquer(cx, avis_id, a.statut, motif=a.motif,
+                              prochaine_action_le=a.prochaine,
+                              dernier_contact_le=a.contact, par=a.par)
+    except (suivi.StatutInconnu, suivi.DateInvalide) as e:
+        print(f"{e}", file=sys.stderr)
+        return 2
+    cx.commit()
+
+    depuis = avant.statut.value if avant.statut else "jamais regardée"
+    print(f"{depuis} → {apres.statut.value}")
+    for l in apres.en_lignes():
+        print(f"  {l}")
+    return 0
+
+
 def cmd_validation(a) -> int:
     """Ce qui est prouvé, et par quoi. Deux compteurs, jamais mélangés."""
     from . import validation
@@ -593,6 +651,16 @@ def principal(argv=None) -> int:
 
     c = s.add_parser("calendrier", help="remises en concurrence calculées")
     c.set_defaults(fn=cmd_calendrier)
+
+    sv = s.add_parser("suivre", help="statut commercial d'une opportunité")
+    sv.add_argument("reference", help="référence de source, ou un fragment")
+    sv.add_argument("--statut", help="NOUVELLE · CONTACT À FAIRE · CONTACTÉE · "
+                                     "EN ATTENTE · RELANCE · GAGNÉE · PERDUE · ABANDONNÉE")
+    sv.add_argument("--motif", help="pourquoi — surtout pour PERDUE")
+    sv.add_argument("--prochaine", help="prochaine action, AAAA-MM-JJ")
+    sv.add_argument("--contact", help="dernier contact, AAAA-MM-JJ")
+    sv.add_argument("--par", default="exploitant")
+    sv.set_defaults(fn=cmd_suivre)
 
     v = s.add_parser("validation",
                      help="état de validation : architecture, fixtures, réel")

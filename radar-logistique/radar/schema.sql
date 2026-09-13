@@ -78,8 +78,15 @@ CREATE TABLE IF NOT EXISTS opportunites (
     motif         TEXT,
     fiche         TEXT,
     calcule_le    TEXT NOT NULL,
+    -- SUIVI COMMERCIAL — `etat` porte le statut de la RELATION
+    -- (NOUVELLE · CONTACTÉE · RELANCE · GAGNÉE …), jamais l'état de la
+    -- procédure, qui vit dans `etat_procedure`. Deux dimensions, deux
+    -- colonnes. « non_vu » = détectée, jamais encore regardée.
     etat          TEXT NOT NULL DEFAULT 'non_vu',
-    etat_maj      TEXT
+    etat_maj      TEXT,
+    prochaine_action_le TEXT,     -- date RÉELLEMENT planifiée, jamais calculée
+    dernier_contact_le  TEXT,
+    motif_commercial    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_opp_type ON opportunites(type, score DESC);
 CREATE INDEX IF NOT EXISTS idx_opp_moteur ON opportunites(moteur, score DESC);
@@ -271,6 +278,28 @@ CREATE TABLE IF NOT EXISTS envois (
     UNIQUE (source, ref_source, motif)
 );
 CREATE INDEX IF NOT EXISTS idx_envois_etat ON envois(etat, id);
+
+-- ═══ SUIVI COMMERCIAL ═══
+-- OÙ EN EST LA RELATION — pas où en est la procédure.
+--
+-- Table SÉPARÉE de `etats_historique`, et ce n'est pas de la coquetterie :
+-- l'une raconte ce que fait le marché, l'autre ce que nous faisons. Les
+-- fondre rendrait impossible de répondre à « qui n'a jamais été rappelé ».
+--
+-- Le statut COURANT vit dans opportunites.etat / etat_maj — colonnes déjà
+-- présentes au schéma, inutilisées jusqu'ici. Cette table n'en garde que
+-- les TRANSITIONS.
+CREATE TABLE IF NOT EXISTS suivi_commercial (
+    id       INTEGER PRIMARY KEY,
+    avis_id  INTEGER NOT NULL REFERENCES avis(id) ON DELETE CASCADE,
+    ancien   TEXT,                -- NULL = jamais regardée avant
+    nouveau  TEXT NOT NULL,
+    motif    TEXT,
+    fait_le  TEXT NOT NULL,
+    -- Qui a agi. Pas une assignation de commercial : une trace.
+    par      TEXT NOT NULL DEFAULT 'exploitant'
+);
+CREATE INDEX IF NOT EXISTS idx_suivi_avis ON suivi_commercial(avis_id, id);
 
 CREATE TABLE IF NOT EXISTS verrou (
     nom TEXT PRIMARY KEY, porteur TEXT NOT NULL,

@@ -51,6 +51,13 @@ AJOUTS = (
     ("opportunites", "ca_annuel", "REAL"),
     ("opportunites", "intensite", "REAL"),
     ("opportunites", "priorite", "TEXT"),
+    # SUIVI COMMERCIAL. Le statut courant réutilise `etat` / `etat_maj`, déjà
+    # au schéma. Ces trois dates et motif n'avaient AUCUN équivalent :
+    # `echeance` est une date de la source, `derniere_vue` date la collecte.
+    # Aucun ne figure dans `chaine.RECALCULEES` : une recollecte les conserve.
+    ("opportunites", "prochaine_action_le", "TEXT"),
+    ("opportunites", "dernier_contact_le", "TEXT"),
+    ("opportunites", "motif_commercial", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),
     ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
     ("vocabulaire_historique", "version", "INTEGER"),
