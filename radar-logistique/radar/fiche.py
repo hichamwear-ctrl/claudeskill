@@ -80,11 +80,89 @@ class Fiche:
     # silence est une boîte noire ; écartée à voix haute, c'est une question.
     reserves: list = field(default_factory=list)
 
+    def _besoin(self) -> str:
+        """Le besoin en une phrase, pour l'en-tête.
+
+        C'est une TRONCATURE d'affichage, pas une reformulation : on coupe à
+        la première ponctuation forte du texte réellement observé. Rien n'est
+        réécrit, rien n'est résumé — un résumé serait une invention.
+        """
+        brut = (self.objet or "").strip()
+        if not brut:
+            return "A_VERIFIER"
+        for fin in ("? ", "! ", ". "):
+            coupe = brut.find(fin)
+            if 0 < coupe < 160:
+                return brut[:coupe + 1].strip()
+        return (brut[:140] + "…") if len(brut) > 140 else brut
+
+    def _capacite(self) -> str:
+        """Ce que le bilan de capacité a déjà conclu, en une ligne.
+
+        Aucun calcul ici. Si la source ne publie pas ce qu'elle exige, l'écart
+        n'est pas zéro : il est À DÉTERMINER.
+        """
+        # `il_me_manque` mélange deux choses : les manques de capacité et les
+        # incertitudes d'état. Mesuré sur DHL, où l'en-tête annonçait en
+        # « CAPACITÉ » une preuve d'état écartée en pied de page. Seul
+        # `comment_combler` vient exclusivement du bilan de capacité : c'est
+        # donc lui qui autorise à parler d'un manque chiffré.
+        if self.comment_combler:
+            manque = self.il_me_manque[0] if self.il_me_manque else "manque de capacité"
+            return f"{manque} — comblable : {self.comment_combler[0]}"
+        if self.j_ai_deja:
+            return f"couverte — {self.j_ai_deja[0]}"
+        return "requise NON PUBLIÉE · écart À DÉTERMINER"
+
+    def _urgence(self) -> str:
+        """Ce que la source dit du temps. Jamais une estimation."""
+        if self.jours_restants is not None:
+            return f"{self.jours_restants} jours restants"
+        if self.echeance and self.echeance != ABSENT:
+            return f"échéance {self.echeance}"
+        return "NON PUBLIÉE"
+
+    def _entete_commercial(self) -> list[str]:
+        """Les sept questions, dans l'ordre où un commercial se les pose.
+
+        Rien n'est calculé ici : chaque ligne reprend une valeur déjà établie
+        plus bas dans la fiche. C'est un ORDRE DE LECTURE, pas une source de
+        vérité — si une valeur manque, elle manque ici aussi.
+        """
+        porte = self.porte_entree if hasattr(self.porte_entree, "type") else None
+        comment = "AUCUNE PORTE OBSERVÉE"
+        if porte is not None and porte.existe:
+            comment = porte.type
+            if porte.champs_a_remplir:
+                comment += f" — {porte.champs_a_remplir} champs"
+            if porte.certitude == "À VÉRIFIER":
+                comment += " (À VÉRIFIER)"
+
+        L = [f"👉 ACTION       {self.action}",
+             f"   QUI          {_ou(self.client, 'A_VERIFIER')}"
+             + (f"  ({self.secteur})" if self.secteur else ""),
+             f"   QUOI         {self._besoin()}",
+             f"   OÙ           {self.zone or 'A_VERIFIER'}",
+             f"   POURQUOI     {self.pourquoi[0] if self.pourquoi else 'AUCUN ARGUMENT MESURÉ'}",
+             f"   COMMENT      {comment}"]
+        if porte is not None and porte.lien:
+            L.append(f"                {porte.lien}")
+        if porte is not None and porte.informations_demandees:
+            L.append("   À PRÉPARER   "
+                     + " · ".join(porte.informations_demandees[:6]))
+        L.append(f"   CAPACITÉ     {self._capacite()}")
+        L.append(f"   URGENCE      {self._urgence()}")
+        L.append(f"   CA           {_m(self.montant, self.devise)}")
+        return L
+
     def en_texte(self, avec_detail_score=False) -> str:
         L = [f"{self.type.emoji} {self.type.value} — {self.titre}"]
         if self.lot:
             L.append(f"   (LOT {self.lot} du marché {self.marche_parent})")
         L.append("")
+        # ── CE QU'ON LIT EN DIX SECONDES ─────────────────────────────────
+        L += self._entete_commercial()
+        L += ["", "─" * 66, ""]
 
         # Quatre dimensions, quatre lignes. Jamais mélangées.
         if self.etat is not None and self.etat_libelle:
