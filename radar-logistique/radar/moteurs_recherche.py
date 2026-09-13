@@ -31,6 +31,14 @@ class Resultat:
     requete: str
     fournisseur: str
     consulte_le: str | None = None
+    # La place du résultat dans la liste rendue par le moteur. Elle sert au
+    # DIAGNOSTIC de capteur et aux métriques de rappel — savoir si un moteur
+    # met l'utile en tête ou en queue. Elle n'entre dans AUCUN score : un
+    # besoin trouvé au dixième rang vaut exactement celui trouvé au premier.
+    rang: int | None = None
+    # La page où ce lien a été lu, quand il ne vient pas d'un moteur mais
+    # d'une page déjà collectée. None pour un résultat de moteur.
+    page_source: str | None = None
 
     def en_charge(self) -> dict:
         """Le résultat, sous la forme que lit `sources/google.yaml`.

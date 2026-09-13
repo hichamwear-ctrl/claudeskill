@@ -273,6 +273,18 @@ def cmd_surveiller(a) -> int:
     return 0
 
 
+def cmd_trouvailles(a) -> int:
+    """Ce qu'un moteur a MONTRÉ — et ce qui n'a jamais été lu."""
+    from . import trouvailles as mod
+    cx = ouvrir(_base(a), lecture_seule=True)
+    print(mod.rapport(cx))
+    if a.detail:
+        print()
+        for t in mod.toutes(cx, limite=a.limite):
+            print("  " + t.ligne())
+    return 0
+
+
 def cmd_identifier(a) -> int:
     """Dire au radar DE QUI il s'agit — ou lister ce qu'il ignore.
 
@@ -913,6 +925,11 @@ def principal(argv=None) -> int:
     su = s.add_parser("surveiller", help="ajouter manuellement une entreprise")
     su.add_argument("nom"); su.add_argument("--domaine")
     su.set_defaults(fn=cmd_surveiller)
+
+    tr = s.add_parser("trouvailles", help="ce qu'un moteur a montré, jamais lu")
+    tr.add_argument("--detail", action="store_true")
+    tr.add_argument("--limite", type=int, default=40)
+    tr.set_defaults(fn=cmd_trouvailles)
 
     idf = s.add_parser("identifier", help="l'identité d'une entreprise — jamais devinée")
     idf.add_argument("entreprise", nargs="?", help="nom ou clé au registre")

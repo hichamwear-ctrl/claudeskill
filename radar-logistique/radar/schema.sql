@@ -227,6 +227,47 @@ CREATE TABLE IF NOT EXISTS titulaires (
 );
 CREATE INDEX IF NOT EXISTS idx_titulaires_avis ON titulaires(avis_id);
 
+-- TROUVAILLES — ce qu'un moteur a MONTRÉ, avant toute décision.
+--
+--     URL DÉCOUVERTE ≠ PAGE COLLECTÉE ≠ CONTENU ANALYSÉ ≠ OPPORTUNITÉ
+--
+-- Une URL rendue par un moteur N'A PAS été lue par le radar. Elle entre donc
+-- ici avec `collecte = 'JAMAIS CONSULTÉE'`, et rien ne le change à part une
+-- collecte réelle. Confondre « un moteur me l'a montrée » et « je l'ai lue »
+-- ferait passer un titre de résultat pour une page consultée.
+--
+-- `mode` dit si la trouvaille vient d'une FIXTURE (DEMO) ou d'un moteur RÉEL.
+-- Une fixture éprouve le mécanisme ; elle ne mesure AUCUN marché. Les deux ne
+-- se comptent jamais ensemble.
+--
+-- `rang` est la place du résultat dans la liste rendue par le moteur. Il sert
+-- au DIAGNOSTIC de capteur et aux métriques de rappel. Il n'entre dans AUCUN
+-- score : voir radar/circuit.py pour la même règle appliquée au circuit.
+--
+-- La même URL rendue par DEUX moteurs fait DEUX trouvailles : ce sont deux
+-- observations distinctes, et c'est précisément ce qui permet de mesurer le
+-- recouvrement entre moteurs. La déduplication se fait à la lecture.
+CREATE TABLE IF NOT EXISTS trouvailles (
+    id            INTEGER PRIMARY KEY,
+    url           TEXT NOT NULL,
+    source        TEXT NOT NULL,     -- le moteur ou la source qui l'a rendue
+    requete       TEXT,              -- la requête qui l'a fait apparaître
+    rang          INTEGER,           -- place dans la liste rendue — diagnostic
+    titre         TEXT,              -- tel que rendu, jamais réécrit
+    extrait       TEXT,              -- idem
+    page_source   TEXT,              -- la page où le lien a été lu, si applicable
+    circuit       TEXT,              -- SOURCE_CONNUE | SOURCE_DÉCOUVERTE
+    mode          TEXT NOT NULL,     -- DEMO (fixture) | RÉEL
+    collecte      TEXT NOT NULL DEFAULT 'JAMAIS CONSULTÉE',
+    collecte_le   TEXT,              -- quand la collecte a été TENTÉE
+    motif         TEXT,              -- le détail du dernier accès
+    decouverte_le TEXT NOT NULL,
+    UNIQUE (url, source, requete)
+);
+CREATE INDEX IF NOT EXISTS idx_trouvailles_url ON trouvailles(url);
+CREATE INDEX IF NOT EXISTS idx_trouvailles_source ON trouvailles(source, mode);
+CREATE INDEX IF NOT EXISTS idx_trouvailles_collecte ON trouvailles(collecte);
+
 -- PAGES SURVEILLÉES — une entreprise a des PAGES, pas « un domaine ».
 --
 -- Une page n'entre ici que si elle a été réellement rencontrée : découverte,
