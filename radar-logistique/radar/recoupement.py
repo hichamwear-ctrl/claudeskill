@@ -46,6 +46,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .deduplication import canoniser_url
+from .execution import Execution, de_source
 from .mode import Mode
 from .trouvailles import toutes as toutes_trouvailles
 
@@ -178,6 +179,11 @@ def metriques_moteurs(cx, *, mode: Mode | None = None, declares=None,
     `interroges` : les moteurs qu'on a réellement interrogés. Ceux qui n'ont
     rien rendu affichent 0 — ils ont répondu, leur silence est un fait.
     `declares` : les moteurs connus mais non interrogés, avec leur motif.
+
+    Chaque ligne porte en plus sa NATURE D'EXÉCUTION : ce que le radar a
+    interrogé lui-même, ce qu'on lui a remis, ce qui est fabriqué. Sans elle,
+    un export remis de l'extérieur se lirait comme une performance du radar —
+    et les deux se compteraient ensemble.
     """
     groupes = grouper(toutes_trouvailles(cx, mode=mode))
     par_source: dict[str, dict] = {}
@@ -194,11 +200,15 @@ def metriques_moteurs(cx, *, mode: Mode | None = None, declares=None,
         for o in g.observations:
             c = par_source[o.source]
             c["resultats"] += 1
+            c.setdefault("modes", set()).add(o.mode)
             if o.requete:
                 c["requetes"].add(o.requete)
 
     for source, c in par_source.items():
         c["requetes"] = len(c["requetes"])
+        modes = c.pop("modes", set())
+        c["nature"] = de_source(source,
+                                Mode.REEL if Mode.REEL in modes else None).value
         # Part de ce que ce moteur a montré que PERSONNE d'autre n'a montré.
         c["apport_propre"] = (c["uniques"] / c["urls"]) if c["urls"] else 0.0
         c["recouvrement"] = (c["partagees"] / c["urls"]) if c["urls"] else 0.0
@@ -209,7 +219,8 @@ def metriques_moteurs(cx, *, mode: Mode | None = None, declares=None,
             continue
         par_source[nom] = {"resultats": 0, "urls": 0, "uniques": 0,
                            "partagees": 0, "requetes": 0, "apport_propre": 0.0,
-                           "recouvrement": 0.0, "mesure": True, "muet": True}
+                           "recouvrement": 0.0, "mesure": True, "muet": True,
+                           "nature": de_source(nom, mode).value}
 
     for nom, motif in (declares or {}).items():
         if nom in par_source:
@@ -219,6 +230,7 @@ def metriques_moteurs(cx, *, mode: Mode | None = None, declares=None,
                            "uniques": NON_MESURE, "partagees": NON_MESURE,
                            "requetes": NON_MESURE, "apport_propre": None,
                            "recouvrement": None, "mesure": False,
+                           "nature": Execution.NON_MESUREE.value,
                            "motif": motif}
     return par_source
 
@@ -279,20 +291,24 @@ def rapport(cx, *, mode: Mode | None = None, declares=None,
                           interroges=interroges)
     L.append("")
     L.append("PAR MOTEUR — le volume ET l'apport propre, côte à côte")
-    L.append(f"  {'MOTEUR':<16} {'RÉSULTATS':>10} {'URL':>7} {'UNIQUES':>8} "
-             f"{'PARTAGÉES':>10} {'APPORT':>8}")
+    L.append(f"  {'MOTEUR':<20} {'RÉSULTATS':>10} {'URL':>7} {'UNIQUES':>8} "
+             f"{'PARTAGÉES':>10} {'APPORT':>8}   NATURE")
     for source, c in sorted(m.items()):
         if not c["mesure"]:
-            L.append(f"  {source[:16]:<16} {NON_MESURE:>10}   "
+            L.append(f"  {source[:20]:<20} {NON_MESURE:>10}   "
                      f"NON DISPONIBLE — {c.get('motif') or 'motif non précisé'}")
             continue
-        ligne = (f"  {source[:16]:<16} {c['resultats']:>10} {c['urls']:>7} "
+        ligne = (f"  {source[:20]:<20} {c['resultats']:>10} {c['urls']:>7} "
                  f"{c['uniques']:>8} {c['partagees']:>10} "
-                 f"{c['apport_propre']:>7.0%}")
+                 f"{c['apport_propre']:>7.0%}   {c.get('nature', NON_MESURE)}")
         if c.get("muet"):
             ligne += "   interrogé, aucun résultat — c'est une mesure"
         L.append(ligne)
     L.append("")
+    L.append("  « NATURE » dit QUI a exécuté la recherche. Un export remis au")
+    L.append("  radar n'est pas une performance du radar : les deux ne se")
+    L.append("  comptent jamais ensemble, et portent des noms de source")
+    L.append("  distincts pour que ce soit impossible.")
     L.append("  « APPORT » = part des pages que ce moteur a montrées et que")
     L.append("  personne d'autre n'a montrées. Un moteur qui rend dix pages")
     L.append("  dont huit inédites vaut plus qu'un moteur qui en rend cent")

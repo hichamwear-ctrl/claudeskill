@@ -1,0 +1,33 @@
+{
+  "_avertissement": [
+    "EXEMPLE DE FORMAT. Les adresses sont en .example : elles n'existent pas.",
+    "Ce fichier ne mesure AUCUN marché. Il montre la forme qu'un export",
+    "produit hors du radar doit avoir pour être accepté."
+  ],
+  "provenance": "EXÉCUTÉ HORS RADAR",
+  "moteur": "moteur-exemple",
+  "date_execution": "2026-09-12T09:30:00+00:00",
+  "resultats": [
+    {
+      "requete": "sous-traitance transport Belgique",
+      "url": "https://transporteur-exemple.example/partenaires",
+      "titre": "Nous recherchons des partenaires de livraison",
+      "extrait": "Notre réseau s'étend en Wallonie. Nous cherchons des sous-traitants disposant de véhicules utilitaires.",
+      "rang": 1
+    },
+    {
+      "requete": "sous-traitance transport Belgique",
+      "url": "https://logistique-exemple.example/appel-partenaires",
+      "titre": "Appel à partenaires logistiques",
+      "extrait": "Distribution de colis en Belgique — capacité recherchée à partir de janvier.",
+      "rang": 2
+    },
+    {
+      "requete": "recherche transporteur dépôt",
+      "url": "https://presse-fictive.example/actualites/depot-gand",
+      "titre": "Fictif SA ouvre un dépôt à Gand",
+      "extrait": "L'entreprise annonce l'ouverture d'une plateforme de tri.",
+      "rang": 1
+    }
+  ]
+}

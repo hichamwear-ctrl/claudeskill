@@ -466,3 +466,37 @@ CREATE TABLE IF NOT EXISTS cycles (
     echecs_lecture INTEGER NOT NULL DEFAULT 0,
     detail TEXT
 );
+
+-- EXÉCUTIONS DE RECHERCHE — « qui a interrogé quoi », séparé de « ce qui a
+-- été montré ».
+--
+-- Le journal des trouvailles ne peut pas répondre à « cette requête a-t-elle
+-- été passée ? » : une requête qui ne rend rien n'y laisse aucune ligne, et
+-- l'on ne saurait pas distinguer
+--     0 résultat   (interrogé, rien rendu — c'est une MESURE)
+-- de  NON MESURÉ   (jamais interrogé — ce n'est PAS zéro).
+-- Cette table porte cette distinction, et elle seule.
+--
+-- `execution_par` vaut RADAR ou « EXÉCUTÉ HORS RADAR ». Un import ne peut
+-- donc jamais être présenté comme une recherche exécutée par le radar : la
+-- provenance est écrite en base, pas déduite.
+--
+-- `empreinte` est celle du FICHIER importé. Réimporter le même fichier met la
+-- ligne à jour ; importer un fichier différent en crée une autre, même pour
+-- la même requête : ce sont deux exécutions.
+CREATE TABLE IF NOT EXISTS executions_recherche (
+    id             INTEGER PRIMARY KEY,
+    moteur_declare TEXT NOT NULL,     -- le nom tel que le fichier le déclare
+    source         TEXT NOT NULL,     -- le nom QUALIFIÉ écrit dans trouvailles
+    requete        TEXT,
+    execution_par  TEXT NOT NULL,
+    date_execution TEXT,              -- déclarée, telle quelle, jamais devinée
+    fichier        TEXT,
+    empreinte      TEXT,
+    resultats      INTEGER NOT NULL DEFAULT 0,
+    refuses        INTEGER NOT NULL DEFAULT 0,
+    importe_le     TEXT NOT NULL,
+    UNIQUE (source, requete, empreinte)
+);
+CREATE INDEX IF NOT EXISTS idx_executions_source
+    ON executions_recherche(source, execution_par);

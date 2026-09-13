@@ -1,0 +1,3 @@
+provenance,moteur,date_execution,requete,url,titre,extrait,rang
+EXÉCUTÉ HORS RADAR,autre-moteur-exemple,2026-09-12T10:00:00+00:00,sous-traitance transport Belgique,https://transporteur-exemple.example/partenaires,Nous recherchons des partenaires de livraison,Réseau en Wallonie — sous-traitants recherchés.,3
+EXÉCUTÉ HORS RADAR,autre-moteur-exemple,2026-09-12T10:00:00+00:00,sous-traitance transport Belgique,https://autre-exemple.example/emplois/chauffeur,Offre d'emploi chauffeur,Recrutement d'un chauffeur en CDI.,4
