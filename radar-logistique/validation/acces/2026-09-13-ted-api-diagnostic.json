@@ -1,0 +1,81 @@
+{
+ "_statut": "api.ted.europa.eu — BLOQUÉ À L'EGRESS. 0 OCTET REÇU DE TED.",
+ "_avertissement": "Non inscrit au registre : aucune donnée observée. DONNÉES RÉELLES OBSERVÉES reste à 7 ; E et G restent NON MESURÉES.",
+ "tente_le": "2026-09-13T08:35:22+00:00",
+ "cible": "api.ted.europa.eu — priorité n°1",
+ "moteur_touche": "AUCUN",
+ "diagnostic_en_cinq_niveaux": {
+  "A · DNS": {
+   "verdict": "RÉSOLU",
+   "enregistrements": "8 AAAA",
+   "CNAME": "ds8ssaxg9oz5r.cloudfront.net",
+   "exemples": [
+    "2600:9000:250c:9800:1e:df90:3fc0:93a1",
+    "2600:9000:250c:3a00:1e:df90:3fc0:93a1"
+   ],
+   "IPv4 retenue à la connexion": "18.154.101.77",
+   "note": "Le DNS FONCTIONNE. Écrire « DNS bloqué » serait faux."
+  },
+  "B · CONNEXION HTTPS / proxy": {
+   "via le proxy": "BLOQUÉE — CONNECT api.ted.europa.eu:443 → HTTP/1.1 403 Forbidden",
+   "hors proxy": "TCP ÉTABLIE vers 18.154.101.77:443, TLS et HTTP/2 négociés — mais avec un GATEWAY D'INTERCEPTION, pas avec TED",
+   "preuve que ce n'est pas TED": "la réponse porte l'en-tête x-deny-reason et pèse 104 octets de text/plain"
+  },
+  "C · HTTP": {
+   "code reçu": "403",
+   "émis par": "le gateway d'egress",
+   "en-tête": "x-deny-reason: host_not_allowed",
+   "corps": "Host not in allowlist: api.ted.europa.eu. Add this host to your network egress settings to allow access.",
+   "code HTTP reçu de TED": "AUCUN"
+  },
+  "D · CONTENU": {
+   "octets reçus du gateway": 104,
+   "octets reçus de TED": 0
+  },
+  "E · CAUSE": {
+   "DNS": "NON — résolution correcte",
+   "TCP / HTTPS": "NON — la pile réseau fonctionne, le handshake aboutit",
+   "serveur distant": "NON — TED n'a jamais été joint, il n'a rien refusé",
+   "proxy / egress": "OUI — liste blanche de l'environnement",
+   "inconnue": "NON"
+  }
+ },
+ "endpoint_exact_du_collecteur": {
+  "requête": "POST https://api.ted.europa.eu/v3/notices/search",
+  "corps": "{\"query\":\"classification-cpv=60000000\",\"page\":1,\"limit\":2,\"scope\":\"ALL\",\"paginationMode\":\"PAGE_NUMBER\"}",
+  "résultat": "CONNECT tunnel failed, 403 · code=000 · 0 octet"
+ },
+ "temoin": {
+  "hote": "https://pypi.org/project/requests/",
+  "resultat": "200 · 251 417 octets · même client, même instant"
+ },
+ "allowlist_observee": {
+  "api.ted.europa.eu présent ?": false,
+  "hôtes autorisés": [
+   "api.anthropic.com",
+   "registry.npmjs.org",
+   "jsr.io",
+   "npm.jsr.io",
+   "pypi.org",
+   "files.pythonhosted.org",
+   "index.crates.io",
+   "proxy.golang.org"
+  ],
+  "lu depuis": "$HTTPS_PROXY/__agentproxy/status"
+ },
+ "etat_du_collecteur_existant": {
+  "outils/collecter_ted.py": "présent, non modifié, jamais exécuté contre une réponse réelle",
+  "sources/ted.yaml": "présent, non modifié, verifie: false — 40 champs déclarés, 0 mesuré",
+  "ce que ted.yaml déclare déjà pour la famille E": "attribue ← [awarded, contract-awarded] · titulaire ← [winner.name, contractor.name] · attribue_le ← [award-date, conclusion-date] · types_information « contract-award » et « can-standard » → interpretation: attribue, confiance: elevee",
+  "statuts observés": "{} — aucune valeur de statut réellement observée à ce jour"
+ },
+ "a_executer_des_l_ouverture": [
+  "1. Test minimal AVANT le collecteur : GET https://api.ted.europa.eu/ → code, taille, type de contenu.",
+  "2. POST /v3/notices/search avec limit=2 → prouver que le serveur TED répond, et conserver le corps brut.",
+  "3. `python -m radar.cli recenser --source ted --echantillon <réponse>` → mesurer lesquels des 40 champs déclarés existent réellement. Tout champ à 0 % se corrige dans le YAML, jamais dans le code.",
+  "4. Ne corriger l'en-tête de collecter_ted.py (« l'URL et le format n'ont PAS pu être vérifiés ») QUE si le serveur a réellement répondu.",
+  "5. Prédiction figée AVANT collecte, pour le test P1-B : sur TED, l'attribution est portée par des CHAMPS STRUCTURÉS (notice-type = contract-award) et non par le mot « attribution » dans un texte. Si le moteur conclut correctement via le champ, P1-B ne sera PAS reproduit sur cette famille — ce qui ne l'infirmerait pas pour autant sur du texte libre. Il faudra chercher les cas où le texte et le champ divergent.",
+  "6. Prédiction figée pour le test META : les réponses TED sont du JSON sans balisage HTML, donc sans <meta description>. La famille E ne pourra ni reproduire ni infirmer l'anomalie Colis Privé — il faudra une page HTML pour cela. À dire, pas à contourner."
+ ],
+ "conclusion": "Le prochain progrès nécessite l'ouverture de api.ted.europa.eu dans l'allowlist réseau. Le problème est l'environnement, pas le radar."
+}
