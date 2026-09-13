@@ -15,11 +15,26 @@ FIXTURE ET RÉEL NE SE COMPTENT JAMAIS ENSEMBLE
 
 Une fixture éprouve le mécanisme ; elle ne mesure AUCUN marché. Le mode est
 porté par chaque trouvaille et les rapports les séparent toujours. Tant
-qu'aucun moteur réel n'a fonctionné, le rapport écrit :
+qu'aucune trouvaille réelle n'existe, le rapport écrit :
 
-    DÉCOUVERTE RÉELLE : NON MESURÉE
+    TROUVAILLES EN MODE RÉEL : NON MESURÉE
 
 et ce n'est pas un zéro : c'est l'absence de mesure.
+
+CE RAPPORT NE DIT PAS QUI A EXÉCUTÉ LA RECHERCHE
+================================================
+
+Le mode répond à « fabriqué ou réel », et à rien d'autre. Des résultats réels
+peuvent avoir été obtenus par le radar lui-même OU remis par un export produit
+ailleurs : les deux sont réels, et ce compte les additionne.
+
+L'intitulé est donc NEUTRE. Il ne l'était pas, et cela a suffi : « DÉCOUVERTE
+RÉELLE » se lisait « le radar a cherché », alors que le radar pouvait n'avoir
+interrogé personne. Un rapport qui peut se lire de travers finit par être lu
+de travers.
+
+Qui a exécuté la recherche se lit dans `execution.rapport()`, qui sépare
+RECHERCHE RÉELLE PAR LE RADAR · RÉSULTAT IMPORTÉ · FIXTURE · NON MESURÉ.
 
 LE RANG NE NOTE RIEN
 ====================
@@ -284,9 +299,9 @@ def rapport(cx) -> str:
     reel, demo = m[Mode.REEL.value], m[Mode.DEMO.value]
     L = ["TROUVAILLES — ce qu'un moteur a MONTRÉ", "=" * 84, ""]
 
-    L.append("DÉCOUVERTE RÉELLE")
+    L.append("TROUVAILLES EN MODE RÉEL")
     if reel["trouvailles"] == 0:
-        L.append("  NON MESURÉE — aucun moteur externe n'a fonctionné.")
+        L.append("  NON MESURÉE — aucune trouvaille en mode réel.")
         L.append("  Ce n'est pas zéro trouvaille : c'est l'absence de mesure.")
     else:
         for cle, libelle in (("trouvailles", "trouvailles"),
@@ -297,6 +312,10 @@ def rapport(cx) -> str:
                              ("erreurs", "erreurs"),
                              ("non_disponibles", "non disponibles")):
             L.append(f"  {libelle:<22} {reel[cle]}")
+        L.append("  Ce compte ne dit PAS qui a exécuté la recherche : le radar")
+        L.append("  lui-même, ou un export produit ailleurs et remis au radar.")
+        L.append("  Les sources le disent ligne à ligne ci-dessous ; la")
+        L.append("  répartition complète est dans `execution.rapport()`.")
 
     L.append("")
     L.append("FIXTURE — éprouve le mécanisme, ne mesure AUCUN marché")

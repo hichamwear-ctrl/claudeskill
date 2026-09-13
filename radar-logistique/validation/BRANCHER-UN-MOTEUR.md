@@ -140,6 +140,13 @@ ligne, avec leur motif.
 `radar/execution.py` les porte ; `execution.rapport(cx)` est le seul rapport
 qui les sépare tous les quatre.
 
+`trouvailles.rapport()` répond, lui, à une autre question — « fabriqué ou
+réel ? » — et son intitulé est donc **neutre** : `TROUVAILLES EN MODE RÉEL`,
+et non « découverte réelle ». Le mode ne dit pas qui est allé chercher : des
+résultats réels peuvent venir du radar **ou** d'un export. Un test de
+non-régression interdit à l'intitulé ambigu de revenir, dans ce rapport comme
+dans tout autre.
+
 **Un import ne peut pas gonfler les chiffres d'un moteur réellement
 interrogé** : la source est qualifiée par le préfixe `import:`, donc
 `un-moteur` et `import:un-moteur` sont deux sources distinctes dans toutes les
@@ -162,7 +169,7 @@ quelle source autorisée le jour où elle existe.
 | Bing Search API | 🔴 **RETIRÉE** | service arrêté par l'éditeur |
 | Brave Search API | 🟠 **À VÉRIFIER** | 8e-3 : aucune clause n'a pu être lue. `brave.com` et `api-dashboard.search.brave.com` sont hors du mur d'egress (HTTP 000). **DOCUMENTATION NON ACCESSIBLE — NON MESURÉ** |
 | SerpAPI, Serper, et autres revendeurs | ⚪ **NON MESURÉS** | jamais testés, conditions jamais lues, aucun accès depuis cet environnement |
-| Export produit hors radar | 🟢 **DISPONIBLE** | `radar/import_externe.py`, éprouvé par 63 tests — mais **le fichier reste à produire ailleurs**, et les conditions du moteur qui le produit restent celles du moteur |
+| Export produit hors radar | 🟢 **DISPONIBLE** | `radar/import_externe.py`, éprouvé par 72 tests — mais **le fichier reste à produire ailleurs**, et les conditions du moteur qui le produit restent celles du moteur |
 
 ⚠️ Le dernier point mérite d'être dit en clair : **déplacer la machine ne
 déplace pas la restriction contractuelle.** L'import résout le problème

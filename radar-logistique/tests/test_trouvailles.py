@@ -83,7 +83,7 @@ class FixtureEtReelNeSeComptentJamaisEnsemble(unittest.TestCase):
     def test_1_sans_moteur_reel_la_decouverte_est_NON_MESUREE(self):
         tr.inscrire(self.cx, resultat("https://exemple.be/a"), mode=Mode.DEMO)
         texte = tr.rapport(self.cx)
-        self.assertIn("DÉCOUVERTE RÉELLE", texte)
+        self.assertIn("TROUVAILLES EN MODE RÉEL", texte)
         self.assertIn("NON MESURÉE", texte)
         self.assertIn("Ce n'est pas zéro", texte)
 
@@ -339,7 +339,7 @@ class UneFixtureNePeutPasSeFairePasserPourReelle(unittest.TestCase):
         self.assertEqual(m[Mode.REEL.value]["trouvailles"], 0)
         self.assertGreater(m[Mode.DEMO.value]["trouvailles"], 0)
         texte = tr.rapport(self.cx)
-        self.assertIn("DÉCOUVERTE RÉELLE", texte)
+        self.assertIn("TROUVAILLES EN MODE RÉEL", texte)
         self.assertIn("NON MESURÉE", texte)
 
     def test_6_elle_ne_cree_aucune_fausse_consultation(self):

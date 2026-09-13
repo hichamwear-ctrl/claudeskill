@@ -661,5 +661,93 @@ class F_CompatibiliteAvecLesEtapes8aA8d(unittest.TestCase):
         self.assertEqual(len(ex.executions(self.cx)), 1)
 
 
+# ═════════════════════════════════════════════════ 8e-4-CORRECTION
+class G_AucunRapportNePresenteUnImportCommeUneRechercheDuRadar(unittest.TestCase):
+    """NON-RÉGRESSION — l'intitulé ambigu ne peut pas revenir.
+
+    `trouvailles.rapport()` écrivait « DÉCOUVERTE RÉELLE » au-dessus d'un
+    compte qui additionne deux choses différentes : ce que le radar a trouvé
+    lui-même et ce qu'on lui a remis. Le chiffre était juste ; l'intitulé,
+    lui, se lisait « le radar a cherché » — alors que le radar pouvait
+    n'avoir interrogé personne.
+
+    Le mode répond à « fabriqué ou réel ». Il ne répond pas à « qui est allé
+    chercher ». L'intitulé est donc neutre, et la réponse à la seconde
+    question vit dans `execution.rapport()`.
+    """
+
+    # Des affirmations, pas des mots isolés : ces rapports ont le DROIT de
+    # parler du radar pour expliquer une règle. Ce qu'ils n'ont pas le droit
+    # de faire, c'est d'AFFIRMER que le radar a exécuté la recherche.
+    AFFIRMATIONS = ("découverte réelle", "recherche réelle par le radar",
+                    "recherche exécutée par le radar", "trouvé par le radar",
+                    "interrogé par le radar", "le radar a cherché")
+
+    def setUp(self):
+        self.cx = ouvrir(":memory:")
+        a = charger([ligne("https://exemple.be/a", moteur="moteur-a"),
+                     ligne("https://exemple.be/b", moteur="moteur-b")])
+        imp.inscrire(self.cx, a)
+
+    def test_1_l_intitule_ambigu_a_disparu_du_rapport(self):
+        self.assertNotIn("DÉCOUVERTE RÉELLE", tr.rapport(self.cx))
+        self.assertIn("TROUVAILLES EN MODE RÉEL", tr.rapport(self.cx))
+
+    def test_2_l_intitule_ambigu_a_disparu_du_code(self):
+        """Pour qu'il ne puisse pas revenir par un autre rapport."""
+        for chemin in sorted(pathlib.Path("radar").glob("*.py")):
+            source = chemin.read_text(encoding="utf-8")
+            self.assertNotIn("DÉCOUVERTE RÉELLE", source, str(chemin))
+
+    def test_3_aucun_rapport_n_affirme_que_le_radar_a_cherche(self):
+        for nom, texte in (("trouvailles", tr.rapport(self.cx)),
+                           ("recoupement", recoupement.rapport(self.cx))):
+            for affirmation in self.AFFIRMATIONS:
+                self.assertNotIn(affirmation, texte.lower(),
+                                 f"{nom} : « {affirmation} »")
+
+    def test_4_l_import_reste_visible_il_n_est_pas_masque(self):
+        """Corriger l'intitulé ne doit pas faire disparaître l'information.
+
+        « pas de disparition silencieuse » vaut aussi pour une correction de
+        rapport : l'origine importée doit rester lisible.
+        """
+        for texte in (tr.rapport(self.cx), recoupement.rapport(self.cx)):
+            self.assertIn(ex.PREFIXE, texte)
+
+    def test_5_le_rapport_renvoie_a_celui_qui_tranche_la_question(self):
+        self.assertIn("execution.rapport()", tr.rapport(self.cx))
+
+    def test_6_execution_conserve_les_quatre_etats(self):
+        texte = ex.rapport(self.cx)
+        for etat in ex.Execution:
+            self.assertIn(etat.value, texte, etat.value)
+
+    def test_7_execution_dit_que_le_radar_n_a_rien_interroge(self):
+        m = ex.metriques(self.cx)
+        self.assertEqual(m[ex.Execution.RADAR.value], 0)
+        self.assertEqual(m[ex.Execution.IMPORT_EXTERNE.value], 2)
+        self.assertIn("Le radar n'a interrogé aucun moteur", ex.rapport(self.cx))
+
+    def test_8_symetrie_une_vraie_recherche_du_radar_est_bien_comptee(self):
+        """La correction ne doit pas rendre la recherche réelle invisible."""
+        tr.inscrire(self.cx, Resultat(titre="T", url="https://exemple.be/c",
+                                      extrait="E", requete="q",
+                                      fournisseur="moteur-c", rang=1),
+                    mode=Mode.REEL, source="moteur-c")
+        m = ex.metriques(self.cx)
+        self.assertEqual(m[ex.Execution.RADAR.value], 1)
+        self.assertNotIn("Le radar n'a interrogé aucun moteur",
+                         ex.rapport(self.cx))
+
+    def test_9_aucun_calcul_n_a_bouge(self):
+        """La correction est un INTITULÉ. Les chiffres sont inchangés."""
+        m = tr.metriques(self.cx)
+        self.assertEqual(m[Mode.REEL.value]["trouvailles"], 2)
+        self.assertEqual(m[Mode.REEL.value]["urls_uniques"], 2)
+        self.assertEqual(m[Mode.DEMO.value]["trouvailles"], 0)
+        self.assertEqual(recoupement.metriques_rappel(self.cx)["resultats_bruts"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

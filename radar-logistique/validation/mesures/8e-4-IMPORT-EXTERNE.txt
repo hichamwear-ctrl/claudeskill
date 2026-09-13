@@ -161,11 +161,17 @@ CHAÎNAGE DES TROUVAILLES
     Une adresse montrée n'est pas une page lue. Une page lue n'est pas
     un contenu analysé. Un contenu analysé n'est pas une opportunité.
 
-── 8. LIMITE CONNUE DU RAPPORT 8a ───────────────────────────────────────────────────
+── 8. INTITULÉ DU RAPPORT 8a — APRÈS LA CORRECTION 8e-4 ────────────────────────────
+
+AVANT :  « DÉCOUVERTE RÉELLE »  au-dessus de ces 5 trouvailles importées.
+         Le chiffre était juste, l'intitulé se lisait « le radar a cherché »
+         alors que le radar n'avait interrogé PERSONNE.
+
+APRÈS :
 TROUVAILLES — ce qu'un moteur a MONTRÉ
 ====================================================================================
 
-DÉCOUVERTE RÉELLE
+TROUVAILLES EN MODE RÉEL
   trouvailles            5
   URL uniques            4
   sources                2
@@ -174,14 +180,22 @@ DÉCOUVERTE RÉELLE
   collectées             0
   erreurs                0
   non disponibles        0
+  Ce compte ne dit PAS qui a exécuté la recherche : le radar
+  lui-même, ou un export produit ailleurs et remis au radar.
+  Les sources le disent ligne à ligne ci-dessous ; la
+  répartition complète est dans `execution.rapport()`.
 
 FIXTURE — éprouve le mécanisme, ne mesure AUCUN marché
   120 trouvaille(s) · 108 URL unique(s) · 120 NON COLLECTÉE(S) · 0 collectée(s)
   Ces chiffres ne disent RIEN du marché belge.
 
+    L'intitulé est neutre : le mode dit « fabriqué ou réel », il ne dit
+    pas qui est allé chercher. Les 5 trouvailles restent visibles, avec
+    leur source « import:… ». La répartition qui tranche la question
+    est celle du point 4 :
 
-    ⚠ « DÉCOUVERTE RÉELLE » compte ici les 5 trouvailles importées.
-    Le radar n'a pourtant interrogé AUCUN moteur. Le nom de source
-    « import:… » les distingue ligne à ligne, mais l'en-tête, lui, ne
-    porte pas la distinction — `trouvailles.py` n'a pas été modifié.
-    Le rapport qui la porte est celui du point 4.
+        RECHERCHE RÉELLE PAR LE RADAR               0
+        RÉSULTAT IMPORTÉ — RECHERCHE EXTERNE        5
+        FIXTURE / DEMO                            120
+
+    Aucun calcul n'a changé : 5 trouvailles importées avant, 5 après.
