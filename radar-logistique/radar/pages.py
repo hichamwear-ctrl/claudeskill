@@ -271,3 +271,64 @@ def rapport(cx) -> str:
         L.append(f"  {compte[Acces.JAMAIS_CONSULTEE]} page(s) n'ont JAMAIS été "
                  "consultées : on ne sait rien de leur contenu.")
     return "\n".join(L)
+
+
+# ═════════════════════════════ ALIMENTATION AUTOMATIQUE
+#
+# Cinq objets, et ils ne se confondent JAMAIS :
+#
+#     ENTREPRISE IDENTIFIÉE   une raison sociale, au registre des entreprises
+#     PAGE IDENTIFIÉE         une URL qui existe et qu'on a vue
+#     PAGE CANDIDATE          retenue par le filtre, pas encore décidée
+#     PAGE SURVEILLÉE         dans la rotation des visites, avec sa raison
+#     OPPORTUNITÉ             un besoin, produit par la chaîne d'analyse
+#
+# Ce qui suit fabrique des PAGES. Jamais des entreprises, jamais des
+# opportunités. Un domaine n'est pas une raison sociale.
+
+def depuis_liens(cx, candidats, *, entreprise=None, source="page surveillée",
+                 circuit=None) -> dict:
+    """Inscrit des liens RETENUS comme pages candidates, et promeut celles qui
+    portent un indice fort.
+
+    Rend un décompte : {"candidates": n, "promues": n, "deja_connues": n}.
+    Une page déjà connue n'est ni dupliquée ni rétrogradée : on lui ajoute
+    seulement une provenance de plus.
+    """
+    bilan = {"candidates": 0, "promues": 0, "deja_connues": 0}
+    for c in candidats or []:
+        existante = lire(cx, c.url)
+        if existante is not None:
+            bilan["deja_connues"] += 1
+        rencontrer(cx, c.url, entreprise=entreprise, provenance=DECOUVERTE,
+                   source=source, circuit=circuit, raison=c.raison(),
+                   libelle=c.libelle or None)
+        if existante is None:
+            bilan["candidates"] += 1
+        # La promotion n'a lieu que sur indice FORT, et seulement si la page
+        # n'est pas DÉJÀ surveillée ou écartée : on ne réveille pas une page
+        # que l'exploitant a écartée à la main.
+        if c.promouvable and (existante is None
+                              or existante.statut is Statut.CANDIDATE):
+            promouvoir(cx, c.url, c.pertinence.raison())
+            bilan["promues"] += 1
+    return bilan
+
+
+def depuis_opportunite(cx, opp, *, entreprise=None, circuit=None) -> int:
+    """Les URL OBSERVÉES dans un avis deviennent des pages CANDIDATES.
+
+    Jamais surveillées automatiquement : l'URL d'un dossier sur un portail
+    public n'est pas la page d'une entreprise, et la promouvoir remplirait la
+    rotation de pages de procédure. Elle est retenue parce qu'elle a été vue,
+    et c'est tout ce qu'on en sait.
+    """
+    n = 0
+    for url in (getattr(opp, "lien_dossier", None), getattr(opp, "plateforme", None)):
+        if not url or not str(url).startswith(("http://", "https://")):
+            continue
+        rencontrer(cx, url, entreprise=entreprise, provenance=OBSERVEE,
+                   source=getattr(opp, "source", None) or "avis", circuit=circuit,
+                   raison="URL observée dans un avis")
+        n += 1
+    return n

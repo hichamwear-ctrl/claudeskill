@@ -141,6 +141,7 @@ class PassageVeille:
     changement: str = ""
     opportunites: int = 0
     motif: str = ""
+    hors_metier: bool = False      # la porte l'a écartée avant la chaîne
 
 
 @dataclass
@@ -162,6 +163,12 @@ class TraceVeille:
     @property
     def pages_modifiees(self) -> int:
         return sum(1 for p in self.passages if p.changement == "MODIFIÉE")
+
+    @property
+    def pages_non_commerciales(self) -> int:
+        """Le texte a bougé, mais rien n'y rattache notre métier. Enregistré,
+        jamais analysé, JAMAIS supprimé."""
+        return sum(1 for p in self.passages if p.hors_metier)
 
     @property
     def pages_changees_techniquement(self) -> int:
@@ -199,6 +206,8 @@ class TraceVeille:
         L.append(f"  pages modifiées           {self.pages_modifiees}")
         L.append(f"    dont purement techniques  "
                  f"{self.pages_changees_techniquement}  (enregistrées, non analysées)")
+        L.append(f"    dont hors métier          "
+                 f"{self.pages_non_commerciales}  (enregistrées, non analysées)")
         L.append(f"  opportunités générées     {self.opportunites}")
         L.append(f"  pages en erreur           {self.pages_en_erreur}")
         L.append(f"  pages non disponibles     {self.pages_non_disponibles}")
@@ -216,12 +225,38 @@ class Veille:
     `analyser(collecte, page)` rend un nombre d'opportunités — facultatif.
     """
 
-    def __init__(self, cx, recuperer, analyser=None, profil=None):
+    def __init__(self, cx, recuperer, analyser=None, profil=None,
+                 ontologie=None, detecteur=None):
         self.cx, self.recuperer, self.analyser = cx, recuperer, analyser
         # Le profil de lecture déclaré, pour extraire le TEXTE LISIBLE. Sans
         # lui, on ne compare que les octets et toute régénération de page
         # passe pour un mouvement du marché.
         self.profil = profil
+        # LA PORTE AVANT LA CHAÎNE. Elle n'a pas de vocabulaire propre : elle
+        # interroge l'ontologie et le détecteur de rôle existants. Absents,
+        # elle laisse TOUT passer — on préfère analyser pour rien qu'écarter
+        # en silence une modification qu'on n'a pas su juger.
+        self.ontologie, self.detecteur = ontologie, detecteur
+
+    def _porte(self, texte) -> tuple[bool, str]:
+        """Cette modification peut-elle porter un besoin ? En cas de doute, OUI.
+
+        Rend (passer_dans_la_chaine, verdict_affiné).
+
+        On n'écarte QUE le cas certain : un texte lisible dans lequel les
+        mécanismes métier ne reconnaissent absolument rien. Tout le reste —
+        texte illisible, mécanismes absents, rattachement même partiel —
+        entre dans la chaîne. C'est un choix de recall assumé : une affaire
+        manquée coûte plus cher qu'une analyse inutile.
+        """
+        from . import changement as mod_changement
+        if not texte or self.ontologie is None or self.detecteur is None:
+            return True, mod_changement.MODIFIEE          # INCONNU → chaîne
+        from .pertinence import Confiance, evaluer
+        verdict = evaluer(texte, self.ontologie, self.detecteur)
+        if verdict.confiance is Confiance.AUCUNE:
+            return False, mod_changement.NON_COMMERCIALE
+        return True, mod_changement.MODIFIEE
 
     def _texte_de(self, collecte):
         """Ce que la page DIT, lu par le profil déclaré. None si illisible :
@@ -277,13 +312,20 @@ class Veille:
             # opportunité. Et la détection de changement ne DÉCIDE de rien —
             # elle dit que la page ne dit plus la même chose ; c'est la chaîne
             # qui juge s'il y a un besoin commercial.
-            if collecte.lue and self.analyser is not None and \
-                    verdict != changement.TECHNIQUE and \
-                    verdict != changement.INCHANGEE:
-                n = self.analyser(collecte, page) or 0
+            hors_metier = False
+            if verdict in (changement.MODIFIEE, changement.PREMIERE):
+                passer, _ = self._porte(texte)
+                hors_metier = not passer
+                # Le verdict de CONTENU reste ce qu'il est : une première
+                # visite reste une première visite. Seule une modification
+                # écartée par la porte prend le libellé qui le dit.
+                if not passer and verdict == changement.MODIFIEE:
+                    verdict = changement.NON_COMMERCIALE
+                if passer and collecte.lue and self.analyser is not None:
+                    n = self.analyser(collecte, page) or 0
             trace.passages.append(PassageVeille(
                 page.url, collecte.acces.value,
                 changement=verdict if verdict != changement.NON_COMPARABLE else "",
-                opportunites=n, motif=collecte.motif))
+                opportunites=n, motif=collecte.motif, hors_metier=hors_metier))
         self.cx.commit()
         return trace

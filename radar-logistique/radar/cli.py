@@ -396,12 +396,15 @@ def cmd_veille(a) -> int:
         for pg in liste:
             print(f"  · {pg.acces.value:<17} {pg.url}")
         return 0
-    from . import normalisation
+    from . import liens as mod_liens, normalisation
     from .chaine import traiter
+    from .page import lire as lire_page
     profil = _cfg("sources/page_web.yaml")
     mot = _moteur(cx)
     mode = _mode(a)
     print(mode.bandeau())
+    domaines = {e.domaine for e in mot.entreprises.entreprises.values() if e.domaine}
+    recolte = {"candidates": 0, "promues": 0, "deja_connues": 0}
 
     def analyser(collecte, page):
         """La page réellement lue entre dans la chaîne, telle quelle.
@@ -415,11 +418,32 @@ def cmd_veille(a) -> int:
         if opp is None:
             return 0
         b = traiter(cx, mot, [opp], mode=mode)
+
+        # LES LIENS DE LA PAGE — filtrés, jamais tous retenus. Un lien
+        # découvert devient CANDIDAT ; seul un indice fort le fait surveiller.
+        if not a.sans_liens:
+            lec = lire_page(collecte.octets.decode("utf-8", "replace"), profil)
+            candidats = mod_liens.selectionner(
+                lec.liens, collecte.url, mot.ontologie, mot.roles,
+                domaines_connus=domaines)
+            bilan = mod_pages.depuis_liens(cx, candidats, entreprise=page.entreprise,
+                                           circuit=mod_circuit.CONNUE)
+            for c, v in bilan.items():
+                recolte[c] += v
         return b.capter + b.developper
 
     trace = Veille(cx, collecte_directe.recuperer, analyser=analyser,
-                   profil=profil).passer(liste)
+                   profil=profil, ontologie=mot.ontologie,
+                   detecteur=mot.roles).passer(liste)
     print(trace.resume())
+    if not a.sans_liens:
+        print()
+        print("LIENS RÉCOLTÉS SUR LES PAGES LUES")
+        print(f"  pages candidates nouvelles   {recolte['candidates']}")
+        print(f"  déjà connues                 {recolte['deja_connues']}")
+        print(f"  promues sur indice fort      {recolte['promues']}")
+        print("  Un lien découvert n'est PAS une page surveillée, et une page")
+        print("  n'est pas une entreprise.")
     return 0
 
 
@@ -841,6 +865,8 @@ def principal(argv=None) -> int:
     ve.add_argument("--limite", type=int, default=None)
     ve.add_argument("--pour-de-vrai", action="store_true",
                     dest="pour_de_vrai", help="consulter réellement les pages")
+    ve.add_argument("--sans-liens", action="store_true", dest="sans_liens",
+                    help="ne pas récolter les liens des pages lues")
     ve.set_defaults(fn=cmd_veille)
 
     bo = s.add_parser("boucle", help="lancer la boucle de découverte")

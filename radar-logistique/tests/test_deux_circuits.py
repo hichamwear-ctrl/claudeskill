@@ -962,3 +962,444 @@ class R4_ColisPriveCasDeReference(unittest.TestCase):
                          [circuit.DECOUVERTE])
         self.assertEqual(moteur().analyser(connue).score.total,
                          moteur().analyser(trouvee).score.total)
+
+
+# ═══════════════════ PROMOTION AUTOMATIQUE — réutilise l'existant
+def _mecanismes():
+    """L'ontologie et le détecteur de rôle RÉELS du projet, chargés depuis la
+    configuration. Aucun vocabulaire n'est redéfini dans ces tests."""
+    import yaml
+    from radar.activite import Ontologie
+    from radar.role import DetecteurDeRole
+    cap = yaml.safe_load(pathlib.Path("config/capacites.yaml").read_text(encoding="utf-8"))
+    prof = yaml.safe_load(pathlib.Path("profil.yaml").read_text(encoding="utf-8"))
+    roles = yaml.safe_load(pathlib.Path("config/roles.yaml").read_text(encoding="utf-8"))
+    return (Ontologie(cap, prof["familles_actives"], prof.get("familles_exclues")),
+            DetecteurDeRole(roles))
+
+
+class P1_LaPromotionAutomatiqueEstPrudente(unittest.TestCase):
+    """Elle n'a AUCUN vocabulaire propre : elle interroge l'ontologie et le
+    détecteur de rôle déjà en place."""
+
+    def setUp(self):
+        from radar import pertinence
+        self.pertinence = pertinence
+        self.onto, self.det = _mecanismes()
+
+    def _c(self, texte):
+        return self.pertinence.evaluer(texte, self.onto, self.det).confiance
+
+    def test_1_un_signal_fort_et_explicite_promeut(self):
+        from radar.pertinence import Confiance
+        for texte in ("Devenir transporteur",
+                      "Devenir partenaire de livraison",
+                      "Transporteurs recherchés",
+                      "Devenir sous-traitant transport",
+                      "Recrutement de chauffeurs"):
+            self.assertIs(self._c(texte), Confiance.FORTE, texte)
+
+    def test_2_un_mot_generique_ne_suffit_pas(self):
+        """« partenaire » ou « actualités » seuls ne rattachent rien."""
+        from radar.pertinence import Confiance
+        for texte in ("Partenaires", "Nos actualités", "Nous rejoindre",
+                      "Mentions légales", "Politique de confidentialité",
+                      "Qui sommes-nous ?", "Contact", "CGU"):
+            self.assertIs(self._c(texte), Confiance.AUCUNE, texte)
+
+    def test_3_une_fourniture_n_est_pas_promue_meme_si_elle_parle_livraison(self):
+        """La règle de rôle GELÉE fait son travail : l'acheteur veut du
+        poisson, la livraison est accessoire."""
+        from radar.pertinence import Confiance
+        self.assertIs(self._c("Fourniture et livraison de poissons frais"),
+                      Confiance.MOYENNE)
+
+    def test_4_la_raison_de_la_promotion_est_conservee_et_relisible(self):
+        p = self.pertinence.evaluer("Devenir transporteur", self.onto, self.det)
+        self.assertTrue(p.promouvoir)
+        self.assertIn("PROMUE AUTOMATIQUEMENT", p.raison())
+        self.assertIn("CONFIANCE=FORTE", p.raison())
+        self.assertIn("ROLE=", p.raison())
+
+    def test_5_une_candidate_non_promue_garde_un_motif_a_qualifier(self):
+        p = self.pertinence.evaluer("Nos actualités", self.onto, self.det)
+        self.assertFalse(p.promouvoir)
+        self.assertIn("À QUALIFIER", p.raison())
+
+    def test_6_le_module_ne_contient_aucun_vocabulaire_metier(self):
+        """S'il en contenait, il existerait deux définitions du métier.
+
+        On inspecte les CHAÎNES DU CODE — pas les commentaires ni les
+        docstrings, qui ont le droit d'expliquer avec des exemples.
+        """
+        import ast
+        arbre = ast.parse(pathlib.Path("radar/pertinence.py")
+                          .read_text(encoding="utf-8"))
+        docstrings = set()
+        for n in ast.walk(arbre):
+            if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef)):
+                d = ast.get_docstring(n, clean=False)
+                if d:
+                    docstrings.add(d)
+        litterales = [n.value.lower() for n in ast.walk(arbre)
+                      if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                      and n.value not in docstrings]
+        for mot in ("transporteur", "livraison", "logistique", "chauffeur",
+                    "sous-traitance", "fournisseur", "palette", "colis", "fret"):
+            for texte in litterales:
+                self.assertNotIn(mot, texte,
+                                 f"« {mot} » ne doit pas être une donnée du code")
+
+
+class P2_UneUrlConfigureeResteToujoursSurveillee(unittest.TestCase):
+    def test_le_choix_de_l_exploitant_prime_sur_toute_evaluation(self):
+        from radar import pages
+        cx = ouvrir(":memory:")
+        # « Nos actualités » n'aurait JAMAIS été promue automatiquement.
+        u = "https://exemple.be/nos-actualites"
+        pages.rencontrer(cx, u, provenance=pages.CONFIGUREE, source="exploitant")
+        pages.promouvoir(cx, u, "désignée par l'exploitant")
+        self.assertIs(pages.lire(cx, u).statut, pages.Statut.SURVEILLEE)
+        self.assertEqual(len(pages.a_surveiller(cx)), 1)
+
+
+class P3_LaSelectionDesLiens(unittest.TestCase):
+    """55 liens ne sont pas 55 pages à surveiller."""
+
+    def setUp(self):
+        from radar import liens
+        self.liens = liens
+        self.onto, self.det = _mecanismes()
+        self.base = "https://exemple.be/devenir-partenaire"
+
+    def _sel(self, bruts, **kw):
+        return self.liens.selectionner(bruts, self.base, self.onto, self.det, **kw)
+
+    def test_1_les_liens_non_pertinents_hors_domaine_sont_ignores(self):
+        bruts = [{"href": "https://facebook.com/exemple", "texte": "Facebook"},
+                 {"href": "https://twitter.com/exemple", "texte": "Suivez-nous"},
+                 {"href": "https://wordpress.org", "texte": "Fièrement propulsé"}]
+        self.assertEqual(self._sel(bruts), [])
+
+    def test_2_ni_les_ancres_les_mailto_ni_les_fichiers(self):
+        bruts = [{"href": "#contenu", "texte": "Aller au contenu"},
+                 {"href": "mailto:a@b.be", "texte": "Écrivez-nous"},
+                 {"href": "tel:+3222", "texte": "Appelez"},
+                 {"href": "/plaquette.pdf", "texte": "Notre plaquette"},
+                 {"href": "/logo.png", "texte": ""}]
+        self.assertEqual(self._sel(bruts), [])
+
+    def test_3_les_liens_du_meme_domaine_sont_retenus_comme_candidats(self):
+        bruts = [{"href": "/mentions-legales", "texte": "Mentions légales"}]
+        c = self._sel(bruts)
+        self.assertEqual(len(c), 1)
+        self.assertEqual(c[0].priorite, self.liens.P1_MEME_DOMAINE)
+        self.assertFalse(c[0].promouvable, "générique : candidat, pas promu")
+
+    def test_4_un_lien_externe_a_indice_fort_est_retenu(self):
+        bruts = [{"href": "https://autre.be/devenir-transporteur",
+                  "texte": "Devenir transporteur"}]
+        c = self._sel(bruts)
+        self.assertEqual(len(c), 1)
+        self.assertEqual(c[0].priorite, self.liens.P2_INDICE_FORT)
+        self.assertTrue(c[0].promouvable)
+
+    def test_5_un_lien_externe_vers_une_entreprise_connue_est_retenu(self):
+        bruts = [{"href": "https://titulaire.be/apropos", "texte": "À propos"}]
+        self.assertEqual(self._sel(bruts), [])
+        c = self._sel(bruts, domaines_connus={"titulaire.be"})
+        self.assertEqual(len(c), 1)
+        self.assertEqual(c[0].priorite, self.liens.P3_ENTREPRISE_CONNUE)
+        self.assertFalse(c[0].promouvable, "connue ≠ pertinente")
+
+    def test_6_le_chemin_de_l_url_est_lu_comme_du_texte(self):
+        """« /devenir-partenaire-livraison » dit quelque chose, même sans libellé."""
+        c = self._sel([{"href": "https://autre.be/devenir-partenaire-livraison",
+                        "texte": ""}])
+        self.assertEqual(len(c), 1)
+        self.assertTrue(c[0].promouvable)
+
+    def test_7_le_meme_lien_deux_fois_ne_fait_qu_un_candidat(self):
+        bruts = [{"href": "/partenaires", "texte": "Partenaires"},
+                 {"href": "/partenaires#bas", "texte": "Nos partenaires"}]
+        self.assertEqual(len(self._sel(bruts)), 1)
+
+
+class P4_LaRecolteSurLaPageReelle(unittest.TestCase):
+    """FIXTURE : la page RÉELLEMENT collectée le 2026-09-12 et conservée.
+    Aucun réseau n'est touché — c'est une archive, pas une collecte du jour."""
+
+    PAGE = pathlib.Path("validation/pages_reelles/"
+                        "2026-09-12-entreprise-c5e20010e7bd.html")
+    URL = "https://www.colisprive.be/devenir-partenaire-livraison/"
+
+    def setUp(self):
+        import yaml
+        from radar import liens, pages
+        if not self.PAGE.exists():
+            self.skipTest("archive absente")
+        self.liens, self.pages = liens, pages
+        self.onto, self.det = _mecanismes()
+        self.profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        self.cx = ouvrir(":memory:")
+
+    def _candidats(self):
+        from radar.page import lire as lire_page
+        lec = lire_page(self.PAGE.read_bytes().decode("utf-8", "replace"), self.profil)
+        self.assertGreaterEqual(len(lec.liens), 50, "la page réelle a bien ~55 liens")
+        return lec.liens, self.liens.selectionner(lec.liens, self.URL,
+                                                  self.onto, self.det)
+
+    def test_1_cinquante_cinq_liens_donnent_une_poignee_de_pages(self):
+        bruts, candidats = self._candidats()
+        self.assertLess(len(candidats), len(bruts),
+                        "le filtre doit réduire, pas tout garder")
+        promouvables = self.liens.retenus(candidats)
+        self.assertTrue(0 < len(promouvables) < len(candidats),
+                        f"{len(promouvables)} promouvables sur {len(candidats)}")
+
+    def test_2_les_pages_de_forme_ne_sont_jamais_promues(self):
+        _, candidats = self._candidats()
+        promues = {c.url for c in self.liens.retenus(candidats)}
+        for forme in ("mentions-legales", "politique-de-cookies", "cgu",
+                      "nos-actualites", "qui-sommes-nous", "nos-engagements-rse"):
+            self.assertFalse(any(forme in u for u in promues),
+                             f"« {forme} » ne doit pas être promue")
+
+    def test_3_les_pages_de_besoin_sont_promues(self):
+        _, candidats = self._candidats()
+        promues = {c.url for c in self.liens.retenus(candidats)}
+        self.assertTrue(any("devenir-partenaire-livraison" in u for u in promues)
+                        or any("become-a-delivery-partner" in u for u in promues))
+        self.assertTrue(any("devenir-relais" in u for u in promues))
+
+    def test_4_la_recolte_inscrit_candidates_et_promues_avec_leur_raison(self):
+        from radar import circuit
+        _, candidats = self._candidats()
+        bilan = self.pages.depuis_liens(self.cx, candidats,
+                                        entreprise="colisprive.be",
+                                        circuit=circuit.CONNUE)
+        self.assertEqual(bilan["candidates"], len(candidats))
+        self.assertEqual(bilan["promues"], len(self.liens.retenus(candidats)))
+        for p in self.pages.a_surveiller(self.cx):
+            self.assertIn("PROMUE AUTOMATIQUEMENT", p.raison or "")
+        toutes = self.pages.a_surveiller(self.cx, toutes=True)
+        for p in toutes:
+            self.assertTrue(p.provenances, "chaque page garde sa provenance")
+
+    def test_5_une_seconde_recolte_ne_duplique_rien(self):
+        _, candidats = self._candidats()
+        self.pages.depuis_liens(self.cx, candidats, entreprise="colisprive.be")
+        avant = self.cx.execute("SELECT count(*) c FROM pages_surveillees").fetchone()["c"]
+        bilan = self.pages.depuis_liens(self.cx, candidats, entreprise="colisprive.be")
+        apres = self.cx.execute("SELECT count(*) c FROM pages_surveillees").fetchone()["c"]
+        self.assertEqual(avant, apres, "aucune page dupliquée")
+        self.assertEqual(bilan["deja_connues"], len(candidats))
+        self.assertEqual(bilan["candidates"], 0)
+
+    def test_6_une_page_ecartee_a_la_main_n_est_pas_re_promue(self):
+        _, candidats = self._candidats()
+        self.pages.depuis_liens(self.cx, candidats, entreprise="colisprive.be")
+        cible = self.pages.a_surveiller(self.cx)[0].url
+        self.pages.ecarter(self.cx, cible, "sans intérêt — décision exploitant")
+        self.pages.depuis_liens(self.cx, candidats, entreprise="colisprive.be")
+        self.assertIs(self.pages.lire(self.cx, cible).statut,
+                      self.pages.Statut.ECARTEE)
+
+
+class P5_LaPorteAvantLaChaine(unittest.TestCase):
+    """« NON COMMERCIAL CERTAIN → pas de chaîne · INCONNU → chaîne ».
+
+    Le doute profite toujours à l'analyse : on préfère analyser pour rien
+    qu'écarter en silence un changement qu'on n'a pas su juger.
+    """
+
+    METIER = (b"<html><body><h1>Devenir partenaire de livraison</h1>"
+              b"<p>Nous recherchons des transporteurs en Belgique.</p></body></html>")
+    HORS_METIER = (b"<html><body><h1>Politique de cookies</h1>"
+                   b"<p>Ce site utilise des cookies de mesure d'audience. "
+                   b"Vous pouvez retirer votre consentement.</p></body></html>")
+
+    def setUp(self):
+        import yaml
+        from radar import collecte_directe, pages
+        self.cd, self.pages = collecte_directe, pages
+        self.onto, self.det = _mecanismes()
+        self.profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        self.cx = ouvrir(":memory:")
+        self.u = "https://exemple.be/page"
+        self.pages.declarer(self.cx, self.u, provenance=self.pages.CONFIGUREE)
+        self.pages.promouvoir(self.cx, self.u, "cas de test")
+        self.analysees = []
+
+    def _passer(self, octets, *, avec_mecanismes=True):
+        from radar.boucle import Veille
+        ouvreur = faux_reseau({self.u: octets})
+        return Veille(
+            self.cx,
+            lambda url: self.cd.recuperer(url, ouvrir=ouvreur,
+                                          politesse=_SansAttente()),
+            analyser=lambda c, p: (self.analysees.append(p.url) or 1),
+            profil=self.profil,
+            ontologie=self.onto if avec_mecanismes else None,
+            detecteur=self.det if avec_mecanismes else None).passer()
+
+    def test_1_un_changement_hors_metier_certain_n_entre_pas_dans_la_chaine(self):
+        self._passer(self.HORS_METIER)
+        self.analysees.clear()
+        t = self._passer(self.HORS_METIER.replace(b"mesure d'audience",
+                                                  b"mesure d'audience et de confort"))
+        self.assertEqual(t.passages[0].changement, "MODIFIÉE — NON COMMERCIALE")
+        self.assertEqual(t.pages_non_commerciales, 1)
+        self.assertEqual(self.analysees, [])
+        self.assertEqual(t.opportunites, 0)
+
+    def test_2_un_changement_potentiellement_commercial_entre_dans_la_chaine(self):
+        self._passer(self.METIER)
+        self.analysees.clear()
+        t = self._passer(self.METIER.replace(b"en Belgique", b"a Gand et a Anvers"))
+        self.assertEqual(t.passages[0].changement, "MODIFIÉE")
+        self.assertEqual(self.analysees, [self.u])
+
+    def test_3_un_changement_ambigu_n_est_jamais_supprime_il_est_analyse(self):
+        """Sans mécanismes disponibles, la porte laisse TOUT passer."""
+        self._passer(self.HORS_METIER, avec_mecanismes=False)
+        self.analysees.clear()
+        t = self._passer(self.HORS_METIER.replace(b"cookies de", b"cookies tiers de"),
+                         avec_mecanismes=False)
+        self.assertEqual(t.passages[0].changement, "MODIFIÉE")
+        self.assertEqual(self.analysees, [self.u],
+                         "INCONNU doit aller à la chaîne, pas à la poubelle")
+
+    def test_4_la_modification_ecartee_est_bien_enregistree(self):
+        from radar import changement
+        self._passer(self.HORS_METIER)
+        avant = changement.connue_lisible(self.cx, self.u)
+        self._passer(self.HORS_METIER.replace(b"consentement", b"accord"))
+        self.assertNotEqual(changement.connue_lisible(self.cx, self.u), avant,
+                            "la modification est mémorisée, pas perdue")
+
+    def test_5_une_page_hors_metier_n_est_pas_analysee_des_la_premiere_visite(self):
+        t = self._passer(self.HORS_METIER)
+        self.assertEqual(t.passages[0].changement, "PREMIÈRE VISITE",
+                         "le verdict de CONTENU reste exact")
+        self.assertEqual(self.analysees, [])
+        self.assertEqual(t.pages_non_commerciales, 1)
+
+    def test_6_la_porte_n_a_aucun_vocabulaire_propre(self):
+        source = pathlib.Path("radar/boucle.py").read_text(encoding="utf-8")
+        self.assertIn("from .pertinence import", source)
+        self.assertNotIn('"transporteur"', source)
+        self.assertNotIn('"livraison"', source)
+
+
+class P6_ScenarioCompletSansAucunMoteur(unittest.TestCase):
+    """L'OBJECTIF DE L'ÉTAPE, de bout en bout.
+
+        entreprise connue → page connue → collecte directe → page modifiée
+        → signal commercial → analyse → opportunité → suivi
+
+    FIXTURE : aucun réseau n'est touché, l'ouvreur HTTP est injecté.
+    """
+
+    AVANT = ("<html><head><title>Partenaires</title></head><body>"
+             "<h1>Devenir partenaire de livraison</h1>"
+             "<p>Colis Prive organise la distribution de colis en Belgique.</p>"
+             "</body></html>").encode("utf-8")
+    APRES = ("<html><head><title>Partenaires</title></head><body>"
+             "<h1>Devenir partenaire de livraison</h1>"
+             "<p>Colis Prive organise la distribution de colis en Belgique. "
+             "Nous recherchons actuellement des transporteurs sous-traitants "
+             "pour la distribution de colis a Gand.</p>"
+             "</body></html>").encode("utf-8")
+
+    def setUp(self):
+        import yaml
+        from radar import collecte_directe, normalisation, pages
+        self.cd, self.norm, self.pages = collecte_directe, normalisation, pages
+        self.onto, self.det = _mecanismes()
+        self.profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        self.cx = ouvrir(":memory:")
+        self.u = "https://colisprive.be/devenir-partenaire-livraison/"
+
+    def test_le_scenario_entier(self):
+        from tests.test_radar import moteur
+        from radar.boucle import Veille
+        from radar.chaine import traiter
+        from radar.mode import Mode
+        from radar.moteurs_recherche import depuis_environnement
+        from radar import suivi
+
+        # ── AUCUN MOTEUR DE RECHERCHE N'EST DISPONIBLE ──
+        self.assertIsNone(depuis_environnement({}).disponible())
+
+        # ── 1. ENTREPRISE CONNUE, persistée ──
+        r = RegistreEnt()
+        r.surveiller("Colis Privé BeLux", domaine="colisprive.be")
+        ent.enregistrer(self.cx, r)
+
+        # ── 2. PAGE CONNUE, surveillée avec sa raison ──
+        self.pages.rencontrer(self.cx, self.u, entreprise="colisprive.be",
+                              provenance=self.pages.CONFIGUREE, source="exploitant")
+        self.pages.promouvoir(self.cx, self.u, "désignée par l'exploitant")
+
+        mot = moteur()
+        opportunites = []
+
+        def analyser(collecte, page):
+            opp, _ = self.norm.depuis_collecte(collecte, self.profil)
+            if opp is None:
+                return 0
+            opportunites.append(opp)
+            b = traiter(self.cx, mot, [opp], mode=Mode.REEL)
+            return b.capter + b.developper
+
+        def veille(octets):
+            ouvreur = faux_reseau({self.u: octets})
+            return Veille(self.cx,
+                          lambda url: self.cd.recuperer(url, ouvrir=ouvreur,
+                                                        politesse=_SansAttente()),
+                          analyser=analyser, profil=self.profil,
+                          ontologie=self.onto, detecteur=self.det).passer()
+
+        # ── 3. COLLECTE DIRECTE, première visite ──
+        t1 = veille(self.AVANT)
+        self.assertEqual(t1.pages_consultees, 1)
+        self.assertEqual(t1.passages[0].changement, "PREMIÈRE VISITE")
+
+        # ── 4. PAGE MODIFIÉE, signal commercial ──
+        t2 = veille(self.APRES)
+        self.assertEqual(t2.passages[0].changement, "MODIFIÉE")
+        self.assertEqual(t2.pages_non_commerciales, 0)
+        self.assertEqual(t2.pages_changees_techniquement, 0)
+
+        # ── 5. OPPORTUNITÉ écrite, avec son score ──
+        ligne = self.cx.execute(
+            "SELECT avis_id, type, action, score, intitule"
+            " FROM opportunites").fetchone()
+        self.assertEqual(ligne["intitule"], "Devenir partenaire de livraison")
+        self.assertIsNotNone(ligne["score"])
+        # Le besoin PRIVÉ reste privé : rien ne le convertit en marché public.
+        self.assertNotIn("MARCHÉ PUBLIC",
+                         (self.cx.execute("SELECT etat_procedure e FROM opportunites")
+                          .fetchone()["e"] or "").upper())
+
+        # ── 6. SUIVI COMMERCIAL, sur cette opportunité ──
+        s = suivi.marquer(self.cx, ligne["avis_id"], suivi.Statut.CONTACT_A_FAIRE,
+                          motif="porte d'entrée constatée")
+        self.assertIs(s.statut, suivi.Statut.CONTACT_A_FAIRE)
+        self.assertTrue(suivi.fil(self.cx, ligne["avis_id"]))
+
+    def test_le_circuit_ne_change_toujours_rien_au_score(self):
+        from tests.test_radar import moteur
+        from radar import circuit
+        from radar.pages import Acces
+        c = self.cd.Collecte(url=self.u, acces=Acces.CONSULTEE, octets=self.APRES,
+                             http=200)
+        a, _ = self.norm.depuis_collecte(c, self.profil, circuit=circuit.CONNUE)
+        b, _ = self.norm.depuis_collecte(c, self.profil, circuit=circuit.DECOUVERTE)
+        self.assertEqual(moteur().analyser(a).score.total,
+                         moteur().analyser(b).score.total)

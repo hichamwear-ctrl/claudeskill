@@ -44,7 +44,7 @@ from . import (chiffre_affaires, construction, deduplication, envoi,
                transitions as tr)
 from .comptes import Livre
 from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
-from . import entreprises
+from . import entreprises, pages
 from .entreprises import Registre as RegistreEntreprises
 from .activite import Ontologie
 from .base import enregistrer_reponse, maintenant
@@ -706,9 +706,16 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                      m.besoin_sous_traitance))
                 bilan.attributions += 1
                 # Le titulaire entre au registre : il devra exécuter.
-                moteur.entreprises.depuis_attribution(opp)
+                connue = moteur.entreprises.depuis_attribution(opp)
             else:
-                moteur.entreprises.depuis_opportunite(opp)
+                connue = moteur.entreprises.depuis_opportunite(opp)
+            # Les URL OBSERVÉES dans l'avis entrent comme pages CANDIDATES —
+            # jamais surveillées d'office : une page vue n'est pas une page
+            # retenue, et une entreprise n'est pas une page.
+            pages.depuis_opportunite(cx, opp,
+                                     entreprise=connue.cle if connue else None,
+                                     circuit=(opp.provenances or [{}])[0].get("circuit")
+                                     if opp.provenances else None)
 
             # L'ordre compte : on compare à l'état DÉJÀ en base, avant de
             # l'écraser. Constater après la réécriture reviendrait à comparer

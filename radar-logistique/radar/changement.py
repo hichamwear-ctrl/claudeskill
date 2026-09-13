@@ -29,6 +29,7 @@ PREMIERE = "PREMIÈRE VISITE"
 INCHANGEE = "INCHANGÉE"
 MODIFIEE = "MODIFIÉE"
 TECHNIQUE = "MODIFIÉE — TECHNIQUE"    # le fichier a bougé, pas ce qu'on y lit
+NON_COMMERCIALE = "MODIFIÉE — NON COMMERCIALE"   # le texte a bougé, hors métier
 NON_COMPARABLE = "NON COMPARABLE"     # rien n'a été lu : on ne compare pas
 
 PREFIXE = "page:"                     # les octets du fichier
