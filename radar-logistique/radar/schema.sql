@@ -132,6 +132,10 @@ CREATE TABLE IF NOT EXISTS provenances (
     url         TEXT,
     requete     TEXT,
     consulte_le TEXT,
+    -- Par quel CHEMIN : SOURCE_CONNUE ou SOURCE_DÉCOUVERTE. Sert à la
+    -- traçabilité et aux métriques de rendement, JAMAIS au score : même
+    -- opportunité, mêmes données commerciales, même score.
+    circuit     TEXT,
     UNIQUE (avis_id, source, url)
 );
 
@@ -176,6 +180,33 @@ CREATE TABLE IF NOT EXISTS entreprises (
     profondeur    INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_entreprises_etat ON entreprises(etat);
+
+-- PAGES SURVEILLÉES — une entreprise a des PAGES, pas « un domaine ».
+--
+-- Une page n'entre ici que si elle a été réellement rencontrée : découverte,
+-- configurée par l'exploitant, observée dans une source, ou retenue par une
+-- règle. `provenance` dit laquelle. Aucune URL n'est devinée à partir d'un
+-- domaine : posséder « exemple.be » ne prouve rien sur « exemple.be/partenaires ».
+--
+-- `acces` est l'état de CONSULTATION, jamais un jugement sur le contenu :
+--    JAMAIS CONSULTÉE · CONSULTÉE · ERREUR · NON DISPONIBLE
+-- `empreinte` n'est écrite qu'après une lecture réussie. Une erreur réseau ne
+-- l'efface pas : sinon la visite suivante croirait la page modifiée alors que
+-- c'est notre accès qui avait échoué.
+CREATE TABLE IF NOT EXISTS pages_surveillees (
+    id              INTEGER PRIMARY KEY,
+    url             TEXT NOT NULL UNIQUE,
+    entreprise      TEXT,
+    provenance      TEXT NOT NULL,
+    acces           TEXT NOT NULL DEFAULT 'JAMAIS CONSULTÉE',
+    derniere_visite TEXT,
+    empreinte       TEXT,
+    motif           TEXT,
+    libelle         TEXT,
+    declaree_le     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pages_entreprise ON pages_surveillees(entreprise);
+CREATE INDEX IF NOT EXISTS idx_pages_acces ON pages_surveillees(acces);
 CREATE INDEX IF NOT EXISTS idx_attr_renouv ON attributions(renouvellement);
 
 -- Incidents : une ligne qui n'a pas pu être traitée est CONSERVÉE avec son

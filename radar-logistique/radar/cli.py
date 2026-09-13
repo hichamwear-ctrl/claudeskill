@@ -58,10 +58,26 @@ def _vocabulaires(cx=None) -> dict:
     return sortie
 
 
+def _moteurs_declares():
+    """Les moteurs de DÉCOUVERTE tels qu'ils sont déclarés, disponibles ou non.
+
+    L'ordre est un ordre d'ESSAI, pas un classement de qualité : il sert au
+    diagnostic et à l'observabilité, jamais au score commercial. Aucun moteur
+    n'a de droit acquis, et aucun ne vaut « mieux » qu'un autre ici.
+    """
+    from .moteurs_recherche import depuis_environnement
+    return depuis_environnement()
+
+
 def _moteur(cx=None) -> Moteur:
+    # Le registre d'entreprises vient de la BASE, pas d'un dictionnaire vide :
+    # ce que le radar a découvert hier doit être là aujourd'hui.
+    from .entreprises import charger as charger_entreprises
     return Moteur(_cfg("profil.yaml"), _cfg("config/capacites.yaml"),
                   _cfg("config/geographie.yaml"), _cfg("config/ponderations.yaml"),
-                  _cfg("config/roles.yaml"), vocabulaires=_vocabulaires(cx))
+                  _cfg("config/roles.yaml"),
+                  entreprises=charger_entreprises(cx) if cx is not None else None,
+                  vocabulaires=_vocabulaires(cx))
 
 
 def _source(nom):
@@ -215,21 +231,153 @@ def cmd_surveiller(a) -> int:
     """« surveille cette entreprise » — ajout manuel au registre."""
     from .entreprises import Motif, Registre as RegistreEnt
     from .decouverte import Generateur
+    from .entreprises import charger as charger_ent, enregistrer as enregistrer_ent
     cx = ouvrir(_base(a))
-    reg = RegistreEnt()
+    # On PART du registre existant : une entreprise déjà connue est complétée,
+    # pas remplacée. INSERT OR REPLACE aurait effacé ses compteurs et son
+    # historique de visites.
+    reg = charger_ent(cx)
+    deja = reg._retrouver(a.nom, a.domaine)[1] is not None
     e = reg.surveiller(a.nom, domaine=a.domaine, motif=Motif.MANUEL)
-    cx.execute(
-        "INSERT OR REPLACE INTO entreprises(cle, nom, domaine, etat, motifs, origine,"
-        " decouverte_le) VALUES(?,?,?,?,?,?,?)",
-        (e.cle, e.nom, e.domaine, e.etat.value, "; ".join(e.motifs), "manuel",
-         e.decouverte_le))
+    enregistrer_ent(cx, reg)
     cx.commit()
+    if deja:
+        print("(entreprise déjà connue — complétée, pas dupliquée)")
     print(f"« {e.nom} » est désormais SURVEILLÉE.")
+
+    # CE QUI EST POSSIBLE MAINTENANT, sans le moindre moteur de recherche.
+    from . import pages as mod_pages
+    connues = mod_pages.a_surveiller(cx, entreprise=e.cle)
+    print(f"\n{len(connues)} page(s) déjà connue(s) pour cette entreprise — "
+          "surveillables directement, sans moteur de recherche :")
+    for pg in connues:
+        print(f"  · {pg.acces.value:<17} {pg.url}")
+    if not connues:
+        print("  (aucune — déclare une page avec `radar page --entreprise "
+              f"{e.cle} --url ...`)")
+        print("  Aucune URL n'est devinée : posséder un domaine ne prouve pas")
+        print("  qu'une page partenaires existe.")
+
+    # LA DÉCOUVERTE DE PAGES NOUVELLES est un COMPLÉMENT. Son absence ne
+    # suspend pas la surveillance de ce qui est déjà connu.
     reqs = Generateur(_cfg("config/decouverte.yaml")).pour_entreprise(e.nom, e.domaine)
-    print(f"\n{len(reqs)} recherche(s) ciblée(s) seront lancées dès qu'une clé "
-          "Google sera disponible :")
-    for q in reqs:
-        print(f"  · {q.texte}")
+    moteurs = _moteurs_declares()
+    if moteurs.disponible() is None:
+        print(f"\nDÉCOUVERTE COMPLÉMENTAIRE NON DISPONIBLE — "
+              f"{len(reqs)} recherche(s) ciblée(s) restent en attente d'un moteur.")
+        print("La surveillance des pages ci-dessus n'en dépend pas.")
+    else:
+        print(f"\n{len(reqs)} recherche(s) ciblée(s) de découverte complémentaire :")
+        for q in reqs:
+            print(f"  · {q.texte}")
+    return 0
+
+
+def cmd_circuits(a) -> int:
+    """DÉCOUVERTE et SURVEILLANCE, comptées SÉPARÉMENT.
+
+    Mélanger les deux chiffres rendrait impossible la seule question qui
+    compte : cette opportunité, l'avons-nous DÉCOUVERTE ou SURVEILLÉE ?
+    """
+    from . import circuit as mod_circuit, pages as mod_pages
+    from .pages import Acces
+    cx = ouvrir(_base(a), lecture_seule=True)
+
+    def compte(sql, args=()):
+        return cx.execute(sql, args).fetchone()[0]
+
+    # Une base antérieure à la notion de circuit n'a pas la colonne. Elle
+    # affiche alors NON MESURÉ — surtout pas 0, qui ferait croire à une mesure.
+    a_circuit = "circuit" in {l[1] for l in cx.execute("PRAGMA table_info(provenances)")}
+
+    def par_circuit(valeur):
+        if not a_circuit:
+            return "NON MESURÉ"
+        return compte("SELECT count(DISTINCT avis_id) FROM provenances WHERE circuit=?",
+                      (valeur,))
+
+    print("DÉCOUVERTE — ce que nous ne connaissions pas")
+    print("=" * 72)
+    moteurs = _moteurs_declares()
+    for m in moteurs.moteurs:
+        etat = "DISPONIBLE" if m.disponible else f"NON DISPONIBLE — {m.motif_indisponibilite}"
+        print(f"  moteur {m.nom:<10} {etat}")
+    decouvertes = par_circuit(mod_circuit.DECOUVERTE)
+    print(f"  recherches exécutées      {compte('SELECT count(*) FROM requetes')}")
+    print(f"  opportunités découvertes  {decouvertes}")
+    print(f"  entreprises au registre   {compte('SELECT count(*) FROM entreprises')}"
+          "   (toutes origines confondues)")
+    if moteurs.disponible() is None:
+        print("\n  Aucun moteur accessible : la DÉCOUVERTE WEB est indisponible.")
+        print("  Cela ne dit RIEN des autres circuits, qui continuent.")
+
+    print()
+    print("SURVEILLANCE — ce que nous connaissons déjà")
+    print("=" * 72)
+    pages = mod_pages.a_surveiller(cx)
+    surveillees = compte("SELECT count(*) FROM entreprises WHERE etat='SURVEILLÉE'")
+    connues = par_circuit(mod_circuit.CONNUE)
+    print(f"  entreprises surveillées   {surveillees}")
+    print(f"  pages surveillées         {len(pages)}")
+    for etat in Acces:
+        n = sum(1 for p in pages if p.acces is etat)
+        print(f"    {etat.value:<18}      {n}")
+    print(f"  pages modifiées           "
+          f"{compte(chr(39).join(['SELECT count(*) FROM filigrane WHERE source LIKE ', 'page:%', '']))}"
+          "   (empreintes mémorisées)")
+    print(f"  opportunités générées     {connues}")
+
+    print()
+    print("Ces deux tableaux ne se mélangent jamais. Le circuit d'une")
+    print("opportunité n'entre dans AUCUN score : même besoin, même score.")
+    return 0
+
+
+def cmd_page(a) -> int:
+    """Déclarer une page à surveiller — ou lister celles qu'on connaît.
+
+    Aucune URL n'est devinée : une page entre au registre parce qu'elle a été
+    rencontrée, pas parce qu'un domaine existe.
+    """
+    from . import pages as mod_pages
+    cx = ouvrir(_base(a))
+    if not a.url:
+        print(mod_pages.rapport(cx))
+        return 0
+    pg = mod_pages.declarer(cx, a.url, entreprise=a.entreprise,
+                            provenance=a.provenance, libelle=a.libelle)
+    cx.commit()
+    print(f"page surveillée : {pg.url}")
+    print(f"  provenance   {pg.provenance}")
+    print(f"  accès        {pg.acces.value}")
+    print(f"  entreprise   {pg.entreprise or '—'}")
+    print("\nElle sera consultée par `radar veille`, sans aucun moteur de recherche.")
+    return 0
+
+
+def cmd_veille(a) -> int:
+    """LE CIRCUIT SOURCE CONNUE — revisiter les pages déjà connues.
+
+    Ne consulte AUCUN moteur de recherche. L'indisponibilité de Google, de
+    Brave ou de n'importe quel autre moteur ne change rien à cette commande.
+    """
+    from .boucle import Veille
+    from . import collecte_directe, pages as mod_pages
+    cx = ouvrir(_base(a))
+    liste = mod_pages.a_surveiller(cx, entreprise=a.entreprise, limite=a.limite)
+    if not liste:
+        print("Aucune page surveillée — aucune n'a été déclarée.")
+        print("Une page n'est jamais supposée à partir d'un domaine :")
+        print("  radar page --url https://exemple.be/partenaires --entreprise exemple.be")
+        return 0
+    if not a.pour_de_vrai:
+        print(f"{len(liste)} page(s) seraient consultées (essai à blanc, "
+              "aucune requête réseau) :")
+        for pg in liste:
+            print(f"  · {pg.acces.value:<17} {pg.url}")
+        return 0
+    trace = Veille(cx, collecte_directe.recuperer).passer(liste)
+    print(trace.resume())
     return 0
 
 
@@ -261,7 +409,11 @@ def cmd_boucle(a) -> int:
     # étiqueter un résultat Brave comme « google » ferait mentir le rendement
     # par source et rendrait Google indispensable dans les chiffres.
     adaptateur, cfg_src = _source("recherche")
-    defauts = {"signal": cfg_src.get("signal"), "secteur": cfg_src.get("secteur_par_defaut")}
+    # Ce lot vient d'un MOTEUR : c'est le circuit DÉCOUVERTE. L'étiquette suit
+    # l'opportunité pour la traçabilité et les métriques — jamais pour le score.
+    from .circuit import DECOUVERTE as CIRCUIT_DECOUVERTE
+    defauts = {"signal": cfg_src.get("signal"), "secteur": cfg_src.get("secteur_par_defaut"),
+               "circuit": CIRCUIT_DECOUVERTE}
 
     def analyser(resultats) -> int:
         opportunites = []
@@ -447,10 +599,13 @@ def _registre():
     for famille, spec in cat.items():
         for nom in spec.get("sources", []):
             reg.declarer(nom, famille, "fichier")
-    google = reg.declarer("google", "decouverte", "moteur_recherche")
-    c = charger_connecteur()
-    if not c.disponible:
-        google.indisponible(c.motif_indisponibilite)
+    # TOUS les moteurs déclarés entrent au registre, dans l'ordre où ils y
+    # sont déclarés. Cet ordre est un ordre d'ESSAI : il ne dit rien de la
+    # qualité des résultats et n'entre dans aucun score.
+    for m in _moteurs_declares().moteurs:
+        source = reg.declarer(m.nom, "decouverte", "moteur_recherche")
+        if not m.disponible:
+            source.indisponible(m.motif_indisponibilite)
     for nom in ("bourses_de_fret",):
         reg.declarer(nom, "transport", "api").indisponible("aucun abonnement fourni")
     return reg
@@ -473,7 +628,16 @@ def cmd_requetes(a) -> int:
     print(f"{len(reqs)} requêtes générées · {a.limite} affichées, par priorité\n")
     for q in reqs[:a.limite]:
         print(f"  [{q.priorite():5.1f}] {q.famille:20} {q.zone:18} {q.texte[:60]}")
-    print("\nAucune n'a été exécutée : le connecteur Google est indisponible.")
+    moteurs = _moteurs_declares()
+    if moteurs.disponible() is None:
+        print("\nMOTEURS DE DÉCOUVERTE : aucun moteur accessible.")
+        for m in moteurs.moteurs:
+            print(f"  {m.nom:<10} {m.motif_indisponibilite or 'indisponible'}")
+        print("\nAucune requête n'a été exécutée. Les SOURCES DIRECTES ne sont")
+        print("pas concernées : elles ne passent par aucun moteur.")
+    else:
+        print(f"\nMoteur disponible : {moteurs.disponible().nom}. "
+              "Aucune requête n'a été exécutée par cette commande.")
     return 0
 
 
@@ -612,6 +776,25 @@ def principal(argv=None) -> int:
     su = s.add_parser("surveiller", help="ajouter manuellement une entreprise")
     su.add_argument("nom"); su.add_argument("--domaine")
     su.set_defaults(fn=cmd_surveiller)
+
+    ci = s.add_parser("circuits", help="métriques DÉCOUVERTE et SURVEILLANCE, séparées")
+    ci.set_defaults(fn=cmd_circuits)
+
+    pg = s.add_parser("page", help="déclarer/lister les pages surveillées")
+    pg.add_argument("--url", help="l'URL exacte, jamais devinée")
+    pg.add_argument("--entreprise", help="clé de l'entreprise au registre")
+    pg.add_argument("--provenance", default="DÉCOUVERTE",
+                    help="DÉCOUVERTE | CONFIGURÉE | OBSERVÉE DANS UNE SOURCE | "
+                         "IDENTIFIÉE PAR RÈGLE")
+    pg.add_argument("--libelle")
+    pg.set_defaults(fn=cmd_page)
+
+    ve = s.add_parser("veille", help="revisiter les pages connues (sans moteur)")
+    ve.add_argument("--entreprise")
+    ve.add_argument("--limite", type=int, default=None)
+    ve.add_argument("--pour-de-vrai", action="store_true",
+                    dest="pour_de_vrai", help="consulter réellement les pages")
+    ve.set_defaults(fn=cmd_veille)
 
     bo = s.add_parser("boucle", help="lancer la boucle de découverte")
     bo.add_argument("--profondeur", type=int, default=2)

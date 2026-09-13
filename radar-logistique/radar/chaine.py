@@ -44,6 +44,7 @@ from . import (chiffre_affaires, construction, deduplication, envoi,
                transitions as tr)
 from .comptes import Livre
 from .mode import CollecteInvalide, Mode, verifier as verifier_collecte
+from . import entreprises
 from .entreprises import Registre as RegistreEntreprises
 from .activite import Ontologie
 from .base import enregistrer_reponse, maintenant
@@ -91,6 +92,7 @@ class BilanCycle:
     developper: int = 0
     notifies: int = 0
     attributions: int = 0
+    entreprises_enregistrees: int = 0
     transitions: int = 0
     alertes: list = field(default_factory=list)   # les changements qui valent un appel
     motifs_rejet: dict = field(default_factory=dict)
@@ -546,6 +548,26 @@ def _risques(r) -> list:
     return risques
 
 
+def _ecrire_provenances(cx, avis_id: int, opp) -> None:
+    """D'où vient cette opportunité, et par quel CIRCUIT.
+
+    Écrit à la CRÉATION comme à la fusion. Auparavant la table n'était
+    alimentée que lors d'une fusion de doublon : une opportunité vue une seule
+    fois n'avait aucune provenance en base, alors qu'elle en avait forcément
+    une. Le circuit ne pouvait donc pas être compté.
+
+    Le circuit sert au diagnostic et aux métriques. Il n'entre dans AUCUN
+    score : voir radar/circuit.py.
+    """
+    for p in opp.provenances or []:
+        d = p if isinstance(p, dict) else p.__dict__
+        cx.execute(
+            "INSERT OR IGNORE INTO provenances(avis_id, source, url, requete,"
+            " consulte_le, circuit) VALUES(?,?,?,?,?,?)",
+            (avis_id, d.get("source") or "?", d.get("url"), d.get("requete"),
+             d.get("consulte_le"), d.get("circuit")))
+
+
 def _ecrire_opportunite(cx, avis_id: int, opp, r) -> None:
     """Écrit ou réécrit la ligne. TOUT ce qui est recalculé est réécrit."""
     maj = ", ".join(f"{c}=excluded.{c}" for c in RECALCULEES)
@@ -554,6 +576,7 @@ def _ecrire_opportunite(cx, avis_id: int, opp, r) -> None:
         f" VALUES({', '.join('?' * len(_COLONNES))})"
         f" ON CONFLICT(avis_id) DO UPDATE SET {maj}",
         _valeurs(avis_id, opp, r))
+    _ecrire_provenances(cx, avis_id, opp)
 
 
 def _reecrire(cx, avis_id: int, r, opp) -> None:
@@ -575,13 +598,7 @@ def _reecrire(cx, avis_id: int, r, opp) -> None:
          opp.acheteur, opp.montant,
          r.verdict.echeance.isoformat() if r.verdict.echeance else None,
          opp.contact, maintenant(), avis_id))
-    for p in opp.provenances or []:
-        d = p if isinstance(p, dict) else p.__dict__
-        cx.execute(
-            "INSERT OR IGNORE INTO provenances(avis_id, source, url, requete, consulte_le)"
-            " VALUES(?,?,?,?,?)",
-            (avis_id, d.get("source") or "?", d.get("url"), d.get("requete"),
-             d.get("consulte_le")))
+    _ecrire_provenances(cx, avis_id, opp)
 
 
 def _incident(cx, ligne, opp, etape, motif, mode):
@@ -742,6 +759,10 @@ def traiter(cx, moteur: Moteur, opportunites, maintenant_dt=None,
                 if tr.appliquer(cx, transition, opp, r.fiche.en_texte()):
                     bilan.notifies += 1
 
+    # Le registre d'entreprises est ÉCRIT avant la validation du cycle : une
+    # entreprise découverte pendant ce lot doit exister à l'exécution suivante.
+    # Sans cette ligne, elle mourait avec le processus.
+    bilan.entreprises_enregistrees = entreprises.enregistrer(cx, moteur.entreprises)
     cx.commit()
     # Aucune disparition sans motif : si ça ne tombe pas juste, on échoue.
     livre.verifier()

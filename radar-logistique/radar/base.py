@@ -58,6 +58,10 @@ AJOUTS = (
     ("opportunites", "prochaine_action_le", "TEXT"),
     ("opportunites", "dernier_contact_le", "TEXT"),
     ("opportunites", "motif_commercial", "TEXT"),
+    # Par quel CHEMIN l'opportunité est arrivée : SOURCE_CONNUE ou
+    # SOURCE_DÉCOUVERTE. Traçabilité et métriques uniquement — le circuit
+    # n'entre dans AUCUN score.
+    ("provenances", "circuit", "TEXT"),
     ("vocabulaire", "langue", "TEXT"),
     ("vocabulaire", "version", "INTEGER NOT NULL DEFAULT 0"),
     ("vocabulaire_historique", "version", "INTEGER"),

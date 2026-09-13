@@ -332,6 +332,7 @@ def _lots_de(charge: dict, adaptateur, illisibles: dict) -> list:
 def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None = None):
     """Traduit une réponse brute en Opportunite. SEUL endroit qui connaît la
     forme d'une source ; tout l'aval ignore d'où vient l'annonce."""
+    from . import circuit
     from .modele import Opportunite
 
     chemins_lus: dict = {}
@@ -411,7 +412,9 @@ def vers_opportunite(adaptateur, charge: dict, source: str, defauts: dict | None
         actions_possibles=_liste_texte(c.get("actions")),
         provenances=[{"source": source, "url": c.get("plateforme") or c.get("lien_documents"),
                       "consulte_le": (defauts or {}).get("consulte_le"),
-                      "requete": (defauts or {}).get("requete")}],
+                      "requete": (defauts or {}).get("requete"),
+                      # Le CHEMIN, jamais la valeur : voir radar/circuit.py.
+                      "circuit": circuit.lire((defauts or {}).get("circuit"))}],
         pays_collecte=_liste(c.get("pays_collecte")),
         pays_livraison=_liste(c.get("pays_livraison")) or _liste(c.get("pays")),
         lieu_texte=c.get("lieu"),

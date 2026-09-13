@@ -117,3 +117,137 @@ class Boucle:
         trace.arret = ("budget épuisé" if trace.budget_utilise >= self.budget
                        else "plus rien à explorer")
         return trace
+
+
+# ═══════════════════════════════════ LE SECOND CIRCUIT : LA SURVEILLANCE
+#
+# `Boucle` ci-dessus est le circuit DÉCOUVERTE : il a besoin d'un moteur de
+# recherche, parce qu'il cherche ce qu'on ne connaît pas encore.
+#
+# `Veille` est le circuit SOURCE CONNUE. Il n'importe aucun moteur, n'en
+# interroge aucun, et fonctionne à l'identique si Google, Brave, Exa et Tavily
+# sont tous indisponibles. C'est exactement la règle :
+#
+#     une source que le radar connaît déjà doit pouvoir être analysée,
+#     surveillée et transformée en opportunité SANS moteur de recherche.
+#
+# Les deux circuits ne se mélangent pas, et leurs compteurs non plus.
+
+@dataclass
+class PassageVeille:
+    """Le résultat d'UNE page visitée. Chaque page est indépendante."""
+    url: str
+    acces: str
+    changement: str = ""
+    opportunites: int = 0
+    motif: str = ""
+
+
+@dataclass
+class TraceVeille:
+    """Les chiffres de la SURVEILLANCE. Ils ne se mélangent jamais à ceux de
+    la découverte : une opportunité vue en revisitant une page connue n'est
+    pas une opportunité découverte."""
+    passages: list = field(default_factory=list)
+    entreprises_surveillees: int = 0
+
+    @property
+    def pages_surveillees(self) -> int:
+        return len(self.passages)
+
+    @property
+    def pages_consultees(self) -> int:
+        return sum(1 for p in self.passages if p.acces == "CONSULTÉE")
+
+    @property
+    def pages_modifiees(self) -> int:
+        return sum(1 for p in self.passages if p.changement == "MODIFIÉE")
+
+    @property
+    def pages_en_erreur(self) -> int:
+        return sum(1 for p in self.passages if p.acces == "ERREUR")
+
+    @property
+    def pages_non_disponibles(self) -> int:
+        return sum(1 for p in self.passages if p.acces == "NON DISPONIBLE")
+
+    @property
+    def opportunites(self) -> int:
+        return sum(p.opportunites for p in self.passages)
+
+    def resume(self) -> str:
+        L = ["SURVEILLANCE — sources connues, aucun moteur de recherche requis",
+             "=" * 72, ""]
+        if not self.passages:
+            L.append("  aucune page surveillée : aucune n'a été déclarée.")
+            L.append("  Une page n'est jamais supposée à partir d'un domaine.")
+            return "\n".join(L)
+        for p in self.passages:
+            L.append(f"  {p.acces:<17} {p.changement or '—':<16} "
+                     f"{p.opportunites:>3} opp.  {p.url[:44]}"
+                     + (f"  · {p.motif[:36]}" if p.motif else ""))
+        L.append("")
+        L.append(f"  entreprises surveillées   {self.entreprises_surveillees}")
+        L.append(f"  pages surveillées         {self.pages_surveillees}")
+        L.append(f"  pages consultées          {self.pages_consultees}")
+        L.append(f"  pages modifiées           {self.pages_modifiees}")
+        L.append(f"  opportunités générées     {self.opportunites}")
+        L.append(f"  pages en erreur           {self.pages_en_erreur}")
+        L.append(f"  pages non disponibles     {self.pages_non_disponibles}")
+        if self.pages_en_erreur or self.pages_non_disponibles:
+            L.append("")
+            L.append("  Une page non lue n'est PAS une page sans opportunité :")
+            L.append("  son contenu reste INCONNU, et ce qu'on en savait est conservé.")
+        return "\n".join(L)
+
+
+class Veille:
+    """Revisite les pages connues. Ne connaît aucun moteur de recherche.
+
+    `recuperer(url)` rend une Collecte (radar/collecte_directe.py).
+    `analyser(collecte, page)` rend un nombre d'opportunités — facultatif.
+    """
+
+    def __init__(self, cx, recuperer, analyser=None):
+        self.cx, self.recuperer, self.analyser = cx, recuperer, analyser
+
+    def passer(self, pages=None, *, entreprise=None, limite=None) -> TraceVeille:
+        from . import changement, pages as mod_pages
+
+        liste = pages if pages is not None else mod_pages.a_surveiller(
+            self.cx, entreprise=entreprise, limite=limite)
+        trace = TraceVeille(
+            entreprises_surveillees=len({p.entreprise for p in liste if p.entreprise}))
+
+        for page in liste:
+            # Chaque page est INDÉPENDANTE : une page qui échoue n'empêche
+            # aucune autre d'être consultée.
+            try:
+                collecte = self.recuperer(page.url)
+            except Exception as e:                               # noqa: BLE001
+                mod_pages.marquer(self.cx, page.url, mod_pages.Acces.ERREUR,
+                                  motif=f"collecte impossible : {e}")
+                trace.passages.append(PassageVeille(page.url, "ERREUR",
+                                                    motif=str(e)[:60]))
+                continue
+
+            empreinte = collecte.empreinte
+            mod_pages.marquer(self.cx, page.url, collecte.acces,
+                              motif=collecte.motif, empreinte=empreinte)
+            # `retenir` ne mémorise que si quelque chose a été lu : une erreur
+            # n'écrase pas l'empreinte de la dernière lecture réussie.
+            verdict = changement.retenir(self.cx, page.url, empreinte)
+
+            n = 0
+            if collecte.lue and self.analyser is not None:
+                # La détection de changement NE DÉCIDE PAS qu'il y a une
+                # affaire. Elle dit que le contenu a bougé ; c'est la chaîne
+                # d'analyse qui juge si ce mouvement est commercialement
+                # pertinent — et elle juge le contenu, pas le mouvement.
+                n = self.analyser(collecte, page) or 0
+            trace.passages.append(PassageVeille(
+                page.url, collecte.acces.value,
+                changement=verdict if verdict != changement.NON_COMPARABLE else "",
+                opportunites=n, motif=collecte.motif))
+        self.cx.commit()
+        return trace
