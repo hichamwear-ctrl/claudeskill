@@ -990,14 +990,37 @@ class P1_LaPromotionAutomatiqueEstPrudente(unittest.TestCase):
     def _c(self, texte):
         return self.pertinence.evaluer(texte, self.onto, self.det).confiance
 
-    def test_1_un_signal_fort_et_explicite_promeut(self):
+    def test_1_une_preuve_positive_de_role_promeut(self):
+        """7a : seule une PREUVE POSITIVE promeut — ici, un rôle PRESTATAIRE
+        établi par le lexique gelé de config/roles.yaml."""
         from radar.pertinence import Confiance
         for texte in ("Devenir transporteur",
-                      "Devenir partenaire de livraison",
                       "Transporteurs recherchés",
-                      "Devenir sous-traitant transport",
-                      "Recrutement de chauffeurs"):
+                      "Devenir sous-traitant transport"):
             self.assertIs(self._c(texte), Confiance.FORTE, texte)
+
+    def test_1bis_deux_formulations_attendues_ne_sont_PAS_promues(self):
+        """FAUX NÉGATIFS CONNUS, MESURÉS, ET LAISSÉS TELS QUELS EN 7a.
+
+        Ces deux formulations désignent de vrais besoins, mais aucune preuve
+        positive n'existe dans la configuration métier actuelle :
+
+          « partenaire de livraison » — absent du lexique fr, alors que
+              « delivery partner » est présent en en → ASYMÉTRIE, chantier 7d
+          « recrutement de chauffeurs » — « chauffeur » est au vocabulaire de
+              DOMAINE, pas au lexique de prestation → même famille de manque
+
+        Ce test EXISTE pour que la correction de 7d se voie : le jour où la
+        configuration est complétée, il échouera et devra être mis à jour.
+        Elles restent CANDIDATES — elles ne sont ni perdues ni écartées.
+        """
+        from radar.pertinence import Confiance
+        for texte in ("Devenir partenaire de livraison",
+                      "Recrutement de chauffeurs"):
+            self.assertIs(self._c(texte), Confiance.MOYENNE, texte)
+            p = self.pertinence.evaluer(texte, self.onto, self.det)
+            self.assertFalse(p.promouvoir)
+            self.assertIn("aucune preuve positive", p.raison())
 
     def test_2_un_mot_generique_ne_suffit_pas(self):
         """« partenaire » ou « actualités » seuls ne rattachent rien."""
@@ -1113,8 +1136,8 @@ class P3_LaSelectionDesLiens(unittest.TestCase):
         self.assertFalse(c[0].promouvable, "connue ≠ pertinente")
 
     def test_6_le_chemin_de_l_url_est_lu_comme_du_texte(self):
-        """« /devenir-partenaire-livraison » dit quelque chose, même sans libellé."""
-        c = self._sel([{"href": "https://autre.be/devenir-partenaire-livraison",
+        """« /devenir-transporteur » dit quelque chose, même sans libellé."""
+        c = self._sel([{"href": "https://autre.be/devenir-transporteur",
                         "texte": ""}])
         self.assertEqual(len(c), 1)
         self.assertTrue(c[0].promouvable)
@@ -1167,12 +1190,23 @@ class P4_LaRecolteSurLaPageReelle(unittest.TestCase):
             self.assertFalse(any(forme in u for u in promues),
                              f"« {forme} » ne doit pas être promue")
 
-    def test_3_les_pages_de_besoin_sont_promues(self):
+    def test_3_seules_les_pages_a_preuve_positive_sont_promues(self):
+        """7a : sur cette page réelle, 11 → 2 promotions.
+
+        Ne subsistent que celles qui portent une preuve : un rôle PRESTATAIRE
+        (« delivery partner ») ou une famille métier (« logistique_entrepot »).
+        La version FRANÇAISE de la même page redevient candidate — voir
+        test_1bis et le chantier 7d.
+        """
         _, candidats = self._candidats()
         promues = {c.url for c in self.liens.retenus(candidats)}
-        self.assertTrue(any("devenir-partenaire-livraison" in u for u in promues)
-                        or any("become-a-delivery-partner" in u for u in promues))
-        self.assertTrue(any("devenir-relais" in u for u in promues))
+        self.assertEqual(len(promues), 2, promues)
+        self.assertTrue(any("become-a-delivery-partner" in u for u in promues))
+        self.assertTrue(any("cevalogistics" in u for u in promues))
+        # La française est CANDIDATE, pas perdue.
+        fr = [c for c in candidats if "devenir-partenaire-livraison" in c.url]
+        self.assertEqual(len(fr), 1, "elle reste une candidate")
+        self.assertFalse(fr[0].promouvable)
 
     def test_4_la_recolte_inscrit_candidates_et_promues_avec_leur_raison(self):
         from radar import circuit
@@ -1403,3 +1437,222 @@ class P6_ScenarioCompletSansAucunMoteur(unittest.TestCase):
         b, _ = self.norm.depuis_collecte(c, self.profil, circuit=circuit.DECOUVERTE)
         self.assertEqual(moteur().analyser(a).score.total,
                          moteur().analyser(b).score.total)
+
+
+# ══════════════════════════ 7a — LA PREUVE POSITIVE
+class S7a_LIncertitudeNestPasUnePreuve(unittest.TestCase):
+    """« INCERTAIN vaut mieux qu'INCORRECT. »
+
+    Une version antérieure promouvait dès que le domaine était reconnu et que
+    le rôle n'était PAS fournisseur. C'était promouvoir sur l'absence de
+    contre-preuve. Ces tests verrouillent la règle inverse.
+    """
+
+    def setUp(self):
+        from radar import pertinence
+        self.pertinence = pertinence
+        self.onto, self.det = _mecanismes()
+
+    def _p(self, texte):
+        return self.pertinence.evaluer(texte, self.onto, self.det)
+
+    # ── 1 · un simple mot métier ne promeut plus ──
+    def test_1_un_mot_du_domaine_seul_ne_promeut_plus(self):
+        from radar.pertinence import Confiance
+        # « colis », « livraison » : vocabulaire de DOMAINE, l'équivalent
+        # textuel d'un CPV générique. Il situe, il ne prouve rien.
+        for texte in ("Mon espace Colis Privé",
+                      "Reprogrammer une livraison",
+                      "FAQ — J'attends un colis",
+                      "Connexion espace colis"):
+            p = self._p(texte)
+            self.assertIs(p.confiance, Confiance.MOYENNE, texte)
+            self.assertFalse(p.promouvoir, texte)
+            self.assertTrue(p.domaine, "le domaine EST reconnu, il ne suffit pas")
+
+    # ── 2 · A_VERIFIER seul ne promeut jamais ──
+    def test_2_a_verifier_seul_ne_promeut_jamais(self):
+        from radar.role import Role
+        for texte in ("Mon espace Colis Privé", "Reprogrammer une livraison",
+                      "Travailler pour Colis Privé", "Devenir relais colis Privé"):
+            p = self._p(texte)
+            self.assertIs(p.role, Role.A_VERIFIER, texte)
+            self.assertFalse(p.promouvoir,
+                             f"« {texte} » : l'incertitude a servi de preuve")
+
+    # ── 3 · une preuve PRESTATAIRE continue de promouvoir ──
+    def test_3_une_preuve_de_role_prestataire_promeut(self):
+        from radar.pertinence import Confiance
+        from radar.role import Role
+        p = self._p("Devenir transporteur")
+        self.assertIs(p.confiance, Confiance.FORTE)
+        self.assertIs(p.role, Role.PRESTATAIRE)
+        self.assertTrue(p.preuves, "la preuve doit être nommée")
+
+    # ── 4 · une preuve de FAMILLE continue de promouvoir ──
+    def test_4_une_famille_metier_promeut_et_nomme_sa_preuve(self):
+        from radar.pertinence import Confiance
+        p = self._p("Prestations de logistique et gestion d'entrepôt")
+        self.assertIs(p.confiance, Confiance.FORTE)
+        self.assertTrue(p.familles, "la famille reconnue doit être conservée")
+        self.assertTrue(any("famille" in x for x in p.preuves), p.preuves)
+
+    # ── 5 · une page générique reste candidate ──
+    def test_5_une_page_generique_reste_candidate(self):
+        from radar.pertinence import Confiance
+        for texte in ("Partenaires", "Nos actualités", "Mentions légales",
+                      "Politique de cookies", "CGU", "Qui sommes-nous ?",
+                      "Contact", "Nous rejoindre"):
+            self.assertIs(self._p(texte).confiance, Confiance.AUCUNE, texte)
+
+    # ── CONTRE-EXEMPLE EXIGÉ ──
+    def test_6_contre_exemple_le_vocabulaire_generique_ne_fait_pas_une_opportunite(self):
+        """Une page bourrée de vocabulaire de domaine, SANS aucun besoin.
+
+        Elle ne doit ni être promue, ni devenir une opportunité. Ce sont deux
+        objets distincts, et aucun des deux ne naît d'un mot.
+        """
+        from radar.pertinence import Confiance
+        texte = ("Suivi de colis — entrez votre numéro de colis pour connaître "
+                 "l'état de votre livraison. Votre colis est en cours de "
+                 "distribution. Le chauffeur passera aujourd'hui.")
+        p = self._p(texte)
+        self.assertTrue(p.domaine, "le vocabulaire du métier EST là")
+        self.assertIs(p.confiance, Confiance.MOYENNE)
+        self.assertFalse(p.promouvoir, "une page de suivi n'est pas un besoin")
+
+        # PAGE SURVEILLÉE et OPPORTUNITÉ restent deux objets distincts : 7a
+        # garantit la première décision, pas la seconde.
+        #
+        # PROBLÈME HORS PÉRIMÈTRE, CONSTATÉ ET NON CORRIGÉ EN 7a :
+        # la chaîne gelée classe ce texte DIRECT / CAPTER / 49-100 alors que
+        # c'est une page CLIENT — l'entreprise y parle à son destinataire, pas
+        # à un prestataire. Le score est marqué non mesurable, ce qui est
+        # correct, mais le classement l'est moins. Cela relève de la
+        # classification, pas de la promotion : voir le compte rendu 7a,
+        # rubrique « problèmes découverts ». Le test constate l'état actuel
+        # sans l'entériner comme souhaitable.
+        from tests.test_radar import MAINTENANT, moteur, opp
+        r = moteur().analyser(opp(intitule="Suivi de colis", texte=texte, cpv=[]),
+                              MAINTENANT)
+        self.assertFalse(r.score.mesurable,
+                         "aucun fait économique observé : le score n'est pas une mesure")
+
+    # ── le veto FOURNISSEUR survit, même avec une famille ──
+    def test_7_le_veto_fournisseur_prime_sur_la_famille(self):
+        """« Fourniture et livraison de repas en liaison froide » porte la
+        famille « alimentaire » ET le rôle FOURNISSEUR. Dans le mauvais ordre,
+        la règle « famille OU prestataire » la promouvrait."""
+        from radar.pertinence import Confiance
+        from radar.role import Role
+        p = self._p("Fourniture et livraison de repas en liaison froide")
+        self.assertIs(p.role, Role.FOURNISSEUR)
+        self.assertTrue(p.familles, "la famille EST reconnue")
+        self.assertIs(p.confiance, Confiance.MOYENNE)
+        self.assertFalse(p.promouvoir)
+
+    def test_8_la_raison_dit_toujours_ce_qui_manque(self):
+        p = self._p("Mon espace Colis Privé")
+        self.assertIn("CANDIDATE — À QUALIFIER", p.raison())
+        self.assertIn("aucune preuve positive", p.raison())
+
+
+class S7a_AucuneCandidateNEstPerdue(unittest.TestCase):
+    """Resserrer la promotion ne doit rien supprimer."""
+
+    def setUp(self):
+        from radar import liens, pages
+        self.liens, self.pages = liens, pages
+        self.onto, self.det = _mecanismes()
+        self.cx = ouvrir(":memory:")
+
+    # ── 6 · une URL explicitement surveillée le reste ──
+    def test_6_une_url_configuree_reste_surveillee_malgre_une_faible_qualification(self):
+        u = "https://exemple.be/mon-espace-colis"
+        from radar.pertinence import Confiance
+        self.assertIs(self.pertinence_de("Mon espace colis"), Confiance.MOYENNE)
+        self.pages.rencontrer(self.cx, u, provenance=self.pages.CONFIGUREE,
+                              source="exploitant")
+        self.pages.promouvoir(self.cx, u, "désignée par l'exploitant")
+        self.assertIs(self.pages.lire(self.cx, u).statut, self.pages.Statut.SURVEILLEE)
+        self.assertEqual(len(self.pages.a_surveiller(self.cx)), 1)
+
+    def pertinence_de(self, texte):
+        from radar import pertinence
+        return pertinence.evaluer(texte, self.onto, self.det).confiance
+
+    # ── 7 · aucune candidate n'est supprimée ──
+    def test_7_les_candidates_non_promues_restent_inscrites(self):
+        bruts = [{"href": "/mon-espace", "texte": "Mon espace Colis Privé"},
+                 {"href": "/faq-colis", "texte": "FAQ — J'attends un colis"},
+                 {"href": "/devenir-transporteur", "texte": "Devenir transporteur"}]
+        cands = self.liens.selectionner(bruts, "https://exemple.be/accueil",
+                                        self.onto, self.det)
+        bilan = self.pages.depuis_liens(self.cx, cands, entreprise="exemple.be")
+        self.assertEqual(bilan["candidates"], 3, "les 3 sont inscrites")
+        self.assertEqual(bilan["promues"], 1, "une seule porte une preuve")
+        toutes = self.pages.a_surveiller(self.cx, toutes=True)
+        self.assertEqual(len(toutes), 3, "aucune candidate perdue")
+        self.assertEqual(len(self.pages.a_surveiller(self.cx)), 1)
+
+    # ── 8 · la provenance est conservée ──
+    def test_8_chaque_candidate_garde_sa_provenance_et_sa_raison(self):
+        from radar import circuit
+        bruts = [{"href": "/mon-espace", "texte": "Mon espace Colis Privé"}]
+        cands = self.liens.selectionner(bruts, "https://exemple.be/accueil",
+                                        self.onto, self.det)
+        self.pages.depuis_liens(self.cx, cands, entreprise="exemple.be",
+                                circuit=circuit.CONNUE)
+        pg = self.pages.lire(self.cx, "https://exemple.be/mon-espace")
+        self.assertTrue(pg.provenances)
+        self.assertEqual(pg.provenances[0]["circuit"], circuit.CONNUE)
+        self.assertIn("lien retenu", pg.raison or "")
+
+    # ── 9 · la déduplication est inchangée ──
+    def test_9_la_deduplication_reste_identique(self):
+        bruts = [{"href": "/mon-espace", "texte": "Mon espace Colis Privé"},
+                 {"href": "/mon-espace#bas", "texte": "Mon espace"}]
+        cands = self.liens.selectionner(bruts, "https://exemple.be/accueil",
+                                        self.onto, self.det)
+        self.assertEqual(len(cands), 1)
+        self.pages.depuis_liens(self.cx, cands)
+        self.pages.depuis_liens(self.cx, cands)
+        self.assertEqual(
+            self.cx.execute("SELECT count(*) c FROM pages_surveillees").fetchone()["c"], 1)
+
+
+class S7a_LeCircuitNInfluencePasLaPromotion(unittest.TestCase):
+    """Ni la source, ni le circuit, ni le moteur n'entrent dans la décision."""
+
+    def setUp(self):
+        from radar import liens, pages, pertinence
+        self.liens, self.pages, self.pertinence = liens, pages, pertinence
+        self.onto, self.det = _mecanismes()
+
+    def test_1_evaluer_ne_recoit_ni_source_ni_circuit(self):
+        import inspect
+        params = set(inspect.signature(self.pertinence.evaluer).parameters)
+        for interdit in ("source", "circuit", "moteur", "fournisseur", "provenance"):
+            self.assertNotIn(interdit, params,
+                             f"evaluer() ne doit pas connaître « {interdit} »")
+
+    def test_2_le_module_ne_nomme_aucune_source(self):
+        source = pathlib.Path("radar/pertinence.py").read_text(encoding="utf-8")
+        corps = source.split('"""', 2)[-1]
+        for nom in ("google", "brave", "bda", "ted", "SOURCE_CONNUE",
+                    "SOURCE_DÉCOUVERTE"):
+            self.assertNotIn(nom.lower(), corps.lower(), nom)
+
+    def test_3_la_meme_page_promeut_pareil_par_les_deux_circuits(self):
+        from radar import circuit
+        cx = ouvrir(":memory:")
+        bruts = [{"href": "https://exemple.be/devenir-transporteur",
+                  "texte": "Devenir transporteur"}]
+        resultats = {}
+        for c in (circuit.CONNUE, circuit.DECOUVERTE):
+            base = ouvrir(":memory:")
+            cands = self.liens.selectionner(bruts, "https://exemple.be/accueil",
+                                            self.onto, self.det)
+            resultats[c] = self.pages.depuis_liens(base, cands, circuit=c)
+        self.assertEqual(resultats[circuit.CONNUE], resultats[circuit.DECOUVERTE])
+        del cx

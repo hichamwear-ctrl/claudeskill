@@ -1,0 +1,30 @@
+MESURE 7a — ÉTAT APRÈS
+Fixture : archive réelle du 2026-09-12, sha256 c5e20010e7bd… — AUCUN réseau
+
+  liens bruts           55 → 55
+  candidates retenues   25 → 23
+  promotions            11 → 2
+
+  ── PROMUES, AVEC LEUR PREUVE POSITIVE ──
+    colisprive.be/en/become-a-delivery-partner/    PROMUE AUTOMATIQUEMENT — ROLE=PRESTATAIRE — CONFIANCE=FORTE — « delivery partn
+    www.cevalogistics.com/fr                       PROMUE AUTOMATIQUEMENT — ROLE=A_VERIFIER — CONFIANCE=FORTE — famille « logisti
+
+  ── EFFET MÉCANIQUE SUR LA SÉLECTION : 2 candidates en moins ──
+  liens.selectionner utilise FORTE comme porte de la priorité 2
+  (« lien EXTERNE à indice fort »). Resserrer FORTE resserre donc P2.
+  Les deux liens concernés, sur un AUTRE hôte que la page lue :
+    https://www.colisprive.com/agence/Account/Login.aspx        
+      familles=— role=A_VERIFIER → n'est plus P2 « indice fort »
+    https://storebelux.colisprive.com/CPS/connexion             
+      familles=— role=A_VERIFIER → n'est plus P2 « indice fort »
+  Aucune page PERSISTÉE n'est supprimée : ces liens n'avaient jamais été
+  inscrits. C'est la sélection en amont qui les écarte, pas une purge.
+
+  ── FAUX NÉGATIF VISIBLE, ET IL EST CONNU ──
+    colisprive.be/devenir-partenaire-livraison/
+      MOYENNE — CANDIDATE — À QUALIFIER — ROLE=A_VERIFIER — domaine reconnu, aucune preuve p
+    La page FRANÇAISE de l'opportunité réelle redevient CANDIDATE,
+    tandis que sa version ANGLAISE reste promue. Cause identifiée et
+    mesurée : config/roles.yaml contient « delivery partner » (en) mais
+    pas « partenaire de livraison » (fr).
+    → ASYMÉTRIE FR/EN — CHANTIER 7d. AUCUNE correction en 7a.

@@ -1,0 +1,19 @@
+MESURE 7a — ÉTAT AVANT (commit a2061cb)
+Fixture : archive réelle du 2026-09-12, sha256 c5e20010e7bd… — AUCUN réseau
+
+  liens bruts           55
+  candidates retenues   25
+  promotions            11
+
+  RAISONS DE PROMOTION :
+    colisprive.be/reprogrammer-une-livraison/        role=A_VERIFIER   domaine=« livraison »
+    colisprive.be/aide/thematique/recevoir-mon-col   role=A_VERIFIER   domaine=« colis »
+    colisprive.be/aide/thematique/colis-recu/        role=A_VERIFIER   domaine=« colis »
+    www.colisprive.com/agence/Account/Login.aspx?R   role=A_VERIFIER   domaine=« colis »
+    colisprive.be/devenir-relais/                    role=A_VERIFIER   domaine=« colis »
+    storebelux.colisprive.com/CPS/connexion          role=A_VERIFIER   domaine=« colis »
+    colisprive.be/devenir-partenaire-livraison/      role=A_VERIFIER   domaine=« livraison »
+    colisprive.be/travailler-pour-colis-prive/       role=A_VERIFIER   domaine=« colis »
+    colisprive.be/en/become-a-delivery-partner/      role=PRESTATAIRE  domaine=« delivery »
+    colisprive.be/aide/thematique/e-commercants/     role=A_VERIFIER   domaine=« livraison »
+    www.cevalogistics.com/fr                         role=A_VERIFIER   famille=['logistique_entrepot']
