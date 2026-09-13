@@ -1,0 +1,38 @@
+MESURE 7d — AVANT / APRÈS
+FIXTURE : archive du 2026-09-12, sha256 c5e20010e7bd… — AUCUN réseau
+
+  AVANT  liens 55 · candidates 23 · promotions 2
+  APRÈS  liens 55 · candidates 23 · promotions 4
+
+  CONSERVÉES (2) :
+    = colisprive.be/en/become-a-delivery-partner/
+    = www.cevalogistics.com/fr
+
+  NOUVELLES (2) — et POURQUOI :
+    + colisprive.be/aide/thematique/e-commercants/          
+      role=PRESTATAIRE  preuve=['« partenaire de livraison »']
+    + colisprive.be/devenir-partenaire-livraison/           
+      role=PRESTATAIRE  preuve=['« partenaire livraison »']
+
+  PERDUES : 0
+  CANDIDATES : 23 → 23  (inchangé)
+
+
+  PAGES NÉGATIVES — aucune ne doit devenir une preuve
+    Suivi de colis                         MOYENNE  → MOYENNE 
+    FAQ – J'attends un colis               MOYENNE  → MOYENNE 
+    Reprogrammer une livraison             MOYENNE  → MOYENNE 
+    Devenir relais colis Prive             MOYENNE  → MOYENNE 
+    Travailler pour Colis Prive            MOYENNE  → MOYENNE 
+    Mon espace Colis Prive                 MOYENNE  → MOYENNE 
+    Mentions legales                       AUCUNE   → AUCUNE  
+    CGU                                    AUCUNE   → AUCUNE  
+    Nos actualites                         AUCUNE   → AUCUNE  
+    Politique de cookies                   AUCUNE   → AUCUNE  
+    Nous recrutons 20 chauffeurs           MOYENNE  → MOYENNE 
+
+
+  ÉQUIVALENCE FR / NL / EN sur une page sémantiquement identique
+    fr  MOYENNE  → FORTE      Devenir partenaire de livraison pour nos tourn
+    nl  FORTE    → FORTE      Word leveringspartner voor onze dagelijkse lev
+    en  FORTE    → FORTE      Become a delivery partner for our daily delive

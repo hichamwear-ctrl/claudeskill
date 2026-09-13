@@ -69,6 +69,14 @@ lexique:
          # privilège qu'on refuse.
          "transporteur", "transporteurs", "partenaire transport",
          "partenaire logistique", "partenaire transporteur",
+         # ── 7d · l'asymétrie de langue, corrigée ──
+         # « delivery partner » existait en anglais DEPUIS L'ORIGINE, sans
+         # équivalent français. Une page belge francophone n'obtenait donc
+         # aucune preuve de rôle là où sa propre traduction anglaise en
+         # obtenait une. Ce n'était pas un choix : c'était un trou.
+         # La seconde forme est celle des chemins d'URL et des libellés de
+         # lien — « /devenir-partenaire-livraison » se lit sans le « de ».
+         "partenaire de livraison", "partenaire livraison",
          "sous-traitant transport", "sous-traitance de transport",
          "assurer nos livraisons", "assurer les livraisons", "confions nos",
          "confier nos", "reprendre la tournée", "reprendre les tournées",
@@ -80,6 +88,10 @@ lexique:
     nl: ["vervoersdiensten", "transportdiensten", "logistieke dienstverlening",
          "vervoer van", "ophaling en vervoer", "verhuizing", "goederenbehandeling",
          "transporteur gezocht", "vervoerder gezocht", "logistieke partner",
+         # Le même terme en néerlandais : sans lui, on corrigerait une
+         # asymétrie en en créant une autre, dans un pays où le besoin
+         # s'exprime dans les trois langues.
+         "leveringspartner",
          "onderaannemer transport", "dagelijkse leveringen", "vaste rit"]
     en: ["transport services", "logistics services", "haulage", "freight services",
          "courier services", "removal services", "vehicle transfer",

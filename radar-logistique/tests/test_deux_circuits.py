@@ -999,28 +999,48 @@ class P1_LaPromotionAutomatiqueEstPrudente(unittest.TestCase):
                       "Devenir sous-traitant transport"):
             self.assertIs(self._c(texte), Confiance.FORTE, texte)
 
-    def test_1bis_deux_formulations_attendues_ne_sont_PAS_promues(self):
-        """FAUX NÉGATIFS CONNUS, MESURÉS, ET LAISSÉS TELS QUELS EN 7a.
+    def test_1bis_l_asymetrie_fr_en_est_corrigee_7d(self):
+        """Ce test a été posé en 7a pour que la correction de 7d SE VOIE.
 
-        Ces deux formulations désignent de vrais besoins, mais aucune preuve
-        positive n'existe dans la configuration métier actuelle :
-
-          « partenaire de livraison » — absent du lexique fr, alors que
-              « delivery partner » est présent en en → ASYMÉTRIE, chantier 7d
-          « recrutement de chauffeurs » — « chauffeur » est au vocabulaire de
-              DOMAINE, pas au lexique de prestation → même famille de manque
-
-        Ce test EXISTE pour que la correction de 7d se voie : le jour où la
-        configuration est complétée, il échouera et devra être mis à jour.
-        Elles restent CANDIDATES — elles ne sont ni perdues ni écartées.
+        « partenaire de livraison » est désormais au lexique de prestation
+        français, comme « delivery partner » l'était en anglais depuis
+        l'origine. La page francophone obtient enfin la même preuve que sa
+        propre traduction anglaise.
         """
         from radar.pertinence import Confiance
-        for texte in ("Devenir partenaire de livraison",
-                      "Recrutement de chauffeurs"):
-            self.assertIs(self._c(texte), Confiance.MOYENNE, texte)
-            p = self.pertinence.evaluer(texte, self.onto, self.det)
-            self.assertFalse(p.promouvoir)
-            self.assertIn("aucune preuve positive", p.raison())
+        from radar.role import Role
+        p = self.pertinence.evaluer("Devenir partenaire de livraison",
+                                    self.onto, self.det)
+        self.assertIs(p.confiance, Confiance.FORTE)
+        self.assertIs(p.role, Role.PRESTATAIRE)
+        self.assertTrue(any("partenaire" in x for x in p.preuves), p.preuves)
+
+    def test_1ter_chauffeur_reste_un_terme_de_domaine_decision_7d(self):
+        """DÉCISION MÉTIER DE 7d : « chauffeur » N'EST PAS déplacé.
+
+        « Nous recrutons 20 chauffeurs » est un recrutement de salariés, pas
+        l'achat d'une prestation de transport. Mesuré avant toute écriture :
+        déplacer le terme nu produisait 2 faux positifs sur les pages
+        négatives du corpus de référence.
+
+        La configuration distingue DÉJÀ les deux contextes — « mise à
+        disposition de chauffeurs » et « location de véhicules avec
+        chauffeur » sont bien des prestations, et sont bien au lexique.
+        Le manque était apparent, pas réel.
+        """
+        from radar.pertinence import Confiance
+        from radar.role import Role
+        for emploi in ("Recrutement de chauffeurs",
+                       "Nous recrutons 20 chauffeurs",
+                       "Offre d'emploi chauffeur livreur CDI"):
+            p = self.pertinence.evaluer(emploi, self.onto, self.det)
+            self.assertIs(p.confiance, Confiance.MOYENNE, emploi)
+            self.assertFalse(p.promouvoir, emploi)
+        # …tandis que les DEUX contextes de prestation restent reconnus.
+        for prestation in ("Mise à disposition de chauffeurs",
+                           "Location de véhicules avec chauffeur"):
+            self.assertIs(self.det.analyser(prestation).role, Role.PRESTATAIRE,
+                          prestation)
 
     def test_2_un_mot_generique_ne_suffit_pas(self):
         """« partenaire » ou « actualités » seuls ne rattachent rien."""
@@ -1191,22 +1211,21 @@ class P4_LaRecolteSurLaPageReelle(unittest.TestCase):
                              f"« {forme} » ne doit pas être promue")
 
     def test_3_seules_les_pages_a_preuve_positive_sont_promues(self):
-        """7a : sur cette page réelle, 11 → 2 promotions.
+        """7a puis 7d : 11 → 2 → 4 promotions sur cette page réelle.
 
-        Ne subsistent que celles qui portent une preuve : un rôle PRESTATAIRE
-        (« delivery partner ») ou une famille métier (« logistique_entrepot »).
-        La version FRANÇAISE de la même page redevient candidate — voir
-        test_1bis et le chantier 7d.
+        7a a supprimé les 9 promotions qui tenaient à un mot générique.
+        7d en rend 2 : celles qui portent désormais une preuve de rôle en
+        FRANÇAIS, là où seule la version anglaise en avait une.
         """
         _, candidats = self._candidats()
         promues = {c.url for c in self.liens.retenus(candidats)}
-        self.assertEqual(len(promues), 2, promues)
+        self.assertEqual(len(promues), 4, promues)
+        # La preuve anglaise, inchangée depuis l'origine.
         self.assertTrue(any("become-a-delivery-partner" in u for u in promues))
+        # La preuve de FAMILLE, inchangée.
         self.assertTrue(any("cevalogistics" in u for u in promues))
-        # La française est CANDIDATE, pas perdue.
-        fr = [c for c in candidats if "devenir-partenaire-livraison" in c.url]
-        self.assertEqual(len(fr), 1, "elle reste une candidate")
-        self.assertFalse(fr[0].promouvable)
+        # ÉQUIVALENCE FR/EN : la page française a enfin sa preuve.
+        self.assertTrue(any("devenir-partenaire-livraison" in u for u in promues))
 
     def test_4_la_recolte_inscrit_candidates_et_promues_avec_leur_raison(self):
         from radar import circuit
@@ -2314,3 +2333,226 @@ class S7c_UneAttributionResteUneAttribution(unittest.TestCase):
         b.provenances = [{"source": "google", "circuit": circuit.DECOUVERTE}]
         self.assertEqual(moteur().analyser(a, MAINTENANT).score.total,
                          moteur().analyser(b, MAINTENANT).score.total)
+
+
+# ══════════════════════════ 7d — ASYMÉTRIE DE LANGUE
+#
+# FIXTURE : corpus de référence, archive du 2026-09-12. Aucun réseau.
+
+class S7d_EquivalenceDesLangues(unittest.TestCase):
+    """FR, NL et EN disent la même chose. Aucun n'a la priorité sur l'autre."""
+
+    def setUp(self):
+        from radar import pertinence
+        self.pertinence = pertinence
+        self.onto, self.det = _mecanismes()
+
+    def _role(self, texte):
+        return self.det.analyser(texte).role
+
+    # ── 1 · l'anglais garde exactement ce qu'il avait ──
+    def test_1_delivery_partner_garde_son_role(self):
+        from radar.role import Role
+        self.assertIs(self._role("Become a delivery partner"), Role.PRESTATAIRE)
+        self.assertIs(self._role("delivery partner"), Role.PRESTATAIRE)
+
+    # ── 2 · le français obtient le même ──
+    def test_2_partenaire_de_livraison_obtient_le_meme_role(self):
+        from radar.role import Role
+        for forme in ("Devenir partenaire de livraison",
+                      "devenir partenaire livraison"):
+            self.assertIs(self._role(forme), Role.PRESTATAIRE, forme)
+
+    # ── 3 · équivalence sur une page sémantiquement identique ──
+    def test_3_la_meme_page_dans_trois_langues_donne_le_meme_verdict(self):
+        from radar.pertinence import Confiance
+        pages = {
+            "fr": "Devenir partenaire de livraison pour nos tournees quotidiennes",
+            "nl": "Word leveringspartner voor onze dagelijkse leveringen",
+            "en": "Become a delivery partner for our daily deliveries",
+        }
+        verdicts = {langue: self.pertinence.evaluer(t, self.onto, self.det).confiance
+                    for langue, t in pages.items()}
+        self.assertEqual(set(verdicts.values()), {Confiance.FORTE},
+                         f"les trois langues doivent conclure pareil : {verdicts}")
+
+    def test_3ter_le_terme_nl_donne_bien_le_role_meme_isole(self):
+        """LIMITE CONSTATÉE, HORS PÉRIMÈTRE 7d.
+
+        « leveringspartner » produit bien PRESTATAIRE au niveau du RÔLE. Mais
+        un composé néerlandais isolé ne franchit pas la porte de l'ONTOLOGIE :
+        config/capacites.yaml déclare « levering » et « leveringen », pas les
+        composés qui les contiennent — et le néerlandais compose beaucoup.
+
+        Ce n'est pas un défaut de roles.yaml et ce n'est pas 7d. Toucher
+        capacites.yaml sortirait du périmètre accordé.
+        → DÉCISION MÉTIER À VALIDER, voir le compte rendu 7d.
+        """
+        from radar.role import Role
+        self.assertIs(self._role("Leveringspartner worden"), Role.PRESTATAIRE,
+                      "le rôle, lui, est bien détecté")
+        self.assertFalse(self.onto.analyser("Leveringspartner worden").correspond,
+                         "mais l'ontologie ne reconnaît pas le composé isolé")
+
+    def test_3bis_aucune_langue_n_a_de_priorite_sur_une_autre(self):
+        """Il n'existe aucune pondération par langue, nulle part."""
+        import yaml
+        roles = yaml.safe_load(
+            pathlib.Path("config/roles.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(set(roles["lexique"]["prestation"]), {"fr", "nl", "en"})
+        source = pathlib.Path("radar/role.py").read_text(encoding="utf-8")
+        for biais in ('"fr" >', "langue_prioritaire", "poids_langue",
+                      'if langue ==', "bonus_fr", "bonus_en"):
+            self.assertNotIn(biais, source, biais)
+
+    # ── 4-8 · AUCUNE régression sur les pages génériques ──
+    def test_4_a_8_les_pages_de_forme_ne_deviennent_pas_des_preuves(self):
+        from radar.pertinence import Confiance
+        from radar.role import Role
+        GENERIQUES = {
+            "suivi de colis": "Suivi de colis — entrez votre numero de colis",
+            "recevoir mon colis": "FAQ – J'attends un colis",
+            "reprogrammer": "Reprogrammer une livraison",
+            "connexion": "Mon espace Colis Prive — connexion",
+            "mentions légales": "Mentions légales",
+            "CGU": "CGU — conditions générales d'utilisation",
+            "actualités": "Nos actualités",
+            "cookies": "Politique de cookies",
+            "qui sommes-nous": "Qui sommes-nous ?",
+        }
+        for nom, texte in GENERIQUES.items():
+            p = self.pertinence.evaluer(texte, self.onto, self.det)
+            self.assertIsNot(p.confiance, Confiance.FORTE,
+                             f"« {nom} » est devenue une preuve — régression 7d")
+            self.assertFalse(p.promouvoir, nom)
+            self.assertIsNot(self._role(texte), Role.PRESTATAIRE, nom)
+
+    # ── 9 · chauffeur : la décision de 7d, verrouillée ──
+    def test_9_chauffeur_nu_n_est_pas_une_preuve_de_prestation(self):
+        from radar.role import Role
+        import yaml
+        roles = yaml.safe_load(
+            pathlib.Path("config/roles.yaml").read_text(encoding="utf-8"))
+        nus = [m for langue in ("fr", "nl", "en")
+               for m in roles["lexique"]["prestation"][langue]
+               if m.strip() in ("chauffeur", "chauffeurs", "driver", "drivers",
+                                "chauffeurs poids lourds")]
+        self.assertEqual(nus, [], "« chauffeur » nu ne doit pas être une prestation")
+        self.assertIsNot(self._role("Nous recrutons 20 chauffeurs"), Role.PRESTATAIRE)
+
+    def test_9bis_mais_les_vrais_contextes_de_prestation_restent_reconnus(self):
+        from radar.role import Role
+        for texte in ("Mise à disposition de chauffeurs",
+                      "Location de véhicules avec chauffeur"):
+            self.assertIs(self._role(texte), Role.PRESTATAIRE, texte)
+
+    # ── 10 · aucune promotion sur un mot générique ──
+    def test_10_un_mot_du_domaine_seul_ne_promeut_toujours_pas(self):
+        from radar.pertinence import Confiance
+        for texte in ("colis", "livraison", "transport", "Mon espace colis",
+                      "Votre colis est en cours de livraison"):
+            self.assertIsNot(self.pertinence.evaluer(texte, self.onto, self.det)
+                             .confiance, Confiance.FORTE, texte)
+
+    # ── 11 · ni source ni circuit n'interviennent ──
+    def test_11_le_lexique_ne_nomme_aucune_source(self):
+        texte = pathlib.Path("config/roles.yaml").read_text(encoding="utf-8").lower()
+        for nom in ("google", "brave", "bing", "source_connue",
+                    "source_découverte", "circuit"):
+            self.assertNotIn(nom, texte, nom)
+
+
+class S7d_NonRegressionNegative(unittest.TestCase):
+    """LE TEST EXIGÉ : un ajout lexical ne transforme pas une page client
+    ou générique en page commerciale."""
+
+    PAGE_CLIENT = ("Suivi de colis. Entrez votre numero de colis pour connaitre "
+                   "l'etat de votre livraison. Votre colis est en cours de "
+                   "distribution, le chauffeur passera aujourd'hui. Consultez "
+                   "nos horaires de distribution et nos points relais.")
+
+    def setUp(self):
+        from radar import pertinence
+        self.pertinence = pertinence
+        self.onto, self.det = _mecanismes()
+
+    def test_1_une_page_client_bourree_de_vocabulaire_ne_devient_pas_une_preuve(self):
+        """Elle contient colis, livraison, distribution, chauffeur, partenaire,
+        transport — et reste sans preuve de prestation."""
+        from radar.pertinence import Confiance
+        from radar.role import Role
+        p = self.pertinence.evaluer(self.PAGE_CLIENT, self.onto, self.det)
+        self.assertTrue(p.domaine, "le vocabulaire du métier EST là")
+        self.assertIsNot(p.role, Role.PRESTATAIRE)
+        self.assertIsNot(p.confiance, Confiance.FORTE)
+        self.assertFalse(p.promouvoir)
+
+    def test_1bis_une_expression_de_prestation_ANTERIEURE_a_7d_est_documentee(self):
+        """PROBLÈME HORS PÉRIMÈTRE, ANTÉRIEUR À 7d, NON CORRIGÉ.
+
+        « livraison à domicile » est au lexique de prestation français DEPUIS
+        L'ORIGINE. Une page CLIENT qui l'emploie pour décrire son propre
+        service ressort donc PRESTATAIRE.
+
+        Vérifié en comparant la configuration d'avant et d'après 7d : le
+        verdict est identique. 7d n'en est pas la cause et ne le corrige pas.
+        Même famille que « suivi de colis → DIRECT ». Documenté, pas touché.
+        """
+        from radar.role import Role
+        texte = "Notre partenaire de transport assure la livraison a domicile."
+        self.assertIs(self._role_de(texte), Role.PRESTATAIRE)
+
+    def _role_de(self, texte):
+        return self.det.analyser(texte).role
+
+    def test_2_le_nombre_de_promotions_sur_le_corpus_reste_borne(self):
+        """11 (avant 7a) → 2 (après 7a) → 4 (après 7d). Pas de retour au bruit."""
+        import yaml
+        from radar import liens as mod
+        from radar.page import lire as lire_page
+        page = pathlib.Path("validation/pages_reelles/"
+                            "2026-09-12-entreprise-c5e20010e7bd.html")
+        if not page.exists():
+            self.skipTest("archive absente")
+        profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        lec = lire_page(page.read_bytes().decode("utf-8", "replace"), profil)
+        cands = mod.selectionner(lec.liens,
+                                 "https://www.colisprive.be/devenir-partenaire-livraison/",
+                                 self.onto, self.det)
+        promues = mod.retenus(cands)
+        self.assertEqual(len(cands), 23, "les candidates ne bougent pas")
+        self.assertEqual(len(promues), 4)
+        # Et AUCUNE page de forme n'y figure.
+        for forme in ("mentions-legales", "cgu", "politique-de-cookies",
+                      "nos-actualites", "qui-sommes-nous", "nos-engagements-rse",
+                      "Login.aspx", "connexion"):
+            self.assertFalse(any(forme in c.url for c in promues), forme)
+
+    def test_3_le_score_de_la_page_de_reference_est_inchange(self):
+        """Le rôle se renforce ; le verdict commercial, lui, ne bouge pas."""
+        import yaml
+        from tests.test_radar import moteur
+        from radar import collecte_directe, normalisation
+        from radar.chaine import traiter
+        from radar.mode import Mode
+        from radar.pages import Acces
+        page = pathlib.Path("validation/pages_reelles/"
+                            "2026-09-12-entreprise-c5e20010e7bd.html")
+        if not page.exists():
+            self.skipTest("archive absente")
+        profil = yaml.safe_load(
+            pathlib.Path("sources/page_web.yaml").read_text(encoding="utf-8"))
+        c = collecte_directe.Collecte(
+            url="https://www.colisprive.be/devenir-partenaire-livraison/",
+            acces=Acces.CONSULTEE, octets=page.read_bytes(), http=200)
+        opp, _ = normalisation.depuis_collecte(c, profil)
+        cx = ouvrir(":memory:")
+        traiter(cx, moteur(), [opp], mode=Mode.REEL)
+        l = cx.execute("SELECT type, moteur, action, score, etat_procedure"
+                       " FROM opportunites").fetchone()
+        self.assertEqual(l["score"], 55, "le score de référence a bougé")
+        self.assertEqual(l["type"], "DIRECT")
+        self.assertEqual(l["moteur"], "CAPTER")
+        self.assertEqual(l["action"], "POSTULER")
+        self.assertEqual(l["etat_procedure"], "POSTULABLE")
