@@ -1,0 +1,167 @@
+{
+  "mesure": "AUDIT MOTEURS DE RECHERCHE WEB — 4 NIVEAUX",
+  "date": "2026-09-13",
+  "conteneur": "environnement d'exécution distant, passerelle d'egress à liste blanche",
+  "methode": {
+    "niveau_A_produit_existe": "annuaire public des API, pages produit/tarif de l'éditeur",
+    "niveau_B_acces_autorise": "conditions contractuelles lues sur la source officielle",
+    "niveau_C_acces_technique": "curl depuis CE conteneur, DNS + établissement du tunnel + code HTTP",
+    "niveau_D_test_reel": "requête de recherche réellement émise et résultats réellement reçus"
+  },
+  "avertissement": "HTTP=000 signifie que le tunnel CONNECT a été refusé par la passerelle d'egress (403, text/plain). Ce n'est PAS une panne DNS : le DNS résout. Ce n'est PAS une indisponibilité du produit.",
+  "joignabilite_hotes": [
+    {"hote": "api.bing.microsoft.com",            "dns": "20.41.156.230",            "http": "000", "detail": "CONNECT tunnel failed, response 403 — refus passerelle"},
+    {"hote": "www.bing.com",                      "dns": "2600:1405:6400::17c3:5189","http": "000", "detail": "refus passerelle"},
+    {"hote": "api.search.brave.com",              "dns": "15.197.138.111",           "http": "000", "detail": "refus passerelle"},
+    {"hote": "api.tavily.com",                    "dns": "100.57.251.205",           "http": "000", "detail": "refus passerelle"},
+    {"hote": "api.exa.ai",                        "dns": "2606:4700:3108::ac42:285b","http": "000", "detail": "refus passerelle"},
+    {"hote": "serpapi.com",                       "dns": "2a06:98c1:58::209",        "http": "000", "detail": "refus passerelle"},
+    {"hote": "google.serper.dev",                 "dns": "34.111.29.75",             "http": "000", "detail": "refus passerelle"},
+    {"hote": "api.ydc-index.io",                  "dns": "3.233.77.194",             "http": "000", "detail": "refus passerelle"},
+    {"hote": "api.perplexity.ai",                 "dns": "2606:4700::6812:1a30",     "http": "000", "detail": "refus passerelle"},
+    {"hote": "management.azure.com",              "dns": "2603:1030:a0b::10",        "http": "000", "detail": "refus passerelle"},
+    {"hote": "eastus.api.cognitive.microsoft.com","dns": "20.232.91.180",            "http": "000", "detail": "refus passerelle"},
+    {"hote": "ai.azure.com",                      "dns": "150.171.110.209",          "http": "000", "detail": "refus passerelle"},
+    {"hote": "learn.microsoft.com",               "dns": "2600:1405:6400:188::3544", "http": "000", "detail": "refus passerelle — documentation Microsoft illisible depuis ici"},
+    {"hote": "vertexaisearch.cloud.google.com",   "dns": "non relevé",               "http": "000", "detail": "refus passerelle — hôte des URL de redirection du grounding Google"},
+    {"hote": "portal.azure.com",                  "dns": "2603:1061:11::10",         "http": "403", "detail": "JOIGNABLE — 403 émis par Azure Front Door (en-tête x-azure-ref), pas par la passerelle"},
+    {"hote": "login.microsoftonline.com",         "dns": "2603:1036:3000:118::4",    "http": "302", "detail": "JOIGNABLE — redirection Microsoft authentique (x-ms-request-id)"},
+    {"hote": "customsearch.googleapis.com",       "dns": "2001:4860:4842:400::",     "http": "404", "detail": "JOIGNABLE"},
+    {"hote": "discoveryengine.googleapis.com",    "dns": "2001:4860:4842:400::",     "http": "404", "detail": "JOIGNABLE"},
+    {"hote": "aiplatform.googleapis.com",         "dns": "non relevé",               "http": "404", "detail": "JOIGNABLE"},
+    {"hote": "generativelanguage.googleapis.com", "dns": "non relevé",               "http": "404", "detail": "JOIGNABLE — server: scaffolding on HTTPServer2"},
+    {"hote": "cloud.google.com",                  "dns": "non relevé",               "http": "200", "detail": "JOIGNABLE — page tarifaire récupérée, 3 207 537 octets"}
+  ],
+  "test_chemin_complet_gemini": {
+    "requete": "POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=<CLE_BIDON>",
+    "corps": "{\"contents\":[...],\"tools\":[{\"google_search\":{}}]}",
+    "http": 400,
+    "reponse": "API key not valid. Please pass a valid API key. / API_KEY_INVALID / INVALID_ARGUMENT",
+    "lecture": "Le service Google a été atteint au niveau du CHEMIN, pas seulement de l'hôte. Le rejet porte sur la clé. La validation de l'outil google_search n'a PAS été atteinte : on ne peut donc PAS conclure que l'outil fonctionnerait.",
+    "conclusion_niveau_C": "ACCÈS TECHNIQUE ÉTABLI"
+  },
+  "google_custom_search_json_api": {
+    "niveau_A": "EXISTE — annuaire public googleapis.com, customsearch v1, preferred:true, révision 20260910",
+    "niveau_B": "FERMÉ AUX NOUVEAUX CLIENTS",
+    "niveau_C": "customsearch.googleapis.com JOIGNABLE",
+    "niveau_D": "TESTÉ RÉELLEMENT — 403 PERMISSION_DENIED « This project does not have the access to Custom Search JSON API. » avec la clé et le cx=f7ca7458b03b14276 du projet de l'exploitant",
+    "note_securite": "La clé utilisée lors de ce test doit être considérée comme COMPROMISE et révoquée par l'exploitant. Elle n'apparaît nulle part dans le dépôt."
+  },
+  "google_web_search_service_api": {
+    "hote": "websearchservice.googleapis.com",
+    "niveau_A": "NON CONFIRMÉ — ABSENT de l'annuaire public des 530 API Google (revérifié le 2026-09-13). Document de découverte : HTTP 404. Toutes les variantes de chemin renvoient du HTML 404, là où une vraie API publique Google renvoie du JSON 400 avec une clé bidon.",
+    "niveau_B": "RÉSERVÉ — exige clientContext.clientId, « designated partner client ID » lié à un accord de partenariat",
+    "niveau_C": "NON MESURABLE — pas de chemin d'API valide identifié",
+    "niveau_D": "IMPOSSIBLE",
+    "prix": "NON PUBLIÉ",
+    "quota": "NON PUBLIÉ"
+  },
+  "google_grounding_with_google_search": {
+    "niveau_A": "EXISTE — facturé, documenté, tarif public",
+    "tarif_verifie_le_2026_09_13": {
+      "source": "https://cloud.google.com/vertex-ai/generative-ai/pricing (redirigé vers cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing), HTTP 200 depuis CE conteneur",
+      "gemini_3": "5 000 Grounding Queries par mois sans frais, puis 14 $ / 1 000 Grounding Queries. Facturation démarrée le 2026-01-05.",
+      "gemini_2_5_flash_et_2_0_flash": "1 500 Grounding Prompts par jour sans frais, puis 35 $ / 1 000",
+      "gemini_2_5_pro": "10 000 Grounding Prompts par jour sans frais, puis 35 $ / 1 000",
+      "search_suggestions": "l'affichage des Search Suggestions peut être omis au tarif standard sous 1 million de Grounding Prompts par jour"
+    },
+    "niveau_C": "ACCÈS TECHNIQUE ÉTABLI (voir test_chemin_complet_gemini)",
+    "niveau_B": "INTERDIT POUR CET USAGE — clause 20(k)(i)(2) des Service Specific Terms Google Cloud, lue le 2026-09-13 sur cloud.google.com/terms/service-terms",
+    "citation_interdiction": "« Will not, and will not allow its End Users or any third party to, cache, frame, syndicate, resell, analyze, train on, or otherwise learn from Grounded Results or Search Suggestions. […] it is a violation of these terms to use Grounding with Google Search to extract or collect one or more of these components for another purpose (for example, using programmatic or automated means to collect Links, using Links to build an index, or using Links to identify destination pages for crawling or scraping). »",
+    "citation_base_de_donnees": "« Customer does not allow Grounded Results to be: (i) accessed or collected by automated or programmatic means, or (ii) to be used to create a database. »",
+    "lecture": "Le radar collecte des liens par moyen programmatique, construit un index, en fait une base de données et s'en sert pour identifier des pages à récupérer. C'est exactement et littéralement ce que la clause interdit. Le seul moteur JOIGNABLE est donc juridiquement INÉLIGIBLE.",
+    "niveau_D": "NON TESTÉ — et ne doit pas l'être tant que la clause n'a pas changé"
+  },
+  "google_web_grounding_for_enterprise": {
+    "niveau_B": "MÊME INTERDICTION — clause 20(l) : « Section 20(k) also applies to Web Grounding for Enterprise »"
+  },
+  "google_agent_search_ex_vertex_ai_search": {
+    "niveau_A": "EXISTE — discoveryengine v1, annuaire public, hôte JOIGNABLE (404), authentification OAuth/compte de service (401 avec simple clé)",
+    "niveau_B": "HORS SUJET POUR LA DÉCOUVERTE WEB — clause 21 des Service Specific Terms : « Customer may use only Customer Data and web domains that it owns or is authorized to utilize. »",
+    "lecture": "Ce n'est pas un moteur de recherche web généraliste. C'est un moteur sur les données et les domaines du client. La voie de repli que Google indique aux clients de Custom Search ne répond donc PAS au besoin du radar."
+  },
+  "google_autres_api": {
+    "cloudsearch": "données Workspace internes",
+    "doubleclicksearch_searchads360": "publicité",
+    "indexing": "soumettre ses propres URL",
+    "kgsearch": "Knowledge Graph, pas de recherche web",
+    "retail": "recherche e-commerce sur catalogue client",
+    "searchconsole": "son propre site",
+    "conclusion": "Aucune autre API Google ne fait de recherche web programmatique généraliste."
+  },
+  "bing": {
+    "niveau_A": "PRODUIT RETIRÉ — les Bing Search APIs (Web, Custom, News, Image, Video, Entity) ont été retirées le 2025-08-11. Annonce de cycle de vie Microsoft. Les instances existantes ont été décommissionnées. Aucune nouvelle clé ne peut être obtenue.",
+    "remplacement_officiel": "Grounding with Bing Search, dans Azure AI Foundry / Foundry Agent Service",
+    "remplacement_niveau_A": "EXISTE — 14 $ / 1 000 transactions, plafond 150/s et 1 000 000/jour, pas de palier gratuit annoncé",
+    "remplacement_niveau_B": "INADAPTÉ — page officielle Microsoft : « designed to function as an add-on feature for select Microsoft products », « Outputs are not directly accessible for use in other applications or programs », citations obligatoires selon les Use and Display Requirements. Ce n'est pas une API de résultats de recherche ; c'est un outil d'agent qui rend du texte généré.",
+    "remplacement_niveau_C": "BLOQUÉ — api.bing.microsoft.com, management.azure.com, *.api.cognitive.microsoft.com et ai.azure.com sont tous refusés par la passerelle. Seuls portal.azure.com et login.microsoftonline.com répondent, ce qui ne sert à rien pour un appel d'API.",
+    "remplacement_niveau_D": "IMPOSSIBLE",
+    "verdict": "BING — ACCÈS BLOQUÉ, et sur trois niveaux à la fois : le produit demandé n'existe plus, son remplaçant est contractuellement inadapté à un radar, et son hôte est injoignable depuis notre environnement.",
+    "consequence": "BING NE PEUT PAS ÊTRE LA PRIORITÉ 2. Ce n'est pas un choix, c'est un constat."
+  },
+  "moteurs_complementaires": [
+    {
+      "moteur": "Brave Search API",
+      "niveau_A": "EXISTE — API de recherche web indépendante, index propre",
+      "niveau_B": "AUTORISÉ SOUS CONDITION DE PLAN — les conditions standard interdisent de stocker, mettre en cache ou constituer une base de données des résultats, au-delà du stockage transitoire nécessaire au fonctionnement. Un plan accordant explicitement des droits de stockage est nécessaire pour ce que fait le radar.",
+      "tarif": "palier gratuit de 2 000 requêtes/mois supprimé en février 2026 ; 5 $ de crédits prépayés ; environ 4 à 5 $ / 1 000 requêtes ; usage commercial sur plans payants",
+      "niveau_C": "BLOQUÉ — api.search.brave.com refusé par la passerelle",
+      "niveau_D": "JAMAIS TESTÉ",
+      "connecteur_existant": "OUI — radar/moteurs_recherche.py contient déjà un connecteur Brave lisant BRAVE_API_KEY. Il se déclare NON DISPONIBLE sans clé."
+    },
+    {
+      "moteur": "Exa",
+      "niveau_A": "EXISTE — recherche neuronale/sémantique, index propre",
+      "niveau_B": "À VÉRIFIER — conditions de stockage non lues sur la source officielle",
+      "tarif": "environ 7 $ / 1 000 recherches ; palier gratuit annoncé autour de 20 000 requêtes/mois et 10 $ de crédits mensuels",
+      "niveau_C": "BLOQUÉ — api.exa.ai refusé par la passerelle",
+      "niveau_D": "JAMAIS TESTÉ"
+    },
+    {
+      "moteur": "Tavily",
+      "niveau_A": "EXISTE — API de recherche pour agents",
+      "niveau_B": "À VÉRIFIER",
+      "tarif": "1 000 crédits/mois gratuits ; environ 7,50 à 8 $ / 1 000 recherches simples",
+      "niveau_C": "BLOQUÉ — api.tavily.com refusé par la passerelle",
+      "niveau_D": "JAMAIS TESTÉ"
+    },
+    {
+      "moteur": "SerpAPI",
+      "niveau_A": "EXISTE — restitue les pages de résultats de moteurs, dont Google",
+      "niveau_B": "ZONE GRISE — le service revend l'accès aux résultats d'un moteur tiers. La conformité repose sur l'éditeur, pas sur nous. À faire trancher avant tout engagement.",
+      "tarif": "250 recherches/mois gratuites ; à partir de 25 $/mois pour 1 000 recherches, soit 25 $ / 1 000",
+      "niveau_C": "BLOQUÉ — serpapi.com refusé par la passerelle",
+      "niveau_D": "JAMAIS TESTÉ"
+    },
+    {
+      "moteur": "Serper",
+      "niveau_A": "EXISTE",
+      "niveau_B": "MÊME ZONE GRISE que SerpAPI",
+      "niveau_C": "BLOQUÉ — google.serper.dev refusé par la passerelle",
+      "niveau_D": "JAMAIS TESTÉ"
+    },
+    {
+      "moteur": "DuckDuckGo",
+      "niveau_A": "PAS D'API DE RECHERCHE WEB OFFICIELLE — seulement l'Instant Answer API, qui ne restitue pas de liste de résultats web",
+      "niveau_B": "NON ADAPTÉ",
+      "niveau_C": "BLOQUÉ",
+      "niveau_D": "JAMAIS TESTÉ"
+    }
+  ],
+  "outil_websearch_du_harnais": {
+    "statut": "FONCTIONNE dans cette session",
+    "limite_1": "c'est un outil de l'assistant, pas une dépendance que le radar peut appeler seul",
+    "limite_2": "annoncé US-only, ce qui est un handicap direct pour un radar belge trilingue",
+    "limite_3": "ne peut pas être branché sur les 2 203 requêtes générées",
+    "conclusion": "utilisable pour la recherche documentaire humaine, PAS comme moteur du radar"
+  },
+  "etat_du_radar": {
+    "requetes_pretes": 2203,
+    "familles": 6,
+    "zones_belges": 12,
+    "langues": ["fr", "nl", "en"],
+    "moteurs_disponibles": 0,
+    "opportunites_simulees": 0,
+    "comportement_sans_cle": "cmd_boucle affiche « BOUCLE NON LANCÉE », registre affiche « google NON DISPONIBLE », aucune recherche n'a lieu, aucun résultat n'est simulé"
+  }
+}
