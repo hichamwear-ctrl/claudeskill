@@ -1134,6 +1134,49 @@ def cmd_apprendre(a) -> int:
     return 0
 
 
+
+def cmd_api(a) -> int:
+    """LE MOTEUR, RENDU EN JSON — la même vérité que le rapport texte.
+
+    Ce n'est pas un second radar : chaque vue appelle `radar/service.py`, qui
+    appelle le moteur. Les champs sortent DÉJÀ DÉCIDÉS — catégorie, emoji,
+    action, score, niveau de preuve — parce qu'une interface qui les
+    recalculerait referait le radar une seconde fois, en moins testé.
+
+        python3 -m radar.cli api opportunites
+        python3 -m radar.cli api sources
+        python3 -m radar.cli api analyse-du-jour --import fichier.tsv
+    """
+    from . import service
+    cx = ouvrir(_base(a))
+    vue = a.vue
+
+    if vue == "analyse-du-jour":
+        adaptateur, _ = _source("recherche")
+        charge = service.analyser(
+            cx, _moteur(cx), adaptateur, imports=a.importer or None,
+            collectes=a.collecte or None,
+            moteurs_declares=_moteurs_declares().moteurs,
+            profil=_cfg("sources/page_web.yaml"))
+        cx.commit()
+    else:
+        charge = {
+            "opportunites": lambda: service.opportunites(cx, limite=a.limite),
+            "analyses": lambda: service.analyses(cx, limite=a.limite),
+            "entreprises": lambda: service.entreprises(cx, limite=a.limite),
+            "signaux": lambda: service.signaux(cx, limite=a.limite),
+            "sources": lambda: service.sources(cx),
+            "notifications": lambda: service.notifications(cx, limite=a.limite),
+            "suivi": lambda: service.suivi(cx, limite=a.limite),
+            "a-collecter": lambda: service.a_collecter(cx, limite=a.limite),
+            "qualite": lambda: service.qualite(cx),
+            "contrat": lambda: {"categories": service.categories_possibles(),
+                                "statuts_suivi": service.statuts_possibles()},
+        }[vue]()
+    print(json.dumps(charge, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_notifier(a) -> int:
     cx = ouvrir(_base(a))
     repris = envoi.reprendre_interrompus(cx)
@@ -1433,6 +1476,18 @@ def principal(argv=None) -> int:
     v = s.add_parser("validation",
                      help="état de validation : architecture, fixtures, réel")
     v.set_defaults(fn=cmd_validation)
+
+    ap = s.add_parser("api", help="le moteur rendu en JSON, pour une interface")
+    ap.add_argument("vue", choices=["analyse-du-jour", "opportunites", "analyses",
+                                    "entreprises", "signaux", "sources",
+                                    "notifications", "suivi", "a-collecter",
+                                    "qualite", "contrat"])
+    ap.add_argument("--limite", type=int, default=50)
+    ap.add_argument("--import", dest="importer", action="append",
+                    help="un export de recherche produit HORS RADAR")
+    ap.add_argument("--collecte", action="append",
+                    help="un fichier de pages lues HORS RADAR")
+    ap.set_defaults(fn=cmd_api)
 
     n = s.add_parser("notifier", help="vider la file d'envoi")
     n.add_argument("--pour-de-vrai", action="store_true",

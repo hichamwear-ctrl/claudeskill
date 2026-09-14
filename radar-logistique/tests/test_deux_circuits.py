@@ -2540,15 +2540,19 @@ class S7d_NonRegressionNegative(unittest.TestCase):
     def test_2_le_nombre_de_promotions_sur_le_corpus_reste_borne(self):
         """11 (avant 7a) → 2 (7a) → 4 (7d) → 3 (décision 1). Pas de retour au bruit.
 
-        La décision 1 retire AUSSI une candidate, et c'est la même adresse :
-        `cevalogistics.com/fr` est sur un AUTRE domaine que la page lue. Elle
-        n'entrait donc que par la priorité « INDICE FORT », que la famille lui
-        donnait. Le vocabulaire n'étant plus une preuve positive, elle n'est
-        plus ni promue ni retenue : 23 → 22 candidates.
+        Les CANDIDATES, elles, restent 23 — et c'est la résolution de
+        l'anomalie A7. `cevalogistics.com/fr` est sur un autre domaine que la
+        page lue : elle n'entrait que par « INDICE FORT », que la famille lui
+        donnait. La décision 1 l'avait fait disparaître des candidates
+        (23 → 22) en même temps que des promues.
 
-        C'est une perte de DÉCOUVERTE, mesurée et non contournée : élargir la
-        rétention de `radar/liens.py` pour la rattraper en faisait entrer deux
-        autres, et aurait été une décision métier que personne n'a prise.
+        `radar/liens.py` retient désormais un lien externe qui nomme une
+        FAMILLE, sans le promouvoir. Mesuré sur les quatre pages réelles
+        archivées : retenir sur la famille rend +2 candidates et aucun bruit,
+        là où retenir sur le DOMAINE générique en rendait +10 dont 8 de bruit
+        (github.com/pypi/warehouse, depot.dev, deux pages de login).
+
+        RETENIR N'EST PAS PROMOUVOIR : 23 candidates, 3 promues.
         """
         import yaml
         from radar import liens as mod
@@ -2564,10 +2568,12 @@ class S7d_NonRegressionNegative(unittest.TestCase):
                                  "https://www.colisprive.be/devenir-partenaire-livraison/",
                                  self.onto, self.det)
         promues = mod.retenus(cands)
-        self.assertEqual(len(cands), 22, "une seule candidate perdue : cevalogistics")
-        self.assertEqual(len(promues), 3)
-        self.assertFalse(any("cevalogistics" in c.url for c in cands),
-                         "la candidate perdue est nommée, pas seulement comptée")
+        self.assertEqual(len(cands), 23, "A7 résolue : la candidate est revenue")
+        self.assertEqual(len(promues), 3, "…sans revenir parmi les promues")
+        self.assertTrue(any("cevalogistics" in c.url for c in cands),
+                        "retenue comme candidate")
+        self.assertFalse(any("cevalogistics" in c.url for c in promues),
+                         "et JAMAIS promue : nommer le métier n'est pas demander")
         # Et AUCUNE page de forme n'y figure.
         for forme in ("mentions-legales", "cgu", "politique-de-cookies",
                       "nos-actualites", "qui-sommes-nous", "nos-engagements-rse",

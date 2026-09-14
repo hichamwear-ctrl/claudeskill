@@ -102,40 +102,72 @@ recensé serait exactement le mensonge que ce drapeau existe pour empêcher.
 
 **Ce qui se passe** : « affrètement », « livraison à domicile »,
 « prestataire logistique » décrivent aussi bien le service qu'on ACHÈTE que
-celui qu'on VEND. Une vitrine de transporteur qui les emploie ressort donc
-`PRESTATAIRE`, et la porte des pages la promeut — non pas parce qu'elle
-nomme le métier, mais parce que la règle 3 de `radar/pertinence.py` promeut
-sur le RÔLE, et que le rôle se trompe ici de sens.
+celui qu'on VEND. Une vitrine de transporteur qui les emploie ressort
+`PRESTATAIRE`, et la règle 3 de `radar/pertinence.py` promeut sur le RÔLE.
 
-Exemple mesuré : « Transport routier et affrètement — notre métier depuis
-40 ans » → `PRESTATAIRE`, promue.
+**RÉSOLUE EN PARTIE** — `radar/pertinence.py`, règle 2bis.
 
-**Pourquoi ce n'est pas corrigé** : la décision métier 1 a retiré au
-VOCABULAIRE son pouvoir de promotion ; elle n'a pas touché au RÔLE, et il
-n'a pas été demandé de le faire. Séparer « je cherche ce service » de « je
-vends ce service » dans le lexique est une décision métier à part entière,
-qui n'a pas été prise.
+La porte lit désormais la contre-preuve qui existait déjà et que la chaîne
+utilisait seule : `nature.offre_de_service_dans`. Aucun vocabulaire nouveau,
+aucune seconde implémentation — la liste `OFFRE_DE_SERVICE` reste l'unique
+dépositaire, et son garde-fou d'origine est conservé : **la demande l'emporte
+toujours** sur la vente.
 
-**Statut** : antérieur aux quatre décisions, **mesuré, non corrigé**, gelé
-par `tests/test_decisions_metier.py::D1…test_1bis`.
+Mesuré sur les 59 entrées du lexique de prestation, trois contextes :
+
+| contexte | avant | après |
+|---|---|---|
+| vitrine AVEC marqueurs de vente (tarifs, devis, « nos services ») | 45 promues | **1** |
+| vitrine NUE, sans aucun marqueur | 45 promues | 45 |
+| page qui DEMANDE | 59 promues | **59** — rien perdu |
+
+Sur les cinq adresses jugées du jeu réel du 14/09 : aucun changement.
+
+**CE QUI RESTE** : la vitrine NUE. Rien dans son texte ne dit qu'elle vend,
+et le mot seul ne peut pas le dire. Elle reste promue — c'est assumé, pas
+oublié : depuis la décision métier 2, une vitrine promue, collectée et
+analysée ressort ⚪ CLASSER SANS SUITE. **Elle ne produit plus aucune fausse
+opportunité ; elle coûte une place de collecte.**
+
+Corriger ce reste demanderait de trancher « qui achète, qui vend » dans le
+lexique lui-même. Mesuré : c'est impossible au niveau du MOT — le même terme
+est écrit par les deux parties. La distinction vit dans la phrase, pas dans
+le vocabulaire.
+
+**Statut** : **résolue pour la vitrine qui se vend, mesurée et assumée pour
+la vitrine nue**. Gelée par
+`tests/test_decisions_metier.py::A6_UneVitrineQuiSeVendNEstPasUneDemande`
+et `::D1…test_1bis`.
 
 ---
 
 ## A7 — un lien externe qui nomme le métier n'est plus retenu comme candidate
 
-**Où** : `radar/liens.py`, `selectionner` — conséquence de la décision 1.
+**Où** : `radar/liens.py`, `selectionner`.
 
-**Ce qui se passe** : un lien vers un AUTRE domaine n'est retenu que s'il
-porte un indice `FORTE`. Le vocabulaire métier ayant cessé d'être une preuve
-positive, une adresse externe qui ne fait que nommer le métier n'entre plus
-du tout — même pas comme candidate.
+**Ce qui se passait** : un lien vers un AUTRE domaine n'était retenu que s'il
+portait un indice `FORTE`. Le vocabulaire ayant cessé d'être une preuve
+positive, une adresse externe qui nommait le métier n'entrait plus du tout —
+même pas comme candidate. Mesuré sur la page réelle de Colis Privé : 23 → 22
+candidates, l'adresse perdue étant `https://www.cevalogistics.com/fr`.
 
-Mesuré sur la page réelle de Colis Privé : 23 → 22 candidates, et l'adresse
-perdue est `https://www.cevalogistics.com/fr`.
+**RÉSOLUE** — un lien externe qui nomme une **FAMILLE** reconnue est de
+nouveau retenu comme CANDIDATE, et n'est jamais promu : `promouvable` lit la
+confiance, pas cette condition.
 
-**Pourquoi ce n'est pas corrigé** : élargir la rétention de `liens.py` pour
-rattraper cette adresse en faisait entrer deux autres — 23 → 25. C'est une
-décision métier sur la largeur de la découverte, et elle n'a pas été prise.
+Mesuré sur les **quatre** pages réelles archivées :
 
-**Statut** : **mesuré, non corrigé**, gelé par
-`tests/test_deux_circuits.py::S7d…test_2`.
+| règle de rétention | candidates | gagnées | bruit |
+|---|---|---|---|
+| aujourd'hui (FORTE seul) | 230 | — | — |
+| + toute reconnaissance de DOMAINE | 240 | +10 | **8** (dépôt de code, page de login, wiki) |
+| + FAMILLE reconnue seulement | 232 | **+2** | **0** |
+
+C'est donc la FAMILLE qui est lue, pas le domaine générique. La distinction
+existe déjà : `radar/activite.py` documente le domaine comme l'équivalent
+d'un CPV générique, qui confirme qu'on parle de transport sans désigner de
+spécialité.
+
+**Statut** : **résolue**. Gelée par
+`tests/test_decisions_metier.py::A7_UnLienExterneQuiNommeLeMetierEstRetenu`
+et `tests/test_deux_circuits.py::S7d…test_2`.

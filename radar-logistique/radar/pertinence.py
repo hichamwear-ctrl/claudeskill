@@ -204,6 +204,32 @@ def evaluer(texte: str, ontologie, detecteur, *, cpv=None, segments=None,
                           list(analyse.contre_preuves), domaine=metier,
                           familles=familles, signaux=list(ancre.signaux))
 
+    # ── 2bis. LA SECONDE CONTRE-PREUVE : cette page VEND ──
+    # ANOMALIE A6. Le lexique de rôle nomme une prestation ; il ne dit pas
+    # qui l'achète et qui la vend. « affrètement », « livraison à domicile »,
+    # « prestataire logistique » sortent PRESTATAIRE dans la bouche du client
+    # comme dans celle du fournisseur — et la règle 3 promouvait les deux.
+    #
+    # La contre-preuve existe DÉJÀ et est validée : `nature.est_une_offre`,
+    # que la chaîne lit depuis longtemps pour refuser l'ancrage commercial
+    # d'une page qui vend. Elle est lue ici, pas réécrite.
+    #
+    # Mesuré sur les 59 entrées du lexique de prestation, trois contextes :
+    #     vitrine AVEC marqueurs de vente   45 promues → 1
+    #     vitrine SANS aucun marqueur       45 promues → 45   (inchangé)
+    #     page qui DEMANDE                  59 promues → 59   (rien perdu)
+    # Et sur les cinq cas réels du 14/09 : aucun changement.
+    #
+    # La vitrine NUE reste promue, faute de quoi que ce soit à lire dans son
+    # texte. Ce n'est pas un oubli : depuis la décision 2, une vitrine
+    # promue, collectée et analysée ressort ⚪ CLASSER SANS SUITE. Elle coûte
+    # une place de collecte, plus une fausse opportunité.
+    if nat.offre_de_service_dans(texte):
+        return Pertinence(Confiance.MOYENNE, analyse.role,
+                          ["cette page VEND la prestation, elle ne la cherche pas"],
+                          domaine=metier, familles=familles,
+                          signaux=list(ancre.signaux))
+
     # ── 3. LA PREUVE POSITIVE — et elle seule promeut ──
     # DEMANDER, ou ÊTRE la prestation. Nommer le métier n'est ni l'un ni
     # l'autre : une page vitrine nomme le métier et ne demande rien.

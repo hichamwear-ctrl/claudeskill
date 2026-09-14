@@ -62,26 +62,26 @@ class D1_LaPorteEstADeuxNiveaux(unittest.TestCase):
             self.assertIn(mod_ancrage.VOCABULAIRE, p.signaux,
                           "…mais il ancre toujours : la page reste lisible")
 
-    def test_1bis_le_defaut_de_lexique_ANTERIEUR_n_est_pas_corrige_ici(self):
-        """HORS PÉRIMÈTRE, ANTÉRIEUR, NON CORRIGÉ — et donc écrit.
+    def test_1bis_ce_qui_RESTE_du_defaut_de_lexique_A6(self):
+        """A6 — RÉSOLUE POUR LA VITRINE QUI SE VEND, PAS POUR LA VITRINE NUE.
 
-        Certaines expressions du lexique de PRESTATION décrivent aussi bien
-        le service qu'on achète que celui qu'on vend : « affrètement »,
-        « livraison à domicile ». Une vitrine qui les emploie ressort
-        PRESTATAIRE, donc promue — par la règle 3, inchangée par la
-        décision 1, qui promeut sur le RÔLE.
+        Le lexique de PRESTATION nomme un service ; il ne dit pas qui
+        l'achète et qui le vend. Une vitrine qui écrit « affrètement » sort
+        PRESTATAIRE comme le client qui le cherche.
 
-        Le défaut est déjà documenté par
-        `test_deux_circuits.test_1bis_une_expression_de_prestation_ANTERIEURE_a_7d`.
-        Le corriger demanderait de trancher « qui achète, qui vend » dans le
-        lexique lui-même : c'est une décision métier, et elle n'a pas été
-        prise. Ce test la rend visible plutôt que de la laisser se confondre
-        avec ce que la décision 1 a changé.
+        Ce qui est corrigé (voir `D1bis_A6…`) : la page qui porte des
+        marqueurs de VENTE — tarifs, devis, « nos services » — est arrêtée
+        par la contre-preuve `nature.offre_de_service_dans`.
+
+        Ce qui NE l'est PAS : la vitrine NUE, sans le moindre marqueur. Rien
+        dans son texte ne dit qu'elle vend. Elle reste promue, et c'est
+        assumé — depuis la décision 2 elle ressort ⚪ CLASSER SANS SUITE une
+        fois collectée, donc elle ne coûte qu'une place de collecte.
         """
         p = self.p("Transport routier et affrètement — notre métier depuis 40 ans")
         self.assertIs(p.role, Role.PRESTATAIRE)
         self.assertTrue(p.promouvoir,
-                        "si ce test échoue, le défaut a été corrigé : "
+                        "si ce test échoue, le reste du défaut a été corrigé : "
                         "vérifier que c'était une décision et non un effet de bord")
 
     # ── 2 · besoin explicite SANS vocabulaire → promotion possible ──
@@ -207,6 +207,104 @@ class D1_LaPorteEstADeuxNiveaux(unittest.TestCase):
             self.assertNotIn(interdit, litteraux,
                              f"« {interdit} » est du métier : sa place est en "
                              "configuration, pas dans radar/ancrage.py")
+
+
+# ═══════════════════════════ A6 — LA PAGE QUI VEND NE DEMANDE PAS
+class A6_UneVitrineQuiSeVendNEstPasUneDemande(unittest.TestCase):
+    """La contre-preuve existante, LUE à la porte au lieu d'être réécrite."""
+
+    def setUp(self):
+        self.onto, self.det = _mecanismes()
+
+    def p(self, texte):
+        return pertinence.evaluer(texte, self.onto, self.det)
+
+    def test_1_une_vitrine_qui_affiche_ses_tarifs_n_est_plus_promue(self):
+        for vend in ("Affrètement et transport — nos services et nos tarifs. "
+                     "Demandez un devis gratuit.",
+                     "Livraison à domicile partout en Belgique. "
+                     "Comparez nos prix, obtenez un devis.",
+                     "Prestataire logistique : nos solutions, nos tarifs."):
+            p = self.p(vend)
+            self.assertFalse(p.promouvoir, vend)
+            self.assertTrue(any("VEND" in x for x in p.preuves), p.preuves)
+
+    def test_2_la_demande_l_emporte_toujours_sur_la_vente(self):
+        """Une page qui vend ET qui cherche reste une demande.
+
+        C'est le garde-fou d'origine de `est_une_offre`, et il est conservé
+        mot pour mot : sans lui, un transporteur cherchant un sous-traitant
+        serait écarté parce que son site affiche aussi ses tarifs.
+        """
+        mixte = ("Nos tarifs sont les moins chers. Demandez un devis. "
+                 "Nous recherchons aussi un transporteur partenaire "
+                 "pour la Wallonie.")
+        self.assertFalse(nat.offre_de_service_dans(mixte))
+        self.assertTrue(self.p(mixte).promouvoir)
+
+    def test_3_aucun_vrai_positif_du_jeu_reel_n_est_perdu(self):
+        """Les cinq adresses jugées du 14/09, avant et après la correction."""
+        for nom, titre, attendu in (
+                ("Colis Privé", "Devenir partenaire de livraison - Colis Privé BeLux", True),
+                ("Bulbul", "Sous-traitance transport en Belgique | Partenaire DPD & DHL", True),
+                ("Beeliv", "Devenir partenaire | Beeliv", False),
+                ("PostNL", "Travailler comme partenaire de PostNL | PostNL", False),
+                ("Shippr", "Devenir livreur indépendant en Belgique : guide complet", False)):
+            self.assertIs(self.p(titre).promouvoir, attendu, nom)
+            self.assertFalse(nat.offre_de_service_dans(titre),
+                             f"{nom} ne vend rien")
+
+    def test_4_la_contre_preuve_n_est_pas_reecrite_mais_lue(self):
+        """Une seule implémentation : `est_une_offre` délègue au texte."""
+        class Page:
+            intitule = "Nos tarifs et nos services de transport"
+            texte = ""
+        self.assertTrue(nat.est_une_offre(Page()))
+        self.assertTrue(nat.offre_de_service_dans(
+            "Nos tarifs et nos services de transport "))
+        import ast
+        arbre = ast.parse((RACINE / "radar/pertinence.py").read_text(encoding="utf-8"))
+        listes = {n.id for n in ast.walk(arbre) if isinstance(n, ast.Name)}
+        self.assertNotIn("OFFRE_DE_SERVICE", listes,
+                         "la porte LIT la contre-preuve, elle ne la recopie pas")
+
+
+# ═══════════════════════════ A7 — RETENIR N'EST PAS PROMOUVOIR
+class A7_UnLienExterneQuiNommeLeMetierEstRetenu(unittest.TestCase):
+    """Une candidate n'est pas une opportunité. Elle entre dans l'analyse."""
+
+    def setUp(self):
+        self.onto, self.det = _mecanismes()
+        from radar import liens
+        self.liens = liens
+
+    def _sel(self, bruts, base="https://client.be/page"):
+        return self.liens.selectionner(bruts, base, self.onto, self.det)
+
+    def test_1_un_lien_externe_nommant_une_FAMILLE_est_retenu(self):
+        c = self._sel([{"href": "https://www.cevalogistics.com/fr",
+                        "texte": "Logistique et entreposage"}])
+        self.assertEqual(len(c), 1, "retenue comme candidate")
+        self.assertFalse(c[0].promouvable, "et JAMAIS promue automatiquement")
+
+    def test_2_le_DOMAINE_generique_ne_suffit_toujours_pas(self):
+        """Mesuré : retenir sur le domaine faisait entrer 8 adresses de bruit
+        sur les quatre pages réelles — dépôt de code, page de login, wiki."""
+        for bruit in ("https://github.com/pypi/warehouse",
+                      "https://depot.dev",
+                      "https://www.colisprive.com/agence/Account/Login.aspx"):
+            self.assertEqual(self._sel([{"href": bruit, "texte": ""}]), [], bruit)
+
+    def test_3_une_candidate_retenue_ainsi_n_est_jamais_promue(self):
+        c = self._sel([{"href": "https://www.cevalogistics.com/fr",
+                        "texte": "Logistique et entreposage"},
+                       {"href": "https://autre.be/devenir-transporteur",
+                        "texte": "Devenir transporteur"}])
+        self.assertEqual(len(c), 2)
+        promues = self.liens.retenus(c)
+        self.assertEqual(len(promues), 1)
+        self.assertIn("devenir-transporteur", promues[0].url,
+                      "seule la page qui DEMANDE est promue")
 
 
 # ═══════════════════════════════════════════ DÉCISION 2 — LE LEXIQUE

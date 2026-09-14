@@ -227,9 +227,7 @@ OFFRE_DE_SERVICE = (
 
 def est_une_offre(opp) -> bool:
     """Cette page VEND-elle du transport, au lieu d'en chercher ?"""
-    if _besoin_exprime(opp):
-        return False        # la demande l'emporte, toujours
-    return _contient(opp, OFFRE_DE_SERVICE)
+    return offre_de_service_dans(_texte_de(opp))
 
 
 # ── LIRE UN TEXTE, LIRE UNE OPPORTUNITÉ ───────────────────────────────────
@@ -278,6 +276,24 @@ def besoin_enonce_dans(texte) -> bool:
 
 def evenement_observable_dans(texte) -> bool:
     return _contient_texte(texte, EVENEMENT_OBSERVABLE)
+
+
+def offre_de_service_dans(texte) -> bool:
+    """Ce texte VEND-il du transport, au lieu d'en chercher ?
+
+    La règle est celle d'`est_une_offre` depuis l'origine, à la lettre — y
+    compris son garde-fou : LA DEMANDE L'EMPORTE, TOUJOURS. « Devenir
+    partenaire transporteur — nos tarifs » porte les deux ; c'est une
+    demande, et cette fonction rend False.
+
+    Elle est exposée sur un TEXTE pour que la porte des pages
+    (radar/pertinence.py) puisse lire la même contre-preuve que la chaîne,
+    au lieu d'en écrire une seconde qui divergerait au premier ajout dans
+    OFFRE_DE_SERVICE.
+    """
+    if besoin_exprime_dans(texte):
+        return False        # la demande l'emporte, toujours
+    return _contient_texte(texte, OFFRE_DE_SERVICE)
 
 
 # Le libellé que l'adaptateur écrit quand la source n'a PAS déclaré de titre.

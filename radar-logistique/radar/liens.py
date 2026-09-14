@@ -122,7 +122,25 @@ def selectionner(liens, base_url: str, ontologie, detecteur, *,
 
         if hote == hote_base:
             sortie.append(Candidat(url, libelle, P1_MEME_DOMAINE, pert))
-        elif pert.confiance is Confiance.FORTE:
+        elif pert.confiance is Confiance.FORTE or pert.familles:
+            # ANOMALIE A7. RETENIR N'EST PAS PROMOUVOIR, et les deux décisions
+            # se prennent à deux endroits : ici on GARDE une adresse, et
+            # `promouvable` — qui lit la confiance, pas cette condition —
+            # décide seul si elle passe en surveillance. Une candidate ajoutée
+            # ici ne peut donc jamais être promue automatiquement.
+            #
+            # Depuis que le vocabulaire a cessé d'être une preuve positive, un
+            # lien externe qui nomme une SPÉCIALITÉ du métier n'entrait plus du
+            # tout. Mesuré sur les quatre pages réelles archivées :
+            #     aujourd'hui                      230 candidates
+            #     + toute reconnaissance de DOMAINE 240  (+10, dont 8 de bruit :
+            #       github.com/pypi/warehouse, depot.dev, deux pages de login)
+            #     + FAMILLE reconnue seulement      232  (+2, aucun bruit)
+            #
+            # C'est donc la FAMILLE qui est lue, et pas le domaine générique.
+            # La distinction existe déjà : radar/activite.py documente le
+            # domaine comme l'équivalent d'un CPV générique, qui confirme
+            # qu'on parle de transport sans désigner de spécialité.
             sortie.append(Candidat(url, libelle, P2_INDICE_FORT, pert))
         elif hote in connus:
             sortie.append(Candidat(url, libelle, P3_ENTREPRISE_CONNUE, pert))

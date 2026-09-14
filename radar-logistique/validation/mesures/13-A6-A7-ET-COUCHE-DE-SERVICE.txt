@@ -1,0 +1,106 @@
+╔════════════════════════════════════════════════════════════════════╗
+║  A6 · A7 · VALIDATION DU MOTEUR · COUCHE DE SERVICE                ║
+║  Départ : 7791d50 · 1 238 tests                                    ║
+║  Jeu réel : 2026-09-14-premier-export-reel.tsv                     ║
+║  Aucune source réellement interrogée. Aucune page collectée.       ║
+╚════════════════════════════════════════════════════════════════════╝
+
+A6 — QUI ACHÈTE, QUI VEND
+========================================================================
+Mesure sur les 59 entrées du lexique de prestation, trois contextes :
+
+  contexte                          AVANT      APRÈS    perdus
+  vitrine AVEC marqueurs de vente   45/59      1/59       44
+  vitrine NUE (aucun marqueur)      45/59     45/59        0
+  page qui DEMANDE                  59/59     59/59        0
+
+  `nature.est_une_offre` détectait déjà 58/59 des vitrines marquées et
+  0/59 des demandes. La contre-preuve EXISTAIT ; seule la chaîne la
+  lisait. La porte la lit désormais aussi — sans nouveau vocabulaire.
+
+  Les 5 adresses jugées du 14/09 : AUCUN changement.
+  Page qui vend ET qui demande : la demande l'emporte, comme à l'origine.
+
+  CE QUI RESTE : la vitrine NUE. Le mot seul ne peut pas dire qui achète.
+  Depuis la décision 2, elle ressort ⚪ CLASSER SANS SUITE une fois
+  collectée — mesuré sur quatre vitrines passées par toute la chaîne.
+  Elle ne produit plus aucune fausse opportunité.
+
+  OPTION B RETENUE, partiellement : ce qui est corrigible l'est, ce qui
+  ne l'est pas est écrit (anomalie A6).
+
+A7 — UN LIEN EXTERNE QUI NOMME LE MÉTIER
+========================================================================
+Mesure sur les QUATRE pages réelles archivées :
+
+  règle de rétention                 candidates   gagnées   bruit
+  aujourd'hui (FORTE seul)              230          —        —
+  + toute reconnaissance de DOMAINE     240        +10        8
+  + FAMILLE reconnue seulement          232         +2        0
+
+  Le bruit du DOMAINE, nommément : github.com/pypi/warehouse,
+  packaging.python.org, hosted.weblate.org, depot.dev, deux pages de
+  login colisprive.com. Le mot « warehouse »/« depot » suffisait.
+
+  La FAMILLE ne rend que cevalogistics.com/fr — l'adresse exactement
+  perdue par la décision 1, sur les deux pages où elle apparaît.
+
+  0 PROMUE sur les adresses gagnées. RETENIR N'EST PAS PROMOUVOIR.
+  Coût d'analyse : +0,9 % de candidates. Aucune n'entre en surveillance.
+
+  OPTION B RETENUE, sur la FAMILLE et non sur le domaine générique.
+
+JEU RÉEL — INCHANGÉ PAR A6 ET A7
+========================================================================
+  🟢 DIRECT 1 · 🔵 PROSPECT 4 · ⚪ 22 · 🔴 0   (27 opportunités)
+  8 FP relus encore retenus : 0/8
+  3 FN encore manqués       : 0/3
+  2 VP encore retenus       : 2/2
+
+  Identique à l'état après les quatre décisions métier : A6 et A7 ne
+  portent que sur la PORTE DES PAGES, et aucune page n'est collectée
+  dans ce jeu. C'est attendu, et c'est dit plutôt que présenté comme
+  une amélioration.
+
+  Sur les 13 cas relus : 5 positifs retrouvés, 0 faux positif,
+  0 faux négatif. PRÉCISION et RAPPEL : ÉCHANTILLON INSUFFISANT.
+  Registre officiel 2 VP / 7 FP / 3 FN · relecture élargie 8 FP.
+
+TESTS
+========================================================================
+  AVANT   1 238  OK
+  APRÈS   1 331  OK      (+93)
+
+  + tests/test_validation_moteur.py   47 tests — les 35 propriétés
+  + tests/test_service.py             39 tests — la couche de service
+  + A6/A7 dans test_decisions_metier.py
+  1 test adapté : S7d…test_2 (A7 résolue, 22 → 23 candidates, 3 promues)
+  Aucun test supprimé.
+
+  outils/audit_cahier.py : 81/81 règles couvertes, 0 partielle, 0 absente.
+
+COUCHE DE SERVICE
+========================================================================
+  radar/service.py — 13 responsabilités, équivalentes aux 13 routes
+  demandées. Aucune règle métier n'y est écrite ; quatre tests AST le
+  vérifient : aucun calcul arithmétique, aucun seuil, aucun nom de
+  catégorie en dur, aucune transaction ouverte ou fermée.
+
+  radar/cli.py : commande `api` — le contrat exerçable sans serveur.
+
+  PARCOURS « ANALYSE DU JOUR » MESURÉ, avec les moteurs réellement
+  déclarés du projet :
+     demandées        brave · google · import:websearch-assistant
+     exécutées        import:websearch-assistant   35 rés. · 27 opp.
+     non disponibles  google — CLÉ ABSENTE (clé API et identifiant)
+                      brave  — CLÉ ABSENTE (clé API)
+     statut           PARTIEL
+  Aucun résultat fabriqué. Aucune source simulée.
+
+DONNÉES
+========================================================================
+  Réellement lues     35 lignes du TSV du 14/09, obtenues HORS RADAR
+                      4 pages HTML réelles archivées
+  Fixtures            celles du projet, inchangées
+  Simulées            aucune
+  Sources consultées  AUCUNE par le radar pendant cette étape
