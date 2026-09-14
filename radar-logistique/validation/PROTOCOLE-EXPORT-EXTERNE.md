@@ -66,6 +66,23 @@ provenance,moteur,date_execution,requete,url,titre,extrait,rang
 EXÉCUTÉ HORS RADAR,mon-moteur,2026-09-13T09:30:00+00:00,recherche transporteur Belgique,https://…,Titre,Extrait,1
 ```
 
+### Le format aussi est souple
+
+Le format se lit dans le **contenu**, pas dans l'extension. Sont acceptés :
+
+| Forme | Détail |
+|---|---|
+| JSON | objet avec en-tête, ou tableau nu de lignes complètes |
+| CSV | séparateur `,` **ou** `;` (tableur FR/NL) — détecté tout seul |
+| TSV / collage de navigateur | tabulations, `.tsv`, `.txt`, ou sans extension |
+| Marque d'ordre d'octets | retirée à la lecture (un tableur en pose une) |
+| Espaces autour des valeurs | ignorés |
+
+Un collage brut **URL + titre seulement** passe : sans extrait, sans rang et
+sans date, rien n'est inventé pour combler — le rang reste inconnu, la date
+devient `INCONNUE`, et l'adéquation ressort `NON MESURABLE`, ce qui est la
+vérité.
+
 ### Les noms de champs sont souples
 
 Vous n'avez pas à renommer ce que votre outil produit. Sont reconnus :

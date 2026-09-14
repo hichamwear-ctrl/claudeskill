@@ -639,7 +639,26 @@ class J_LImportSupporteCeQuUnTableurProduit(unittest.TestCase):
         self.assertEqual(a.resultats_importes[0].url, "https://x.example/d")
         self.assertEqual(a.resultats_importes[0].rang, 3)
 
-    def test_5_les_espaces_d_un_tableur_ne_sont_pas_des_donnees(self):
+    def test_5_un_collage_de_navigateur_en_tabulations(self):
+        """Le format se lit dans le CONTENU, pas dans l'extension.
+
+        Un collage depuis un navigateur s'enregistre en .tsv, en .txt, ou sans
+        extension. Choisir l'analyseur d'après le nom du fichier faisait lire
+        un tableau tabulé comme du JSON, et l'exploitant recevait
+        « Expecting value: line 1 column 1 » — un message qui ne lui dit rien.
+        """
+        contenu = ("provenance\tmoteur\trequete\turl\ttitre\n"
+                   f"{HORS}\tnavigateur\trecherche transporteur Belgique\t"
+                   "https://x.example/f\tNous recherchons des partenaires\n")
+        a, = imp.charger(self.ecrire(contenu.encode("utf-8"), ".tsv"))
+        r, = a.resultats_importes
+        self.assertEqual(r.url, "https://x.example/f")
+        # Sans extrait, sans rang, sans date : rien n'est inventé pour combler.
+        self.assertEqual(r.extrait, "")
+        self.assertIsNone(r.rang)
+        self.assertEqual(a.date_execution, ex.DATE_INCONNUE)
+
+    def test_6_les_espaces_d_un_tableur_ne_sont_pas_des_donnees(self):
         contenu = ("provenance; moteur ; date_execution ; requete ; url ;"
                    " titre ; extrait ; rang \n"
                    f"{HORS}; m ; 2026-09-13T09:00:00Z ; q ;"

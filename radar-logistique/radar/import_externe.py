@@ -484,13 +484,21 @@ def charger(chemin, *, provenance_attendue: str = PROVENANCE) -> list[ImportExte
     texte = octets.decode("utf-8-sig", "replace")
     empreinte = _empreinte(octets)
 
-    if p.suffix.lower() == ".csv":
-        entete, lignes = _lignes_csv(texte, p)
-    else:
+    # LE FORMAT SE LIT DANS LE CONTENU, PAS DANS L'EXTENSION.
+    #
+    # Un collage depuis un navigateur s'enregistre en .tsv, en .txt, ou sans
+    # extension du tout. Choisir l'analyseur d'après le nom du fichier faisait
+    # lire un tableau tabulé comme du JSON, et l'exploitant recevait
+    # « Expecting value: line 1 column 1 » — un message qui ne lui dit rien de
+    # ce qu'il doit changer.
+    debut = texte.lstrip()[:1]
+    if debut in ("{", "["):
         try:
             entete, lignes = _lignes_json(json.loads(texte), p)
         except json.JSONDecodeError as e:
-            raise ImportInvalide(f"{p} illisible : {e}") from e
+            raise ImportInvalide(f"{p} illisible comme JSON : {e}") from e
+    else:
+        entete, lignes = _lignes_csv(texte, p)
 
     return depuis_lignes(lignes, entete=entete, fichier=str(p),
                          empreinte=empreinte,
