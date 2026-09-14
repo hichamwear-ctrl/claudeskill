@@ -36,7 +36,8 @@ def proc_collecte(opp):
     from .mode import lire_collecte
     return lire_collecte(getattr(opp, "brut", None) or {})
 
-from . import (chiffre_affaires, construction, deduplication, envoi,
+from . import (ancrage as mod_ancrage, chiffre_affaires, construction,
+               deduplication, envoi,
                priorite as prio,
                fiabilite as fia, memoire,
                modele as mdl, nature as nat, porte, portee as prt, procedure as proc,
@@ -257,18 +258,29 @@ class Moteur:
         # qu'on s'était interdite : on ne rejette pas faute de mot-clé, mais on
         # ne promeut pas non plus parce qu'un mot-clé est là.
         #
-        # `corr.familles` reste un ancrage : reconnaître une PRESTATION précise
-        # du profil est plus qu'un domaine. Et un besoin exprimé, une date, un
-        # chiffre ou une exigence en sont toujours un.
-        ancrage = bool(
-            corr.familles
-            or opp.montant or opp.cadence or opp.duree_mois
-            or opp.echeance_brute or opp.date_demarrage
-            or opp.exigences or opp.exigences_texte
-            or opp.vehicules_requis or opp.chauffeurs_requis
-            or opp.km_annuels or opp.lots and len(opp.lots) > 1
-            or opp.est_signal or nature is not nat.Nature.HYPOTHESE
-            or lecture.procedure_detectee)
+        # DÉCISION MÉTIER 2 — `corr.familles` NE COMPTE PLUS NON PLUS.
+        #
+        # La ligne du dessus valait déjà pour le DOMAINE. Elle ne valait pas
+        # pour la FAMILLE, au motif qu'une prestation précise est plus qu'un
+        # domaine générique. Mesuré sur les 35 résultats réels du 14/09 :
+        # les HUIT faux positifs relus tenaient tous à cette seule exception —
+        # « Logistique Belgique | europages », « La bataille du dernier
+        # kilomètre », « Le prestataire logistique : fonctions et défis »
+        # ressortaient 🟢 DIRECT · CONTACTER L'ENTREPRISE, sur un titre nu,
+        # sans demandeur, sans besoin, sans chiffre et sans date.
+        #
+        # Une famille reste un ANCRAGE au sens de la porte des pages — voir
+        # `Ancrage.ancre`, lu par radar/pertinence.py. Elle n'est plus un
+        # ancrage COMMERCIAL : nommer une spécialité du métier dit qu'on parle
+        # de transport, jamais qu'il y a une affaire à y prendre.
+        #
+        # La liste des faits lus ci-dessous est INCHANGÉE, à cette exception
+        # près ; elle vit désormais dans radar/ancrage.py, avec celle que lit
+        # la porte des pages, pour qu'il n'y en ait qu'une.
+        ancre = mod_ancrage.depuis_opportunite(
+            opp, vocabulaire=bool(corr.familles) or corr.domaine_transport,
+            nature=nature, procedure_detectee=lecture.procedure_detectee)
+        ancrage = ancre.commercial
         # Une page qui VEND du transport n'est pas un client. Elle reste dans
         # le radar — un concurrent peut chercher un sous-traitant demain — mais
         # elle n'est pas une opportunité tant qu'elle n'exprime aucun besoin.

@@ -381,45 +381,115 @@ class D_TroisScenariosComplets(Socle):
         self.assertEqual(etat_apres["nature"], "FAIT",
                          "un besoin écrit n'est plus une hypothèse")
 
-    def test_20c_une_page_sans_titre_declare_est_lue_faiblement(self):
-        """CONSTAT MESURÉ — non corrigé, l'analyse est GELÉE.
-
-        Le même corps de page, avec et sans titre déclaré, ne donne pas la
-        même lecture : sans titre, un besoin pourtant écrit noir sur blanc
-        dans le corps reste « PAS ENCORE UNE OPPORTUNITÉ ».
-
-        Ce test ne valide pas ce comportement : il le FIXE pour qu'on voie
-        le jour où il change.
-        """
+    def _lire_page(self, url, contenu, titre):
+        """Une page collectée, passée par TOUTE la chaîne. Rend (type, nature)."""
         from radar import circuit as mod_circuit, normalisation
         from radar.chaine import traiter
         moteur = _moteur(self.cx)
+        self.cycle(imports=[export([r(url, "Une page")])])
 
-        def lire(url, titre):
-            self.cycle(imports=[export([r(url, "Une page")])])
-
-            def analyser(c, pg):
-                opp, _ = normalisation.depuis_collecte(
-                    c, PROFIL, source=c.provenance, circuit=mod_circuit.CONNUE)
-                if opp is None:
-                    return 0
-                traiter(self.cx, moteur, [opp], mode=Mode.REEL)
+        def analyser(c, pg):
+            opp, _ = normalisation.depuis_collecte(
+                c, PROFIL, source=c.provenance, circuit=mod_circuit.CONNUE)
+            if opp is None:
                 return 0
+            traiter(self.cx, moteur, [opp], mode=Mode.REEL)
+            return 0
 
-            col.surveiller(self.cx, collecte([page_lue(url, BESOIN, titre=titre)]),
-                           moteur, analyser=analyser, profil=PROFIL)
-            l = self.cx.execute(
-                "SELECT o.type FROM opportunites o JOIN avis a ON a.id=o.avis_id"
-                " WHERE a.ref_source=? AND a.source=?",
-                (url, col.PROVENANCE)).fetchone()
-            return l["type"] if l else None
+        col.surveiller(self.cx, collecte([page_lue(url, contenu, titre=titre)]),
+                       moteur, analyser=analyser, profil=PROFIL)
+        l = self.cx.execute(
+            "SELECT o.type, o.nature FROM opportunites o"
+            " JOIN avis a ON a.id=o.avis_id"
+            " WHERE a.ref_source=? AND a.source=?",
+            (url, col.PROVENANCE)).fetchone()
+        return (l["type"], l["nature"]) if l else (None, None)
 
-        avec = lire("https://avec.be/p", "Nos partenaires")
-        sans = lire("https://sans.be/p", "")
-        self.assertEqual(avec, "DIRECT")
-        self.assertNotEqual(sans, "DIRECT",
-                            "si ce test échoue, le corps seul suffit "
-                            "désormais — refaire la mesure des faux positifs")
+    def test_20c_le_corps_lu_porte_la_preuve_meme_sans_titre_declare(self):
+        """RÈGLE CHANGÉE — décision métier 3.
+
+        Ce test figeait l'inverse : « sans titre, un besoin pourtant écrit
+        noir sur blanc dans le corps reste PAS ENCORE UNE OPPORTUNITÉ », et
+        son commentaire disait qu'il existait pour qu'on voie le jour où ce
+        comportement changerait. C'est ce jour-là.
+
+        Ce qui l'a rendu intenable : « Actualités » — un titre sans le
+        moindre rapport avec le besoin — donnait exactement le même verdict
+        qu'un titre pertinent, tandis qu'une page sans titre du tout tombait
+        en HYPOTHÈSE. La règle ne lisait pas le titre, elle constatait la
+        PRÉSENCE du champ.
+
+        Les sept cas ci-dessous couvrent la décision entière, y compris ce
+        qu'elle n'autorise PAS : un corps sans preuve ne promeut rien, avec
+        ou sans titre.
+        """
+        # A · titre pertinent + corps commercial
+        self.assertEqual(self._lire_page("https://a.be/p", BESOIN,
+                                         "Nos partenaires"), ("DIRECT", "FAIT"))
+        # B · AUCUN titre déclaré + corps commercial — LE CAS DE LA DÉCISION
+        self.assertEqual(self._lire_page("https://b.be/p", BESOIN, None),
+                         ("DIRECT", "FAIT"))
+        # C · titre VIDE + corps commercial — même chose qu'absent
+        self.assertEqual(self._lire_page("https://c.be/p", BESOIN, ""),
+                         ("DIRECT", "FAIT"))
+        # D · titre SANS RAPPORT + corps commercial : c'est le CORPS qui prouve
+        self.assertEqual(self._lire_page("https://d.be/p", BESOIN, "Actualités"),
+                         ("DIRECT", "FAIT"))
+
+    def test_20c_bis_sans_preuve_dans_le_corps_rien_n_est_promu(self):
+        """Le pendant du test précédent : la décision 3 n'ouvre pas la porte.
+
+        Elle dit que le CORPS peut porter la preuve. Elle ne dit pas qu'une
+        page lue en est une. Sans besoin, sans événement, sans date et sans
+        chiffre, le verdict ne bouge pas — titre ou pas titre.
+        """
+        vitrine = ("Notre entreprise familiale accompagne ses clients "
+                   "depuis trois générations.")
+        # E · titre seul, aucun corps — le verdict suit les preuves disponibles
+        t, _ = self._lire_page("https://e.be/p", "", "Nos partenaires")
+        self.assertNotEqual(t, "DIRECT", "un titre n'est pas une preuve")
+        # F · corps non commercial, AVEC titre
+        # G · corps non commercial, SANS titre
+        #
+        # Dans les deux cas la page n'a AUCUN ancrage — ni métier, ni besoin,
+        # ni date, ni chiffre, ni exigence — et la porte de pertinence la
+        # laisse CANDIDATE. `surveiller` ne lance donc pas l'analyse, et
+        # aucune opportunité n'est écrite depuis la page lue : None est ici
+        # plus strict que ⚪, pas plus faible.
+        for url, titre in (("https://f.be/p", "Nos partenaires"),
+                           ("https://g.be/p", None)):
+            t, _ = self._lire_page(url, vitrine, titre)
+            self.assertNotEqual(t, "DIRECT", f"titre={titre!r}")
+        # Et la qualification de nature, lue directement, reste une hypothèse
+        # — avec titre déclaré comme sans.
+        from radar import nature as nat
+
+        class Avec:
+            intitule, texte = "Nos partenaires", vitrine
+
+        class Sans:
+            intitule, texte = nat.SANS_INTITULE, vitrine
+        self.assertIs(nat.qualifier(Avec()), nat.Nature.HYPOTHESE)
+        self.assertIs(nat.qualifier(Sans()), nat.Nature.HYPOTHESE)
+
+    def test_20c_ter_aucun_titre_n_est_jamais_fabrique(self):
+        """La preuve peut venir du corps ; le TITRE, lui, reste celui de la source.
+
+        Interdiction explicite de la décision 3 : ni la première phrase ni un
+        `h1` ne deviennent un titre déclaré. Une page sans titre se lit
+        pleinement ET dit qu'elle n'en a pas.
+        """
+        from radar import nature as nat
+
+        class Page:
+            intitule = nat.SANS_INTITULE
+            texte = BESOIN
+        self.assertFalse(nat.titre_declare(Page()),
+                         "« (sans intitulé) » n'est pas un titre")
+        self.assertIs(nat.qualifier(Page()), nat.Nature.FAIT,
+                      "…et le corps prouve quand même")
+        self.assertNotIn(BESOIN[:20], Page.intitule,
+                         "le corps n'a pas été recopié dans le titre")
 
     def test_20b_une_meme_url_par_deux_chemins_fait_deux_avis(self):
         """DÉFAUT CONNU, MESURÉ, NON CORRIGÉ.

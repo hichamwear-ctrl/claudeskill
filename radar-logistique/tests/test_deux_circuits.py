@@ -1211,21 +1211,28 @@ class P4_LaRecolteSurLaPageReelle(unittest.TestCase):
                              f"« {forme} » ne doit pas être promue")
 
     def test_3_seules_les_pages_a_preuve_positive_sont_promues(self):
-        """7a puis 7d : 11 → 2 → 4 promotions sur cette page réelle.
+        """7a, 7d, puis décision 1 : 11 → 2 → 4 → 3 sur cette page réelle.
 
         7a a supprimé les 9 promotions qui tenaient à un mot générique.
-        7d en rend 2 : celles qui portent désormais une preuve de rôle en
-        FRANÇAIS, là où seule la version anglaise en avait une.
+        7d en a rendu 2 : celles qui portent une preuve de rôle en FRANÇAIS,
+        là où seule la version anglaise en avait une.
+
+        La décision métier 1 en retire UNE, et une seule — mesurée nommément :
+        `cevalogistics.com/fr`, promue parce que le lien nommait la famille
+        « logistique_entrepot ». C'est la page d'accueil d'un prestataire
+        logistique : elle nomme le métier, elle ne demande rien. Le
+        vocabulaire a cessé d'être une preuve positive.
         """
         _, candidats = self._candidats()
         promues = {c.url for c in self.liens.retenus(candidats)}
-        self.assertEqual(len(promues), 4, promues)
+        self.assertEqual(len(promues), 3, promues)
         # La preuve anglaise, inchangée depuis l'origine.
         self.assertTrue(any("become-a-delivery-partner" in u for u in promues))
-        # La preuve de FAMILLE, inchangée.
-        self.assertTrue(any("cevalogistics" in u for u in promues))
-        # ÉQUIVALENCE FR/EN : la page française a enfin sa preuve.
+        # ÉQUIVALENCE FR/EN : la page française a sa preuve.
         self.assertTrue(any("devenir-partenaire-livraison" in u for u in promues))
+        # LA PROMOTION RETIRÉE PAR LA DÉCISION 1 — nommée, pas seulement comptée.
+        self.assertFalse(any("cevalogistics" in u for u in promues),
+                         "une vitrine qui nomme le métier n'est pas une demande")
 
     def test_4_la_recolte_inscrit_candidates_et_promues_avec_leur_raison(self):
         from radar import circuit
@@ -1508,13 +1515,38 @@ class S7a_LIncertitudeNestPasUnePreuve(unittest.TestCase):
         self.assertIs(p.role, Role.PRESTATAIRE)
         self.assertTrue(p.preuves, "la preuve doit être nommée")
 
-    # ── 4 · une preuve de FAMILLE continue de promouvoir ──
-    def test_4_une_famille_metier_promeut_et_nomme_sa_preuve(self):
+    # ── 4 · une FAMILLE ancre, et ne promeut plus — DÉCISION 1 ──
+    def test_4_une_famille_metier_ancre_sans_promouvoir(self):
+        """RÈGLE CHANGÉE — décision métier 1 (veto d'ontologie à deux niveaux).
+
+        Jusqu'ici, reconnaître une famille suffisait à PROMOUVOIR : ce test
+        vérifiait `Confiance.FORTE`. Mesuré sur une page réelle, cela promouvait
+        « Spécialiste du transport et de la logistique en Belgique depuis 1998 »
+        — une vitrine qui ne demande rien à personne.
+
+        La famille reste ce qu'elle a toujours été : un ANCRAGE, qui ouvre la
+        porte et conserve la preuve. Elle n'est plus une preuve POSITIVE.
+        Ce qui promeut désormais, c'est de DEMANDER : un besoin énoncé, ou un
+        rôle PRESTATAIRE établi (test 3 ci-dessus, inchangé).
+        """
+        from radar.ancrage import VOCABULAIRE
         from radar.pertinence import Confiance
         p = self._p("Prestations de logistique et gestion d'entrepôt")
-        self.assertIs(p.confiance, Confiance.FORTE)
+        self.assertIs(p.confiance, Confiance.MOYENNE)
+        self.assertFalse(p.promouvoir, "nommer le métier n'est pas demander")
         self.assertTrue(p.familles, "la famille reconnue doit être conservée")
+        self.assertIn(VOCABULAIRE, p.signaux, "…et elle ancre toujours")
         self.assertTrue(any("famille" in x for x in p.preuves), p.preuves)
+
+    # ── 4bis · la MÊME famille, avec un besoin énoncé, promeut ──
+    def test_4bis_la_meme_famille_avec_un_besoin_enonce_promeut(self):
+        """Le pendant du test 4 : ce n'est pas la famille qu'on a perdue,
+        c'est l'idée qu'elle suffise. Ajoutez une demande, la porte s'ouvre."""
+        from radar.pertinence import Confiance
+        p = self._p("Nous recherchons un prestataire de logistique et de "
+                    "gestion d'entrepôt")
+        self.assertIs(p.confiance, Confiance.FORTE)
+        self.assertTrue(p.promouvoir)
 
     # ── 5 · une page générique reste candidate ──
     def test_5_une_page_generique_reste_candidate(self):
@@ -2506,7 +2538,18 @@ class S7d_NonRegressionNegative(unittest.TestCase):
         return self.det.analyser(texte).role
 
     def test_2_le_nombre_de_promotions_sur_le_corpus_reste_borne(self):
-        """11 (avant 7a) → 2 (après 7a) → 4 (après 7d). Pas de retour au bruit."""
+        """11 (avant 7a) → 2 (7a) → 4 (7d) → 3 (décision 1). Pas de retour au bruit.
+
+        La décision 1 retire AUSSI une candidate, et c'est la même adresse :
+        `cevalogistics.com/fr` est sur un AUTRE domaine que la page lue. Elle
+        n'entrait donc que par la priorité « INDICE FORT », que la famille lui
+        donnait. Le vocabulaire n'étant plus une preuve positive, elle n'est
+        plus ni promue ni retenue : 23 → 22 candidates.
+
+        C'est une perte de DÉCOUVERTE, mesurée et non contournée : élargir la
+        rétention de `radar/liens.py` pour la rattraper en faisait entrer deux
+        autres, et aurait été une décision métier que personne n'a prise.
+        """
         import yaml
         from radar import liens as mod
         from radar.page import lire as lire_page
@@ -2521,8 +2564,10 @@ class S7d_NonRegressionNegative(unittest.TestCase):
                                  "https://www.colisprive.be/devenir-partenaire-livraison/",
                                  self.onto, self.det)
         promues = mod.retenus(cands)
-        self.assertEqual(len(cands), 23, "les candidates ne bougent pas")
-        self.assertEqual(len(promues), 4)
+        self.assertEqual(len(cands), 22, "une seule candidate perdue : cevalogistics")
+        self.assertEqual(len(promues), 3)
+        self.assertFalse(any("cevalogistics" in c.url for c in cands),
+                         "la candidate perdue est nommée, pas seulement comptée")
         # Et AUCUNE page de forme n'y figure.
         for forme in ("mentions-legales", "cgu", "politique-de-cookies",
                       "nos-actualites", "qui-sommes-nous", "nos-engagements-rse",

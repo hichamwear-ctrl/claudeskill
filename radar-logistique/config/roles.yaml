@@ -84,7 +84,27 @@ lexique:
          "recherche un transporteur", "cherche transporteur", "tournée régulière",
          "tournées régulières", "rotations par semaine", "livraison à domicile",
          "dernier kilomètre", "livraisons quotidiennes", "distribution urbaine",
-         "prestataire de transport", "prestataire logistique", "flotte dédiée"]
+         "prestataire de transport", "prestataire logistique", "flotte dédiée",
+         # ── DÉCISION MÉTIER 2 · les désignations réellement rencontrées ──
+         # Le lexique ne connaissait que « sous-traitant TRANSPORT » et
+         # « sous-traitance DE transport ». Les formes nues et les pluriels
+         # manquaient, et ils sont ceux qu'emploient les pages belges :
+         # « Sous-traitance transport en Belgique », « Transports en
+         # sous-traitance », « Devenir partenaire livreur ».
+         #
+         # Ces entrées nomment une PRESTATION. Elles ne disent pas qu'on la
+         # demande — le rôle et le besoin restent deux questions séparées.
+         "sous-traitant", "sous-traitants", "sous-traitance",
+         "sous-traitance transport", "sous-traitants transport",
+         "partenaire livreur", "partenaires livreurs", "livreur partenaire",
+         # REFUSÉ, ET C'EST DÉLIBÉRÉ : « livreur indépendant ».
+         # C'est un STATUT D'EMPLOI, pas une prestation achetée à une
+         # entreprise — l'analogue exact de « chauffeur », que la décision 7d
+         # a maintenu hors du lexique de prestation pour la même raison.
+         # Mesuré : il fait ressortir PRESTATAIRE deux guides administratifs
+         # (« Devenir chauffeur indépendant en Belgique : permis et
+         # démarches ») qui ne sont les clients de personne.
+         ]
     nl: ["vervoersdiensten", "transportdiensten", "logistieke dienstverlening",
          "vervoer van", "ophaling en vervoer", "verhuizing", "goederenbehandeling",
          "transporteur gezocht", "vervoerder gezocht", "logistieke partner",

@@ -1,0 +1,133 @@
+╔════════════════════════════════════════════════════════════════════╗
+║  LES QUATRE DÉCISIONS MÉTIER — MESURE AVANT / APRÈS                ║
+║  Départ : 943edff · 1193 tests                                     ║
+║  Jeu réel : validation/exports-reels/2026-09-14-premier-export-    ║
+║             reel.tsv — 35 résultats, 28 URL uniques, 27 avis       ║
+║  Aucune page n'a été collectée. Aucune source n'a été interrogée.  ║
+╚════════════════════════════════════════════════════════════════════╝
+
+CATÉGORIES SUR LE JEU RÉEL
+========================================================================
+                         AVANT (943edff)      APRÈS
+  🟢 DIRECT                     9                1
+  🔵 PROSPECT                   1                4
+  ⚪ PAS ENCORE                17               22
+  🔴 REJET                      0                0
+  opportunités écrites         27               27
+  retenues (hors 🔴)           10                5
+
+  adresses dont la CATÉGORIE change : 11 / 27
+  adresses dont le SCORE change     :  0 / 27
+  radar/score.py n'a pas été touché, et aucun score n'a bougé.
+
+LES ONZE ADRESSES QUI CHANGENT — ET ELLES SEULES
+========================================================================
+Les 11 sont exactement les 11 adresses que la relecture humaine avait
+jugées. Aucune adresse non jugée n'a bougé.
+
+  ── LES TROIS FAUX NÉGATIFS, RÉCUPÉRÉS ──
+  postnl.be/fr/offres-demploi-pour-sous-traitants/
+      AVANT  ⚪ PAS ENCORE · HYPOTHÈSE · 24 · CLASSER SANS SUITE
+      APRÈS  🔵 PROSPECT   · FAIT      · 24 · SURVEILLER
+      RAISON « travailler comme partenaire » ajouté à nature.BESOIN_DIRECT,
+             jumeau de « devenir partenaire » présent depuis l'origine.
+
+  bulbulgroup.be/sous-traitance-transport-belgique
+      AVANT  ⚪ PAS ENCORE · HYPOTHÈSE · 45 · CLASSER SANS SUITE
+      APRÈS  🔵 PROSPECT   · SIGNAL    · 45 · CONTACTER L'ENTREPRISE
+      RAISON « sous traitance transport » ajouté à EVENEMENT_OBSERVABLE, et
+             NON à BESOIN_DIRECT : la page décrit ce que l'entreprise fait,
+             personne n'y demande rien. SIGNAL, donc, et pas FAIT.
+
+  shippr.io/partenaire-livreur/devenir-livreur-independant-belgique
+      AVANT  ⚪ PAS ENCORE · HYPOTHÈSE · 24 · CLASSER SANS SUITE
+      APRÈS  🔵 PROSPECT   · SIGNAL    · 24 · CONTACTER L'ENTREPRISE
+      RAISON « devenir livreur » ajouté à EVENEMENT_OBSERVABLE pour la même
+             raison. Mesuré : le billet de blog shippr.io/blog et les deux
+             guides administratifs monsiegesocial.be ne bougent PAS.
+
+  ── LES HUIT FAUX POSITIFS, ÉCARTÉS ──
+  europages.fr/…/sous-traitant/transport routier
+  europages.fr/…/logistique en entrepôts
+  europages.fr/…/logistique
+  mecaluxbelgique.be/blog/prestataires-logistiques-entrepots
+  bx1.be/…/dernier-kilometre-…
+  beci.be/e-commerce-mobilite-bataille-kilometre
+  recordexpress.com/the-last-mile/…
+  vpd.eu/fr/
+      AVANT  🟢 DIRECT     · HYPOTHÈSE · 55 · CONTACTER L'ENTREPRISE
+      APRÈS  ⚪ PAS ENCORE · HYPOTHÈSE · 55 · CLASSER SANS SUITE
+      RAISON décision 2 : une FAMILLE métier reconnue ne constitue plus, à
+             elle seule, un ancrage commercial. Les huit tenaient toutes à
+             cette seule exception. Le score, lui, reste 55 : il n'a pas
+             été corrigé, il n'était simplement pas la question.
+
+  ── LES DEUX VRAIS POSITIFS, INCHANGÉS ──
+  colisprive.be/devenir-partenaire-livraison/   🟢 DIRECT · FAIT · 45
+  beeliv.fr/qui-sommes-nous/devenir-partenaire/ 🔵 PROSPECT · FAIT · 24
+
+CE QUE CELA VAUT — ET CE QUE CELA NE VAUT PAS
+========================================================================
+  Sur les 13 cas relus par un humain :
+      5 positifs retrouvés · 0 faux positif parmi les cas relus
+      0 faux négatif parmi les cas relus
+
+  PRÉCISION : ÉCHANTILLON INSUFFISANT
+  RAPPEL    : ÉCHANTILLON INSUFFISANT
+
+  Le registre officiel des verdicts compte 2 VP / 7 FP / 3 FN — 12 verdicts
+  tranchés. La relecture élargie en compte 8 FP, parce qu'un des trois
+  europages 🟢 n'a jamais été jugé. Les deux comptages sont écrits
+  séparément et ne sont pas fondus.
+
+  Douze verdicts, c'est moins que les vingt en dessous desquels le projet
+  refuse d'afficher un pourcentage. Rien ici ne dit que le radar « atteint
+  100 % de précision » : ces chiffres portent sur treize adresses, une
+  seule source et une seule journée.
+
+CE QUI A ÉTÉ MESURÉ ET REFUSÉ
+========================================================================
+  « livreur indépendant » en lexique de PRESTATION
+      REFUSÉ. C'est un statut d'emploi, pas une prestation achetée —
+      l'analogue exact de « chauffeur », maintenu hors du lexique par la
+      décision 7d. Mesuré : il fait ressortir PRESTATAIRE deux guides
+      administratifs qui ne sont les clients de personne.
+
+  « devenir livreur » et « sous traitance transport » en BESOIN_DIRECT
+      REFUSÉS comme FAIT, acceptés comme SIGNAL. En faire des faits aurait
+      présenté une auto-description comme un besoin publié.
+
+  « offres d emploi pour sous traitants »
+      REFUSÉ. Ce n'est pas une formulation commerciale : c'est le chemin
+      d'URL d'un site particulier. L'ajouter serait remplir le lexique
+      avec une adresse.
+
+  « devenir sous traitant » en EVENEMENT_OBSERVABLE
+      ACCEPTÉ par cohérence de famille. EFFET MESURÉ SUR LE JEU DU 14/09 :
+      AUCUN. Aucune des 28 adresses ne porte cette formulation.
+
+  élargir radar/liens.py pour rattraper la candidate perdue
+      REFUSÉ. Mesuré : 23 → 25 candidates au lieu de 23. Ce serait une
+      décision métier sur la largeur de la découverte, non demandée.
+      La perte est documentée : anomalie A7.
+
+TESTS
+========================================================================
+  AVANT  1193   OK
+  APRÈS  1238   OK      (+45)
+
+  Adaptés parce qu'ils figeaient précisément la règle changée — 4 :
+    test_deux_circuits · test_4_une_famille_metier_promeut_et_nomme_sa_preuve
+    test_deux_circuits · test_3_seules_les_pages_a_preuve_positive_sont_promues
+    test_deux_circuits · test_2_le_nombre_de_promotions_sur_le_corpus_reste_borne
+    test_etape8        · test_28_le_pluriel_ne_l_est_pas_et_c_est_un_defaut
+    test_etape11       · test_20c_une_page_sans_titre_declare_est_lue_faiblement
+  Aucun test n'a été supprimé.
+
+DONNÉES
+========================================================================
+  Réellement lues     les 35 lignes du TSV du 14/09, obtenues HORS RADAR
+  Fixtures            celles du projet, inchangées
+  Simulées            aucune
+  Sources consultées  AUCUNE. Le radar n'a interrogé aucun moteur et n'a
+                      collecté aucune page pendant cette étape.

@@ -93,3 +93,49 @@ suppositions.
 recensé serait exactement le mensonge que ce drapeau existe pour empêcher.
 
 **Statut** : **honnêtement faux**, à laisser tel quel.
+
+---
+
+## A6 — une expression de prestation ne dit pas qui achète et qui vend
+
+**Où** : `config/roles.yaml`, lexique `prestation.fr`, depuis l'origine.
+
+**Ce qui se passe** : « affrètement », « livraison à domicile »,
+« prestataire logistique » décrivent aussi bien le service qu'on ACHÈTE que
+celui qu'on VEND. Une vitrine de transporteur qui les emploie ressort donc
+`PRESTATAIRE`, et la porte des pages la promeut — non pas parce qu'elle
+nomme le métier, mais parce que la règle 3 de `radar/pertinence.py` promeut
+sur le RÔLE, et que le rôle se trompe ici de sens.
+
+Exemple mesuré : « Transport routier et affrètement — notre métier depuis
+40 ans » → `PRESTATAIRE`, promue.
+
+**Pourquoi ce n'est pas corrigé** : la décision métier 1 a retiré au
+VOCABULAIRE son pouvoir de promotion ; elle n'a pas touché au RÔLE, et il
+n'a pas été demandé de le faire. Séparer « je cherche ce service » de « je
+vends ce service » dans le lexique est une décision métier à part entière,
+qui n'a pas été prise.
+
+**Statut** : antérieur aux quatre décisions, **mesuré, non corrigé**, gelé
+par `tests/test_decisions_metier.py::D1…test_1bis`.
+
+---
+
+## A7 — un lien externe qui nomme le métier n'est plus retenu comme candidate
+
+**Où** : `radar/liens.py`, `selectionner` — conséquence de la décision 1.
+
+**Ce qui se passe** : un lien vers un AUTRE domaine n'est retenu que s'il
+porte un indice `FORTE`. Le vocabulaire métier ayant cessé d'être une preuve
+positive, une adresse externe qui ne fait que nommer le métier n'entre plus
+du tout — même pas comme candidate.
+
+Mesuré sur la page réelle de Colis Privé : 23 → 22 candidates, et l'adresse
+perdue est `https://www.cevalogistics.com/fr`.
+
+**Pourquoi ce n'est pas corrigé** : élargir la rétention de `liens.py` pour
+rattraper cette adresse en faisait entrer deux autres — 23 → 25. C'est une
+décision métier sur la largeur de la découverte, et elle n'a pas été prise.
+
+**Statut** : **mesuré, non corrigé**, gelé par
+`tests/test_deux_circuits.py::S7d…test_2`.

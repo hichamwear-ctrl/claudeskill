@@ -47,8 +47,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import (chainage, execution as mod_execution, pages as mod_pages,
-               recoupement, trouvailles as mod_trouvailles)
+from . import (chainage, consolidation, execution as mod_execution,
+               pages as mod_pages, recoupement, trouvailles as mod_trouvailles)
 from .adaptateur import vers_opportunite
 from .circuit import DECOUVERTE as CIRCUIT_DECOUVERTE
 from .mode import Mode, estampiller
@@ -276,7 +276,7 @@ def top_opportunites(cx, limite: int = 20) -> list:
     pas un score faible mais un rejet OBJECTIF déjà établi et motivé.
     """
     return cx.execute(
-        "SELECT o.*, a.ref_source, a.source AS source_avis"
+        "SELECT o.*, a.ref_source, a.source AS source_avis, a.derniere_vue"
         " FROM opportunites o JOIN avis a ON a.id = o.avis_id"
         " WHERE o.type <> 'REJET'"
         " ORDER BY o.score DESC, o.echeance IS NULL, o.echeance"
@@ -423,6 +423,17 @@ def _bloc_action(cx, n: int, l, *, signal: bool = False) -> list[str]:
     return L
 
 
+def _resume_lecture(l) -> str:
+    """Une lecture en une ligne : sa catégorie, sa nature, son action.
+
+    Sert au bloc des lectures divergentes. Les trois dimensions y restent
+    séparées, comme dans la fiche complète.
+    """
+    emoji = EMOJI.get(l["type"], "·")
+    return (f"{emoji} {l['type']}   ·   {l['nature'] or A_CONFIRMER}"
+            f"   ·   {l['action'] or A_CONFIRMER}")
+
+
 def fiche_courte(cx, l) -> list[str]:
     """Les éléments demandés, et aucun n'est deviné.
 
@@ -555,19 +566,31 @@ def rapport(cx, p: Parcours, *, limite_top: int = 20,
     L.append("")
 
     lignes = top_opportunites(cx, limite_top)
-    L.append(f"TOP OPPORTUNITÉS COMMERCIALES — {len(lignes)} affichée(s)")
+    # DÉCISION MÉTIER 4 — une adresse, une fiche. Les avis restent séparés en
+    # base : c'est une VUE, et rien d'autre. Les deux nombres sont écrits,
+    # parce qu'ils ne disent pas la même chose et qu'en fondre un dans
+    # l'autre ferait disparaître les doubles lectures du bilan.
+    adresses = consolidation.grouper(lignes)
+    L.append(f"TOP OPPORTUNITÉS COMMERCIALES — {len(adresses)} adresse(s)"
+             f" · {len(lignes)} lecture(s)")
     L.append("  Les QUATRE dimensions restent séparées : TYPE D'INFORMATION,")
     L.append("  NATURE, ÉTAT DE PROCÉDURE et ACTION ne se résument jamais")
     L.append("  l'une l'autre. Une affaire peut être exécutable (🟢) ET n'être")
     L.append("  qu'une HYPOTHÈSE : « pouvons-nous le faire » et « est-ce réel »")
     L.append("  sont deux questions, et le rapport répond aux deux.")
+    if len(lignes) > len(adresses):
+        L.append("  Une même adresse peut avoir été lue par plusieurs chemins —")
+        L.append("  montrée par un moteur, puis relue sur la page collectée.")
+        L.append("  Les lectures restent toutes en base, avec leur provenance ;")
+        L.append("  la mieux étayée ouvre la fiche, les autres sont dessous.")
     L.append("-" * 88)
     if not lignes:
         L.append("  AUCUNE. Ce n'est pas une panne : rien dans cet échantillon")
         L.append("  ne portait un besoin économique lisible. Le radar ne force")
         L.append("  jamais un classement pour remplir une page.")
-    for l in lignes:
-        L += fiche_courte(cx, l)
+    for adresse in adresses:
+        L += fiche_courte(cx, adresse.principale)
+        L += consolidation.bloc_divergence(adresse, fiche=_resume_lecture)
         L.append("")
 
     L.append("-" * 88)

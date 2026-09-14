@@ -370,11 +370,27 @@ class E_LeLexiqueEstAuSingulier(Socle):
     def test_27_le_singulier_est_reconnu(self):
         self.assertTrue(self.lecture("Nous recherchons un partenaire de livraison"))
 
-    def test_28_le_pluriel_ne_l_est_pas_et_c_est_un_defaut(self):
-        self.assertFalse(
+    def test_28_le_pluriel_passe_desormais_par_le_BESOIN_pas_par_le_lexique(self):
+        """RÈGLE CHANGÉE — décision métier 1.
+
+        « Nous recherchons DES partenaires de livraison » ressortait MOYENNE :
+        le lexique de rôle ne connaît que le singulier, et le rôle était la
+        seule preuve positive possible. Le pluriel était donc un défaut réel,
+        et ce test le figeait.
+
+        Il n'est plus atteignable par là : « nous recherchons » est un BESOIN
+        ÉNONCÉ, et un besoin énoncé promeut maintenant par lui-même. Le
+        défaut du lexique, lui, N'EST PAS corrigé — la deuxième assertion le
+        vérifie explicitement, pour qu'il ne passe pas pour réglé.
+        """
+        self.assertTrue(
             self.lecture("Nous recherchons des partenaires de livraison"),
-            "si ce test échoue, le pluriel a été ajouté au lexique — "
-            "vérifier que la mesure de faux positifs a été refaite")
+            "le besoin énoncé doit suffire, sans passer par le lexique de rôle")
+        from radar.role import Role
+        self.assertIsNot(
+            self.moteur.roles.analyser("des partenaires de livraison").role,
+            Role.PRESTATAIRE,
+            "le lexique de rôle reste au singulier — défaut non corrigé")
 
 
 if __name__ == "__main__":
