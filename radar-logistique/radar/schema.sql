@@ -528,3 +528,68 @@ CREATE TABLE IF NOT EXISTS verdicts (
     UNIQUE (url, juge_par)
 );
 CREATE INDEX IF NOT EXISTS idx_verdicts_verdict ON verdicts(verdict);
+
+-- JOURNAL DES CYCLES — ce que le bot a RÉELLEMENT fait, une ligne par passage.
+--
+-- La table `cycles` existante suit UNE source à la fois. Celle-ci suit le
+-- CYCLE ENTIER : c'est la différence entre « TED a rendu 12 avis » et « le
+-- bot a tourné, voici tout ce qu'il a fait et tout ce qu'il n'a PAS pu
+-- faire ».
+--
+-- `sources_demandees` / `sources_executees` / `sources_erreur` /
+-- `sources_non_disponibles` / `sources_non_mesurees` sont conservés SÉPARÉMENT
+-- et en toutes lettres. C'est la garantie centrale du bot :
+--
+--     source injoignable  →  NON MESURÉE
+--     et JAMAIS              0 opportunité pour cette source
+--
+-- Une absence de résultat n'est pas une preuve d'absence d'opportunité, et un
+-- journal qui les confond rend le radar menteur sans que personne le voie.
+CREATE TABLE IF NOT EXISTS journal_cycles (
+    id                      INTEGER PRIMARY KEY,
+    cycle_id                TEXT NOT NULL UNIQUE,
+    debut                   TEXT NOT NULL,
+    fin                     TEXT,
+    statut                  TEXT NOT NULL,   -- COMPLET | PARTIEL | ERREUR
+    sources_demandees       TEXT,
+    sources_executees       TEXT,
+    sources_erreur          TEXT,
+    sources_non_disponibles TEXT,
+    sources_non_mesurees    TEXT,
+    resultats_bruts         INTEGER NOT NULL DEFAULT 0,
+    urls_uniques            INTEGER NOT NULL DEFAULT 0,
+    doublons                INTEGER NOT NULL DEFAULT 0,
+    pages_analysees         INTEGER NOT NULL DEFAULT 0,
+    candidats               INTEGER NOT NULL DEFAULT 0,
+    entreprises             INTEGER NOT NULL DEFAULT 0,
+    opportunites            INTEGER NOT NULL DEFAULT 0,
+    signaux                 INTEGER NOT NULL DEFAULT 0,
+    postulables             INTEGER NOT NULL DEFAULT 0,
+    attribues               INTEGER NOT NULL DEFAULT 0,
+    rejetes                 INTEGER NOT NULL DEFAULT 0,
+    notifications           INTEGER NOT NULL DEFAULT 0,
+    erreurs                 TEXT,
+    detail                  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_journal_debut ON journal_cycles(debut);
+
+-- NOTIFICATIONS — ce que le bot a jugé digne d'un regard humain.
+--
+-- Distincte de l'opportunité : une opportunité faible RESTE EN BASE sans
+-- déclencher d'alerte. Elle ne disparaît pas, elle ne réveille personne.
+--
+-- `sceau` est l'empreinte du contenu notifié. C'est lui qui rend le cycle
+-- idempotent : relancer le même cycle sur les mêmes données ne renotifie
+-- rien, parce que le sceau est déjà là.
+CREATE TABLE IF NOT EXISTS notifications (
+    id        INTEGER PRIMARY KEY,
+    avis_id   INTEGER REFERENCES avis(id) ON DELETE CASCADE,
+    motif     TEXT NOT NULL,      -- NOUVELLE | MODIFIÉE | RENOUVELLEMENT | ...
+    sceau     TEXT NOT NULL,
+    corps     TEXT NOT NULL,
+    cycle_id  TEXT,
+    creee_le  TEXT NOT NULL,
+    lue_le    TEXT,
+    UNIQUE (sceau)
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_cycle ON notifications(cycle_id);

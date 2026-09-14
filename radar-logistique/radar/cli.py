@@ -503,6 +503,47 @@ def cmd_developper(a) -> int:
     return 0
 
 
+def cmd_run(a) -> int:
+    """UN CYCLE COMPLET. Le point d'entrée du bot.
+
+        radar run                          un cycle, sur ce qui est en base
+        radar run --import fichier.json    avec un export produit HORS RADAR
+        radar run --collecte pages.json    avec des pages lues HORS RADAR
+
+    Le moteur ne connaît aucun planificateur : cron, un timer systemd ou un
+    conteneur appellent simplement cette commande. Lier le métier à cron
+    l'enfermerait dans une machine.
+    """
+    from . import orchestrateur
+    cx = ouvrir(a.base or Mode.REEL.base_par_defaut)
+    adaptateur, cfg = _source("recherche")
+    cycle = orchestrateur.executer(
+        cx, _moteur(cx), adaptateur,
+        imports=a.importer or [], collectes=a.collecte or [],
+        moteurs_declares=_moteurs_declares().moteurs,
+        profil=_cfg("sources/page_web.yaml"),
+        notifier=not a.sans_notification)
+    cx.commit()
+    print(orchestrateur.rapport(cx, cycle))
+    return 0 if cycle.statut != orchestrateur.ERREUR else 1
+
+
+def cmd_cycles(a) -> int:
+    """Ce que le bot a fait, cycle par cycle."""
+    from . import orchestrateur
+    cx = ouvrir(_base(a), lecture_seule=True)
+    print(orchestrateur.journal(cx, limite=a.limite))
+    return 0
+
+
+def cmd_notifications(a) -> int:
+    """Les cartes à lire. Le bot n'a envoyé aucun message."""
+    from . import notification
+    cx = ouvrir(_base(a), lecture_seule=True)
+    print(notification.rapport(cx, cycle_id=a.cycle, limite=a.limite))
+    return 0
+
+
 def cmd_tableau(a) -> int:
     """LA BOUCLE, MESURÉE. Ce tableau ne décide rien et ne priorise rien."""
     from . import tableau
@@ -1263,6 +1304,23 @@ def principal(argv=None) -> int:
                       help="titulaires de marchés et renouvellements — "
                            "un marché attribué n'est pas une affaire perdue")
     dv.set_defaults(fn=cmd_developper)
+
+    ru = s.add_parser("run", help="UN CYCLE COMPLET — le point d'entrée du bot")
+    ru.add_argument("--import", dest="importer", action="append",
+                    help="un export de recherche produit HORS RADAR (répétable)")
+    ru.add_argument("--collecte", action="append",
+                    help="un fichier de pages lues HORS RADAR (répétable)")
+    ru.add_argument("--sans-notification", action="store_true")
+    ru.set_defaults(fn=cmd_run)
+
+    cy = s.add_parser("cycles", help="ce que le bot a fait, cycle par cycle")
+    cy.add_argument("--limite", type=int, default=10)
+    cy.set_defaults(fn=cmd_cycles)
+
+    nt = s.add_parser("notifications", help="les cartes à lire ce matin")
+    nt.add_argument("--cycle", help="n'afficher qu'un cycle")
+    nt.add_argument("--limite", type=int, default=10)
+    nt.set_defaults(fn=cmd_notifications)
 
     tb = s.add_parser("tableau",
                       help="la boucle commerciale mesurée de bout en bout")

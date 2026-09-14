@@ -119,6 +119,31 @@ def _empreinte(contenu: str) -> str:
     return hashlib.sha256(contenu.encode("utf-8", "replace")).hexdigest()[:32]
 
 
+def _en_page(contenu: str, ligne: dict) -> bytes:
+    """Le contenu, sous une forme que le PROFIL DE LECTURE sait lire.
+
+    Le profil de page extrait le titre et le corps d'un document HTML. Un
+    texte brut n'en est pas un : mesuré, il ressortait « (sans intitulé) » et
+    un corps vide, si bien que le contenu réellement collecté n'atteignait
+    JAMAIS l'analyse commerciale. Une page dont le besoin était écrit noir sur
+    blanc restait « aucun fait commercial observé ».
+
+    Un contenu déjà balisé passe tel quel — on ne réencapsule pas ce qui l'est
+    déjà. Un texte brut est enveloppé du strict minimum, et le titre déclaré
+    par le collecteur devient le titre du document. Rien n'est ajouté au
+    texte : l'enveloppe est une forme, pas un mot de plus.
+    """
+    brut = contenu or ""
+    if "<" in brut[:2000] and ">" in brut[:2000]:
+        return brut.encode("utf-8")
+    from html import escape
+    titre = str(ligne.get("titre") or ligne.get("title") or "").strip()
+    corps = "".join(f"<p>{escape(bloc)}</p>"
+                    for bloc in brut.split("\n") if bloc.strip())
+    return (f"<html><head><title>{escape(titre)}</title></head>"
+            f"<body>{corps}</body></html>").encode("utf-8")
+
+
 def _etat(valeur, contenu) -> Acces:
     """L'état déclaré, ou celui que le contenu impose.
 
@@ -214,7 +239,7 @@ class Depot:
                             provenance=self.provenance,
                             motif=motif or "accès impossible")
         return Collecte(url=str(url), acces=Acces.CONSULTEE,
-                        octets=contenu.encode("utf-8"),
+                        octets=_en_page(contenu, l),
                         consulte_le=str(l.get("lu_le") or maintenant()),
                         provenance=self.provenance,
                         motif=motif or f"{len(contenu)} caractères reçus")

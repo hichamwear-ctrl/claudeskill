@@ -1,0 +1,80 @@
+MESURE 11 — LE BOT SUR LE JEU RÉEL DU 14/09
+================================================================================
+Découverte : RÉELLE (outil du harness, EXÉCUTÉ HORS RADAR).
+Aucune collecte de page : WebFetch bloqué. Aucun contact réel.
+
+── CYCLE 1 ─────────────────────────────────────────────────────────────────
+══════════════════════════════════════════════════════════════════════════════
+RADAR COMMERCIAL — CYCLE 20260914T115126.296-c6ab
+══════════════════════════════════════════════════════════════════════════════
+
+STATUT : PARTIEL
+  début 2026-09-14T11:51:26+00:00   fin 2026-09-14T11:51:26+00:00
+  PARTIEL : au moins une source n'a pas répondu. Ce n'est pas
+  un échec du cycle — c'est un aveu sur ce qu'on n'a pas vu.
+
+SOURCES
+  SOURCE                       ÉTAT                RÉSULTATS      OPPORTUNITÉS
+  brave                        NON DISPONIBLE    NON MESURÉE rés.  NON MESURÉE opp.   CLÉ ABSENTE — clé API non fournie
+  google                       NON DISPONIBLE    NON MESURÉE rés.  NON MESURÉE opp.   CLÉ ABSENTE — clé API et identifiant de mote
+  import:websearch-assistant   EXÉCUTÉE                   35 rés.           27 opp.   EXÉCUTÉ HORS RADAR — 0 refusée(s)
+
+  exécutées            1   import:websearch-assistant
+  en ERREUR            0
+  NON DISPONIBLES      2   brave, google
+  NON MESURÉES         0
+
+  ⚠ UNE SOURCE NON MESURÉE N'A PAS « RENDU ZÉRO ». Le bot ne
+  l'a pas interrogée, ou n'a pas pu. On ne sait donc RIEN de
+  ce qu'elle contient — surtout pas qu'elle ne contient rien.
+
+DÉCOUVERTE
+  résultats bruts                  35
+  URL uniques                      28
+  doublons regroupés                7
+
+QUALIFICATION
+  pages réellement lues             0
+  pages candidates                 28
+  entreprises au registre          17
+
+OPPORTUNITÉS
+  opportunités en base             27
+  dont SIGNAL                       0
+  état POSTULABLE                   0
+  attributions (≠ postulable)       0
+  REJET                             0
+
+ALERTES — 10 préparée(s) par ce cycle
+  Le bot n'a envoyé AUCUN message et n'a contacté personne.
+  Une opportunité non notifiée reste en base : ne pas réveiller
+  quelqu'un n'est pas supprimer une affaire.
+
+QUALITÉ
+  NON MESURÉE — aucun résultat n'a été relu par un humain.
+  Ce n'est pas « zéro erreur » : c'est l'absence de relecture.
+
+ACTIONS HUMAINES À EFFECTUER
+  CONTACTER L'ENTREPRISE                            9
+  SURVEILLER                                        1
+
+  `radar notifications` pour lire les cartes.
+  `radar tableau` pour la boucle complète.
+
+── CYCLE 2 — MÊMES DONNÉES : IDEMPOTENCE ───────────────────────────────────
+STATUT : PARTIEL
+  résultats bruts                  35
+  entreprises au registre          17
+  opportunités en base             27
+ALERTES — 0 préparée(s) par ce cycle
+
+── JOURNAL ─────────────────────────────────────────────────────────────────
+JOURNAL DES CYCLES
+============================================================================================
+
+  CYCLE              STATUT      RÉS.   OPP.  NOTIF  SOURCES NON MESURÉES
+  20260914T115126.580-2293 PARTIEL       35     27      0  —
+  20260914T115126.296-c6ab PARTIEL       35     27     10  —
+
+  Une source NON MESURÉE n'a pas rendu zéro : elle n'a pas été
+  interrogée. Les deux ne se confondent jamais dans ce journal.
