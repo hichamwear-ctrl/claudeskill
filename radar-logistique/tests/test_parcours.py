@@ -519,5 +519,134 @@ class H_SecuriteEtNonRegression(unittest.TestCase):
         self.assertIn("DONNÉES RÉELLES : NON MESURÉES", texte)
 
 
+# ═══════════════════════════════════════ ce que l'exploitant lira demain matin
+class I_LeRapportRepondALaQuestionDeLExploitant(Chaine):
+    """« Qu'est-ce que je fais demain matin ? » — et sans confondre les genres."""
+
+    def test_1_un_signal_ne_se_melange_jamais_a_un_besoin_enonce(self):
+        self.passer(export([
+            besoin("https://a.example/partenaires",
+                   "Nous recherchons des sous-traitants transport",
+                   "Sociétés de transport partenaires avec véhicules propres."),
+            besoin("https://presse.example/actu",
+                   "Une société ouvre un dépôt à Gand",
+                   "Ouverture d'une plateforme de tri.")]))
+        texte = parcours.top_actions(self.cx)
+        self.assertIn("BESOINS ÉNONCÉS", texte)
+        self.assertIn("SIGNAUX", texte)
+        avant, apres = texte.split("SIGNAUX", 1)
+        self.assertIn("sous-traitants transport", avant)
+        self.assertIn("AUCUN besoin n'a été exprimé ici", apres)
+
+    def test_2_les_quatre_axes_sont_affiches_separement(self):
+        """Le score ne porte pas la nature — parce que les quatre se lisent
+        côte à côte. C'est la raison pour laquelle score.py n'a pas bougé."""
+        self.passer(export([
+            besoin("https://a.example/x", "Recherche transporteur", "Tournées.")]))
+        l = parcours.top_opportunites(self.cx)[0]
+        ligne = parcours.axes(l)
+        for axe in ("ADÉQUATION", "PREUVE", "NATURE", "POTENTIEL"):
+            self.assertIn(axe, ligne, axe)
+
+    def test_3_une_hypothese_et_un_fait_se_distinguent_sans_toucher_au_score(self):
+        """Même adéquation, preuve différente : lisible sans pondérer le score."""
+        self.passer(export([
+            besoin("https://a.example/appel", "Appel à partenaires logistiques",
+                   "Nous cherchons des partenaires."),
+            besoin("https://presse.example/actu",
+                   "Une société ouvre un dépôt à Gand", "Plateforme de tri.")]))
+        par_nature = {l["nature"]: l for l in parcours.top_opportunites(self.cx)}
+        self.assertIn("FAIT", par_nature)
+        self.assertIn("HYPOTHÈSE", par_nature)
+        self.assertNotEqual(par_nature["FAIT"]["fiabilite"],
+                            par_nature["HYPOTHÈSE"]["fiabilite"],
+                            "la preuve doit les séparer, à défaut du score")
+
+    def test_4_la_maturite_est_un_axe_a_part_pas_une_sixieme_categorie(self):
+        p = self.passer(export([besoin("https://a.example/x", "T", "E")]))
+        texte = parcours.rapport(self.cx, p)
+        categories, maturite = texte.split("MATURITÉ", 1)
+        self.assertNotIn(parcours.MATURITE_NON_QUALIFIEE,
+                         categories.split("COMMERCIAL — catégories")[-1],
+                         "⚪ ne doit pas être alignée avec les cinq catégories")
+        self.assertIn("jamais une sixième catégorie", maturite)
+        self.assertNotIn(parcours.MATURITE_NON_QUALIFIEE,
+                         parcours.CATEGORIES_COMMERCIALES)
+
+    def test_5_un_recrutement_de_salarie_n_est_pas_une_demande_adressee_a_nous(self):
+        """RECRUTEMENT D'UN SALARIÉ ≠ RECHERCHE D'UN PRESTATAIRE.
+
+        Mesuré : une offre d'emploi isolée ressort ⚪, et son action est de
+        classer sans suite. Le cas du recrutement MASSIF, lui, n'est pas
+        distingué aujourd'hui — c'est une observation documentée dans
+        validation/mesures/, pas une règle écrite ici.
+        """
+        self.passer(export([
+            besoin("https://a.example/jobs/chauffeur",
+                   "Offre d'emploi : chauffeur poids lourd (CDI)",
+                   "Nous engageons un chauffeur en contrat à durée "
+                   "indéterminée. Envoyez votre CV.")]))
+        l = parcours.top_opportunites(self.cx)
+        if l:
+            self.assertNotEqual(l[0]["type"], "DIRECT",
+                                "une offre d'emploi isolée n'est pas une "
+                                "opportunité directe")
+
+
+# ═══════════════════════════════════════ ce qu'un tableur écrit réellement
+class J_LImportSupporteCeQuUnTableurProduit(unittest.TestCase):
+    """Deux défauts qui bloquaient un export réel, et rien d'inventé.
+
+    Un tableur configuré en français ou en néerlandais écrit en
+    POINT-VIRGULE et pose une marque d'ordre d'octets. Les deux faisaient
+    refuser le fichier avec « PROVENANCE NON DÉCLARÉE », alors que la
+    provenance ÉTAIT écrite — elle s'affichait simplement à l'identique.
+    """
+
+    def ecrire(self, contenu: bytes, suffixe=".csv"):
+        d = tempfile.mkdtemp()
+        p = pathlib.Path(d) / ("export" + suffixe)
+        p.write_bytes(contenu)
+        return str(p)
+
+    def test_1_marque_d_ordre_d_octets(self):
+        contenu = ("\ufeffprovenance,moteur,date_execution,requete,url,titre,"
+                   "extrait,rang\n"
+                   f"{HORS},m,2026-09-13T09:00:00Z,q,https://x.example/a,T,E,1\n")
+        a, = imp.charger(self.ecrire(contenu.encode("utf-8")))
+        self.assertEqual(len(a.resultats_importes), 1)
+
+    def test_2_separateur_point_virgule(self):
+        contenu = ("provenance;moteur;date_execution;requete;url;titre;"
+                   "extrait;rang\n"
+                   f"{HORS};m;2026-09-13T09:00:00Z;q;https://x.example/b;T;E;1\n")
+        a, = imp.charger(self.ecrire(contenu.encode("utf-8")))
+        self.assertEqual(a.resultats_importes[0].url, "https://x.example/b")
+
+    def test_3_les_deux_a_la_fois(self):
+        contenu = ("\ufeffprovenance;moteur;date_execution;requete;url;titre;"
+                   "extrait;rang\n"
+                   f"{HORS};m;2026-09-13T09:00:00Z;q;https://x.example/c;T;E;1\n")
+        a, = imp.charger(self.ecrire(contenu.encode("utf-8")))
+        self.assertEqual(a.resultats_importes[0].url, "https://x.example/c")
+
+    def test_4_un_tableau_json_nu_aux_noms_anglais(self):
+        contenu = json.dumps([{
+            "provenance": HORS, "engine": "m", "date": "2026-09-13T09:00:00Z",
+            "query": "q", "link": "https://x.example/d", "title": "T",
+            "snippet": "E", "position": 3}], ensure_ascii=False)
+        a, = imp.charger(self.ecrire(contenu.encode("utf-8"), ".json"))
+        self.assertEqual(a.resultats_importes[0].url, "https://x.example/d")
+        self.assertEqual(a.resultats_importes[0].rang, 3)
+
+    def test_5_les_espaces_d_un_tableur_ne_sont_pas_des_donnees(self):
+        contenu = ("provenance; moteur ; date_execution ; requete ; url ;"
+                   " titre ; extrait ; rang \n"
+                   f"{HORS}; m ; 2026-09-13T09:00:00Z ; q ;"
+                   " https://x.example/e ; T ; E ; 1 \n")
+        a, = imp.charger(self.ecrire(contenu.encode("utf-8")))
+        self.assertEqual(a.resultats_importes[0].url, "https://x.example/e")
+
+
 if __name__ == "__main__":
     unittest.main()

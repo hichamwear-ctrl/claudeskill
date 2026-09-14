@@ -61,6 +61,31 @@ NON_MESURE = "NON MESURÉ"
 # module. Les rassembler dans un rapport ne les fusionne pas.
 DIMENSIONS = ("TYPE D'INFORMATION", "NATURE", "ÉTAT DE PROCÉDURE", "ACTION")
 
+# LES QUATRE AXES DE LECTURE — quatre questions, quatre colonnes, jamais un
+# seul nombre. Ils existaient déjà, chacun dans son module ; ce qui manquait,
+# c'était de les montrer CÔTE À CÔTE.
+#
+#   ADÉQUATION       « puis-je le faire ? »        score.py     → score
+#   NIVEAU DE PREUVE « j'en suis sûr ? »           fiabilite.py → fiabilite
+#   NATURE           « est-ce un fait ? »          nature.py    → nature
+#   POTENTIEL        « combien ça rapporte ? »     priorite.py  → ca_annuel
+#
+# C'est parce qu'ils sont séparés que le score n'a PAS à porter la nature :
+# une hypothèse de presse et un besoin écrit peuvent être également
+# exécutables, et c'est le niveau de preuve qui les distingue — pas le score.
+AXES = ("ADÉQUATION", "NIVEAU DE PREUVE", "NATURE", "POTENTIEL")
+
+# La MATURITÉ, et non une sixième catégorie commerciale.
+#
+# `classification.Type` porte six valeurs, mais elles ne répondent pas toutes
+# à la même question. Cinq disent COMMENT ENTRER sur le marché ; ⚪ dit qu'on
+# n'en est pas encore là — c'est une page lue qui ne porte, à cette date,
+# aucun fait commercial. Un rapport qui l'aligne comme une sixième catégorie
+# laisse croire à un sixième mode d'entrée, qui n'existe pas.
+CATEGORIES_COMMERCIALES = ("DIRECT", "RENFORCEMENT", "A_CONSTRUIRE",
+                           "PROSPECT", "REJET")
+MATURITE_NON_QUALIFIEE = "PAS ENCORE UNE OPPORTUNITÉ"
+
 # Les six catégories. ⚪ n'était pas dans la demande — elle existe pourtant
 # depuis longtemps dans `classification.py`, et l'omettre ici l'aurait
 # affichée comme « · », c'est-à-dire l'aurait rendue illisible dans le seul
@@ -314,6 +339,89 @@ def _entite(cx, l) -> str:
     return f"domaine {domaine}  (identité {etat} — ce n'est pas une raison sociale)"
 
 
+def axes(l) -> str:
+    """Les quatre axes en une ligne. Chacun répond à SA question.
+
+    Le score seul n'a jamais suffi à décider : il dit « puis-je le faire »,
+    pas « est-ce vrai » ni « combien ça rapporte ». Les afficher séparément
+    est la raison pour laquelle il n'a pas besoin d'absorber la nature.
+    """
+    ca = (f"{l['ca_annuel']:,.0f} €/an".replace(",", " ")
+          if l["ca_annuel"] else (l["ca_etat"] or NON_MESURE))
+    adequation = (f"{l['score']}/100" if l["score_mesurable"]
+                  else "NON MESURABLE — aucun fait économique observé")
+    return (f"ADÉQUATION {adequation}"
+            f"   ·   PREUVE {l['fiabilite'] or A_CONFIRMER}"
+            f"   ·   NATURE {l['nature'] or A_CONFIRMER}"
+            f"   ·   POTENTIEL {ca}")
+
+
+def est_signal(l) -> bool:
+    """Un SIGNAL n'est pas un besoin. On ne les mélange jamais dans une liste
+    d'actions : « ouverture d'un entrepôt » ne dit à personne qu'on cherche un
+    sous-traitant, et le présenter à côté d'un besoin écrit ferait perdre une
+    matinée à l'exploitant."""
+    return (l["nature"] or "").upper() != "FAIT"
+
+
+def top_actions(cx, limite: int = 10) -> str:
+    """« Qu'est-ce que je fais demain matin ? » — la réponse, en deux blocs.
+
+    BESOINS ÉNONCÉS d'abord : quelqu'un a écrit qu'il cherchait.
+    SIGNAUX ensuite : il se passe quelque chose, et personne n'a rien demandé.
+
+    Les deux blocs existent parce que confondre les deux est l'erreur la plus
+    coûteuse qu'un radar commercial puisse faire.
+    """
+    lignes = top_opportunites(cx, limite * 3)
+    besoins = [l for l in lignes if not est_signal(l)][:limite]
+    signaux = [l for l in lignes if est_signal(l)][:limite]
+
+    L = ["TOP ACTIONS COMMERCIALES", "=" * 88, ""]
+    L.append("BESOINS ÉNONCÉS — quelqu'un a ÉCRIT qu'il cherchait")
+    L.append("-" * 88)
+    if not besoins:
+        L.append("  AUCUN. Ce n'est pas une panne : rien dans cet échantillon ne")
+        L.append("  portait un besoin écrit. Le radar ne promeut jamais un signal")
+        L.append("  au rang de besoin pour remplir une liste.")
+    for n, l in enumerate(besoins, start=1):
+        L += _bloc_action(cx, n, l)
+
+    L.append("")
+    L.append("SIGNAUX — il se passe quelque chose, PERSONNE N'A RIEN DEMANDÉ")
+    L.append("-" * 88)
+    if not signaux:
+        L.append("  aucun")
+    for n, l in enumerate(signaux, start=1):
+        L += _bloc_action(cx, n, l, signal=True)
+
+    L.append("")
+    L.append("  Un signal n'est PAS un contrat, et ne le devient pas en montant")
+    L.append("  dans la liste. Il justifie un contact, jamais une offre.")
+    return "\n".join(L)
+
+
+def _bloc_action(cx, n: int, l, *, signal: bool = False) -> list[str]:
+    emoji = EMOJI.get(l["type"], "·")
+    intitule = "Signal" if signal else "Besoin"
+    L = ["",
+         f"{n}.  {emoji} {l['type']}        {_entite(cx, l)}",
+         f"    {intitule}    : {(l['intitule'] or A_CONFIRMER)[:72]}",
+         f"    Zone      : {l['zone'] or A_CONFIRMER}"
+         f"   ·   Effort : {_effort(l)}",
+         f"    ACTION    : {l['action'] or A_CONFIRMER}",
+         f"    {axes(l)}",
+         f"    Pourquoi  : {(l['motif'] or A_CONFIRMER)[:74]}"]
+    manque = _liste(l["manques"], "")
+    if manque:
+        L.append(f"    Manque    : {manque[:74]}")
+    if signal:
+        L.append("    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas")
+        L.append("                une demande adressée à votre entreprise.")
+    L.append(f"    Preuve    : {l['ref_source']}")
+    return L
+
+
 def fiche_courte(cx, l) -> list[str]:
     """Les éléments demandés, et aucun n'est deviné.
 
@@ -332,7 +440,7 @@ def fiche_courte(cx, l) -> list[str]:
         f"     TYPE D'INFO  {l['type_information'] or 'NON DÉCLARÉ PAR LA SOURCE'}"
         f"   ·   SECTEUR {l['secteur'] or A_CONFIRMER}"
         f"   ·   RÔLE {l['role'] or A_CONFIRMER}",
-        f"     NATURE       {l['nature'] or A_CONFIRMER}",
+        f"     AXES         {axes(l)}",
         f"     ÉTAT         {l['etat_procedure'] or 'INCONNU'}"
         f"   (confiance {l['confiance_etat'] or A_CONFIRMER})",
         f"     CATÉGORIE    {emoji} {l['type']}   ·   MOTEUR {l['moteur'] or '—'}",
@@ -415,10 +523,6 @@ def rapport(cx, p: Parcours, *, limite_top: int = 20,
                               ("🔵", "PROSPECT / PARTENARIAT", p.prospect),
                               ("🔴", "REJET", p.rejet)):
         L.append(f"  {emoji} {libelle:<34} {n:>6}")
-    L.append(f"  ⚪ {'PAS ENCORE UNE OPPORTUNITÉ':<34} {p.observation:>6}")
-    L.append("  ⚪ n'est ni une opportunité ni un rejet : une page lue qui ne")
-    L.append("  porte, à cette date, aucun fait commercial. Elle reste au")
-    L.append("  registre et pourra en porter un demain.")
     L.append("  🔴 n'est pas « score faible » : c'est un rejet OBJECTIF établi.")
     L.append("  Une affaire difficile, lointaine, volumineuse ou exigeant du")
     L.append("  recrutement reste 🟡, 🟣 ou 🔵 — elle n'est jamais supprimée.")
@@ -428,12 +532,25 @@ def rapport(cx, p: Parcours, *, limite_top: int = 20,
                                            key=lambda x: -x[1])[:6]))
     L.append("")
 
+    L.append("MATURITÉ — un AXE À PART, jamais une sixième catégorie")
+    L.append(f"  ⚪ {MATURITE_NON_QUALIFIEE:<34} {p.observation:>6}")
+    L.append("  Les cinq catégories ci-dessus répondent à « COMMENT entrer sur")
+    L.append("  ce marché ». ⚪ répond à autre chose : « on n'en est pas encore")
+    L.append("  là ». C'est une page lue qui ne porte, à cette date, aucun fait")
+    L.append("  commercial. Elle reste au registre et pourra en porter un demain.")
+    L.append("  L'aligner avec les cinq autres laisserait croire à un sixième")
+    L.append("  mode d'entrée sur le marché, qui n'existe pas.")
+    L.append("")
+
     L.append("COMMERCIAL — actions")
     if p.actions:
         for action, n in sorted(p.actions.items(), key=lambda x: -x[1]):
             L.append(f"  {action:<36} {n:>6}")
     else:
         L.append("  aucune action — aucune opportunité retenue")
+    L.append("")
+
+    L.append(top_actions(cx))
     L.append("")
 
     lignes = top_opportunites(cx, limite_top)

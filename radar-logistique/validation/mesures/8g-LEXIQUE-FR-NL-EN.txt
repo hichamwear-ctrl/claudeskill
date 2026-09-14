@@ -1,0 +1,49 @@
+MESURE DU LEXIQUE — FR / NL / EN
+========================================================================================
+Mesure ce que le radar SAIT LIRE. Ne mesure AUCUN marché.
+
+« partenaire de livraison »
+   FR  Nous recherchons un partenaire de livraison            familles: —                    rôle: PRESTATAIRE
+   NL  Wij zoeken een leveringspartner                        familles: —                    rôle: PRESTATAIRE
+   EN  We are looking for a delivery partner                  familles: —                    rôle: PRESTATAIRE
+
+« sous-traitant transport »
+   FR  Nous recherchons un sous-traitant transport            familles: —                    rôle: PRESTATAIRE
+   NL  Wij zoeken een onderaannemer transport                 familles: —                    rôle: PRESTATAIRE
+   EN  We are looking for a transport subcontractor           familles: —                    rôle: A_VERIFIER
+   ⚠ LES TROIS LANGUES NE DONNENT PAS LA MÊME LECTURE
+
+« distribution de colis »
+   FR  distribution de colis en Belgique                      familles: dernier_kilometre    rôle: A_VERIFIER
+   NL  pakketbezorging in België                              familles: —                    rôle: A_VERIFIER
+   EN  parcel delivery in Belgium                             familles: dernier_kilometre    rôle: A_VERIFIER
+   ⚠ LES TROIS LANGUES NE DONNENT PAS LA MÊME LECTURE
+
+« recrutement de chauffeurs »
+   FR  recrutement de chauffeurs                              familles: —                    rôle: A_VERIFIER
+   NL  chauffeurs gezocht                                     familles: —                    rôle: A_VERIFIER
+   EN  drivers wanted                                         familles: —                    rôle: A_VERIFIER
+
+« devenir partenaire »
+   FR  devenir partenaire transport                           familles: —                    rôle: PRESTATAIRE
+   NL  word transportpartner                                  familles: —                    rôle: A_VERIFIER
+   EN  become a transport partner                             familles: —                    rôle: PRESTATAIRE
+   ⚠ LES TROIS LANGUES NE DONNENT PAS LA MÊME LECTURE
+
+----------------------------------------------------------------------------------------
+3 FAUX NÉGATIF(S) LINGUISTIQUE(S) — le même besoin, non reconnu
+  · « sous-traitant transport » en EN
+      lu      : familles — · rôle A_VERIFIER
+      attendu : familles — · rôle PRESTATAIRE
+  · « distribution de colis » en NL
+      lu      : familles — · rôle A_VERIFIER
+      attendu : familles ['dernier_kilometre'] · rôle A_VERIFIER
+  · « devenir partenaire » en NL
+      lu      : familles — · rôle A_VERIFIER
+      attendu : familles — · rôle PRESTATAIRE
+
+CE N'EST PAS UNE CORRECTION À APPLIQUER À L'AVEUGLE.
+Un lexique se complète sur des formulations RÉELLEMENT rencontrées,
+pas sur des phrases écrites pour le test : ajouter un mot que
+personne n'emploie ne fait rien gagner, et ajouter un mot trop large
+fait entrer du bruit pour toujours.

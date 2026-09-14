@@ -1,0 +1,50 @@
+MESURE — RECRUTEMENT D'UN SALARIÉ ≠ RECHERCHE D'UN PRESTATAIRE
+================================================================================
+Trois pages FABRIQUÉES pour éprouver une distinction. Elles ne viennent
+d'aucun moteur et ne prouvent l'existence d'aucune entreprise.
+DONNÉES RÉELLES : NON MESURÉES.
+
+CAS                      CATÉGORIE                    NATURE      ACTION
+--------------------------------------------------------------------------------
+RECRUTEMENT SALARIÉ      ⚪ PAS ENCORE UNE OPPORT.     HYPOTHÈSE   CLASSER SANS SUITE
+« Offre d'emploi : chauffeur poids lourd (CDI). Nous engageons un chauffeur
+  en contrat à durée indéterminée. Envoyez votre CV. »
+                                                       → CORRECT
+
+RECRUTEMENT MASSIF       🟢 DIRECT                     FAIT        CONTACTER
+« Recrutement massif : 80 chauffeurs pour notre nouveau hub. Nous recrutons
+  80 chauffeurs SALARIÉS pour l'ouverture de notre plateforme. »
+                                                       → ⚠ PROBLÈME
+
+RECHERCHE PRESTATAIRE    🟢 DIRECT                     FAIT        CONTACTER
+« Nous recherchons des sous-traitants transport. Sociétés de transport
+  partenaires disposant de leurs propres véhicules. »
+                                                       → CORRECT
+
+--------------------------------------------------------------------------------
+CE QUE CELA ÉTABLIT
+--------------------------------------------------------------------------------
+Le radar NE DISTINGUE PAS un recrutement massif de salariés d'une recherche
+de prestataire. Les deux ressortent 🟢 DIRECT / FAIT / CONTACTER, alors que
+le texte dit explicitement « 80 chauffeurs SALARIÉS ».
+
+C'est exactement le risque nommé par l'exploitant :
+    « une annonce de recrutement n'est pas automatiquement une demande
+      adressée à mon entreprise »
+
+L'offre d'emploi isolée, elle, ressort bien ⚪ — mais il faut être honnête
+sur le POURQUOI : ce n'est pas une règle qui l'écarte, c'est la pauvreté du
+texte. Avec plus de mots métier, le recrutement massif franchit le seuil.
+La distinction n'est donc PAS tenue par une règle ; elle est tenue par
+accident, et un accident ne tient pas.
+
+--------------------------------------------------------------------------------
+CE QUI N'A PAS ÉTÉ FAIT
+--------------------------------------------------------------------------------
+Aucune règle « RECRUTEMENT » n'a été écrite. La créer est une RÈGLE MÉTIER
+NOUVELLE, et l'exploitant a demandé qu'elle soit proposée, pas généralisée.
+
+Aucun test n'assure aujourd'hui le cas du recrutement massif : écrire un
+test qui valide le comportement actuel le figerait ; en écrire un qui le
+refuse ferait échouer la suite sur une décision non prise.
+Le cas est donc MESURÉ, DOCUMENTÉ, et en attente d'arbitrage.

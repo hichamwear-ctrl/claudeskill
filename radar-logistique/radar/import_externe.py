@@ -420,13 +420,44 @@ def _lignes_json(charge, chemin):
     raise ImportInvalide(f"{chemin} : contenu illisible comme import")
 
 
+# Les séparateurs qu'un tableur écrit réellement. Un tableur configuré en
+# français ou en néerlandais exporte en POINT-VIRGULE, pas en virgule : c'est
+# le cas le plus courant chez l'exploitant, pas un cas tordu.
+SEPARATEURS = (",", ";", "\t", "|")
+
+
+def _separateur(entete: str) -> str:
+    """Celui qui découpe l'en-tête en le plus de colonnes reconnues.
+
+    On ne devine pas au hasard : on essaie chaque séparateur et on garde celui
+    qui produit le plus de noms de champs que l'on sait lire. Un fichier dont
+    aucun découpage ne donne de colonne connue sera de toute façon refusé plus
+    loin, faute de provenance déclarée.
+    """
+    connus = {c for noms in ALIAS.values() for c in noms} | {"provenance"}
+    meilleur, score_max = ",", -1
+    for sep in SEPARATEURS:
+        colonnes = [c.strip().strip('"').lower() for c in entete.split(sep)]
+        score = sum(1 for c in colonnes if c in connus)
+        if score > score_max:
+            meilleur, score_max = sep, score
+    return meilleur
+
+
 def _lignes_csv(texte, chemin):
+    lignes_brutes = texte.splitlines()
+    if not lignes_brutes:
+        return {}, []
     try:
-        lecteur = csv.DictReader(texte.splitlines())
+        lecteur = csv.DictReader(lignes_brutes,
+                                 delimiter=_separateur(lignes_brutes[0]))
         lignes = [dict(l) for l in lecteur]
     except csv.Error as e:
         raise ImportInvalide(f"{chemin} illisible : {e}") from e
-    return {}, lignes
+    # Un tableur écrit souvent des espaces autour des valeurs, et une colonne
+    # vide en fin de ligne. Ni l'un ni l'autre n'est une donnée.
+    return {}, [{(c or "").strip(): (v.strip() if isinstance(v, str) else v)
+                 for c, v in l.items() if c} for l in lignes]
 
 
 def charger(chemin, *, provenance_attendue: str = PROVENANCE) -> list[ImportExterne]:
@@ -446,7 +477,11 @@ def charger(chemin, *, provenance_attendue: str = PROVENANCE) -> list[ImportExte
     octets = p.read_bytes()
     if not octets.strip():
         raise ImportInvalide(f"{p} est vide : aucune provenance déclarée")
-    texte = octets.decode("utf-8", "replace")
+    # LA MARQUE D'ORDRE D'OCTETS. Un tableur en pose une par défaut, et sans
+    # ce retrait elle se colle au nom de la PREMIÈRE colonne : « provenance »
+    # devient « \ufeffprovenance », le fichier est refusé, et l'exploitant n'a
+    # aucun moyen de voir pourquoi — les deux chaînes s'affichent pareil.
+    texte = octets.decode("utf-8-sig", "replace")
     empreinte = _empreinte(octets)
 
     if p.suffix.lower() == ".csv":

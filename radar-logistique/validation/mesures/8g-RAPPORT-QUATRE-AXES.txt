@@ -1,0 +1,157 @@
+MESURE — RAPPORT COMMERCIAL APRÈS 8g
+================================================================================
+DONNÉES RÉELLES : NON MESURÉES. Exports fabriqués, adresses en .example.
+
+COMMERCIAL — catégories
+  🟢 DIRECT                                  3
+  🟡 RENFORCEMENT                            0
+  🟣 À CONSTRUIRE                            0
+  🔵 PROSPECT / PARTENARIAT                  1
+  🔴 REJET                                   0
+  🔴 n'est pas « score faible » : c'est un rejet OBJECTIF établi.
+  Une affaire difficile, lointaine, volumineuse ou exigeant du
+  recrutement reste 🟡, 🟣 ou 🔵 — elle n'est jamais supprimée.
+
+MATURITÉ — un AXE À PART, jamais une sixième catégorie
+  ⚪ PAS ENCORE UNE OPPORTUNITÉ              0
+  Les cinq catégories ci-dessus répondent à « COMMENT entrer sur
+  ce marché ». ⚪ répond à autre chose : « on n'en est pas encore
+  là ». C'est une page lue qui ne porte, à cette date, aucun fait
+  commercial. Elle reste au registre et pourra en porter un demain.
+  L'aligner avec les cinq autres laisserait croire à un sixième
+  mode d'entrée sur le marché, qui n'existe pas.
+
+COMMERCIAL — actions
+  CONTACTER L'ENTREPRISE                    4
+
+TOP ACTIONS COMMERCIALES
+========================================================================================
+
+BESOINS ÉNONCÉS — quelqu'un a ÉCRIT qu'il cherchait
+----------------------------------------------------------------------------------------
+
+1.  🟢 DIRECT        domaine logistique-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+    Besoin    : Appel à partenaires logistiques
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE MOYENNE   ·   NATURE FAIT   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Preuve    : https://logistique-exemple.example/appel-partenaires
+
+2.  🟢 DIRECT        domaine transporteur-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+    Besoin    : Nous recherchons des partenaires de livraison
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE MOYENNE   ·   NATURE FAIT   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Preuve    : https://transporteur-exemple.example/partenaires
+
+SIGNAUX — il se passe quelque chose, PERSONNE N'A RIEN DEMANDÉ
+----------------------------------------------------------------------------------------
+
+1.  🟢 DIRECT        domaine presse-fictive.example  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Fictif SA ouvre un dépôt à Gand
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://presse-fictive.example/actualites/depot-gand
+
+2.  🔵 PROSPECT        domaine autre-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Offre d'emploi chauffeur
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE MOYENNE   ·   NATURE SIGNAL   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : signal d'un besoin logistique — à qualifier
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://autre-exemple.example/emplois/chauffeur
+
+  Un signal n'est PAS un contrat, et ne le devient pas en montant
+  dans la liste. Il justifie un contact, jamais une offre.
+
+TOP OPPORTUNITÉS COMMERCIALES — 4 affichée(s)
+  Les QUATRE dimensions restent séparées : TYPE D'INFORMATION,
+  NATURE, ÉTAT DE PROCÉDURE et ACTION ne se résument jamais
+  l'une l'autre. Une affaire peut être exécutable (🟢) ET n'être
+  qu'une HYPOTHÈSE : « pouvons-nous le faire » et « est-ce réel »
+  sont deux questions, et le rapport répond aux deux.
+----------------------------------------------------------------------------------------
+🟢 [ 55] Appel à partenaires logistiques
+     ENTREPRISE   domaine logistique-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Appel à partenaires logistiques
+     SOURCE       import:moteur-exemple
+     PREUVE       https://logistique-exemple.example/appel-partenaires
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION 55/100   ·   PREUVE MOYENNE   ·   NATURE FAIT   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] Fictif SA ouvre un dépôt à Gand
+     ENTREPRISE   domaine presse-fictive.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Fictif SA ouvre un dépôt à Gand
+     SOURCE       import:moteur-exemple
+     PREUVE       https://presse-fictive.example/actualites/depot-gand
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 45] Nous recherchons des partenaires de livraison
+     ENTREPRISE   domaine transporteur-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Nous recherchons des partenaires de livraison
+     SOURCE       import:moteur-exemple
+     PREUVE       https://transporteur-exemple.example/partenaires
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE MOYENNE   ·   NATURE FAIT   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« livraison »)
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🔵 [ 45] Offre d'emploi chauffeur
+     ENTREPRISE   domaine autre-exemple.example  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Offre d'emploi chauffeur
+     SOURCE       import:autre-moteur-exemple
+     PREUVE       https://autre-exemple.example/emplois/chauffeur
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE MOYENNE   ·   NATURE SIGNAL   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🔵 PROSPECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI signal d'un besoin logistique — à qualifier
+
+----------------------------------------------------------------------------------------
+CE QUI RESTE INCONNU, ET QUI LE RESTERA SANS COLLECTE
+  véhicules · tonnage · chauffeurs · CA · marge · coût/km ·
+  rémunération · durée · volume · certifications · licences ·
+  agréments · capacité exacte · échéance non prouvée
+  Tout cela s'écrit « À CONFIRMER ». Une déduction n'est pas
+  un fait, et la marge reste NON MESURÉE tant que les coûts
+  réels ne sont pas au profil.
