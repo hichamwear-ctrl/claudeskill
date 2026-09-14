@@ -87,6 +87,7 @@ class Bilan:
     refus: list = field(default_factory=list)
     qualifications: dict = field(default_factory=dict)
     promues: int = 0
+    trace: object = None
 
     def resume(self) -> str:
         L = [f"COLLECTE IMPORTÉE — {PROVENANCE}", "=" * 72, ""]
@@ -160,66 +161,171 @@ def charger(chemin) -> tuple[list, str]:
     return pages, str(p)
 
 
-def appliquer(cx, pages, moteur, *, fichier=None) -> Bilan:
-    """Fait entrer le contenu réel, puis laisse 7b qualifier.
+class Depot:
+    """Les pages lues AILLEURS, présentées comme une source de collecte.
 
-    `moteur` est le moteur commercial : on y lit l'ontologie et le détecteur
-    de rôle, les MÊMES que partout. Aucun vocabulaire parallèle.
+    C'est la pièce qui manquait. `boucle.Veille` sait déjà tout faire —
+    comparer les empreintes, distinguer INCHANGÉE / MODIFIÉE / MODIFIÉE
+    TECHNIQUE / NON COMMERCIALE, qualifier, n'analyser que ce qui bouge et
+    peut porter un besoin. Il lui fallait seulement un `recuperer(url)`.
 
-    Ne crée AUCUNE page : une URL jamais rencontrée est comptée et signalée,
-    pas inventée. Une page n'apparaît que si une découverte l'a montrée.
+    Ce dépôt en est un. La veille ne sait donc pas — et n'a pas besoin de
+    savoir — que le réseau est fermé : elle reçoit des `Collecte`, comme
+    toujours, avec leur provenance écrite dessus.
+
+    L'ÉTAPE 8 AVAIT DUPLIQUÉ CE MÉCANISME. Une seconde comparaison
+    d'empreintes vivait ici, à côté de `changement.observer`. Deux versions
+    d'une même règle finissent toujours par diverger ; celle-ci est retirée
+    au profit de la seule qui fait autorité.
     """
-    from .pertinence import evaluer
 
+    def __init__(self, pages, *, provenance: str = PROVENANCE):
+        self.provenance = provenance
+        self.par_url: dict = {}
+        self.non_declarees: list = []
+        for brute in pages or []:
+            l = brute if isinstance(brute, dict) else {}
+            url = str(l.get("url") or "").strip()
+            if url:
+                self.par_url[mod_pages.normaliser(url)] = l
+
+    def __contains__(self, url) -> bool:
+        return mod_pages.normaliser(str(url)) in self.par_url
+
+    def recuperer(self, url) -> "Collecte":
+        """Rend toujours une Collecte, jamais une exception — comme la
+        collecte directe. Une URL absente du dépôt n'est pas une page vide :
+        c'est une page qu'on n'a PAS lue, et elle le dit."""
+        from .collecte_directe import Collecte
+        from .base import maintenant
+
+        l = self.par_url.get(mod_pages.normaliser(str(url)))
+        if l is None:
+            self.non_declarees.append(str(url))
+            return Collecte(url=str(url), acces=Acces.JAMAIS_CONSULTEE,
+                            consulte_le=maintenant(), provenance=self.provenance,
+                            motif="absente du dépôt — aucune lecture n'a eu lieu")
+
+        contenu = l.get("contenu") or l.get("texte") or ""
+        motif = str(l.get("erreur") or l.get("motif") or "").strip()
+        acces = _etat(l.get("acces") or l.get("statut"), contenu)
+        if acces is not Acces.CONSULTEE:
+            return Collecte(url=str(url), acces=acces, consulte_le=maintenant(),
+                            provenance=self.provenance,
+                            motif=motif or "accès impossible")
+        return Collecte(url=str(url), acces=Acces.CONSULTEE,
+                        octets=contenu.encode("utf-8"),
+                        consulte_le=str(l.get("lu_le") or maintenant()),
+                        provenance=self.provenance,
+                        motif=motif or f"{len(contenu)} caractères reçus")
+
+
+def _profil_par_defaut():
+    """Le profil de lecture de page déjà déclaré. Sans lui, la veille ne sait
+    pas extraire le TEXTE LISIBLE : elle ne compare alors que des octets, et
+    toute page devient CONTENU ILLISIBLE — ce qui ferait passer une preuve
+    parfaitement lisible pour un contenu qu'on n'a pas su lire."""
+    import yaml
+    chemin = Path(__file__).resolve().parent.parent / "sources" / "page_web.yaml"
+    if not chemin.exists():
+        return None
+    return yaml.safe_load(chemin.read_text(encoding="utf-8"))
+
+
+def _veille(cx, depot, moteur, *, analyser=None, profil=None):
+    """La veille existante, alimentée par le dépôt. Aucune règle ajoutée."""
+    from .boucle import Veille
+    return Veille(cx, depot.recuperer, analyser=analyser,
+                  profil=profil if profil is not None else _profil_par_defaut(),
+                  ontologie=moteur.ontologie, detecteur=moteur.roles)
+
+
+def appliquer(cx, pages, moteur, *, fichier=None, profil=None) -> Bilan:
+    """Fait entrer le contenu réel et laisse 7b qualifier — SANS analyser.
+
+    Qualifier une page n'est pas créer une opportunité. Cette porte-là sert
+    à établir ce que la page DIT ; l'analyse commerciale a sa propre entrée,
+    `surveiller()`, et il faut la demander.
+
+    Ne visite QUE les pages déclarées dans le fichier : une page candidate
+    absente du dépôt n'a pas été lue, et rien ne doit laisser croire qu'on a
+    essayé.
+    """
+    depot = Depot(pages)
     bilan = Bilan(fichier=fichier)
+    bilan.lues = len(pages or [])
+
+    connues = []
     for position, brute in enumerate(pages or [], start=1):
-        bilan.lues += 1
         l = brute if isinstance(brute, dict) else {}
         url = str(l.get("url") or "").strip()
         if not url:
             bilan.refus.append((position, URL_ABSENTE, None))
             continue
-        if mod_pages.lire(cx, url) is None:
-            bilan.inconnues += 1
-            bilan.refus.append((position, PAGE_INCONNUE, url))
-            continue
-
         contenu = l.get("contenu") or l.get("texte") or ""
         if len(contenu) > CONTENU_MAX:
             bilan.refus.append((position, "CONTENU HORS LIMITE", url))
             continue
-        acces = _etat(l.get("acces") or l.get("statut"), contenu)
-        motif = str(l.get("erreur") or l.get("motif") or "").strip() or None
-
-        if acces is Acces.CONSULTEE:
-            bilan.collectees += 1
-            mod_pages.marquer(cx, url, acces, motif=motif or f"{len(contenu)} caractères reçus",
-                              empreinte=l.get("empreinte") or _empreinte(contenu))
-            # LA QUALIFICATION — sur le contenu RÉEL, par le mécanisme 7b.
-            p = evaluer(contenu, moteur.ontologie, moteur.roles)
-            avant = mod_pages.lire(cx, url)
-            apres = mod_pages.qualifier(cx, url, p, texte_lu=True)
-            if apres is not None:
-                v = apres.qualification.value
-                bilan.qualifications[v] = bilan.qualifications.get(v, 0) + 1
-                if (avant.statut is not mod_pages.Statut.SURVEILLEE
-                        and apres.statut is mod_pages.Statut.SURVEILLEE):
-                    bilan.promues += 1
+        page = mod_pages.lire(cx, url)
+        if page is None:
+            bilan.inconnues += 1
+            bilan.refus.append((position, PAGE_INCONNUE, url))
             continue
+        connues.append(page)
 
-        # ── ERREUR / NON DISPONIBLE : un fait sur NOTRE accès, rien de plus ──
-        if acces is Acces.ERREUR:
+    if not connues:
+        return bilan
+
+    trace = _veille(cx, depot, moteur, profil=profil).passer(connues)
+    for passage in trace.passages:
+        page = mod_pages.lire(cx, passage.url)
+        if page is None:
+            continue
+        if page.acces is Acces.CONSULTEE:
+            bilan.collectees += 1
+            v = page.qualification.value
+            bilan.qualifications[v] = bilan.qualifications.get(v, 0) + 1
+            if page.statut is mod_pages.Statut.SURVEILLEE:
+                bilan.promues += 1
+        elif page.acces is Acces.ERREUR:
             bilan.erreurs += 1
-        elif acces is Acces.NON_DISPONIBLE:
+        elif page.acces is Acces.NON_DISPONIBLE:
             bilan.non_disponibles += 1
-        mod_pages.marquer(cx, url, acces, motif=motif or "accès impossible")
-        # Aucune qualification n'est écrite : on n'a rien lu. L'ancienne reste.
+    bilan.trace = trace
     return bilan
 
 
-def importer(cx, chemin, moteur) -> Bilan:
+def surveiller(cx, chemin, moteur, *, analyser=None, profil=None,
+               entreprise=None, limite=None):
+    """UN CYCLE DE VEILLE COMPLET sur des pages lues ailleurs.
+
+        page inchangée        → rien
+        page modifiée         → qualification, puis analyse si commercial
+        modifiée techniquement→ rien de commercial, et c'est dit
+        erreur / indisponible → l'état précédent est conservé
+
+    Ce n'est pas une nouvelle veille : c'est LA veille, avec une autre porte
+    d'entrée. Les verdicts, la comparaison d'empreintes et la porte
+    commerciale sont ceux des étapes précédentes, inchangés.
+    """
     pages, fichier = charger(chemin)
-    return appliquer(cx, pages, moteur, fichier=fichier)
+    depot = Depot(pages)
+    liste = [p for p in mod_pages.a_surveiller(cx, entreprise=entreprise,
+                                               limite=limite, toutes=True)
+             if p.url in depot]
+    trace = _veille(cx, depot, moteur, analyser=analyser,
+                    profil=profil).passer(liste)
+    return trace, fichier, len(liste)
+
+
+def importer(cx, chemin, moteur, *, profil=None) -> Bilan:
+    """Charge un fichier de collecte et le fait entrer, SANS analyse.
+
+    La porte de la QUALIFICATION. Pour un cycle de veille complet — avec
+    analyse commerciale de ce qui a changé — c'est `surveiller()`.
+    """
+    pages, fichier = charger(chemin)
+    return appliquer(cx, pages, moteur, fichier=fichier, profil=profil)
 
 
 def a_collecter(cx, moteur, *, limite=None) -> list:

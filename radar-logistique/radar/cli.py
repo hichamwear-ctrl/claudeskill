@@ -395,6 +395,114 @@ def cmd_collecter(a) -> int:
     return 0
 
 
+def cmd_veiller(a) -> int:
+    """UN CYCLE DE VEILLE sur des pages lues AILLEURS.
+
+        page inchangée         → rien
+        page modifiée          → qualification, puis analyse si commercial
+        modifiée techniquement → aucune analyse métier
+        erreur / indisponible  → l'état précédent est conservé
+
+    C'est `boucle.Veille`, celle des étapes précédentes, avec une autre porte
+    d'entrée. Le radar ne lit toujours aucune page lui-même : l'accès réseau
+    est fermé, et ce fichier vient d'un poste extérieur.
+    """
+    from . import circuit as mod_circuit, collecte_importee as col, normalisation
+    from .chaine import traiter as traiter_chaine
+    cx = ouvrir(a.base or Mode.REEL.base_par_defaut)
+    moteur = _moteur(cx)
+    profil = _cfg("sources/page_web.yaml")
+    mode = Mode.REEL
+    recolte = {"opportunites": 0}
+
+    def analyser(collecte, page):
+        """Le contenu réellement lu entre dans la chaîne, telle quelle.
+        Ce raccord n'ajoute aucune règle et n'en retire aucune."""
+        opp, _ = normalisation.depuis_collecte(
+            collecte, profil, source=collecte.provenance,
+            circuit=mod_circuit.CONNUE)
+        if opp is None:
+            return 0
+        b = traiter_chaine(cx, moteur, [opp], mode=mode)
+        recolte["opportunites"] += b.capter + b.developper
+        return b.capter + b.developper
+
+    try:
+        trace, fichier, visitees = col.surveiller(
+            cx, a.fichier, moteur, analyser=None if a.sans_analyse else analyser,
+            profil=profil, entreprise=a.entreprise, limite=a.limite)
+    except col.CollecteInvalide as e:
+        print(f"VEILLE REFUSÉE — {e}", file=sys.stderr)
+        return 2
+    cx.commit()
+    print(f"VEILLE — {col.PROVENANCE}")
+    print(f"fichier : {fichier}")
+    print(f"{visitees} page(s) surveillée(s) présente(s) dans le dépôt")
+    print()
+    print(trace.resume())
+    print()
+    print("  Le radar n'a lu aucune de ces pages lui-même. Une page absente du")
+    print("  dépôt n'a pas été visitée — ce n'est ni une erreur, ni une absence")
+    print("  de besoin.")
+    return 0
+
+
+def cmd_developper(a) -> int:
+    """LES PISTES DE DÉVELOPPEMENT — un marché attribué n'est pas une affaire
+    perdue.
+
+        marché attribué → titulaire identifiable → CONTACTER LE TITULAIRE
+        date de fin     → surveillance du renouvellement
+
+    Rien n'est déduit ici : tout ce qui s'affiche a été lu dans une source, et
+    ce qui manque s'écrit en clair.
+    """
+    from . import identite as mod_identite
+    from .entreprises import domaine_de
+    cx = ouvrir(_base(a), lecture_seule=True)
+    lignes = cx.execute(
+        "SELECT t.*, a.source, a.ref_source FROM attributions t"
+        " JOIN avis a ON a.id = t.avis_id"
+        " ORDER BY t.renouvellement IS NULL, t.renouvellement, t.fin").fetchall()
+    print("DÉVELOPPEMENT — titulaires et renouvellements")
+    print("=" * 88)
+    if not lignes:
+        print()
+        print("  Aucune attribution en base. Ce n'est pas une panne : aucune")
+        print("  source d'attribution n'a encore été collectée.")
+        print("  Une attribution devient une piste dès qu'elle est lue.")
+        return 0
+    inconnu = "À CONFIRMER"
+    for l in lignes:
+        titulaire = l["titulaire"] or inconnu
+        domaine = domaine_de(l["ref_source"])
+        etat = (mod_identite.lire(cx, domaine).etat.value if domaine else "INCONNUE")
+        print()
+        print(f"  TITULAIRE    {titulaire}")
+        print(f"  identité     {etat} — un nom lu dans un avis n'est pas un domaine")
+        print(f"  ACHETEUR     {l['acheteur'] or inconnu}")
+        print(f"  PRESTATION   {(l['prestation'] or inconnu)[:64]}")
+        print(f"  ZONE         {l['zone'] or inconnu}"
+              f"   ·   LOTS {l['lots'] or inconnu}")
+        print(f"  MONTANT      {l['montant'] or inconnu}"
+              f"   ·   DURÉE {l['duree_mois'] or inconnu} mois")
+        print(f"  DÉBUT        {l['debut'] or inconnu}"
+              f"   ·   FIN {l['fin'] or inconnu}")
+        renouv = l["renouvellement"] or "NON CALCULABLE — aucune date de fin publiée"
+        print(f"  RENOUVELLEMENT {renouv}")
+        print(f"  CONTACT      {l['contact'] or inconnu}")
+        print(f"  SOUS-TRAITANCE {l['besoin_sous_traitance'] or inconnu}")
+        print(f"  PREUVE       {l['ref_source']}   ({l['source']})")
+        print("  ACTIONS      CONTACTER LE TITULAIRE"
+              + ("   ·   SURVEILLER LE RENOUVELLEMENT" if l["renouvellement"] else ""))
+    print()
+    print(f"{len(lignes)} attribution(s).")
+    print("Un marché attribué n'est PAS une opportunité postulable, et ne le")
+    print("devient jamais automatiquement. C'est une piste de développement :")
+    print("le titulaire sous-traite peut-être, et il faut le lui demander.")
+    return 0
+
+
 def cmd_requetes_prioritaires(a) -> int:
     """Les requêtes à exécuter DEHORS, par famille. Le radar n'en lance aucune.
 
@@ -1105,6 +1213,20 @@ def principal(argv=None) -> int:
                     help="le fichier JSON de collecte ; absent, on liste")
     co.add_argument("--limite", type=int, help="combien de pages lister")
     co.set_defaults(fn=cmd_collecter)
+
+    vl = s.add_parser("veiller",
+                      help="un cycle de veille sur des pages lues HORS RADAR")
+    vl.add_argument("fichier", help="le fichier JSON de collecte")
+    vl.add_argument("--entreprise", help="ne veiller que cette entreprise")
+    vl.add_argument("--limite", type=int)
+    vl.add_argument("--sans-analyse", action="store_true",
+                    help="qualifier sans créer d'opportunité")
+    vl.set_defaults(fn=cmd_veiller)
+
+    dv = s.add_parser("developper",
+                      help="titulaires de marchés et renouvellements — "
+                           "un marché attribué n'est pas une affaire perdue")
+    dv.set_defaults(fn=cmd_developper)
 
     rp = s.add_parser("requetes-prioritaires",
                       help="les requêtes à exécuter DEHORS — le radar n'en lance aucune")

@@ -1,0 +1,73 @@
+DÉMONSTRATION — CYCLE DE VEILLE
+================================================================================
+URL : RÉELLES (jeu du 14/09).   CONTENU : FABRIQUÉ.
+WebFetch est bloqué : aucune de ces pages n'a été lue.
+Ce fichier mesure un MÉCANISME, pas un marché.
+
+3 pages déclarées, sans qu'aucun moteur soit interrogé.
+trouvailles en base : 0
+
+── CYCLE 1 — première lecture ────────────────────────────────────────────────
+SURVEILLANCE — sources connues, aucun moteur de recherche requis
+========================================================================
+
+  CONSULTÉE         PREMIÈRE VISITE    0 opp.  https://colisprive.be/devenir-partenaire-liv  · 49 caractères reçus
+  CONSULTÉE         PREMIÈRE VISITE    0 opp.  https://www.postnl.be/fr/offres-demploi-pour  · 41 caractères reçus
+  ERREUR            —                  0 opp.  https://bulbulgroup.be/sous-traitance-transp  · HTTP 503
+
+  entreprises surveillées   3
+  pages surveillées         3
+  pages consultées          2
+  pages modifiées           0
+    dont purement techniques  0  (enregistrées, non analysées)
+    dont hors métier          2  (enregistrées, non analysées)
+  opportunités générées     0
+  pages en erreur           1
+  pages non disponibles     0
+
+  Une page non lue n'est PAS une page sans opportunité :
+  son contenu reste INCONNU, et ce qu'on en savait est conservé.
+    CANDIDATE   CONSULTÉE         SANS PREUVE        https://colisprive.be/devenir-partenaire-livraison/
+    CANDIDATE   CONSULTÉE         SANS PREUVE        https://www.postnl.be/fr/offres-demploi-pour-sous-tr
+    CANDIDATE   ERREUR            NON QUALIFIÉE      https://bulbulgroup.be/sous-traitance-transport-belg
+
+── CYCLE 2 — rien n'a bougé ──────────────────────────────────────────────────
+SURVEILLANCE — sources connues, aucun moteur de recherche requis
+========================================================================
+
+  CONSULTÉE         INCHANGÉE          0 opp.  https://colisprive.be/devenir-partenaire-liv  · 49 caractères reçus
+
+  entreprises surveillées   1
+  pages surveillées         1
+  pages consultées          1
+  pages modifiées           0
+    dont purement techniques  0  (enregistrées, non analysées)
+    dont hors métier          0  (enregistrées, non analysées)
+  opportunités générées     0
+  pages en erreur           0
+  pages non disponibles     0
+
+── CYCLE 3 — un besoin apparaît sur une page connue ───────────────────────────
+SURVEILLANCE — sources connues, aucun moteur de recherche requis
+========================================================================
+
+  CONSULTÉE         MODIFIÉE           0 opp.  https://colisprive.be/devenir-partenaire-liv  · 109 caractères reçus
+
+  entreprises surveillées   1
+  pages surveillées         1
+  pages consultées          1
+  pages modifiées           1
+    dont purement techniques  0  (enregistrées, non analysées)
+    dont hors métier          0  (enregistrées, non analysées)
+  opportunités générées     0
+  pages en erreur           0
+  pages non disponibles     0
+    SURVEILLÉE  CONSULTÉE         PREUVE DE CONTENU  https://colisprive.be/devenir-partenaire-livraison/
+    CANDIDATE   CONSULTÉE         SANS PREUVE        https://www.postnl.be/fr/offres-demploi-pour-sous-tr
+    CANDIDATE   ERREUR            NON QUALIFIÉE      https://bulbulgroup.be/sous-traitance-transport-belg
+
+── CE QUE LA VEILLE N'A PAS FAIT ─────────────────────────────────────────────
+    trouvailles      0
+    opportunites     0
+    Aucun moteur interrogé, aucune opportunité créée : la veille a été
+    lancée SANS analyseur. Qualifier une page n'est pas créer une affaire.
