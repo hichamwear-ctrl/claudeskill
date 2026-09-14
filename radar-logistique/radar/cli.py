@@ -503,6 +503,42 @@ def cmd_developper(a) -> int:
     return 0
 
 
+def cmd_tableau(a) -> int:
+    """LA BOUCLE, MESURÉE. Ce tableau ne décide rien et ne priorise rien."""
+    from . import tableau
+    cx = ouvrir(_base(a), lecture_seule=True)
+    print(tableau.rapport(cx))
+    return 0
+
+
+def cmd_verdict(a) -> int:
+    """Enregistrer un jugement HUMAIN sur un résultat.
+
+        VP  vrai positif    le radar avait raison de le retenir
+        FP  faux positif    il avait tort de le retenir
+        FN  faux négatif    il avait tort de NE PAS le retenir
+        ?   inconnu         personne n'a tranché
+
+    Un faux négatif s'écrit sur n'importe quelle adresse, même inconnue du
+    radar : c'est exactement ce qui le définit.
+    """
+    from . import verdicts
+    cx = ouvrir(_base(a))
+    if not a.verdict:
+        print(verdicts.rapport(cx))
+        return 0
+    try:
+        j = verdicts.inscrire(cx, a.url, a.verdict, motif=a.motif,
+                              source=a.source, juge_par=a.par)
+    except (verdicts.VerdictInconnu, verdicts.JugeInvalide, ValueError) as e:
+        print(f"{e}", file=sys.stderr)
+        return 2
+    cx.commit()
+    print(j.ligne())
+    print(f"  jugé par {j.juge_par} le {(j.juge_le or '')[:19]}")
+    return 0
+
+
 def cmd_requetes_prioritaires(a) -> int:
     """Les requêtes à exécuter DEHORS, par famille. Le radar n'en lance aucune.
 
@@ -1227,6 +1263,20 @@ def principal(argv=None) -> int:
                       help="titulaires de marchés et renouvellements — "
                            "un marché attribué n'est pas une affaire perdue")
     dv.set_defaults(fn=cmd_developper)
+
+    tb = s.add_parser("tableau",
+                      help="la boucle commerciale mesurée de bout en bout")
+    tb.set_defaults(fn=cmd_tableau)
+
+    vd = s.add_parser("verdict",
+                      help="juger un résultat : VP · FP · FN · ? "
+                           "(sans argument : le bilan)")
+    vd.add_argument("url", nargs="?", help="l'adresse jugée")
+    vd.add_argument("verdict", nargs="?", help="VP | FP | FN | ?")
+    vd.add_argument("--motif", help="pourquoi")
+    vd.add_argument("--source", help="la source qui l'avait montré")
+    vd.add_argument("--par", default="exploitant", help="qui juge")
+    vd.set_defaults(fn=cmd_verdict)
 
     rp = s.add_parser("requetes-prioritaires",
                       help="les requêtes à exécuter DEHORS — le radar n'en lance aucune")

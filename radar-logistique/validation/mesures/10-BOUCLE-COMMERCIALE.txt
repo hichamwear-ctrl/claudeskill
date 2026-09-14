@@ -1,0 +1,91 @@
+MESURE 10 — LA BOUCLE COMMERCIALE SUR LE JEU RÉEL DU 14/09
+================================================================================
+Découverte : RÉELLE (outil du harness, EXÉCUTÉ HORS RADAR).
+Verdicts   : jugements humains portés sur ces résultats réels.
+Parcours commercial : SIMULÉ pour éprouver la boucle — aucun contact
+            n'a réellement été pris, aucune affaire n'a été gagnée.
+
+PARCOURS SIMULÉ sur : Devenir partenaire de livraison - Colis Privé BeLux
+   2026-09-14 — détectée → CONTACT À FAIRE  (simulation de boucle)
+   2026-09-14 — CONTACT À FAIRE → CONTACTÉE  (simulation de boucle)
+   2026-09-14 — CONTACTÉE → EN ATTENTE  (simulation de boucle)
+
+LA BOUCLE COMMERCIALE — MESURÉE
+========================================================================================
+
+DÉCOUVERTE
+  résultats bruts                  35
+  URL uniques                      28
+  doublons                          7
+  sources                           1
+  requêtes                          5
+
+QUALIFICATION
+  pages candidates                 28
+  pages SURVEILLÉES                 0
+  pages réellement lues             0
+  pages qualifiées                  0
+  dont PREUVE DE CONTENU            0
+  opportunités                     27
+
+SIGNAL ≠ BESOIN ≠ POSTULABLE — comptés séparément
+  SIGNAL                            0
+  FAIT                              2
+  HYPOTHÈSE                        25
+  état POSTULABLE                   0
+  état ATTRIBUÉ                     0
+  Les additionner donnerait un total qui ne veut rien dire.
+
+QUALITÉ — jugée par un humain, jamais par le radar
+  🟢 VRAI POSITIF                    2
+  🔴 FAUX POSITIF                    7
+  🟠 FAUX NÉGATIF                    3
+  ⚪ INCONNU                         0
+  PRÉCISION                    ÉCHANTILLON INSUFFISANT
+  RAPPEL                       ÉCHANTILLON INSUFFISANT
+
+COMMERCIAL — le parcours de la relation
+  NOUVELLE                          0
+  CONTACT À FAIRE                   0
+  CONTACTÉE                         0
+  EN ATTENTE                        1
+  RELANCE                           0
+  GAGNÉE                            0
+  PERDUE                            0
+  ABANDONNÉE                        0
+  jamais regardées                  0
+  attributions                      0   dont 0 avec renouvellement
+
+ACTIONS — la classification ne les décide pas seule
+  CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT    17
+  CONTACTER L'ENTREPRISE                           9
+  SURVEILLER                                       1
+
+VALEUR — jamais estimée
+  affaires GAGNÉES                  0
+  CA gagné                     NON PUBLIÉ   (mesuré sur 0 sur 0)
+  potentiel publié             NON PUBLIÉ
+  MARGE                        NON MESURÉE
+  COÛT                         NON MESURÉ
+  La marge reste NON MESURÉE tant que les coûts d'exploitation
+  ne sont pas au profil. Aucun coût n'est fabriqué.
+
+PAR SOURCE — côte à côte, SANS CLASSEMENT
+  SOURCE                       RÉS.   URL  OPP.  RETENUES  CONTACT  GAGNÉ   VP   FP
+  import:websearch-assistant     35    28    27        10        0      0    2    7
+
+  Le tri est ALPHABÉTIQUE, délibérément. Un tri par volume ferait
+  lire un classement de mérite là où il n'y en a pas. Une petite
+  source peut valoir mieux qu'une grosse — et le radar ne décide
+  PAS encore laquelle privilégier. Il observe.
+
+CE QUE LE RADAR A MANQUÉ — jamais masqué
+  🟠 FAUX NÉGATIF   opérateur national cherchant des sous-traita   https://www.postnl.be/fr/offres-demploi-pour-sous-traita
+  🟠 FAUX NÉGATIF   sous-traitant DPD/DHL déclaré                  https://bulbulgroup.be/sous-traitance-transport-belgique
+  🟠 FAUX NÉGATIF   plateforme recrutant des livreurs partenaire   https://www.shippr.io/partenaire-livreur/devenir-livreur
+
+APPRENTISSAGE — préparé, PAS activé
+  Ces chiffres existent pour qu'on puisse un jour apprendre
+  quelle source produit du business. Aucun poids, aucun seuil,
+  aucune priorité, aucun lexique n'est modifié à partir d'eux.
+  Le radar observe d'abord.

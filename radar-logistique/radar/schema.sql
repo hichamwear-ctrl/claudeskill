@@ -500,3 +500,31 @@ CREATE TABLE IF NOT EXISTS executions_recherche (
 );
 CREATE INDEX IF NOT EXISTS idx_executions_source
     ON executions_recherche(source, execution_par);
+
+-- VERDICTS QUALITATIFS — ce qu'un HUMAIN a jugé d'un résultat.
+--
+-- Le radar ne peut pas savoir seul s'il s'est trompé. Un faux positif ne se
+-- distingue d'un vrai que par un jugement, et ce jugement vient de
+-- l'exploitant. Cette table le conserve.
+--
+-- ELLE EXISTE SURTOUT POUR LES FAUX NÉGATIFS. Un faux positif est en base :
+-- on peut le montrer du doigt. Un faux négatif, lui, n'y est souvent PAS —
+-- c'est justement ce qui le définit. Sans une table qui accepte une URL que
+-- le radar n'a jamais retenue, un faux négatif n'aurait nulle part où être
+-- écrit, et disparaîtrait du bilan. Un bilan qui ne compte que ses réussites
+-- ne mesure rien.
+--
+-- `verdict` : VRAI POSITIF | FAUX POSITIF | FAUX NÉGATIF | INCONNU
+-- `juge_par` : qui a tranché. Jamais « le radar » — il ne se juge pas.
+CREATE TABLE IF NOT EXISTS verdicts (
+    id        INTEGER PRIMARY KEY,
+    url       TEXT NOT NULL,
+    verdict   TEXT NOT NULL,
+    motif     TEXT,
+    entreprise TEXT,
+    source    TEXT,             -- la source qui l'avait montré, si connue
+    juge_par  TEXT NOT NULL DEFAULT 'exploitant',
+    juge_le   TEXT NOT NULL,
+    UNIQUE (url, juge_par)
+);
+CREATE INDEX IF NOT EXISTS idx_verdicts_verdict ON verdicts(verdict);
