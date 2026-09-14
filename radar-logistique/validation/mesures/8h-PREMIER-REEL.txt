@@ -1,0 +1,765 @@
+╔════════════════════════════════════════════════════════════════════╗
+║  MODE : RÉEL — EXÉCUTÉ HORS RADAR                                  ║
+║  Un moteur externe a rendu ces résultats. Le radar n'a             ║
+║  interrogé personne et n'a lu aucune page.                         ║
+╚════════════════════════════════════════════════════════════════════╝
+base : validation/exports-reels/radar-reel-8h.sqlite3
+IMPORT EXTERNE — EXÉCUTÉ HORS RADAR
+========================================================================
+
+  fichier              validation/exports-reels/2026-09-14-premier-export-reel.tsv
+  empreinte            19bdf275454086ecb438c2a3ac6330b1
+  lignes lues          35
+  inscrites            35
+  refusées             0
+  doublons du fichier  0
+  rangs illisibles     0   — conservés sans rang, jamais renumérotés
+  dates illisibles     0   — écrites « INCONNUE »
+  caractères retirés   0
+  moteurs déclarés     websearch-assistant
+
+  Ces résultats n'ont PAS été obtenus par le radar : un moteur
+  externe les a rendus, hors de cet environnement.
+  Aucune entreprise n'a été confirmée, aucune page n'est
+  surveillée, aucune opportunité n'a été créée, aucun score
+  n'a bougé. Une adresse montrée n'est pas une page lue.
+
+RAPPORT COMMERCIAL — DÉCOUVERTE IMPORTÉE
+========================================================================================
+
+NATURE DES EXÉCUTIONS
+  FIXTURE / DEMO                                0
+  RECHERCHE RÉELLE PAR LE RADAR                 0
+  RÉSULTAT IMPORTÉ — RECHERCHE EXTERNE         35
+  sources distinctes                            1   (import:websearch-assistant)
+
+ENTONNOIR — de ce qu'on a vu à ce qu'on peut travailler
+  résultats importés / trouvés             35
+  URL uniques après regroupement           28
+  entreprises au registre                  35
+  pages candidates (dont déjà connues)     35
+  besoins lus par le moteur                35
+  opportunités écrites                     27
+  opportunités retenues (hors 🔴)           10
+
+RAPPEL — ce que la découverte a couvert
+  requêtes contributrices                   5
+  résultats bruts                          35
+  URL uniques                              28
+  vues par PLUSIEURS sources                0
+  doublons regroupés                        7
+  Une requête qui ne rend rien n'est pas une mauvaise requête :
+  c'est une mesure. Une source qui rend beaucoup de résultats
+  déjà connus n'est pas pour autant la meilleure.
+
+IDENTIFICATION — par le DOMAINE, jamais par un nom lu dans un titre
+  entreprises nouvelles                    17
+  entreprises déjà connues                 18
+  rattachements NON ÉTABLIS                 0
+
+PAGES
+  candidates NOUVELLES                     28
+  candidates déjà connues                   7
+  surveillées                               0
+  réellement collectées                     0
+  qualifications POSITIVES                  0
+  AUCUNE PAGE N'A ÉTÉ LUE. Tout ce que ces pages contiennent
+  et que l'extrait ne dit pas reste INCONNU. La qualification
+  sur contenu réel exige une collecte, et elle n'a pas eu lieu.
+
+COMMERCIAL — catégories
+  🟢 DIRECT                                  9
+  🟡 RENFORCEMENT                            0
+  🟣 À CONSTRUIRE                            0
+  🔵 PROSPECT / PARTENARIAT                  1
+  🔴 REJET                                   0
+  🔴 n'est pas « score faible » : c'est un rejet OBJECTIF établi.
+  Une affaire difficile, lointaine, volumineuse ou exigeant du
+  recrutement reste 🟡, 🟣 ou 🔵 — elle n'est jamais supprimée.
+
+MATURITÉ — un AXE À PART, jamais une sixième catégorie
+  ⚪ PAS ENCORE UNE OPPORTUNITÉ             17
+  Les cinq catégories ci-dessus répondent à « COMMENT entrer sur
+  ce marché ». ⚪ répond à autre chose : « on n'en est pas encore
+  là ». C'est une page lue qui ne porte, à cette date, aucun fait
+  commercial. Elle reste au registre et pourra en porter un demain.
+  L'aligner avec les cinq autres laisserait croire à un sixième
+  mode d'entrée sur le marché, qui n'existe pas.
+
+COMMERCIAL — actions
+  CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT     17
+  CONTACTER L'ENTREPRISE                    9
+  SURVEILLER                                1
+
+TOP ACTIONS COMMERCIALES
+========================================================================================
+
+BESOINS ÉNONCÉS — quelqu'un a ÉCRIT qu'il cherchait
+----------------------------------------------------------------------------------------
+
+1.  🟢 DIRECT        domaine colisprive.be  (identité INCONNUE — ce n'est pas une raison sociale)
+    Besoin    : Devenir partenaire de livraison - Colis Privé BeLux
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE MOYENNE   ·   NATURE FAIT   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Preuve    : https://colisprive.be/devenir-partenaire-livraison/
+
+2.  🔵 PROSPECT        domaine beeliv.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+    Besoin    : Devenir partenaire | Beeliv
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : SURVEILLER
+    ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE MOYENNE   ·   NATURE FAIT   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : métier hors périmètre actuel — à qualifier manuellement
+    Manque    : aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE
+    Preuve    : https://www.beeliv.fr/qui-sommes-nous/devenir-partenaire/
+
+SIGNAUX — il se passe quelque chose, PERSONNE N'A RIEN DEMANDÉ
+----------------------------------------------------------------------------------------
+
+1.  🟢 DIRECT        domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Transport routier - Sous-traitant - Belgique
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://www.europages.fr/entreprises/belgique/sous-traitant/transport%20routier.html
+
+2.  🟢 DIRECT        domaine mecaluxbelgique.be  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Le prestataire logistique : fonctions et défis - Mecalux Belgique
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://www.mecaluxbelgique.be/blog/prestataires-logistiques-entrepots
+
+3.  🟢 DIRECT        domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Logistique en entrepots Belgique | Entreprises et fournisseurs B2B | eur
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://www.europages.fr/entreprises/belgique/logistique%20en%20entrep%C3%B4ts.html
+
+4.  🟢 DIRECT        domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Logistique Belgique | Entreprises et fournisseurs B2B | europages
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://www.europages.fr/entreprises/belgique/logistique.html
+
+5.  🟢 DIRECT        domaine bx1.be  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Dernier kilomètre : comment rendre les livraisons plus durables en ville
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://bx1.be/categories/news/dernier-kilometre-comment-rendre-les-livraisons-plus-durables-en-ville/
+
+6.  🟢 DIRECT        domaine beci.be  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : e-commerce : La bataille du dernier kilomètre
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://www.beci.be/e-commerce-mobilite-bataille-kilometre/
+
+7.  🟢 DIRECT        domaine recordexpress.com  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Meilleures solutions de livraison du dernier kilomètre en Belgique - Rec
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://recordexpress.com/the-last-mile/meilleures-solutions-de-livraison-du-dernier-kilometre-en-belgique/
+
+8.  🟢 DIRECT        domaine vpd.eu  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : N°1 de la livraison du dernier kilomètre et transporteur en Belgique | V
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CONTACTER L'ENTREPRISE
+    ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : exécutable avec la structure actuelle
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://www.vpd.eu/fr/
+
+9.  ⚪ PAS ENCORE UNE OPPORTUNITÉ        domaine emplois.be.indeed.com  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Sous Traitant Transport : plus de 50 emplois (18 février 2026) | Indeed
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+    ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : aucun fait commercial observé sur cette page
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://emplois.be.indeed.com/q-sous-traitant-transport-emplois.html
+
+10.  ⚪ PAS ENCORE UNE OPPORTUNITÉ        domaine emplois.be.indeed.com  (identité INCONNUE — ce n'est pas une raison sociale)
+    Signal    : Sous Traitant Transport, Bruxelles : plus de 25 offres d'emploi (13 mai 
+    Zone      : A_VERIFIER   ·   Effort : distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+    ACTION    : CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+    ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+    Pourquoi  : aucun fait commercial observé sur cette page
+    Attention : AUCUN besoin n'a été exprimé ici. Ce n'est pas
+                une demande adressée à votre entreprise.
+    Preuve    : https://emplois.be.indeed.com/q-sous-traitant-transport-l-bruxelles-emplois.html
+
+  Un signal n'est PAS un contrat, et ne le devient pas en montant
+  dans la liste. Il justifie un contact, jamais une offre.
+
+TOP OPPORTUNITÉS COMMERCIALES — 27 affichée(s)
+  Les QUATRE dimensions restent séparées : TYPE D'INFORMATION,
+  NATURE, ÉTAT DE PROCÉDURE et ACTION ne se résument jamais
+  l'une l'autre. Une affaire peut être exécutable (🟢) ET n'être
+  qu'une HYPOTHÈSE : « pouvons-nous le faire » et « est-ce réel »
+  sont deux questions, et le rapport répond aux deux.
+----------------------------------------------------------------------------------------
+🟢 [ 55] Transport routier - Sous-traitant - Belgique
+     ENTREPRISE   domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Transport routier - Sous-traitant - Belgique
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.europages.fr/entreprises/belgique/sous-traitant/transport%20routier.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] Le prestataire logistique : fonctions et défis - Mecalux Belgiqu
+     ENTREPRISE   domaine mecaluxbelgique.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Le prestataire logistique : fonctions et défis - Mecalux Belgique
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.mecaluxbelgique.be/blog/prestataires-logistiques-entrepots
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] Logistique en entrepots Belgique | Entreprises et fournisseurs B
+     ENTREPRISE   domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Logistique en entrepots Belgique | Entreprises et fournisseurs B2B | europages
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.europages.fr/entreprises/belgique/logistique%20en%20entrep%C3%B4ts.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] Logistique Belgique | Entreprises et fournisseurs B2B | europage
+     ENTREPRISE   domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Logistique Belgique | Entreprises et fournisseurs B2B | europages
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.europages.fr/entreprises/belgique/logistique.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] Dernier kilomètre : comment rendre les livraisons plus durables 
+     ENTREPRISE   domaine bx1.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Dernier kilomètre : comment rendre les livraisons plus durables en ville? - BX1
+     SOURCE       import:websearch-assistant
+     PREUVE       https://bx1.be/categories/news/dernier-kilometre-comment-rendre-les-livraisons-plus-durables-en-ville/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] e-commerce : La bataille du dernier kilomètre
+     ENTREPRISE   domaine beci.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       e-commerce : La bataille du dernier kilomètre
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.beci.be/e-commerce-mobilite-bataille-kilometre/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] Meilleures solutions de livraison du dernier kilomètre en Belgiq
+     ENTREPRISE   domaine recordexpress.com  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Meilleures solutions de livraison du dernier kilomètre en Belgique - Record Express
+     SOURCE       import:websearch-assistant
+     PREUVE       https://recordexpress.com/the-last-mile/meilleures-solutions-de-livraison-du-dernier-kilometre-en-belgique/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 55] N°1 de la livraison du dernier kilomètre et transporteur en Belg
+     ENTREPRISE   domaine vpd.eu  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       N°1 de la livraison du dernier kilomètre et transporteur en Belgique | VPD
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.vpd.eu/fr/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION 55/100   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+🟢 [ 45] Devenir partenaire de livraison - Colis Privé BeLux
+     ENTREPRISE   domaine colisprive.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Devenir partenaire de livraison - Colis Privé BeLux
+     SOURCE       import:websearch-assistant
+     PREUVE       https://colisprive.be/devenir-partenaire-livraison/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE MOYENNE   ·   NATURE FAIT   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🟢 DIRECT   ·   MOTEUR CAPTER
+     ACTION       CONTACTER L'ENTREPRISE
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« livraison »)
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI exécutable avec la structure actuelle
+
+⚪ [ 45] Sous Traitant Transport : plus de 50 emplois (18 février 2026) |
+     ENTREPRISE   domaine emplois.be.indeed.com  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Sous Traitant Transport : plus de 50 emplois (18 février 2026) | Indeed
+     SOURCE       import:websearch-assistant
+     PREUVE       https://emplois.be.indeed.com/q-sous-traitant-transport-emplois.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« transport »)
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 45] Sous Traitant Transport, Bruxelles : plus de 25 offres d'emploi 
+     ENTREPRISE   domaine emplois.be.indeed.com  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Sous Traitant Transport, Bruxelles : plus de 25 offres d'emploi (13 mai 2024) | Indeed
+     SOURCE       import:websearch-assistant
+     PREUVE       https://emplois.be.indeed.com/q-sous-traitant-transport-l-bruxelles-emplois.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE PRESTATAIRE
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« transport »)
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 45] Sous-traitance transport en Belgique | Partenaire DPD & DHL
+     ENTREPRISE   domaine bulbulgroup.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Sous-traitance transport en Belgique | Partenaire DPD & DHL
+     SOURCE       import:websearch-assistant
+     PREUVE       https://bulbulgroup.be/sous-traitance-transport-belgique
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« transport »)
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 45] independant | Emplois | Chauffeurs - Offres d'emploi | 2ememain
+     ENTREPRISE   domaine 2ememain.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       independant | Emplois | Chauffeurs - Offres d'emploi | 2ememain
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.2ememain.be/l/offres-d-emploi/emplois-chauffeurs/q/independant/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 45] Devenir chauffeur indépendant en Belgique : permis et démarches 
+     ENTREPRISE   domaine monsiegesocial.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Devenir chauffeur indépendant en Belgique : permis et démarches | Monsiegesocial
+     SOURCE       import:websearch-assistant
+     PREUVE       https://monsiegesocial.be/articles/devenir-chauffeur-independant-belgique
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 45] Comment Devenir Chauffeur Indépendant en Belgique - Mon Siege So
+     ENTREPRISE   domaine monsiegesocial.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Comment Devenir Chauffeur Indépendant en Belgique - Mon Siege Social | Monsiegesocial
+     SOURCE       import:websearch-assistant
+     PREUVE       https://monsiegesocial.be/fiches-pratiques/entrepreneuriat/devenir-chauffeur-independant-en-belgique
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 45] Colis Privé provoque la colère de nombreux clients : les société
+     ENTREPRISE   domaine rtbf.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Colis Privé provoque la colère de nombreux clients : les sociétés sous-traitantes 'der
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.rtbf.be/article/colis-prive-provoque-la-colere-de-nombreux-clients-les-societes-sous-traitantes-dernier-km-en-point-de-mire-11494049
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 45] Aux Pays-Bas, le secteur du colis s'auto-régule - Transportmedia
+     ENTREPRISE   domaine transportmedia.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Aux Pays-Bas, le secteur du colis s'auto-régule - Transportmedia
+     SOURCE       import:websearch-assistant
+     PREUVE       https://transportmedia.be/fr/2022/12/aux-pays-bas-le-secteur-du-colis-sauto-regule/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       rien d’identifié
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] Travailler comme partenaire de PostNL | PostNL
+     ENTREPRISE   domaine postnl.be  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Travailler comme partenaire de PostNL | PostNL
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.postnl.be/fr/offres-demploi-pour-sous-traitants/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] Transports En Sous-Traitance – Fournisseurs Belgique | europages
+     ENTREPRISE   domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Transports En Sous-Traitance – Fournisseurs Belgique | europages
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.europages.fr/entreprises/belgique/transports%20en%20sous-traitance.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« transport »)
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] Transports en Sous-Traitance - Trouvez des Prestataires de Servi
+     ENTREPRISE   domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Transports en Sous-Traitance - Trouvez des Prestataires de Services
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.europages.fr/entreprises/belgique/transports%20en%20sous%20traitance.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      moyen déjà en place, réutilisable : vehicule (« transport »)
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] AVL Partners
+     ENTREPRISE   domaine avlpartners.com  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       AVL Partners
+     SOURCE       import:websearch-assistant
+     PREUVE       https://avlpartners.com/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] Ou en sous traitance Belgique | Entreprises et fournisseurs B2B 
+     ENTREPRISE   domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Ou en sous traitance Belgique | Entreprises et fournisseurs B2B | europages
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.europages.fr/entreprises/belgique/ou%20en%20sous%20traitance.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] Devenir livreur indépendant en Belgique : guide complet
+     ENTREPRISE   domaine shippr.io  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Devenir livreur indépendant en Belgique : guide complet
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.shippr.io/partenaire-livreur/devenir-livreur-independant-belgique
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] Comment devenir un livreur indépendant et partenaire de Shippr ?
+     ENTREPRISE   domaine shippr.io  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Comment devenir un livreur indépendant et partenaire de Shippr ? | Shippr
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.shippr.io/blog/devenir-livreur-independant
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] Sous Traitant : plus de 400 emplois (19 juin 2026) | Indeed
+     ENTREPRISE   domaine emplois.be.indeed.com  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Sous Traitant : plus de 400 emplois (19 juin 2026) | Indeed
+     SOURCE       import:websearch-assistant
+     PREUVE       https://emplois.be.indeed.com/q-sous-traitant-emplois.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+⚪ [ 24] Sous traitant Belgique | Entreprises et fournisseurs B2B | europ
+     ENTREPRISE   domaine europages.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Sous traitant Belgique | Entreprises et fournisseurs B2B | europages
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.europages.fr/entreprises/belgique/sous-traitant.html
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE FAIBLE   ·   NATURE HYPOTHÈSE   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    ⚪ PAS ENCORE UNE OPPORTUNITÉ   ·   MOTEUR CAPTER
+     ACTION       CLASSER SANS SUITE — REVENIR SI UN BESOIN APPARAÎT
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      aucun identifié
+     RISQUES      information peu prouvée (FAIBLE) — collecte prouvée le 2026-09-14 · lien vers la source · référence propre à la source · sans demandeur nommé · aucune formulation interprétable — état à confirmer à la source · besoin non confirmé : personne n'a encore dit le vouloir
+     CLASSÉ AINSI aucun fait commercial observé sur cette page
+
+🔵 [ 24] Devenir partenaire | Beeliv
+     ENTREPRISE   domaine beeliv.fr  (identité INCONNUE — ce n'est pas une raison sociale)
+     BESOIN       Devenir partenaire | Beeliv
+     SOURCE       import:websearch-assistant
+     PREUVE       https://www.beeliv.fr/qui-sommes-nous/devenir-partenaire/
+     TYPE D'INFO  NON DÉCLARÉ PAR LA SOURCE   ·   SECTEUR prive   ·   RÔLE A_VERIFIER
+     AXES         ADÉQUATION NON MESURABLE — aucun fait économique observé   ·   PREUVE MOYENNE   ·   NATURE FAIT   ·   POTENTIEL NON PUBLIÉ
+     ÉTAT         HORS PROCÉDURE   (confiance nulle)
+     CATÉGORIE    🔵 PROSPECT   ·   MOTEUR CAPTER
+     ACTION       SURVEILLER
+     ZONE         A_VERIFIER
+     EFFORT       distance À CONFIRMER · NON MESURÉE — aucune exigence publiée
+     MANQUE       aucune formation mentionnée dans la source · date de démarrage NON PUBLIÉE — délai non vérifiable · durée ou récurrence insuffisante pour amortir une montée en compétence
+     LEVIERS      aucun identifié
+     RISQUES      aucune formulation interprétable — état à confirmer à la source
+     CLASSÉ AINSI métier hors périmètre actuel — à qualifier manuellement
+
+----------------------------------------------------------------------------------------
+CE QUI RESTE INCONNU, ET QUI LE RESTERA SANS COLLECTE
+  véhicules · tonnage · chauffeurs · CA · marge · coût/km ·
+  rémunération · durée · volume · certifications · licences ·
+  agréments · capacité exacte · échéance non prouvée
+  Tout cela s'écrit « À CONFIRMER ». Une déduction n'est pas
+  un fait, et la marge reste NON MESURÉE tant que les coûts
+  réels ne sont pas au profil.
+
+════════════════════════════════════════════════════════════════════════════════
+REVUE QUALITATIVE — DONNÉES RÉELLES, 27 OPPORTUNITÉS SUR 28 URL
+════════════════════════════════════════════════════════════════════════════════
+Recherche exécutée par l'OUTIL DE RECHERCHE DE L'ASSISTANT, le 2026-09-14.
+PAS par le radar. Provenance : EXÉCUTÉ HORS RADAR.
+URL et titres VERBATIM. Extraits VIDES : l'outil n'a pas rendu d'extrait
+verbatim, et recopier son résumé comme « extrait de moteur » aurait fabriqué
+une donnée.
+
+VRAIS POSITIFS — 2
+  🟢 colisprive.be/devenir-partenaire-livraison/   FAIT · CONTACTER
+     « Devenir partenaire de livraison » — un réseau colis belge qui ouvre
+     explicitement sa sous-traitance. Exactement la cible.
+  🔵 beeliv.fr/qui-sommes-nous/devenir-partenaire/  FAIT · SURVEILLER
+     Vrai besoin de partenaires, mais domaine .fr — zone à vérifier.
+
+FAUX POSITIFS — 8, ET TOUS AU MÊME SCORE
+  Positions 1 à 8, toutes à 55/100, HYPOTHÈSE, FAIBLE, « CONTACTER » :
+     europages.fr ×3          annuaire B2B — ne cherche rien
+     mecaluxbelgique.be/blog  article de blog
+     bx1.be · beci.be         presse
+     recordexpress.com        page marketing d'un CONCURRENT
+     vpd.eu                   site d'un CONCURRENT (« N°1 du dernier km »)
+  Aucune de ces pages n'exprime un besoin. Le radar propose de les contacter.
+
+FAUX NÉGATIFS — 3, DONT LE PLUS GRAVE
+  ⚪ postnl.be/fr/offres-demploi-pour-sous-traitants/   ← LA MEILLEURE PISTE
+     PostNL Belgique recherche activement des sous-traitants colis.
+     Classée « CLASSER SANS SUITE — aucun fait commercial observé ».
+  ⚪ bulbulgroup.be/sous-traitance-transport-belgique
+     Sous-traitant DPD/DHL déclaré. Partenaire ou concurrent — jamais « rien ».
+  ⚪ shippr.io/partenaire-livreur/…
+     Plateforme qui recrute des livreurs partenaires.
+
+CAUSE, ET ELLE EST UNIQUE
+  Le radar ne lit QUE le titre, parce que l'extrait est vide.
+  Il NE LIT PAS L'URL — or c'est là qu'est l'information la plus dense :
+      /devenir-partenaire-livraison/        → détecté (le TITRE le dit aussi)
+      /offres-demploi-pour-sous-traitants/  → RATÉ (le titre ne le dit pas)
+      /sous-traitance-transport-belgique    → RATÉ
+      /partenaire-livreur/                  → RATÉ
+  Les trois faux négatifs portent le besoin DANS L'ADRESSE, et nulle part
+  ailleurs dans ce qui a été importé.
+
+LE SCORE 55 UNIFORME
+  Huit pages sans aucun rapport obtiennent exactement 55/100, et leur score
+  est déclaré MESURABLE. Les deux vrais positifs, eux, sont NON MESURABLES.
+  C'est inversé. `score_mesurable` existe précisément pour attraper un score
+  composé de neutralités ; ici il laisse passer les mauvaises et bloque les
+  bonnes.
+
+RECRUTEMENT — CAS RÉELS OBSERVÉS, COMPORTEMENT CORRECT
+  indeed ×3, 2ememain, monsiegesocial ×2 → tous ⚪ CLASSER SANS SUITE.
+  Aucun cas de « recrutement massif » mal classé dans cet échantillon.
+  Le défaut vu sur fixture NE S'EST PAS MATÉRIALISÉ ici.
+
+FR / NL / EN
+  Échantillon 100 % francophone : les cinq requêtes étaient en français.
+  Aucune donnée NL ni EN. Les trois faux négatifs de lexique mesurés
+  précédemment restent NON CONFIRMÉS sur données réelles.
+
+PUBLIC / PRIVÉ
+  Aucun marché public dans cet échantillon. Aucune attribution, aucun
+  titulaire. PUBLIC : NON MESURÉ sur ce jeu.
+
+CE QUI N'A PAS ÉTÉ FAIT
+  Aucune correction. Aucune règle écrite. Aucun lexique complété.
+  score.py non touché. Observation et mesure seulement.
