@@ -59,7 +59,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import identite as mod_identite, pages as mod_pages
+from . import adresse as mod_adresse, identite as mod_identite, pages as mod_pages
 from .circuit import DECOUVERTE as CIRCUIT_DECOUVERTE
 from .entreprises import Motif, domaine_de, nom_probable
 
@@ -122,7 +122,8 @@ def societe_citee(trouvaille) -> str | None:
     return nom_probable(f"{trouvaille.titre or ''} {trouvaille.extrait or ''}")
 
 
-def chainer(cx, trouvailles, registre, *, motif: Motif = Motif.CHERCHE_PARTENAIRE) -> Bilan:
+def chainer(cx, trouvailles, registre, *, motif: Motif = Motif.CHERCHE_PARTENAIRE,
+            ontologie=None, detecteur=None) -> Bilan:
     """Fait entrer des trouvailles dans le registre et les pages candidates.
 
     `registre` est un `entreprises.Registre` — chargé depuis la base par
@@ -163,8 +164,7 @@ def chainer(cx, trouvailles, registre, *, motif: Motif = Motif.CHERCHE_PARTENAIR
             entreprise=cle if rattachee else None,
             provenance=mod_pages.DECOUVERTE,
             source=t.source, circuit=t.circuit or CIRCUIT_DECOUVERTE,
-            raison=f"montrée par « {t.source} »"
-                   + (f" pour la requête {t.requete}" if t.requete else ""),
+            raison=_raison(t, ontologie, detecteur),
             libelle=t.titre or None,
             rattachement=(mod_pages.PAR_DOMAINE if rattachee
                           else mod_pages.NON_ETABLI))
@@ -173,6 +173,21 @@ def chainer(cx, trouvailles, registre, *, motif: Motif = Motif.CHERCHE_PARTENAIR
         else:
             bilan.pages_candidates += 1
     return bilan
+
+
+def _raison(t, ontologie, detecteur) -> str:
+    """Pourquoi cette page est candidate — et l'indice d'adresse s'il y en a un.
+
+    L'indice est écrit DANS LA RAISON, en toutes lettres, plutôt que dans un
+    champ silencieux : c'est ce qui permet de relire plus tard pourquoi une
+    page a été mise en tête de la file de lecture. Il n'accorde aucun statut.
+    """
+    base = (f"montrée par « {t.source} »"
+            + (f" pour la requête {t.requete}" if t.requete else ""))
+    if ontologie is None or detecteur is None:
+        return base
+    indice = mod_adresse.lire(t.url, ontologie, detecteur).raison()
+    return f"{base} · {indice}" if indice else base
 
 
 def marquer_identites(cx, registre) -> int:

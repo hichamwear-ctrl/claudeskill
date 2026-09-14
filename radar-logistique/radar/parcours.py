@@ -226,7 +226,8 @@ def executer(cx, moteur, adaptateur, *, mode: Mode, defauts=None,
 
     # 2. IDENTIFICATION — par le DOMAINE, jamais par un nom lu dans un titre.
     reg = registre if registre is not None else mod_entreprises.charger(cx)
-    bilan = chainage.chainer(cx, liste, reg)
+    bilan = chainage.chainer(cx, liste, reg, ontologie=moteur.ontologie,
+                             detecteur=moteur.roles)
     mod_entreprises.enregistrer(cx, reg)
     chainage.marquer_identites(cx, reg)
     p.entreprises_decouvertes = bilan.entreprises_nouvelles

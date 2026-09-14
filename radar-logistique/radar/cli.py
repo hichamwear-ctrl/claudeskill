@@ -372,6 +372,29 @@ def cmd_import_recherche(a) -> int:
     return 0
 
 
+def cmd_collecter(a) -> int:
+    """Les pages à lire, indice d'adresse d'abord — ou l'import d'une collecte.
+
+    Le radar NE PEUT PAS lire ces pages : l'accès réseau est fermé, mesuré et
+    re-mesuré. Il dit donc lesquelles lire, et reçoit ce qu'un poste extérieur
+    a lu. Même discipline que pour la recherche.
+    """
+    from . import collecte_importee as col
+    cx = ouvrir(a.base or Mode.REEL.base_par_defaut)
+    moteur = _moteur(cx)
+    if not a.fichier:
+        print(col.rapport_a_collecter(cx, moteur, limite=a.limite))
+        return 0
+    try:
+        bilan = col.importer(cx, a.fichier, moteur)
+    except col.CollecteInvalide as e:
+        print(f"COLLECTE REFUSÉE — {e}", file=sys.stderr)
+        return 2
+    cx.commit()
+    print(bilan.resume())
+    return 0
+
+
 def cmd_requetes_prioritaires(a) -> int:
     """Les requêtes à exécuter DEHORS, par famille. Le radar n'en lance aucune.
 
@@ -1074,6 +1097,14 @@ def principal(argv=None) -> int:
     ir.add_argument("--top", type=int, default=20,
                     help="combien d'opportunités détailler (défaut : 20)")
     ir.set_defaults(fn=cmd_import_recherche)
+
+    co = s.add_parser("collecter",
+                      help="lister les pages à lire, ou importer une collecte "
+                           "faite HORS RADAR")
+    co.add_argument("fichier", nargs="?",
+                    help="le fichier JSON de collecte ; absent, on liste")
+    co.add_argument("--limite", type=int, help="combien de pages lister")
+    co.set_defaults(fn=cmd_collecter)
 
     rp = s.add_parser("requetes-prioritaires",
                       help="les requêtes à exécuter DEHORS — le radar n'en lance aucune")

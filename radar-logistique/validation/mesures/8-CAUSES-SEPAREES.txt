@@ -1,0 +1,116 @@
+ÉTAPE 8 — LES TROIS CAUSES, MESURÉES SÉPARÉMENT
+================================================================================
+Sur le jeu RÉEL du 2026-09-14 : 35 résultats, 28 URL. Recherche exécutée par
+l'outil du harness, PAS par le radar.
+
+────────────────────────────────────────────────────────────────────────────
+CAUSE A — L'URL N'ÉTAIT PAS LUE
+────────────────────────────────────────────────────────────────────────────
+CORRIGÉE : radar/adresse.py extrait les mots du chemin.
+
+    /fr/offres-demploi-pour-sous-traitants/  → « offres demploi pour sous traitants »
+    /sous-traitance-transport-belgique       → « sous traitance transport belgique »
+    /partenaire-livreur/devenir-…            → « partenaire livreur devenir independant »
+
+EFFET MESURÉ SUR LE JEU RÉEL : AUCUN.
+
+  CLASSE     n    titre seul   + adresse
+  VP         2    1            1
+  FN         4    0            0
+  FP        13    8            8
+  autre      9    2            2
+
+  MON DIAGNOSTIC DE L'ÉTAPE PRÉCÉDENTE ÉTAIT FAUX. J'avais écrit que la
+  cause des faux négatifs était que le radar ne lisait pas l'URL. Les mots
+  sont bien extraits — et rien ne change. La cause est ailleurs.
+
+────────────────────────────────────────────────────────────────────────────
+CAUSE B — LE LEXIQUE
+────────────────────────────────────────────────────────────────────────────
+MESURÉE. NON CORRIGÉE : config/roles.yaml est GELÉ.
+
+  Ce qui est reconnu            Ce qui ne l'est PAS
+  ─────────────────────────     ────────────────────────────────
+  partenaire de livraison       partenaireS de livraison   ← LE PLURIEL
+  partenaire transport          sous-traitant  /  sous-traitants
+  sous-traitant transport       sous-traitance
+  tournées régulières           partenaire livreur  /  livreur
+                                assurer nos tournées quotidiennes
+
+  DEUX DÉFAUTS DISTINCTS :
+
+  B1 · LE MOT « SOUS-TRAITANT » SEUL N'EST PAS AU LEXIQUE.
+       Le mot central de ce métier. Seule la forme « sous-traitant
+       transport » y figure.
+
+  B2 · LE LEXIQUE EST AU SINGULIER.
+       « Nous recherchons DES PARTENAIRES de livraison » — la formulation
+       la plus naturelle d'une entreprise qui en cherche plusieurs —
+       ressort MOYENNE au lieu de FORTE. B2 est plus large que B1 : il
+       touche potentiellement toutes les entrées du lexique.
+
+  EFFET SIMULÉ de l'ajout de « sous-traitant / sous-traitance /
+  partenaire livreur » (simulation en mémoire, config NON modifiée) :
+
+  CLASSE     n    avant   après
+  VP         2    1       1
+  FN         4    0       1        ← seul Bulbul est rattrapé
+  FP        13    8       8        ← aucun faux positif ajouté
+  autre      9    2       2
+
+  L'ajout ne dégrade rien, mais ne rattrape qu'UN faux négatif sur quatre.
+
+────────────────────────────────────────────────────────────────────────────
+CAUSE C — LE VETO D'ONTOLOGIE  (la vraie cause dominante)
+────────────────────────────────────────────────────────────────────────────
+MESURÉE. NON CORRIGÉE : contredit une règle GELÉE (7a).
+
+  `pertinence.evaluer` applique sa règle 1 AVANT tout le reste :
+
+      « ontologie ne correspond pas → AUCUNE »
+
+  PostNL : « Travailler comme partenaire de PostNL » + « offres demploi
+  pour sous traitants ». Aucun terme de l'ontologie métier (transport,
+  livraison, colis, logistique) n'y figure. VETO, quel que soit le lexique
+  de rôle. C'est pourquoi l'ajout de « sous-traitant » ne le rattrape pas.
+
+  Shippr : même chose — « livreur » n'est pas dans l'ontologie.
+
+  CONTRADICTION AVEC UNE RÈGLE GELÉE, SIGNALÉE ET NON MODIFIÉE.
+  La règle est bonne dans son intention : elle empêche qu'un mot isolé
+  fasse entrer n'importe quoi. Mais elle exige que le DOMAINE soit nommé
+  dans le peu de texte disponible — or un titre de 8 mots et une adresse
+  ne le nomment pas toujours.
+
+────────────────────────────────────────────────────────────────────────────
+CAUSE D — LA PAGE N'EST PAS COLLECTÉE
+────────────────────────────────────────────────────────────────────────────
+NON MESURABLE DANS CET ENVIRONNEMENT.
+
+  WebFetch mesuré sur deux domaines :
+      www.postnl.be   → EGRESS_BLOCKED
+      colisprive.be   → EGRESS_BLOCKED
+
+  WebSearch passe (service Anthropic) ; WebFetch tombe sur le MÊME mur que
+  curl. La collecte réelle est donc impossible depuis ici.
+
+  On ne peut PAS mesurer si le contenu réel des pages aurait rattrapé
+  PostNL et Shippr. C'est l'hypothèse la plus probable — le contenu d'une
+  page « offres d'emploi pour sous-traitants » nomme forcément le métier —
+  mais une hypothèse n'est pas une mesure.
+
+  Le mécanisme est construit et éprouvé (radar/collecte_importee.py,
+  16 tests) : il attend un fichier de contenu lu ailleurs.
+
+────────────────────────────────────────────────────────────────────────────
+CE QUE CELA CHANGE POUR LE DIAGNOSTIC
+────────────────────────────────────────────────────────────────────────────
+  Les quatre faux négatifs N'ONT PAS UNE CAUSE UNIQUE :
+
+    Bulbul  → B (lexique). Rattrapé par l'ajout simulé.
+    PostNL  → C (veto d'ontologie). L'ajout de lexique ne suffit PAS.
+    Shippr  → C (veto d'ontologie), sur deux URL.
+
+  Et aucun des quatre n'est corrigé par A, l'URL, que je croyais être la
+  cause. Les corriger vraiment demande soit la collecte (D), soit une
+  décision sur la règle gelée (C) — deux choses qui vous appartiennent.
