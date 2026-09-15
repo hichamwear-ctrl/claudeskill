@@ -1495,7 +1495,36 @@ DESCRIPTION = (
     "« Familles prévues » n'est pas « familles validées » : voir `radar validation`.")
 
 
+def _sortie_lisible() -> None:
+    """NE JAMAIS CASSER SUR UN CARACTÈRE QU'ON NE SAIT PAS ÉCRIRE.
+
+    Le rapport contient des filets (═ ─), des tirets cadratins et les six
+    emojis de catégorie. Sous Windows, `sys.stdout` n'est en UTF-8 que
+    lorsqu'il parle à une vraie console : dès qu'on redirige vers un
+    fichier — ce que fait n'importe qui pour copier-coller une sortie — il
+    reprend la page de codes ANSI, et un simple « — » suffit à lever
+    UnicodeEncodeError.
+
+    Mesuré : `python -m radar.cli statut` sous cp850 sortait un traceback
+    brut, code 1, sur la toute première ligne du rapport. Pour un
+    utilisateur, le radar était cassé.
+
+    On repasse donc les deux flux en UTF-8, et — c'est la deuxième moitié
+    de la correction — avec `errors="replace"` : si la console ne sait
+    vraiment pas afficher un caractère, elle écrit « ? » et le texte reste
+    lisible. Un rapport dégradé vaut mieux qu'une trace de pile.
+    """
+    for flux in (sys.stdout, sys.stderr):
+        try:
+            flux.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            # Flux déjà remplacé (tests), ou non reconfigurable : on
+            # continue. L'affichage n'est pas une raison d'échouer.
+            pass
+
+
 def principal(argv=None) -> int:
+    _sortie_lisible()
     p = argparse.ArgumentParser(prog="radar", description=DESCRIPTION)
     p.add_argument("--base", default=None,
                    help="par défaut : radar-demo.sqlite3 ou radar-reel.sqlite3 selon le mode")

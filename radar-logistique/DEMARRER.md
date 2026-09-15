@@ -48,25 +48,57 @@ radar --base radar.sqlite3 statut
 ./radar.sh --base radar.sqlite3 statut
 ```
 
-> Le lanceur Unix s'appelle `radar.sh` et non `radar` : `radar` est déjà le nom
-> du paquet Python, les deux se marcheraient dessus. Sous Windows, `radar.cmd`
-> s'invoque simplement en tapant `radar`.
+### Pourquoi `radar` suffit sous CMD
 
-Ce que vous devez voir :
+`radar.cmd` est dans le dossier du projet, et **CMD cherche d'abord dans le
+répertoire courant**. Être dans `radar-logistique` suffit donc : il n'y a
+**aucun PATH à modifier et aucun paquet à installer**.
+
+| vous utilisez | vous tapez |
+|---|---|
+| **CMD** (invite de commandes) | `radar --base radar.sqlite3 statut` |
+| **PowerShell** | `.\radar --base radar.sqlite3 statut` — PowerShell ne cherche **pas** dans le répertoire courant |
+| **Linux / macOS** | `./radar.sh --base radar.sqlite3 statut` |
+
+> Le lanceur Unix s'appelle `radar.sh` et non `radar` : `radar` est déjà le nom
+> du paquet Python, les deux se marcheraient dessus.
+
+### VOIE DE SECOURS — elle marche toujours
+
+Si `radar` ne répond pas, pour quelque raison que ce soit, **cette commande
+fonctionne dans tous les cas**, y compris sous PowerShell :
+
+```cmd
+python -m radar.cli --base radar.sqlite3 statut
+```
+
+Elle est strictement équivalente : `radar.cmd` ne fait rien d'autre que
+l'appeler, après avoir réglé l'encodage de la console. **Toutes les commandes
+de ce guide s'écrivent aussi avec `python -m radar.cli`** — remplacez
+simplement le mot `radar` par `python -m radar.cli`.
+
+Ce que vous devez voir — **sortie réelle, sur une base vierge** :
 
 ```
   Moteur                 OK
   Base                   OK — 0 avis · 0 opportunités
-  Sources                PARTIEL — 1/3
+  Sources                PARTIEL — 0/2
   Import                 OK — exige « EXÉCUTÉ HORS RADAR »
   Collecte               JAMAIS CONSULTÉE — aucune page
   Notifications          OK — 0 préparée(s), 0 envoyée(s)
   Surveillance           OK — 0 page(s)
 
 DÉTAILS
-  - source google : NON DISPONIBLE — CLÉ ABSENTE — …
-  - source brave  : NON DISPONIBLE — CLÉ ABSENTE — …
+  - source brave  : NON DISPONIBLE — CLÉ ABSENTE — clé API non fournie
+  - source google : NON DISPONIBLE — CLÉ ABSENTE — clé API et identifiant …
+
+PROCHAINE COMMANDE UTILE
+  radar analyse-du-jour --import <fichier.tsv>
 ```
+
+`0/2` : les deux moteurs déclarés (google, brave) sont sans clé. Après une
+analyse avec `--import`, la ligne passe à `PARTIEL — 1/3` : la source
+importée s'ajoute, et elle, elle a répondu.
 
 **`PARTIEL` est normal et honnête** : aucune clé de moteur de recherche n'est
 fournie, donc aucune recherche web réelle n'est possible. Le radar le dit au
@@ -149,11 +181,19 @@ radar --base radar.sqlite3 opportunites --limite 5
 
 ## 5. VOIR UNE OPPORTUNITÉ
 
-L'identifiant est celui affiché par la commande précédente (`Opportunité #8`) :
+L'identifiant est celui affiché par la commande précédente, en tête de bloc :
+`🟢 DIRECT — Opportunité #8`.
 
 ```cmd
+radar --base radar.sqlite3 opportunites
 radar --base radar.sqlite3 opportunite 8
 ```
+
+> **L'identifiant `8` est reproductible** avec le fichier d'exemple : deux
+> bases neuves chargées avec le même TSV donnent les mêmes identifiants —
+> c'est vérifié par un test. Avec **vos** données, les identifiants seront
+> différents : lancez toujours `radar opportunites` d'abord et reprenez un
+> numéro affiché.
 
 La fiche expose les quatre dimensions **séparément** — type d'information,
 nature, état de procédure, action — ainsi que la provenance, le score, le
@@ -296,7 +336,7 @@ python -m unittest discover -s tests
 python3 -m unittest discover -s tests
 ```
 
-Attendu : **1374 tests, 0 échec.** Les tests sont écrits avec `unittest` ;
+Attendu : **1379 tests, 0 échec.** Les tests sont écrits avec `unittest` ;
 `pytest -q` les collecte aussi si vous l'avez installé.
 
 L'audit du cahier des charges, règle par règle :
@@ -315,6 +355,7 @@ python3 outils/audit_cahier.py
 | Recherche Brave | **NON DISPONIBLE — CLÉ ABSENTE** |
 | Collecte directe de pages | aucune page lue par le radar lui-même |
 | Précision / rappel | **ÉCHANTILLON INSUFFISANT** — moins de 20 verdicts relus |
+| PowerShell | `radar` seul ne marche pas — écrire `.\radar` ou `python -m radar.cli` |
 
 C'est pour cela que l'entrée passe aujourd'hui par `--import` : un moteur
 extérieur produit le fichier, le radar le charge en déclarant sa provenance,

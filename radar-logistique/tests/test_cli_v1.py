@@ -420,6 +420,89 @@ class F_LesErreursSontHumaines(Socle):
         self.assertIn("DIRECT", erreur)
 
 
+# ═══════════════════════════════════════ WINDOWS
+class H_LeParcoursWindows(Socle):
+    """Ce qui casse chez l'utilisateur, pas chez le développeur."""
+
+    ANALYSE = False
+
+    def test_1_une_console_qui_ne_sait_pas_ecrire_en_UTF8_ne_fait_pas_planter(self):
+        """BUG MESURÉ, CORRIGÉ.
+
+        Sous une console Windows en cp850 — la page de codes par défaut
+        d'un CMD français — ou dès qu'on redirige la sortie vers un
+        fichier pour la copier-coller, `sys.stdout` n'est plus en UTF-8.
+        Le premier tiret cadratin du rapport levait alors
+        UnicodeEncodeError, et l'utilisateur voyait un traceback et un
+        code 1 : pour lui, le radar était cassé.
+
+        `cli._sortie_lisible` repasse les flux en UTF-8 avec
+        `errors="replace"` : si la console ne sait vraiment pas afficher
+        un caractère, elle écrit « ? » et le texte reste lisible.
+        """
+        import os
+        import subprocess
+        chemin = str(pathlib.Path(self.dossier) / "cp850.sqlite3")
+        r = subprocess.run(
+            [sys.executable, "-m", "radar.cli", "--base", chemin, "statut"],
+            capture_output=True, cwd=str(RACINE),
+            env={**os.environ, "PYTHONIOENCODING": "cp850"})
+        self.assertEqual(r.returncode, 0, r.stderr.decode("utf-8", "replace"))
+        self.assertNotIn(b"Traceback", r.stderr)
+        self.assertNotIn(b"UnicodeEncodeError", r.stderr)
+        self.assertIn("RADAR", r.stdout.decode("utf-8", "replace"))
+
+    def test_2_la_sortie_redirigee_reste_lisible(self):
+        """Le cas réel : `radar ... > sortie.txt` pour copier-coller."""
+        import os
+        import subprocess
+        chemin = str(pathlib.Path(self.dossier) / "redirige.sqlite3")
+        fichier = pathlib.Path(self.dossier) / "sortie.txt"
+        with fichier.open("wb") as f:
+            r = subprocess.run(
+                [sys.executable, "-m", "radar.cli", "--base", chemin, "statut"],
+                stdout=f, stderr=subprocess.PIPE, cwd=str(RACINE),
+                env={**os.environ, "PYTHONIOENCODING": "cp850"})
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(r.stderr, b"")
+        self.assertIn("ÉTAT DU SYSTÈME",
+                      fichier.read_text(encoding="utf-8", errors="replace"))
+
+    def test_3_un_chemin_windows_introuvable_est_dit_proprement(self):
+        code, _, erreur = self.lancer("analyse-du-jour", "--import",
+                                      r"Z:\nexiste\pas.tsv")
+        self.assertEqual(code, 2)
+        self.assertIn("fichier introuvable", erreur)
+        self.assertNotIn("Traceback", erreur)
+
+    def test_4_le_lanceur_windows_regle_la_page_de_codes(self):
+        """Deux réglages, et les deux sont nécessaires : l'un dit à Python
+        quoi écrire, l'autre dit à la console quoi afficher."""
+        cmd = (RACINE / "radar.cmd").read_text(encoding="utf-8",
+                                               errors="replace")
+        self.assertIn("PYTHONIOENCODING=utf-8", cmd)
+        self.assertIn("chcp 65001", cmd)
+        self.assertIn("python -m radar.cli", cmd)
+
+    def test_5_les_identifiants_sont_reproductibles_sur_une_base_neuve(self):
+        """La procédure de test donne `radar opportunite 8` : il faut que
+        le 8 existe vraiment, et qu'il soit le même à chaque fois."""
+        vus = []
+        for n in range(2):
+            base = str(pathlib.Path(self.dossier) / f"reproductible{n}.sqlite3")
+            sortie = io.StringIO()
+            with contextlib.redirect_stdout(sortie):
+                principal(["--base", base, "analyse-du-jour",
+                           "--import", EXPORT, "--top", "0"])
+            sortie = io.StringIO()
+            with contextlib.redirect_stdout(sortie):
+                principal(["--base", base, "opportunites", "--json",
+                           "--limite", "99"])
+            vus.append([c["avis_id"] for c in json.loads(sortie.getvalue())])
+        self.assertEqual(vus[0], vus[1], "mêmes données, mêmes identifiants")
+        self.assertIn(8, vus[0], "l'identifiant 8 de la procédure existe bien")
+
+
 # ═══════════════════════════════════════ L'INVARIANT
 class G_LaCliNeDecideRien(unittest.TestCase):
     """Aucune règle métier concurrente dans la présentation."""
