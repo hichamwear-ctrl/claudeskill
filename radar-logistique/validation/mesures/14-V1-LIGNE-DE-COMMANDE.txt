@@ -1,0 +1,99 @@
+╔════════════════════════════════════════════════════════════════════╗
+║  V1 EN LIGNE DE COMMANDE — le radar, lançable et lisible           ║
+║  Départ : 5797a28 · 1 331 tests                                    ║
+║  Aucune règle métier touchée. Aucune source réellement interrogée. ║
+╚════════════════════════════════════════════════════════════════════╝
+
+CE QUI A ÉTÉ AJOUTÉ
+========================================================================
+  radar/vue.py        la mise en forme humaine, au-dessus de service.py
+  radar/service.py    + diagnostic() · + sources(declarees=) · + exclure=
+  radar/cli.py        les commandes V1, et les erreurs humaines
+  radar.cmd           lanceur Windows  — s'invoque « radar »
+  radar.sh            lanceur Unix     — « radar » est déjà le paquet Python
+  DEMARRER.md         le mode d'emploi, copiable tel quel
+
+  COMMANDES : analyse-du-jour · opportunites · opportunite <id> ·
+              entreprises · entreprise <domaine> · signaux · suivi ·
+              notifications · sources · tableau · statut
+              — toutes avec --json
+
+LE MÉTIER N'A PAS BOUGÉ
+========================================================================
+  radar/vue.py ne contient AUCUN nom de catégorie, AUCUN emoji de
+  catégorie, AUCUN statut de suivi et AUCUN calcul numérique. Quatre
+  tests AST le vérifient. Tout vient de `classification.Type` et de
+  `suivi.Statut`.
+
+  CE QUI A ÉTÉ REFUSÉ, ET POURQUOI — voir « POINT À VALIDER » ci-dessous :
+  l'exemple de la demande nommait les colonnes « 🟢 POSTULABLES »,
+  « 🟠 À VÉRIFIER », « 🔴 NON POSTULABLES ». Ces libellés ne sont pas
+  ceux du moteur, et 🟠 n'existe pas. Les écrire aurait créé un second
+  vocabulaire métier dans la CLI. Les six catégories sont donc affichées
+  telles que le moteur les nomme.
+
+MESURE — JEU RÉEL DU 14/09, REJOUÉ PAR LA CLI
+========================================================================
+  Mode        IMPORT RÉEL — recherche exécutée HORS RADAR
+  Statut      PARTIEL
+  État base   35 résultats · 28 URL uniques · 17 entreprises · 27 opp.
+  Catégories  🟢 1 · 🟡 0 · 🟣 0 · 🔵 4 · ⚪ 22 · 🔴 0
+  Actions     CLASSER SANS SUITE 22 · CONTACTER 3 · SURVEILLER 2
+  Sources     google NON DISPONIBLE — CLÉ ABSENTE
+              brave  NON DISPONIBLE — CLÉ ABSENTE
+              import:websearch-assistant  EXÉCUTÉE — 35 rés. · 27 opp.
+  Pages réellement collectées : 0
+
+  Identique au moteur : la CLI n'a rien déplacé.
+
+IDEMPOTENCE — MESURÉE
+========================================================================
+  1re exécution   nouvelles opportunités 27 · entreprises 17 · notif. 5
+  2e  exécution   nouvelles opportunités  0 · entreprises  0 · notif. 0
+                  déjà connues : 27 et 17 · doublons regroupés : 7
+  Provenance conservée sur chaque lecture.
+
+ERREURS — AUCUN TRACEBACK POUR UNE ERREUR D'UTILISATEUR
+========================================================================
+  fichier introuvable      code 2 · « fichier introuvable. »
+  TSV sans provenance      cycle ERREUR · motif affiché · rien créé
+  fichier vide             cycle ERREUR · 0 opportunité
+  opportunité inconnue     code 2 · renvoie vers `radar opportunites`
+  entreprise inconnue      code 2 · renvoie vers `radar entreprises`
+  base inaccessible        code 2 · « unable to open database file »
+  catégorie inconnue       code 2 · liste les six vraies
+
+TESTS
+========================================================================
+  AVANT   1 331  OK
+  APRÈS   1 374  OK      (+43)
+  + tests/test_cli_v1.py — lancement · aide · lanceurs · analyse-du-jour ·
+    import réel · sortie humaine · sortie JSON · les onze vues ·
+    idempotence · sept erreurs · aucune donnée inventée ·
+    distinction réel/fixture · sources non disponibles
+  Aucun test existant modifié. Aucun supprimé.
+  outils/audit_cahier.py : 81/81 règles couvertes.
+
+POINT À VALIDER — NON CORRIGÉ, NON DÉCIDÉ
+========================================================================
+  Les libellés de colonnes demandés dans l'exemple ne correspondent pas
+  aux six catégories gelées :
+
+      demandé                  moteur
+      🟢 POSTULABLES           🟢 DIRECT
+      🟠 À VÉRIFIER            (n'existe pas — il n'y a pas de 🟠)
+      🔵 PROSPECTS             🔵 PROSPECT
+      ⚪ CLASSER SANS SUITE    ⚪ PAS ENCORE UNE OPPORTUNITÉ
+      🔴 NON POSTULABLES       🔴 REJET
+
+  « CLASSER SANS SUITE » est une ACTION, pas une catégorie ; et 🟢 DIRECT
+  ne veut pas dire « postulable » — son action peut être CONTACTER
+  L'ENTREPRISE. Renommer dans la CLI aurait fait diverger deux
+  vocabulaires. Comportement existant conservé ; décision à prendre.
+
+DONNÉES
+========================================================================
+  Réellement lues     35 lignes du TSV du 14/09, obtenues HORS RADAR
+  Fixtures            celles du projet, inchangées
+  Simulées            aucune
+  Sources consultées  AUCUNE par le radar pendant cette étape

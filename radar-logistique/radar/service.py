@@ -257,6 +257,9 @@ def _carte(cx, ligne) -> dict:
         "niveau_de_preuve": _ou(l.get("fiabilite"), NON_MESURE),
         "action_recommandee": _ou(l.get("action")),
         "raison_principale": _ou(l.get("motif")),
+        # Les exigences telles que la source les a publiées. Vide ≠ « aucune
+        # exigence » : la vue écrit NON PUBLIÉ, pas zéro.
+        "exigences": l.get("exigences"),
         "manques": _liste(l.get("manques")),
         "risques": _liste(l.get("risques")),
         "leviers": _liste(l.get("leviers")),
@@ -309,7 +312,8 @@ def _suivi_de(cx, avis_id) -> dict:
         return {"statut": "NOUVELLE", "depuis": None}
 
 
-def _lignes_opportunites(cx, *, limite, categorie=None, avis_id=None):
+def _lignes_opportunites(cx, *, limite, categorie=None, avis_id=None,
+                         exclure=None):
     sql = ("SELECT o.*, a.ref_source, a.source AS source_avis,"
            " a.derniere_vue, a.premiere_vue"
            " FROM opportunites o JOIN avis a ON a.id = o.avis_id")
@@ -320,6 +324,13 @@ def _lignes_opportunites(cx, *, limite, categorie=None, avis_id=None):
     if categorie:
         ou.append("o.type = ?")
         args.append(str(categorie))
+    # EXCLURE N'EST PAS SUPPRIMER : la ligne reste en base, elle n'est
+    # simplement pas affichée par cette vue-là. Le filtre est posé en SQL
+    # pour que `--limite 10` rende bien dix lignes affichables, et non dix
+    # lignes lues dont neuf disparaissent ensuite.
+    if exclure:
+        ou.append("o.type <> ?")
+        args.append(str(exclure))
     if ou:
         sql += " WHERE " + " AND ".join(ou)
     sql += " ORDER BY o.score DESC, o.echeance IS NULL, o.echeance"
@@ -328,7 +339,7 @@ def _lignes_opportunites(cx, *, limite, categorie=None, avis_id=None):
     return cx.execute(sql, args).fetchall()
 
 
-def opportunites(cx, *, limite: int = 50, categorie=None,
+def opportunites(cx, *, limite: int = 50, categorie=None, exclure=None,
                  consolider: bool = True) -> list[dict]:
     """Les opportunités, UNE FICHE PAR ADRESSE.
 
@@ -339,7 +350,8 @@ def opportunites(cx, *, limite: int = 50, categorie=None,
     provenance et leur niveau de preuve.
     """
     from . import consolidation
-    lignes = _lignes_opportunites(cx, limite=limite, categorie=categorie)
+    lignes = _lignes_opportunites(cx, limite=limite, categorie=categorie,
+                                  exclure=exclure)
     if not consolider:
         return [_carte(cx, l) for l in lignes]
 
@@ -463,12 +475,19 @@ def entreprise(cx, domaine) -> dict | None:
 
 
 # ═══════════════════════════════════ GET /sources
-def sources(cx) -> list[dict]:
+def sources(cx, *, declarees=()) -> list[dict]:
     """L'état RÉEL de chaque source — et jamais un résultat fabriqué.
 
     Une source qu'on n'a pas pu interroger ne rend pas zéro : elle rend
-    JAMAIS CONSULTÉE, avec son motif quand il est connu. Les deux ne se
-    confondent pas, et l'écran ne doit pas pouvoir les afficher pareil.
+    JAMAIS CONSULTÉE ou NON DISPONIBLE, avec son motif quand il est connu.
+    Les deux ne se confondent pas, et l'écran ne doit pas pouvoir les
+    afficher pareil.
+
+    `declarees` : les moteurs que l'installation connaît, disponibles ou
+    non. Ils sont passés par l'appelant — ce module ne connaît aucun moteur
+    et ne doit pas en apprendre. Sans eux, un moteur jamais interrogé serait
+    simplement ABSENT de la liste, ce qui se lirait comme « il n'existe
+    pas » au lieu de « il n'a pas pu servir ».
     """
     from . import execution as ex
     sortie = {}
@@ -505,6 +524,25 @@ def sources(cx) -> list[dict]:
         e["opportunites"] = cx.execute(
             "SELECT count(*) c FROM opportunites o JOIN avis a"
             " ON a.id = o.avis_id WHERE a.source = ?", (nom,)).fetchone()["c"]
+
+    # LES MOTEURS DE L'INSTALLATION, exécutés ou non. Un moteur sans clé
+    # doit se voir : c'est la première chose qu'on cherche quand le radar
+    # ne rend rien.
+    for m in declarees or ():
+        nom = getattr(m, "nom", str(m))
+        if nom in sortie:
+            continue
+        dispo = bool(getattr(m, "disponible", False))
+        sortie[nom] = {
+            "nom": nom, "moteur_declare": nom,
+            "execution": NON_MESURE,
+            "etat": "DISPONIBLE — NON INTERROGÉ" if dispo else "NON DISPONIBLE",
+            "derniere_consultation": JAMAIS_CONSULTEE, "recue_le": None,
+            "resultats": NON_MESURE, "refuses": NON_MESURE,
+            "opportunites": NON_MESURE,
+            "motif": (None if dispo
+                      else getattr(m, "motif_indisponibilite", None)),
+        }
 
     # Les sources DÉCLARÉES mais jamais exécutées : elles doivent apparaître,
     # précisément pour qu'on voie qu'elles n'ont rien rendu parce qu'on ne
@@ -671,3 +709,105 @@ def a_collecter(cx, *, limite: int = 50) -> list[dict]:
         "acces": p.acces.value if p.acces else JAMAIS_CONSULTEE,
         "derniere_visite": _ou(p.derniere_visite, JAMAIS_CONSULTEE),
     } for p in pages.a_surveiller(cx, limite=limite)]
+
+
+# ═══════════════════════════════════ DIAGNOSTIC — « est-ce que ça marche ? »
+def diagnostic(cx, *, configurations=None, declarees=()) -> dict:
+    """L'état RÉEL du système, tel qu'il est au moment où on demande.
+
+    Aucun composant n'est déclaré OK par principe : chacun est éprouvé, et
+    ce qui échoue dit pourquoi. Un diagnostic qui afficherait « OK » partout
+    sans rien avoir essayé serait pire qu'inutile — il rassurerait à tort.
+
+    `configurations` : un appelable qui charge les fichiers de configuration
+    du moteur. La CLI le fournit ; ce module ne connaît aucun chemin.
+    """
+    composants, details = [], []
+
+    # ── le moteur : ses configurations se chargent-elles ? ──
+    if configurations is None:
+        composants.append(("Moteur", NON_MESURE + " — non éprouvé ici"))
+    else:
+        try:
+            configurations()
+            composants.append(("Moteur", "OK"))
+        except Exception as e:                                   # noqa: BLE001
+            composants.append(("Moteur", "ERREUR"))
+            details.append(f"configuration illisible : {e}")
+
+    # ── la base : lisible, et que contient-elle ? ──
+    try:
+        n_opp = cx.execute("SELECT count(*) c FROM opportunites").fetchone()["c"]
+        n_avis = cx.execute("SELECT count(*) c FROM avis").fetchone()["c"]
+        composants.append(("Base", f"OK — {n_avis} avis · {n_opp} opportunités"))
+    except Exception as e:                                       # noqa: BLE001
+        composants.append(("Base", "ERREUR"))
+        details.append(f"base illisible : {e}")
+        n_opp = n_avis = 0
+
+    # ── les sources : combien ont réellement rendu quelque chose ? ──
+    # Les moteurs DÉCLARÉS comptent, même sans clé : un diagnostic qui
+    # dirait « Sources OK — 1/1 » en taisant les deux moteurs injoignables
+    # rassurerait exactement là où il ne faut pas.
+    liste = sources(cx, declarees=declarees)
+    consultees = [s for s in liste if s["etat"] == "CONSULTÉE"]
+    if not liste:
+        composants.append(("Sources", JAMAIS_CONSULTEE + " — aucune déclarée"))
+    elif len(consultees) == len(liste):
+        composants.append(("Sources", f"OK — {len(consultees)}/{len(liste)}"))
+    else:
+        composants.append(("Sources", f"PARTIEL — {len(consultees)}/{len(liste)}"))
+    for s in liste:
+        if s["etat"] != "CONSULTÉE":
+            details.append(f"source {s['nom']} : {s['etat']}"
+                           + (f" — {s['motif']}" if s.get("motif") else ""))
+
+    # ── l'import : le module refuse-t-il bien un fichier sans provenance ? ──
+    try:
+        from . import import_externe as imp
+        composants.append(("Import", f"OK — exige « {imp.PROVENANCE} »"))
+    except Exception as e:                                       # noqa: BLE001
+        composants.append(("Import", "ERREUR"))
+        details.append(f"import indisponible : {e}")
+
+    # ── la collecte : des pages ont-elles été RÉELLEMENT lues ? ──
+    try:
+        from . import pages as mod_pages
+        toutes = mod_pages.a_surveiller(cx, toutes=True)
+        lues = [p for p in toutes
+                if p.acces and p.acces.value not in (JAMAIS_CONSULTEE,)]
+        if not toutes:
+            composants.append(("Collecte", JAMAIS_CONSULTEE + " — aucune page"))
+        elif not lues:
+            composants.append(("Collecte", f"{JAMAIS_CONSULTEE} — "
+                                           f"{len(toutes)} page(s) en attente"))
+            details.append("aucune page n'a été lue : le radar ne peut pas "
+                           "collecter lui-même dans cet environnement — "
+                           "voir `radar collecter`")
+        else:
+            composants.append(("Collecte", f"OK — {len(lues)}/{len(toutes)} lue(s)"))
+    except Exception as e:                                       # noqa: BLE001
+        composants.append(("Collecte", "ERREUR"))
+        details.append(f"registre de pages illisible : {e}")
+
+    # ── notifications et surveillance ──
+    try:
+        n_notif = cx.execute("SELECT count(*) c FROM notifications").fetchone()["c"]
+        composants.append(("Notifications", f"OK — {n_notif} préparée(s), "
+                                            "0 envoyée(s)"))
+    except Exception as e:                                       # noqa: BLE001
+        composants.append(("Notifications", "ERREUR"))
+        details.append(str(e))
+    try:
+        from . import pages as mod_pages
+        surveillees = mod_pages.a_surveiller(cx)
+        composants.append(("Surveillance", f"OK — {len(surveillees)} page(s)"))
+    except Exception as e:                                       # noqa: BLE001
+        composants.append(("Surveillance", "ERREUR"))
+        details.append(str(e))
+
+    suggestion = ("radar analyse-du-jour --import <fichier.tsv>"
+                  if n_opp == 0 else "radar opportunites")
+    return {"composants": composants, "details": details,
+            "suggestion": suggestion,
+            "opportunites": n_opp, "avis": n_avis}

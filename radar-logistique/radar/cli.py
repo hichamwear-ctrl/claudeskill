@@ -22,6 +22,38 @@ from .chaine import Moteur, traiter
 RACINE = Path(__file__).resolve().parent.parent
 
 
+# LA CATÉGORIE « pas encore une opportunité », LUE dans le moteur et jamais
+# réécrite : c'est la seule qu'on masque par défaut dans les listes, parce
+# qu'elle répond à « on n'en est pas encore là » et non à « comment entrer ».
+# Elle n'est jamais SUPPRIMÉE — `--tout` la montre.
+def _observation() -> str:
+    from .classification import Type
+    return Type.OBSERVATION.value
+
+
+OBSERVATION = _observation()
+
+
+class ArgumentUtilisateur(Exception):
+    """Une erreur de l'utilisateur, pas un défaut du programme.
+
+    Elle s'affiche en clair et sort en code non nul. Un traceback Python
+    pour un fichier introuvable dirait à l'exploitant que le radar est
+    cassé, alors qu'il s'est simplement trompé de chemin.
+    """
+
+
+def _erreur_humaine(titre: str, quoi: str, motif: str,
+                    consequence: str = "Aucune donnée n'a été créée.") -> str:
+    return "\n".join([
+        "", f"❌ {titre}", "",
+        f"  Élément :  {quoi}", "",
+        "  Motif :",
+        *[f"    {l}" for l in str(motif).splitlines()],
+        "", f"  {consequence}", ""])
+
+
+
 def _mode(a) -> Mode:
     return Mode.REEL if getattr(a, "reel", False) else Mode.DEMO
 
@@ -1177,6 +1209,198 @@ def cmd_api(a) -> int:
     return 0
 
 
+# ══════════════════════════════════════════════════ LA V1 EN LIGNE DE COMMANDE
+#
+# Ces commandes n'ajoutent AUCUNE règle métier. Elles appellent
+# `radar/service.py`, qui appelle le moteur, et `radar/vue.py`, qui met en
+# forme. Les catégories, leurs emojis, les actions et les scores arrivent
+# déjà décidés : la CLI ne les renomme pas et ne les recalcule pas.
+
+def _sortir(a, charge, texte: str) -> int:
+    """JSON si on le demande, vue humaine sinon. Jamais les deux."""
+    if getattr(a, "json", False):
+        print(json.dumps(charge, ensure_ascii=False, indent=2))
+    else:
+        print(texte)
+    return 0
+
+
+def _comptes(cx) -> dict:
+    """Ce que la base contient AVANT un cycle — pour dire ce qui est neuf."""
+    def n(table):
+        try:
+            return cx.execute(f"SELECT count(*) c FROM {table}").fetchone()["c"]
+        except Exception:                                        # noqa: BLE001
+            return 0
+    return {"opportunites": n("opportunites"), "entreprises": n("entreprises")}
+
+
+def cmd_analyse_du_jour(a) -> int:
+    """UN CYCLE COMPLET, puis sa synthèse lisible.
+
+    C'est le même parcours que `radar run` : découverte ou import,
+    déduplication, qualification, identification, classification, score,
+    action, notifications préparées, surveillance. Rien n'est réordonné ici.
+    """
+    from . import service, vue
+    cx = ouvrir(_base(a))
+    avant = _comptes(cx)
+
+    imports = list(a.importer or [])
+    for chemin in imports:
+        if not Path(chemin).exists():
+            print(_erreur_humaine("IMPORT IMPOSSIBLE", chemin,
+                                  "fichier introuvable."), file=sys.stderr)
+            return 2
+
+    adaptateur, _ = _source("recherche")
+    cycle = service.analyser(
+        cx, _moteur(cx), adaptateur, imports=imports or None,
+        collectes=list(a.collecte or []) or None,
+        moteurs_declares=_moteurs_declares().moteurs,
+        profil=_cfg("sources/page_web.yaml"))
+    cx.commit()
+
+    apres = _comptes(cx)
+    mouvement = {**avant, **{f"apres_{k}": v for k, v in apres.items()}}
+    cartes = service.opportunites(cx, limite=None)
+    mode = _mode_du_cycle(cycle, imports)
+
+    if getattr(a, "json", False):
+        return _sortir(a, {"cycle": cycle, "mode": mode,
+                           "opportunites": cartes}, "")
+    print(vue.analyse_du_jour(cycle, mode=mode, avant=mouvement, cartes=cartes))
+    retenues = [c for c in cartes if c["categorie"]["code"] != OBSERVATION]
+    if retenues:
+        print()
+        print(vue.opportunites(retenues[:a.top],
+                               titre="CE QUI EST RETENU"))
+    return 0
+
+
+def _mode_du_cycle(cycle: dict, imports) -> str:
+    """Ce que le radar a RÉELLEMENT fait. Jamais un mode décoratif.
+
+    Une fixture ne peut pas ressortir « RÉEL » ici : le mode est lu dans les
+    sources effectivement exécutées, pas dans une option de ligne de commande.
+    """
+    from . import execution as ex
+    executees = cycle["sources"]["executees"]
+    if any(ex.est_import(nom) for nom in executees):
+        return "IMPORT RÉEL — recherche exécutée HORS RADAR"
+    if executees:
+        return "RECHERCHE RÉELLE PAR LE RADAR"
+    if imports:
+        return "IMPORT DEMANDÉ — aucune ligne retenue"
+    return "AUCUNE SOURCE EXÉCUTÉE — rien n'a été cherché"
+
+
+def cmd_v1_opportunites(a) -> int:
+    from . import service, vue
+    if getattr(a, "detail", False):
+        return cmd_opportunites(a)
+    cx = ouvrir(_base(a), lecture_seule=True)
+    cartes = service.opportunites(
+        cx, limite=a.limite, categorie=_categorie(a),
+        exclure=None if getattr(a, "tout", False) else OBSERVATION)
+    return _sortir(a, cartes, vue.opportunites(cartes))
+
+
+def _categorie(a):
+    """La catégorie demandée, telle que le moteur la nomme."""
+    from .classification import Type
+    demande = (getattr(a, "categorie", None) or "").upper()
+    if not demande:
+        return None
+    for t in Type:
+        if demande in (t.name, t.value.upper()):
+            return t.value
+    raise ArgumentUtilisateur(
+        f"« {demande} » n'est pas une catégorie. Les six sont : "
+        + " · ".join(t.value for t in Type))
+
+
+def cmd_v1_opportunite(a) -> int:
+    from . import service, vue
+    cx = ouvrir(_base(a), lecture_seule=True)
+    carte = service.opportunite(cx, a.identifiant)
+    if carte is None:
+        raise ArgumentUtilisateur(
+            f"aucune opportunité #{a.identifiant} dans cette base.\n"
+            "Lister les identifiants disponibles :  radar opportunites")
+    return _sortir(a, carte, vue.fiche_opportunite(carte))
+
+
+def cmd_v1_entreprises(a) -> int:
+    from . import service, vue
+    if getattr(a, "detail", False):
+        return cmd_entreprises(a)
+    cx = ouvrir(_base(a), lecture_seule=True)
+    liste = service.entreprises(cx, limite=a.limite)
+    return _sortir(a, liste, vue.entreprises(liste))
+
+
+def cmd_v1_entreprise(a) -> int:
+    from . import service, vue
+    cx = ouvrir(_base(a), lecture_seule=True)
+    fiche = service.entreprise(cx, a.identifiant)
+    if fiche is None:
+        raise ArgumentUtilisateur(
+            f"aucune entreprise « {a.identifiant} » dans cette base.\n"
+            "Lister les domaines connus :  radar entreprises")
+    return _sortir(a, fiche, vue.fiche_entreprise(fiche))
+
+
+def cmd_v1_signaux(a) -> int:
+    from . import service, vue
+    cx = ouvrir(_base(a), lecture_seule=True)
+    liste = service.signaux(cx, limite=a.limite)
+    return _sortir(a, liste, vue.signaux(liste))
+
+
+def cmd_v1_suivi(a) -> int:
+    from . import service, vue
+    cx = ouvrir(_base(a), lecture_seule=True)
+    liste = service.suivi(cx, limite=a.limite)
+    return _sortir(a, liste, vue.suivi(liste))
+
+
+def cmd_v1_notifications(a) -> int:
+    from . import service, vue
+    if getattr(a, "detail", False):
+        return cmd_notifications(a)
+    cx = ouvrir(_base(a), lecture_seule=True)
+    liste = service.notifications(cx, cycle_id=a.cycle, limite=a.limite)
+    return _sortir(a, liste, vue.notifications(liste))
+
+
+def cmd_v1_sources(a) -> int:
+    from . import service, vue
+    if getattr(a, "detail", False):
+        return cmd_sources(a)
+    cx = ouvrir(_base(a), lecture_seule=True)
+    liste = service.sources(cx, declarees=_moteurs_declares().moteurs)
+    return _sortir(a, liste, vue.sources(liste))
+
+
+def cmd_statut(a) -> int:
+    """« Est-ce que ça marche ? » — éprouvé, jamais déclaré."""
+    from . import service, vue
+    cx = ouvrir(_base(a))
+    diag = service.diagnostic(cx, configurations=_configurations,
+                              declarees=_moteurs_declares().moteurs)
+    return _sortir(a, diag, vue.statut(diag))
+
+
+def _configurations():
+    """Charge tout ce dont le moteur a besoin. Lève si l'un manque."""
+    for nom in ("profil.yaml", "config/capacites.yaml", "config/geographie.yaml",
+                "config/ponderations.yaml", "config/roles.yaml"):
+        _cfg(nom)
+    _source("recherche")
+    return True
+
+
 def cmd_notifier(a) -> int:
     cx = ouvrir(_base(a))
     repris = envoi.reprendre_interrompus(cx)
@@ -1297,10 +1521,22 @@ def principal(argv=None) -> int:
                    help="filtrer sur une catégorie")
     o.add_argument("--moteur", choices=["capter", "developper"],
                    help="CAPTER = agir maintenant · DEVELOPPER = action commerciale")
-    o.set_defaults(fn=cmd_opportunites)
+    o.add_argument("--categorie",
+                   help="filtrer sur une catégorie telle que le moteur la nomme")
+    o.add_argument("--tout", action="store_true",
+                   help="montrer aussi ⚪ PAS ENCORE UNE OPPORTUNITÉ")
+    o.add_argument("--detail", action="store_true",
+                   help="la liste technique, dense, d'origine")
+    o.add_argument("--json", action="store_true")
+    o.add_argument("--limite", type=int, default=50)
+    o.set_defaults(fn=cmd_v1_opportunites)
 
     en = s.add_parser("entreprises", help="entreprises découvertes et surveillées")
-    en.set_defaults(fn=cmd_entreprises)
+    en.add_argument("--json", action="store_true")
+    en.add_argument("--limite", type=int, default=100)
+    en.add_argument("--detail", action="store_true",
+                    help="le registre technique d'origine")
+    en.set_defaults(fn=cmd_v1_entreprises)
 
     su = s.add_parser("surveiller", help="ajouter manuellement une entreprise")
     su.add_argument("nom"); su.add_argument("--domaine")
@@ -1363,7 +1599,10 @@ def principal(argv=None) -> int:
     nt = s.add_parser("notifications", help="les cartes à lire ce matin")
     nt.add_argument("--cycle", help="n'afficher qu'un cycle")
     nt.add_argument("--limite", type=int, default=10)
-    nt.set_defaults(fn=cmd_notifications)
+    nt.add_argument("--json", action="store_true")
+    nt.add_argument("--detail", action="store_true",
+                    help="le rapport de notification d'origine")
+    nt.set_defaults(fn=cmd_v1_notifications)
 
     tb = s.add_parser("tableau",
                       help="la boucle commerciale mesurée de bout en bout")
@@ -1451,7 +1690,10 @@ def principal(argv=None) -> int:
     inc.set_defaults(fn=cmd_incidents)
 
     so2 = s.add_parser("sources", help="registre des sources et leur état réel")
-    so2.set_defaults(fn=cmd_sources)
+    so2.add_argument("--json", action="store_true")
+    so2.add_argument("--detail", action="store_true",
+                     help="le registre déclaré et son rendement")
+    so2.set_defaults(fn=cmd_v1_sources)
 
     rq = s.add_parser("requetes", help="requêtes de découverte générées")
     rq.add_argument("--limite", type=int, default=20)
@@ -1489,6 +1731,48 @@ def principal(argv=None) -> int:
                     help="un fichier de pages lues HORS RADAR")
     ap.set_defaults(fn=cmd_api)
 
+    # ── LA V1 EN LIGNE DE COMMANDE ──────────────────────────────────────
+    def _commun(q, *, limite=None):
+        q.add_argument("--json", action="store_true",
+                       help="sortie structurée, pour une interface")
+        if limite is not None:
+            q.add_argument("--limite", type=int, default=limite)
+        return q
+
+    adj = s.add_parser("analyse-du-jour",
+                       help="UN CYCLE COMPLET, puis sa synthèse lisible")
+    adj.add_argument("--import", dest="importer", action="append",
+                     help="un export de recherche produit HORS RADAR (TSV/CSV/JSON)")
+    adj.add_argument("--collecte", action="append",
+                     help="un fichier de pages lues HORS RADAR")
+    adj.add_argument("--top", type=int, default=10,
+                     help="combien d'opportunités détailler (défaut : 10)")
+    _commun(adj)
+    adj.set_defaults(fn=cmd_analyse_du_jour)
+
+    op1 = s.add_parser("opportunite", help="la fiche complète d'une opportunité")
+    op1.add_argument("identifiant", help="l'identifiant affiché par `radar opportunites`")
+    _commun(op1)
+    op1.set_defaults(fn=cmd_v1_opportunite)
+
+    en1 = s.add_parser("entreprise", help="la fiche complète d'une entreprise")
+    en1.add_argument("identifiant", help="le domaine affiché par `radar entreprises`")
+    _commun(en1)
+    en1.set_defaults(fn=cmd_v1_entreprise)
+
+    sg = s.add_parser("signaux",
+                      help="ce qui bouge — SANS que personne ait rien demandé")
+    _commun(sg, limite=50)
+    sg.set_defaults(fn=cmd_v1_signaux)
+
+    sv = s.add_parser("suivi", help="où en est chaque affaire commercialement")
+    _commun(sv, limite=100)
+    sv.set_defaults(fn=cmd_v1_suivi)
+
+    st = s.add_parser("statut", help="est-ce que ça marche ? — éprouvé, pas déclaré")
+    _commun(st)
+    st.set_defaults(fn=cmd_statut)
+
     n = s.add_parser("notifier", help="vider la file d'envoi")
     n.add_argument("--pour-de-vrai", action="store_true",
                    help="écrire réellement les alertes (sinon : essai à blanc)")
@@ -1497,7 +1781,34 @@ def principal(argv=None) -> int:
     n.set_defaults(fn=cmd_notifier)
 
     a = p.parse_args(argv)
-    return a.fn(a)
+    return _executer(a)
+
+
+# Les erreurs qui viennent de CE QUE L'UTILISATEUR A DEMANDÉ, et non d'un
+# défaut du programme. Elles s'affichent en clair ; tout le reste remonte
+# avec son traceback, parce qu'un vrai défaut ne doit pas être déguisé en
+# message poli.
+def _erreurs_utilisateur():
+    import sqlite3
+    from .import_externe import ImportInvalide
+    from .collecte_importee import CollecteInvalide
+    from .suivi import DateInvalide, OpportuniteIntrouvable, StatutInconnu
+    from .verdicts import JugeInvalide, VerdictInconnu
+    return (ArgumentUtilisateur, FileNotFoundError, IsADirectoryError,
+            PermissionError, ImportInvalide, CollecteInvalide,
+            StatutInconnu, OpportuniteIntrouvable, DateInvalide,
+            JugeInvalide, VerdictInconnu, sqlite3.OperationalError)
+
+
+def _executer(a) -> int:
+    try:
+        return a.fn(a)
+    except _erreurs_utilisateur() as e:
+        quoi = getattr(e, "filename", None) or f"commande « {a.cmd} »"
+        print(_erreur_humaine(f"{a.cmd.upper()} — IMPOSSIBLE", quoi,
+                              getattr(e, "strerror", None) or str(e)),
+              file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

@@ -1,5 +1,15 @@
 # RADAR COMMERCIAL MULTI-SOURCES — transport et logistique
 
+> **Vous voulez juste le lancer et le voir tourner ?**
+> → **[`DEMARRER.md`](DEMARRER.md)** — toutes les commandes, copiables telles
+> quelles, Windows et Linux/macOS.
+>
+> ```cmd
+> radar --base radar.sqlite3 statut
+> radar --base radar.sqlite3 analyse-du-jour --import validation\exports-reels\2026-09-14-premier-export-reel.tsv
+> radar --base radar.sqlite3 opportunites
+> ```
+
 Le radar détecte des opportunités de chiffre d'affaires provenant de
 **différentes familles de sources prévues par l'architecture**, les qualifie
 économiquement, distingue les **faits** des **signaux** et des **hypothèses**,
