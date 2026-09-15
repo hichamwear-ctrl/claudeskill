@@ -52,6 +52,14 @@ def _statuts():
     return list(Statut)
 
 
+def _sentinelle_jamais_regardee() -> str:
+    """Le sentinelle du schéma, lu chez `suivi` et jamais recopié ici : deux
+    définitions de « jamais regardée » finiraient par diverger, et c'est
+    précisément comme cela que 26 opportunités ont disparu du tableau."""
+    from .suivi import NON_VU
+    return NON_VU
+
+
 @dataclass
 class Tableau:
     """Les cinq blocs demandés, et rien de plus."""
@@ -119,8 +127,27 @@ def mesurer(cx) -> Tableau:
     t.commercial = {s.value: _compte(
         cx, "SELECT count(*) FROM opportunites WHERE etat=?", (s.value,))
         for s in _statuts()}
+    # « Jamais regardée » n'est PAS `NULL` en base : le schéma pose le
+    # sentinelle `non_vu` par défaut. Ne lire que `etat IS NULL` faisait
+    # disparaître 26 opportunités sur 27 du bloc COMMERCIAL — elles ne
+    # correspondaient ni à ce compteur, ni à aucun des huit statuts.
+    #
+    # Pire : la colonne est `NOT NULL DEFAULT 'non_vu'`. `etat IS NULL` ne
+    # pouvait donc JAMAIS rien trouver — le compteur valait 0 sur toute
+    # base, depuis le jour où il a été écrit. On le garde tout de même, pour
+    # une base d'une version antérieure où la colonne aurait été nullable.
+    #
+    # Le sentinelle n'est pas remplacé par NULL, et son sens ne change pas :
+    # c'est `tableau.py` qui apprend à lire l'état réellement stocké. Le
+    # vocabulaire d'absence est celui de `suivi.lire()`, et c'est lui qui
+    # fait foi — d'où les formes reprises telles quelles.
     t.commercial["sans_statut"] = _compte(
-        cx, "SELECT count(*) FROM opportunites WHERE etat IS NULL")
+        cx, "SELECT count(*) FROM opportunites"
+            " WHERE etat IS NULL OR etat='' OR etat=?",
+        (_sentinelle_jamais_regardee(),))
+    # L'invariant du bloc : tout ce qui est en base est compté une fois et
+    # une seule. C'est ce total qui a manqué pour voir le défaut.
+    t.commercial["total"] = _compte(cx, "SELECT count(*) FROM opportunites")
     t.commercial["actions"] = {
         l["action"]: l["n"] for l in cx.execute(
             "SELECT action, count(*) n FROM opportunites"
@@ -245,6 +272,8 @@ def rapport(cx) -> str:
     for s in _statuts():
         L.append(f"  {s.value:<28} {t.commercial[s.value]:>6}")
     L.append(f"  {'jamais regardées':<28} {t.commercial['sans_statut']:>6}")
+    L.append(f"  {'TOTAL':<28} {t.commercial['total']:>6}"
+             "   toutes les opportunités, comptées une seule fois")
     L.append(f"  {'attributions':<28} {t.commercial['attributions']:>6}"
              f"   dont {t.commercial['renouvellements']} avec renouvellement")
 
