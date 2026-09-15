@@ -1,0 +1,34 @@
+# LES DÉPENDANCES RÉELLES DU RADAR — vérifiées, pas supposées.
+#
+# La documentation a affirmé pendant tout un cycle que PyYAML était « la
+# seule dépendance ». C'était faux : un poste Windows neuf s'est arrêté sur
+# ModuleNotFoundError: No module named 'tzdata' avant la première commande.
+#
+#     pip install -r requirements.txt
+#     py -m pip install -r requirements.txt        (Windows)
+#
+# Pour vérifier que l'environnement est complet AVANT de lancer le radar :
+#
+#     python outils/verifier_environnement.py
+
+# Lit profil.yaml, config/*.yaml et sources/*.yaml. Sans lui, aucune
+# configuration ne se charge : ni les rôles, ni la géographie, ni les
+# pondérations du score.
+PyYAML>=6.0
+
+# La base de fuseaux horaires IANA.
+#
+# radar/statut.py lit les échéances en heure belge : une date de source sans
+# fuseau vaut Europe/Brussels. Windows ne livre AUCUNE base de fuseaux, donc
+# ZoneInfo("Europe/Brussels") y lève ZoneInfoNotFoundError à l'importation —
+# le radar ne démarre pas du tout.
+#
+# Déclaré sans condition de plateforme, et non « ; platform_system ==
+# "Windows" » : les conteneurs Linux minimalistes n'ont pas non plus de base
+# système. Là où le système en fournit une, zoneinfo la préfère et ce paquet
+# ne sert que de filet.
+#
+# Ce n'est PAS remplaçable par un décalage fixe : la Belgique change d'heure
+# deux fois par an, et un UTC+1 gelé décalerait toutes les échéances d'une
+# heure la moitié de l'année.
+tzdata>=2024.1

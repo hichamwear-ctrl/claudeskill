@@ -7,6 +7,7 @@ INCAPABLE d'écrire, pas simplement promettre de ne pas le faire.
 
 from __future__ import annotations
 
+import errno
 import json
 import sqlite3
 from datetime import datetime, timezone
@@ -114,7 +115,63 @@ def _refondre(cx, schema: str) -> None:
         cx.execute("PRAGMA foreign_keys = ON")
 
 
+class BaseAbsente(FileNotFoundError):
+    """La base demandée n'existe pas encore.
+
+    Une commande de LECTURE ne la crée pas. Ce n'est pas une timidité
+    technique : une base vide répondrait « 0 signal » là où la vérité est
+    « aucune analyse n'a encore été lancée ». C'est exactement la confusion
+    que le radar refuse partout ailleurs — NON CONSULTÉE n'est jamais
+    « 0 résultat ». Elle ne va pas commencer par sa propre base.
+    """
+
+
+class DossierAbsent(FileNotFoundError):
+    """Le dossier censé contenir la base n'existe pas. SQLite ne crée jamais
+    un dossier, en lecture comme en écriture : on le dit, on ne le crée pas
+    à la place de l'exploitant."""
+
+
+def _chemin_special(chemin) -> bool:
+    """`:memory:` et les URI `file:` sont des bases sans fichier sur disque.
+    Les tests et les outils d'audit s'en servent : aucune vérification de
+    présence n'a de sens pour elles."""
+    brut = str(chemin)
+    return brut == ":memory:" or brut.startswith("file:") or brut == ""
+
+
+def _verifier_presence(chemin, lecture_seule: bool) -> None:
+    """Dit en clair ce que SQLite dirait par « unable to open database file ».
+
+    Ce message-là est vrai mais illisible : il couvre indifféremment un
+    fichier absent, un dossier absent et un droit refusé. L'exploitant a
+    besoin de savoir LEQUEL, et quoi taper ensuite.
+    """
+    cible = Path(chemin).resolve()
+    if not cible.parent.is_dir():
+        raise DossierAbsent(
+            errno.ENOENT,
+            f"le dossier « {cible.parent} » n'existe pas.\n"
+            "Créez-le, ou donnez à --base un chemin situé dans un dossier "
+            "existant.",
+            str(chemin))
+    if lecture_seule and not cible.exists():
+        raise BaseAbsente(
+            errno.ENOENT,
+            "la base n'existe pas encore.\n"
+            "Une commande de lecture ne la crée pas : une base vide "
+            "afficherait « 0 résultat »,\n"
+            "alors que la vérité est « aucune analyse n'a encore été "
+            "lancée ».\n"
+            "\n"
+            "Créer la base et la remplir :\n"
+            "  radar analyse-du-jour --import <fichier.tsv>",
+            str(chemin))
+
+
 def ouvrir(chemin, lecture_seule: bool = False) -> sqlite3.Connection:
+    if not _chemin_special(chemin):
+        _verifier_presence(chemin, lecture_seule)
     if lecture_seule:
         uri = f"file:{Path(chemin).resolve()}?mode=ro"
         cx = sqlite3.connect(uri, uri=True)

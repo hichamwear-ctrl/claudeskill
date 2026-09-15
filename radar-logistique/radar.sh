@@ -7,7 +7,8 @@
 #      ./radar.sh statut
 #
 #  Sous Windows, le lanceur s'appelle radar.cmd et s'invoque « radar ».
-#  Rien à installer : bibliothèque standard de Python, plus PyYAML.
+#  Dépendances : bibliothèque standard, plus PyYAML et tzdata.
+#      python3 -m pip install -r requirements.txt
 #
 #  Le fichier ne peut pas s'appeler « radar » tout court : c'est déjà le
 #  nom du paquet Python, et les deux se marcheraient dessus.

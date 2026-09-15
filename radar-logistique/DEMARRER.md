@@ -6,25 +6,52 @@ Tout ce qui suit se copie-colle tel quel.
 
 ## 1. INSTALLATION
 
-**Il n'y a rien à compiler et aucun service à lancer.** Le radar n'utilise que
-la bibliothèque standard de Python, plus **PyYAML**.
+**Il n'y a rien à compiler et aucun service à lancer.** Le radar utilise la
+bibliothèque standard de Python et **deux paquets** :
+
+| paquet | à quoi il sert | s'il manque |
+|---|---|---|
+| **PyYAML** | lire `profil.yaml`, `config/*.yaml`, `sources/*.yaml` | aucune configuration ne se charge |
+| **tzdata** | résoudre `Europe/Brussels` — les échéances sont lues en heure belge | **le radar ne démarre pas du tout** sous Windows |
+
+> **Une version antérieure de ce guide annonçait « PyYAML seulement ». C'était
+> faux.** Windows ne livre aucune base de fuseaux horaires : sans `tzdata`, la
+> toute première commande s'arrête sur
+> `ModuleNotFoundError: No module named 'tzdata'`. La liste exacte vit
+> désormais dans `requirements.txt`, et un script la vérifie pour de bon.
 
 **Windows**
 
 ```cmd
-python --version
-python -m pip install pyyaml
+py --version
+py -m pip install -r requirements.txt
 ```
 
-Si `python` est introuvable : installez Python 3.11 ou plus récent depuis
-python.org, **en cochant « Add python.exe to PATH »**.
+> **`py`, pas `python`.** Windows 10 et 11 installent un **faux** `python.exe`
+> qui se contente d'afficher « Python introuvable » et de renvoyer vers le
+> Microsoft Store. `py` est le lanceur officiel et il désigne la vraie
+> installation. Si `py` est introuvable, installez Python 3.11 ou plus récent
+> depuis python.org, **en cochant « Add python.exe to PATH »**.
 
 **Linux / macOS**
 
 ```bash
 python3 --version
-python3 -m pip install pyyaml
+python3 -m pip install -r requirements.txt
 ```
+
+**Vérifier que l'environnement est complet — avant toute autre commande :**
+
+```cmd
+py outils\verifier_environnement.py
+```
+
+```bash
+python3 outils/verifier_environnement.py
+```
+
+Il répond `ENVIRONNEMENT COMPLET`, ou bien il nomme ce qui manque, pourquoi
+c'est nécessaire, et la ligne exacte à taper.
 
 Puis placez-vous dans le dossier du projet :
 
@@ -52,7 +79,12 @@ radar --base radar.sqlite3 statut
 
 `radar.cmd` est dans le dossier du projet, et **CMD cherche d'abord dans le
 répertoire courant**. Être dans `radar-logistique` suffit donc : il n'y a
-**aucun PATH à modifier et aucun paquet à installer**.
+**aucun PATH à modifier**.
+
+Le lanceur **essaie successivement `python`, puis `py -3`, puis `python3`, et
+garde le premier qui répond vraiment** — il les exécute au lieu d'interroger le
+PATH, pour que le faux `python.exe` du Microsoft Store se disqualifie tout
+seul. Il vérifie ensuite PyYAML et le fuseau avant de lancer quoi que ce soit.
 
 | vous utilisez | vous tapez |
 |---|---|
@@ -69,13 +101,14 @@ Si `radar` ne répond pas, pour quelque raison que ce soit, **cette commande
 fonctionne dans tous les cas**, y compris sous PowerShell :
 
 ```cmd
-python -m radar.cli --base radar.sqlite3 statut
+py -m radar.cli --base radar.sqlite3 statut
 ```
 
 Elle est strictement équivalente : `radar.cmd` ne fait rien d'autre que
 l'appeler, après avoir réglé l'encodage de la console. **Toutes les commandes
-de ce guide s'écrivent aussi avec `python -m radar.cli`** — remplacez
-simplement le mot `radar` par `python -m radar.cli`.
+de ce guide s'écrivent aussi avec `py -m radar.cli`** — remplacez simplement
+le mot `radar` par `py -m radar.cli` (ou `python3 -m radar.cli` sous
+Linux / macOS).
 
 Ce que vous devez voir — **sortie réelle, sur une base vierge** :
 
@@ -238,8 +271,14 @@ Les huit statuts existants : `NOUVELLE`, `CONTACT À FAIRE`, `CONTACTÉE`,
 Pour en poser un — **c'est un humain qui décide, jamais le moteur** :
 
 ```cmd
-radar --base radar.sqlite3 suivre --id 8 --statut "CONTACT À FAIRE"
+radar --base radar.sqlite3 suivre colisprive --statut "CONTACT À FAIRE"
 ```
+
+`suivre` prend une **référence de source** — l'adresse de la page, ou un
+fragment qui n'en désigne qu'une seule. **Il n'y a pas d'option `--id`.**
+L'adresse complète se lit sur la fiche : `radar opportunite 8`. Un fragment
+ambigu est refusé, avec la liste des affaires qu'il désigne : le radar ne
+choisit pas à votre place.
 
 ---
 
@@ -329,14 +368,14 @@ ne charge pas un fichier dont il ignore qui a exécuté la recherche.
 ## 14. LANCER LES TESTS
 
 ```cmd
-python -m unittest discover -s tests
+py -m unittest discover -s tests
 ```
 
 ```bash
 python3 -m unittest discover -s tests
 ```
 
-Attendu : **1379 tests, 0 échec.** Les tests sont écrits avec `unittest` ;
+Attendu : **1413 tests, 0 échec.** Les tests sont écrits avec `unittest` ;
 `pytest -q` les collecte aussi si vous l'avez installé.
 
 L'audit du cahier des charges, règle par règle :
@@ -355,7 +394,7 @@ python3 outils/audit_cahier.py
 | Recherche Brave | **NON DISPONIBLE — CLÉ ABSENTE** |
 | Collecte directe de pages | aucune page lue par le radar lui-même |
 | Précision / rappel | **ÉCHANTILLON INSUFFISANT** — moins de 20 verdicts relus |
-| PowerShell | `radar` seul ne marche pas — écrire `.\radar` ou `python -m radar.cli` |
+| PowerShell | `radar` seul ne marche pas — écrire `.\radar` ou `py -m radar.cli` |
 
 C'est pour cela que l'entrée passe aujourd'hui par `--import` : un moteur
 extérieur produit le fichier, le radar le charge en déclarant sa provenance,

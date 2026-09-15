@@ -301,15 +301,37 @@ def _surveillance_de(cx, url) -> dict:
 
 
 def _suivi_de(cx, avis_id) -> dict:
+    """La clé du contrat s'appelle « depuis » ; la colonne en base s'appelle
+    « etat_maj » et `Suivi` l'expose sous le nom `statut_maj`.
+
+    Ces deux noms ont divergé et personne ne l'a vu : `getattr(s, "depuis")`
+    ne levait rien, il rendait None. La fiche affichait donc « aucun
+    changement enregistré » juste après que `radar suivre` ait écrit le
+    changement — le radar se contredisait lui-même. On lit l'attribut par
+    son vrai nom, pour qu'une faute de nom redevienne une erreur bruyante.
+
+    Le filet était `except Exception`, et c'est LUI qui a rendu le défaut
+    invisible : une faute d'attribut y serait morte aussi silencieusement.
+    On ne rattrape donc plus que ce qui est légitimement attendu — pas
+    d'opportunité pour cet avis, valeur illisible, base d'une version
+    antérieure. Un AttributeError remonte désormais jusqu'à la surface.
+    """
+    import sqlite3
     if avis_id is None:
-        return {"statut": "NOUVELLE", "depuis": None}
+        return {"statut": "NOUVELLE", "depuis": None, "motif": None}
     try:
         from . import suivi as mod
         s = mod.lire(cx, int(avis_id))
-        return {"statut": s.statut.value, "depuis": getattr(s, "depuis", None),
-                "motif": getattr(s, "motif", None)}
-    except Exception:                                            # noqa: BLE001
-        return {"statut": "NOUVELLE", "depuis": None}
+    except (ValueError, TypeError, sqlite3.OperationalError):
+        return {"statut": "NOUVELLE", "depuis": None, "motif": None}
+    # Une affaire jamais regardée a `statut = None` en base — c'est le défaut
+    # `non_vu` du schéma. Le resserrement du filet ci-dessus a montré que
+    # « NOUVELLE » ne sortait PAS d'ici mais d'un AttributeError attrapé au
+    # vol : `s.statut.value` sur None. La bonne réponse était la bonne pour
+    # une mauvaise raison. On la dit maintenant explicitement.
+    if s.jamais_regardee:
+        return {"statut": "NOUVELLE", "depuis": None, "motif": s.motif}
+    return {"statut": s.statut.value, "depuis": s.statut_maj, "motif": s.motif}
 
 
 def _lignes_opportunites(cx, *, limite, categorie=None, avis_id=None,
@@ -658,10 +680,10 @@ def poser_action(cx, avis_id, statut, *, motif=None,
                     prochaine_action_le=prochaine_action_le,
                     dernier_contact_le=dernier_contact_le, par=par)
     return {"avis_id": int(avis_id), "statut": s.statut.value,
-            "motif": getattr(s, "motif", None),
-            "depuis": getattr(s, "depuis", None),
-            "prochaine_action_le": getattr(s, "prochaine_action_le", None),
-            "dernier_contact_le": getattr(s, "dernier_contact_le", None)}
+            "motif": s.motif,
+            "depuis": s.statut_maj,
+            "prochaine_action_le": s.prochaine_action_le,
+            "dernier_contact_le": s.dernier_contact_le}
 
 
 def actions_possibles(cx, avis_id) -> list[str]:

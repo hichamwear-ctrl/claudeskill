@@ -1,0 +1,9 @@
+# Un .cmd est lu par CMD, pas par un shell Unix. Avec des fins de ligne LF,
+# « goto » et « call :label » peuvent se perdre : CMD relit le fichier par
+# position d'octet. Le lanceur Windows garde donc ses CRLF littéraux, et
+# git n'a pas le droit de les normaliser — d'où -text et non text eol=crlf,
+# qui ne survivrait pas forcément à une exportation ZIP.
+*.cmd -text
+
+# Le lanceur Unix, lui, doit rester en LF.
+*.sh text eol=lf

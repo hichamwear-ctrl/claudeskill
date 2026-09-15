@@ -84,7 +84,10 @@ class A_LeRadarSeLance(unittest.TestCase):
         self.assertTrue((RACINE / "radar.cmd").exists(), "lanceur Windows")
         self.assertTrue((RACINE / "radar.sh").exists(), "lanceur Unix")
         cmd = (RACINE / "radar.cmd").read_text(encoding="utf-8", errors="replace")
-        self.assertIn("python -m radar.cli", cmd)
+        # Le lanceur n'écrit plus « python » en dur : il essaie plusieurs
+        # interpréteurs et garde celui qui répond. Le détail se teste dans
+        # tests/test_windows_et_base.py.
+        self.assertIn("-m radar.cli %*", cmd)
         self.assertIn("PYTHONIOENCODING", cmd,
                       "sans cela, les emojis cassent l'affichage sous CMD")
 
@@ -555,7 +558,7 @@ class H_LeParcoursWindows(Socle):
                                                errors="replace")
         self.assertIn("PYTHONIOENCODING=utf-8", cmd)
         self.assertIn("chcp 65001", cmd)
-        self.assertIn("python -m radar.cli", cmd)
+        self.assertIn("-m radar.cli %*", cmd)
 
     def test_5_les_identifiants_sont_reproductibles_sur_une_base_neuve(self):
         """La procédure de test donne `radar opportunite 8` : il faut que

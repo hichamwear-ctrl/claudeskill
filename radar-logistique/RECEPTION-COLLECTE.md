@@ -16,7 +16,7 @@ Ce protocole ne demande aucune compétence en Python. Il produit, à chaque
 ```bash
 git clone <ce dépôt> && cd radar-logistique
 python3 --version        # 3.11 ou plus
-pip install pyyaml       # seule dépendance
+pip install -r requirements.txt   # PyYAML et tzdata
 ```
 
 ---
