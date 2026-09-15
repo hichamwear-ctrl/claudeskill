@@ -420,6 +420,79 @@ class F_LesErreursSontHumaines(Socle):
         self.assertIn("DIRECT", erreur)
 
 
+# ═══════════════════════════════════════ LES COMMANDES AFFICHÉES
+class I_UneCommandeAffichéeEstExecutable(Socle):
+    """DÉFAUT MESURÉ, CORRIGÉ.
+
+    La fiche d'une opportunité proposait :
+
+        Changer :  radar suivre --id 8 --statut "CONTACT À FAIRE"
+
+    L'option `--id` n'existe pas. `suivre` attend une RÉFÉRENCE DE SOURCE —
+    l'adresse, ou un fragment qui ne désigne qu'elle. L'exploitant copiait
+    une commande que le radar refusait.
+
+    Ces tests ne vérifient pas le TEXTE de la suggestion : ils l'EXTRAIENT
+    de la sortie et l'EXÉCUTENT. Une suggestion qui ne tourne pas les fait
+    échouer, quelle que soit la façon dont elle est écrite.
+    """
+
+    def _suggestion(self, texte: str) -> list[str]:
+        """La commande proposée, découpée en arguments."""
+        import shlex
+        for ligne in texte.splitlines():
+            if "radar suivre" in ligne:
+                apres = ligne.split("radar suivre", 1)[1].strip()
+                return ["suivre"] + shlex.split(apres)
+        self.fail("aucune suggestion « radar suivre » dans la sortie")
+
+    def test_1_la_suggestion_de_la_fiche_s_execute_telle_quelle(self):
+        carte = self.json_de("opportunites", "--limite", "1")[0]
+        _, fiche, _ = self.lancer("opportunite", str(carte["avis_id"]))
+        self.assertNotIn("--id", fiche,
+                         "l'option --id n'existe pas sur `suivre`")
+
+        args = self._suggestion(fiche)
+        code, sortie, erreur = self.lancer(*args)
+        self.assertEqual(code, 0, erreur or sortie)
+        self.assertIn("CONTACT À FAIRE", sortie)
+
+    def test_2_la_suggestion_porte_l_adresse_exacte_donc_jamais_ambigue(self):
+        """Un fragment peut désigner deux affaires du même domaine, et
+        `suivi.resoudre` a raison de refuser plutôt que de choisir."""
+        carte = self.json_de("opportunites", "--limite", "1")[0]
+        _, fiche, _ = self.lancer("opportunite", str(carte["avis_id"]))
+        args = self._suggestion(fiche)
+        self.assertEqual(args[1], carte["sources"][0]["reference"])
+
+    def test_3_la_suggestion_de_la_liste_de_suivi_ne_promet_pas_d_option_id(self):
+        _, texte, _ = self.lancer("suivi")
+        self.assertNotIn("--id", texte)
+        self.assertIn("radar suivre <adresse>", texte)
+        self.assertIn("radar opportunite <ID>", texte,
+                      "…et dit où trouver cette adresse")
+
+    def test_4_le_statut_change_sans_toucher_au_score_ni_a_la_categorie(self):
+        """Une décision commerciale ne déplace jamais une mesure."""
+        carte = self.json_de("opportunites", "--limite", "1")[0]
+        avant = (carte["score"], carte["categorie"]["code"],
+                 carte["nature"], carte["niveau_de_preuve"])
+        self.lancer("suivre", carte["sources"][0]["reference"],
+                    "--statut", "CONTACTÉE")
+        apres_carte = service_opportunite(self, carte["avis_id"])
+        self.assertEqual(apres_carte["suivi"]["statut"], "CONTACTÉE")
+        self.assertEqual(
+            (apres_carte["score"], apres_carte["categorie"]["code"],
+             apres_carte["nature"], apres_carte["niveau_de_preuve"]),
+            avant, "le suivi commercial ne touche à aucune mesure")
+
+
+def service_opportunite(cas, avis_id):
+    code, texte, _ = cas.lancer("opportunite", str(avis_id), "--json")
+    cas.assertEqual(code, 0)
+    return json.loads(texte)
+
+
 # ═══════════════════════════════════════ WINDOWS
 class H_LeParcoursWindows(Socle):
     """Ce qui casse chez l'utilisateur, pas chez le développeur."""

@@ -366,8 +366,20 @@ def fiche_opportunite(c: dict) -> str:
     L.append(_champ("  Depuis", _texte(c["suivi"].get("depuis"),
                                        "aucun changement enregistré"), 22))
     L.append("")
-    L.append("  Changer :  radar suivre --id {} --statut \"CONTACT À FAIRE\""
-             .format(c["avis_id"]))
+    # UNE COMMANDE AFFICHÉE DOIT ÊTRE EXÉCUTABLE TELLE QUELLE.
+    #
+    # Cette ligne proposait `radar suivre --id 8`. L'option `--id` n'existe
+    # pas : `suivre` attend une RÉFÉRENCE DE SOURCE — l'adresse, ou un
+    # fragment qui ne désigne qu'elle (voir `suivi.resoudre`). L'exploitant
+    # copiait donc une commande qui refusait de s'exécuter.
+    #
+    # On affiche l'adresse EXACTE plutôt qu'un fragment : `resoudre` la
+    # cherche d'abord à l'identique, donc elle ne peut jamais être ambiguë.
+    # Un fragment, lui, peut désigner deux affaires du même domaine — et
+    # `resoudre` a raison de refuser plutôt que de choisir.
+    reference = (c["sources"][0]["reference"] if c.get("sources")
+                 else service.A_CONFIRMER)
+    L.append(f"  Changer :  radar suivre {reference} --statut \"CONTACT À FAIRE\"")
     return "\n".join(L)
 
 
@@ -530,7 +542,12 @@ def suivi(liste: list) -> str:
         L.append("")
     L.append(TRAIT)
     L.append("  Le statut est posé par un humain, jamais par le moteur.")
-    L.append("  Changer :  radar suivre --id <ID> --statut \"CONTACTÉE\"")
+    # Le « #8 » affiché à gauche est l'identifiant d'une OPPORTUNITÉ, et il
+    # sert à `radar opportunite 8`. `suivre`, lui, prend une RÉFÉRENCE de
+    # source. Les deux ne s'échangent pas : le dire ici évite d'essayer l'un
+    # à la place de l'autre.
+    L.append("  Changer :  radar suivre <adresse> --statut \"CONTACTÉE\"")
+    L.append("  L'adresse se lit sur la fiche :  radar opportunite <ID>")
     return "\n".join(L)
 
 
